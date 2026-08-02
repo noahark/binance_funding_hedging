@@ -269,6 +269,100 @@ def test_preflight_step_unreadable_rejects():
 
 
 # ---------------------------------------------------------------------------
+# Regular-spot route decision (design §3 step 4 / decision §E-1, §E-3)
+# ---------------------------------------------------------------------------
+
+def test_decide_spot_route_negative_direction_never_regular_spot():
+    # Reverse (negative funding / spot SELL) is always papi_margin regardless of
+    # the cap list or bStock status, and never reads the list (decision §E-1).
+    assert D.decide_spot_route(D.DIR_REVERSE, "TRADIFI_PERPETUAL", "TSLAB", True) == (
+        D.SPOT_ROUTE_PAPI_MARGIN, D.ROUTE_REASON_PAPI_DEFAULT,
+    )
+    assert D.decide_spot_route(D.DIR_REVERSE, "PERPETUAL", "LINK", True) == (
+        D.SPOT_ROUTE_PAPI_MARGIN, D.ROUTE_REASON_PAPI_DEFAULT,
+    )
+
+
+def test_decide_spot_route_forward_cap_hit_beats_tradifi():
+    # Forward + cap hit -> regular_spot / collateral_cap_precheck (a cap-hit
+    # bStock still labels collateral_cap_precheck; the cap check is first).
+    assert D.decide_spot_route(D.DIR_FORWARD, "TRADIFI_PERPETUAL", "TSLAB", True) == (
+        D.SPOT_ROUTE_REGULAR_SPOT, D.ROUTE_REASON_COLLATERAL_CAP_PRECHECK,
+    )
+    assert D.decide_spot_route(D.DIR_FORWARD, "PERPETUAL", "LINK", True) == (
+        D.SPOT_ROUTE_REGULAR_SPOT, D.ROUTE_REASON_COLLATERAL_CAP_PRECHECK,
+    )
+
+
+def test_decide_spot_route_forward_bstock_no_cap_hit_is_tradifi_regular_spot():
+    assert D.decide_spot_route(D.DIR_FORWARD, "TRADIFI_PERPETUAL", "TSLAB", False) == (
+        D.SPOT_ROUTE_REGULAR_SPOT, D.ROUTE_REASON_TRADIFI_REGULAR_SPOT,
+    )
+
+
+def test_decide_spot_route_forward_normal_crypto_no_hit_is_papi():
+    assert D.decide_spot_route(D.DIR_FORWARD, "PERPETUAL", "BTC", False) == (
+        D.SPOT_ROUTE_PAPI_MARGIN, D.ROUTE_REASON_PAPI_DEFAULT,
+    )
+
+
+def test_spot_route_endpoint_maps_route_to_path():
+    assert D.spot_route_endpoint(D.SPOT_ROUTE_REGULAR_SPOT) == D.REGULAR_SPOT_ORDER_PATH
+    assert D.spot_route_endpoint(D.SPOT_ROUTE_PAPI_MARGIN) == D.SPOT_ORDER_PATH
+    assert D.REGULAR_SPOT_ORDER_PATH == "/api/v3/order"
+
+
+def test_classify_product_spot_does_not_inherit_margin_51169():
+    # A regular-spot (/api/v3/order) leg uses PRODUCT_SPOT, whose empty business-
+    # code table means 51169 is UNCLASSIFIED for it — it must NOT inherit the
+    # margin collateral_cap classification (design §4).
+    assert D.classify_exchange_code(D.PRODUCT_SPOT, "51169", "x") == D.ERROR_CATEGORY_UNCLASSIFIED
+    assert D.classify_exchange_code(D.PRODUCT_MARGIN, "51169", "x") == D.ERROR_CATEGORY_COLLATERAL_CAP
+    # Shared-layer codes still match on PRODUCT_SPOT (insufficient balance etc.).
+    assert D.classify_exchange_code(
+        D.PRODUCT_SPOT, "-2010", "Account has insufficient available balance"
+    ) == D.ERROR_CATEGORY_INSUFFICIENT_FUNDS
+
+
+def test_compute_preflight_records_route_on_snapshot_record():
+    # The resolved route lands on the immutable preflight fingerprint so the
+    # executor + leg-row endpoint follow one decision.
+    snap = D.PreflightSnapshot(
+        spot_filters=spot_filters_btcusdt(), perp_filters=perp_filters_btcusdt(),
+        balances={"USDT": Decimal("100000")}, position_mode="BOTH",
+        est_price=Decimal("50000"), spot_route=D.SPOT_ROUTE_REGULAR_SPOT,
+        spot_route_reason=D.ROUTE_REASON_COLLATERAL_CAP_PRECHECK,
+        spot_route_endpoint=D.REGULAR_SPOT_ORDER_PATH,
+        spot_account_usdt=Decimal("100000"), spot_rate_limit_order=50,
+    )
+    pf = D.compute_preflight(snap, "LINKUSDT", D.DIR_FORWARD, Decimal("0.5"), 1)
+    assert pf.rejection is None
+    assert pf.snapshot_record["spot_route"] == D.SPOT_ROUTE_REGULAR_SPOT
+    assert pf.snapshot_record["spot_route_reason"] == D.ROUTE_REASON_COLLATERAL_CAP_PRECHECK
+    assert pf.snapshot_record["spot_endpoint"] == D.REGULAR_SPOT_ORDER_PATH
+
+
+def test_compute_preflight_regular_spot_uses_standard_spot_usdt_balance():
+    # A regular_spot forward route sizes the USDT need against spot_account_usdt
+    # (the standard spot wallet), NOT PAPI crossMarginFree. Here PAPI has plenty
+    # but the standard spot wallet is short -> insufficient.
+    snap = D.PreflightSnapshot(
+        spot_filters=spot_filters_btcusdt(), perp_filters=perp_filters_btcusdt(),
+        balances={"USDT": Decimal("100000")},  # PAPI crossMarginFree (ignored here)
+        position_mode="BOTH", est_price=Decimal("50000"),
+        spot_route=D.SPOT_ROUTE_REGULAR_SPOT,
+        spot_route_reason=D.ROUTE_REASON_COLLATERAL_CAP_PRECHECK,
+        spot_route_endpoint=D.REGULAR_SPOT_ORDER_PATH,
+        spot_account_usdt=Decimal("10"),  # standard spot wallet, short
+        spot_rate_limit_order=50,
+    )
+    pf = D.compute_preflight(snap, "LINKUSDT", D.DIR_FORWARD, Decimal("0.5"), 1)
+    # 0.5 * 1 * 50000 = 25000 USDT needed; only 10 available -> insufficient.
+    assert pf.rejection == D.REJECT_INSUFFICIENT_BALANCE
+    assert pf.balance_ok is False
+
+
+# ---------------------------------------------------------------------------
 # Acceptance-based classification (ADR-3 / ADR-4)
 # ---------------------------------------------------------------------------
 

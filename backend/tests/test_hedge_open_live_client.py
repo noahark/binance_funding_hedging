@@ -202,3 +202,89 @@ def test_single_transport_attempt_no_retry():
     openr = _CapturingOpen([_FakeResp(503, b'{"msg":"Unknown error"}')])
     _client(openr).post_margin_order({"symbol": "BTCUSDT"}, timestamp_ms=1)
     assert openr.call_count == 1
+
+
+# ---- regular-spot route allowlist (decision §E-2 / design §4) ----
+from backend.services.hedge_open_live_client import ALLOWLIST as _ALLOWLIST  # noqa: E402
+
+_REGULAR_SPOT_ENTRIES = {
+    ("GET", "/sapi/v1/margin/restricted-asset"): "https://api.binance.com",
+    ("POST", "/api/v3/order"): "https://api.binance.com",
+    ("GET", "/api/v3/order"): "https://api.binance.com",
+    ("GET", "/api/v3/account"): "https://api.binance.com",
+    ("GET", "/api/v3/rateLimit/order"): "https://api.binance.com",
+}
+
+
+def test_allowlist_registers_five_regular_spot_paths_hardbound_to_api_binance():
+    # All five exact (method, path) pairs are present and HARDBOUND to the public
+    # spot host (never caller-supplied). The PAPI entries stay on papi.binance.com.
+    for key, host in _REGULAR_SPOT_ENTRIES.items():
+        assert _ALLOWLIST.get(key) == host, f"{key} not hardbound to api.binance.com"
+    # PAPI entries are untouched.
+    assert _ALLOWLIST[("POST", "/papi/v1/margin/order")] == "https://papi.binance.com"
+    assert _ALLOWLIST[("GET", "/papi/v1/rateLimit/order")] == "https://papi.binance.com"
+
+
+def test_unregistered_path_raises_before_transport():
+    # deny-by-default: an unregistered (method, path) raises BEFORE any urlopen
+    # call (no signing primitive runs, no request leaves the process).
+    openr = _CapturingOpen()
+    c = _client(openr)
+    # A path that is NOT in the allowlist under any method/host.
+    with pytest.raises(PermissionError):
+        c._require_whitelisted("POST", "/api/v3/order/oco")
+    assert openr.call_count == 0
+
+
+def test_restricted_asset_is_unsigned_apikey_only():
+    # The restricted-asset read carries ONLY X-MBX-APIKEY: no timestamp, no
+    # recvWindow, no signature, no query string (recon restricted-asset.raw.json).
+    body = (
+        b'{"openLongRestrictedAsset":[],"maxCollateralExceededAsset":["LINK","TSLAB"]}'
+    )
+    openr = _CapturingOpen([_FakeResp(200, body)])
+    resp = _client(openr).get_restricted_asset()
+    assert resp.http_status == 200
+    assert resp.body["maxCollateralExceededAsset"] == ["LINK", "TSLAB"]
+    req = openr.requests[0]
+    assert req.method == "GET"
+    # Exact URL: no query string at all (no timestamp/recvWindow/signature).
+    assert req.full_url == "https://api.binance.com/sapi/v1/margin/restricted-asset"
+    assert "?" not in req.full_url
+    api_header_val = next(
+        (v for k, v in req.headers.items() if "mbx" in k.lower()), None
+    )
+    assert api_header_val == "key"
+
+
+def test_regular_spot_writes_and_queries_hit_api_binance():
+    # POST/GET /api/v3/order, GET /api/v3/account, GET /api/v3/rateLimit/order
+    # all land on api.binance.com (the regular-spot host), distinct from PAPI.
+    openr = _CapturingOpen(
+        [
+            _FakeResp(200, b'{"orderId": 1}'),  # post_spot_order
+            _FakeResp(200, b'{"orderId": 1}'),  # query_spot_order
+            _FakeResp(200, b'{"balances": []}'),  # get_spot_account
+            _FakeResp(200, b'[]'),  # get_spot_rate_limit_order
+        ]
+    )
+    c = _client(openr)
+    c.post_spot_order({"symbol": "LINKUSDT", "side": "BUY"}, timestamp_ms=1)
+    c.query_spot_order("LINKUSDT", "cid", timestamp_ms=1)
+    c.get_spot_account(timestamp_ms=1)
+    c.get_spot_rate_limit_order(timestamp_ms=1)
+    urls = [r.full_url for r in openr.requests]
+    assert urls[0] == "https://api.binance.com/api/v3/order"
+    assert urls[1].startswith("https://api.binance.com/api/v3/order?")
+    assert urls[2].startswith("https://api.binance.com/api/v3/account")
+    assert urls[3].startswith("https://api.binance.com/api/v3/rateLimit/order")
+    # All four are SIGNED (the POST carries timestamp+recvWindow+signature in its
+    # body; the three GETs carry them in the query string) — unlike the unsigned
+    # restricted-asset read.
+    sent = [
+        r.full_url + " " + (r.data.decode() if getattr(r, "data", None) else "")
+        for r in openr.requests
+    ]
+    assert all("timestamp=" in s for s in sent)
+    assert all("signature=" in s for s in sent)

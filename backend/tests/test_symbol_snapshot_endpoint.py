@@ -175,6 +175,20 @@ def test_payload_is_single_row_no_rows_array(schema):
     schema.validate(payload)
 
 
+def test_symbol_snapshot_inherits_collateral_cap_via_shared_row_ref(schema):
+    # v0.9: collateral_cap is defined ONCE in snapshot.schema.json#/$defs/row;
+    # symbol-snapshot.schema.json inherits it via its row $ref without being
+    # edited. The selected-symbol row therefore carries the block and validates.
+    ss_text = (REPO_ROOT / "schemas/api/public-market/symbol-snapshot.schema.json").read_text()
+    assert "collateral_cap" not in ss_text  # the file itself does NOT define it
+    service = _service(_raw(_BTC), history_fn=_BTC_SEVEN)
+    service._scheduled_tick()
+    status, payload = service.get_symbol_snapshot("BTCUSDT")
+    assert status == 200
+    assert "collateral_cap" in payload["row"]  # inherited via $ref
+    schema.validate(payload)
+
+
 def test_row_identical_to_same_version_full_snapshot(schema):
     # The projected row is byte-identical to the same-version full snapshot's
     # row (single source of truth: the immutable PublishedState).

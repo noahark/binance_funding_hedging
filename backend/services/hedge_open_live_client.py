@@ -62,6 +62,17 @@ ALLOWLIST: Dict[tuple, str] = {
     ("GET", "/papi/v1/balance"): "https://papi.binance.com",
     ("GET", "/papi/v1/um/positionSide/dual"): "https://papi.binance.com",
     ("GET", "/papi/v1/rateLimit/order"): "https://papi.binance.com",
+    # Regular spot account route (stage 2026-08-02-spot-order-routing-cap-display-v1
+    # §4 / decision §E-2). Five exact (method, path) pairs HARDBOUND to the public
+    # spot host — never caller-supplied. The restricted-asset read is platform-level
+    # MARKET_DATA (API-key only, unsigned); the four /api/v3 endpoints are the
+    # regular-spot order/query/account/rate-limit surface used by the positive-
+    # funding regular_spot route. Hosts bound here; config cannot override them.
+    ("GET", "/sapi/v1/margin/restricted-asset"): "https://api.binance.com",
+    ("POST", "/api/v3/order"): "https://api.binance.com",
+    ("GET", "/api/v3/order"): "https://api.binance.com",
+    ("GET", "/api/v3/account"): "https://api.binance.com",
+    ("GET", "/api/v3/rateLimit/order"): "https://api.binance.com",
 }
 
 # Order-write transport timeout (mirror borrow client §5.1). Module-level, NOT
@@ -77,6 +88,14 @@ UM_ORDER_PATH = "/papi/v1/um/order"
 BALANCE_PATH = "/papi/v1/balance"
 POSITION_SIDE_DUAL_PATH = "/papi/v1/um/positionSide/dual"
 RATE_LIMIT_ORDER_PATH = "/papi/v1/rateLimit/order"
+# Regular-spot account route paths (decision §E-2 / §4), all on api.binance.com.
+# restricted-asset is the shared platform collateral-cap list (stage
+# 2026-08-02-spot-order-routing-cap-display-v1); the four /api/v3 paths serve the
+# regular_spot positive-funding order loop.
+RESTRICTED_ASSET_PATH = "/sapi/v1/margin/restricted-asset"
+SPOT_ORDER_PATH = "/api/v3/order"
+SPOT_ACCOUNT_PATH = "/api/v3/account"
+SPOT_RATE_LIMIT_ORDER_PATH = "/api/v3/rateLimit/order"
 
 
 @dataclass(frozen=True)
@@ -211,6 +230,25 @@ class HedgeOpenLiveClient:
         )
         return self._send(req)
 
+    def _get_apikey_only(self, path: str) -> HedgeHttpResponse:
+        """Unsigned GET carrying ONLY ``X-MBX-APIKEY`` (recon
+        ``reports/api-samples/2026-08-spot-order-routing-v1/restricted-asset.raw.json``):
+        no ``timestamp``, no ``recvWindow``, no query string, no HMAC signature —
+        a platform-level MARKET_DATA read. Still gated by the deny-by-default
+        allowlist + hardcoded host (decision §E-2); the only caller is the
+        restricted-asset read, shared by the positive-funding preflight (§3) and
+        the display cache (§6)."""
+        base = self._require_whitelisted("GET", path)
+        req = urllib.request.Request(
+            base + path,
+            method="GET",
+            headers={
+                "X-MBX-APIKEY": self._api_key,
+                "User-Agent": self._user_agent,
+            },
+        )
+        return self._send(req)
+
     # ------------------------------------------------------ order writes (POST)
 
     def post_margin_order(self, params: Dict[str, str], *, timestamp_ms: int,
@@ -281,3 +319,60 @@ class HedgeOpenLiveClient:
         Cannot be substituted by the public exchangeInfo limit (recon §4.4).
         """
         return self._get_signed(RATE_LIMIT_ORDER_PATH, {}, timestamp_ms, recv_window_ms)
+
+    # ------------------------------------------ regular-spot account route (§4)
+    #
+    # The positive-funding ``regular_spot`` path uses the STANDARD spot account
+    # (api.binance.com), not PAPI cross margin. These four signed reads/writes +
+    # the unsigned restricted-asset read are the only regular-spot exit points;
+    # they share the deny-by-default allowlist and hardcoded host above. The
+    # negative-funding route never reaches them.
+
+    def get_restricted_asset(self) -> HedgeHttpResponse:
+        """GET /sapi/v1/margin/restricted-asset — the platform collateral-cap
+        list (decision §A-3 / §E-2). API-key only, unsigned, no params. Returns
+        ``{"openLongRestrictedAsset": [], "maxCollateralExceededAsset": [...]}``;
+        the caller reads ONLY ``maxCollateralExceededAsset`` and never stores
+        ``openLongRestrictedAsset`` (decision §A-3)."""
+        return self._get_apikey_only(RESTRICTED_ASSET_PATH)
+
+    def post_spot_order(self, params: Dict[str, str], *, timestamp_ms: int,
+                        recv_window_ms: Optional[int] = None) -> HedgeHttpResponse:
+        """POST /api/v3/order — the regular-spot leg write.
+
+        ``params`` is the would-send shape WITHOUT ``sideEffectType`` (a regular
+        spot order is not a margin borrow/repay); this method adds timestamp +
+        recvWindow + signature and sends. One-shot; never retried here. Distinct
+        endpoint + param shape from :meth:`post_margin_order` (PAPI keeps
+        ``sideEffectType=NO_SIDE_EFFECT``)."""
+        return self._post_signed(SPOT_ORDER_PATH, params, timestamp_ms, recv_window_ms)
+
+    def query_spot_order(self, symbol: str, orig_client_order_id: str, *,
+                         timestamp_ms: int,
+                         recv_window_ms: Optional[int] = None) -> HedgeHttpResponse:
+        """GET /api/v3/order?symbol=..&origClientOrderId=.. — the regular-spot
+        leg reconciliation lookup (mirrors :meth:`query_margin_order` but on the
+        standard spot endpoint)."""
+        return self._get_signed(
+            SPOT_ORDER_PATH,
+            {"symbol": symbol, "origClientOrderId": orig_client_order_id},
+            timestamp_ms,
+            recv_window_ms,
+        )
+
+    def get_spot_account(self, *, timestamp_ms: int,
+                         recv_window_ms: Optional[int] = None) -> HedgeHttpResponse:
+        """GET /api/v3/account — the standard Spot account balance snapshot.
+
+        Used by the positive-funding regular_spot preflight to size the available
+        USDT for a spot BUY (PAPI ``crossMarginFree`` cannot answer this — design
+        §2.4)."""
+        return self._get_signed(SPOT_ACCOUNT_PATH, {}, timestamp_ms, recv_window_ms)
+
+    def get_spot_rate_limit_order(self, *, timestamp_ms: int,
+                                  recv_window_ms: Optional[int] = None) -> HedgeHttpResponse:
+        """GET /api/v3/rateLimit/order — the standard Spot order-rate limit.
+
+        Distinct from the PAPI limit (``get_rate_limit_order``); a regular_spot
+        order consumes the spot rate-limit budget, not the PAPI one (design §3.5)."""
+        return self._get_signed(SPOT_RATE_LIMIT_ORDER_PATH, {}, timestamp_ms, recv_window_ms)

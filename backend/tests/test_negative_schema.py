@@ -74,6 +74,41 @@ def test_base_row_is_valid(schema):
     jsonschema.validate(_snapshot_with(copy.deepcopy(BASE_ROW)), schema)
 
 
+def test_row_without_collateral_cap_still_validates(schema):
+    # v0.9 red line: collateral_cap is OPTIONAL. A frozen v0.1–v0.8 sample (no
+    # collateral_cap key) still validates — additionalProperties:false but the
+    # property is registered, just not required.
+    assert "collateral_cap" not in BASE_ROW
+    jsonschema.validate(_snapshot_with(copy.deepcopy(BASE_ROW)), schema)
+
+
+def test_row_with_valid_collateral_cap_validates(schema):
+    # The producer always emits the block; all four truth-table shapes validate.
+    for cap in [
+        {"exceeded": True, "asset": "LINK", "checked_at": "2026-08-03T00:00:00Z"},
+        {"exceeded": False, "asset": "BTC", "checked_at": "2026-08-03T00:00:00Z"},
+        {"exceeded": None, "asset": "LINK", "checked_at": None},
+        {"exceeded": None, "asset": None, "checked_at": "2026-08-03T00:00:00Z"},
+    ]:
+        row = copy.deepcopy(BASE_ROW)
+        row["collateral_cap"] = cap
+        jsonschema.validate(_snapshot_with(row), schema)
+
+
+def test_reject_collateral_cap_exceeded_not_bool_or_null(schema):
+    # exceeded must be boolean or null — a string is rejected.
+    def m(r):
+        r["collateral_cap"] = {"exceeded": "yes", "asset": "BTC", "checked_at": "2026-08-03T00:00:00Z"}
+    _expect_rejected(schema, m)
+
+
+def test_reject_collateral_cap_missing_required_field(schema):
+    # The block requires all three keys; missing checked_at is rejected.
+    def m(r):
+        r["collateral_cap"] = {"exceeded": True, "asset": "BTC"}
+    _expect_rejected(schema, m)
+
+
 def test_reject_wrong_quote_asset(schema):
     _expect_rejected(schema, lambda r: r.__setitem__("quote_asset", "BUSD"))
 

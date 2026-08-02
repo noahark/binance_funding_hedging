@@ -411,6 +411,26 @@ ERROR_CATEGORY_UNCLASSIFIED = "unclassified"  # a code was present but no rule m
 # rule (10-design §1(c)).
 PRODUCT_MARGIN = "margin"
 PRODUCT_UM = "um"
+# Regular spot account product (stage 2026-08-02-spot-order-routing-cap-display-v1
+# §4): a positive-funding ``regular_spot`` leg speaks /api/v3/order on
+# api.binance.com — a DIFFERENT product from PAPI margin, with its own (empty)
+# business-code table so it never inherits margin's 51169 collateral-cap rule.
+PRODUCT_SPOT = "spot_product"
+
+# Spot leg account-route vocabulary (design §3 step 4). ``papi_margin`` = the
+# existing PAPI cross-margin spot leg (PAPI endpoint, sideEffectType=NO_SIDE_EFFECT);
+# ``regular_spot`` = the standard spot account leg (/api/v3/order, no
+# sideEffectType). ``regular_spot`` is selected ONLY for a positive-funding BUY
+# whose resolved spot base asset hits the platform collateral-cap list, or a
+# TRADIFI bStock; the negative-funding direction is always ``papi_margin`` and
+# never reads the list.
+SPOT_ROUTE_PAPI_MARGIN = "papi_margin"
+SPOT_ROUTE_REGULAR_SPOT = "regular_spot"
+ALL_SPOT_ROUTES = (SPOT_ROUTE_PAPI_MARGIN, SPOT_ROUTE_REGULAR_SPOT)
+# The frozen route-decision reasons recorded on the preflight fingerprint.
+ROUTE_REASON_PAPI_DEFAULT = "papi_default"
+ROUTE_REASON_TRADIFI_REGULAR_SPOT = "tradifi_regular_spot"
+ROUTE_REASON_COLLATERAL_CAP_PRECHECK = "collateral_cap_precheck"
 
 # Per-product business-code tables — ONLY product-specific codes live here. Codes
 # whose margin/UM semantics are identical (insufficient balance/margin, filter /
@@ -426,6 +446,11 @@ MARGIN_BUSINESS_CODES: dict[str, str] = {
 # a shared negative code already matched by the shared layer. Retained as the
 # explicit per-product extension point so a future UM-specific code lands here.
 UM_BUSINESS_CODES: dict[str, str] = {}
+# Regular-spot /api/v3 order endpoint has no product-specific code seeded this
+# stage: a /api/v3/order rejection flows through the shared gateway/business
+# layers. Critically it does NOT inherit margin's 51169 rule — 51169 is a PAPI
+# margin collateral-cap code that /api/v3/order cannot return (design §4).
+SPOT_BUSINESS_CODES: dict[str, str] = {}
 
 
 def is_insufficient_funds_code(code: str | None, msg: str | None) -> bool:
@@ -482,6 +507,8 @@ def classify_exchange_code(product: str, code: str | None, msg: str | None) -> s
         return MARGIN_BUSINESS_CODES[code]
     if product == PRODUCT_UM and code in UM_BUSINESS_CODES:
         return UM_BUSINESS_CODES[code]
+    if product == PRODUCT_SPOT and code in SPOT_BUSINESS_CODES:
+        return SPOT_BUSINESS_CODES[code]
     return ERROR_CATEGORY_UNCLASSIFIED
 
 
@@ -568,6 +595,11 @@ QUOTE_ASSET = "USDT"
 # papi order endpoints (record-transport payload only; never a real POST here).
 SPOT_ORDER_PATH = "/papi/v1/margin/order"
 PERP_ORDER_PATH = "/papi/v1/um/order"
+# Regular-spot endpoint (design §4): the standard spot account order path on
+# api.binance.com. The leg row ``endpoint`` column carries whichever of this or
+# SPOT_ORDER_PATH the resolved route chose; it is the SOLE authority for query +
+# raw-response recording, never re-derived from leg name or task-level route.
+REGULAR_SPOT_ORDER_PATH = "/api/v3/order"
 ORDER_TYPE_MARKET = "MARKET"
 ORDER_RESP_RESULT = "RESULT"
 
@@ -805,6 +837,23 @@ class PreflightSnapshot:
     # symbol in the preflight result so the order path cannot fall back to the
     # futures symbol when building the margin request.
     spot_symbol: str | None = None
+    # Regular-spot account route (design §3 step 4). The provider decides the
+    # route from a FRESH restricted-asset read (positive funding only) plus the
+    # resolved contract type, and records it here so compute_preflight + the
+    # executor + the leg-row endpoint all follow ONE decision. Negative funding
+    # is always ``papi_margin`` and never reads the list. ``spot_route_endpoint``
+    # is the path the spot leg posts/queries (PAPI margin or /api/v3/order).
+    spot_route: str = SPOT_ROUTE_PAPI_MARGIN
+    spot_route_reason: str = ROUTE_REASON_PAPI_DEFAULT
+    spot_route_endpoint: str = SPOT_ORDER_PATH
+    # Standard Spot account facts for the regular_spot balance gate (design §3
+    # step 5). ``spot_account_usdt`` is the available USDT free balance on the
+    # STANDARD spot account (not PAPI crossMarginFree); ``spot_rate_limit_order``
+    # is the standard spot order-rate limit. Both are None unless the route is
+    # ``regular_spot`` (the provider reads them only on that path), and a None
+    # here means the read was not performed — compute_preflight never guesses.
+    spot_account_usdt: Decimal | None = None
+    spot_rate_limit_order: int | None = None
 
 
 @dataclass(frozen=True)
@@ -866,6 +915,76 @@ def _check_common_quantity(
             if floor is not None and notional < floor:
                 return REJECT_BELOW_MIN_NOTIONAL
     return None
+
+
+def decide_spot_route(
+    direction: str,
+    contract_type: str,
+    spot_base_asset: str | None,
+    cap_exceeded: bool | None,
+) -> tuple:
+    """Pure spot-leg route decision (design §3 step 4 — the ONLY routing rule).
+
+    Returns ``(route, reason)``:
+
+    * negative funding (``reverse`` / spot SELL) -> ``(papi_margin, papi_default)``.
+      The restricted-asset list is NOT consulted and ``regular_spot`` is never
+      selected, even when the asset would hit the list or is a bStock (decision
+      §E-1). The provider therefore never reads the list for this direction.
+    * positive funding (``forward`` / spot BUY):
+      - ``cap_exceeded is True`` (the resolved spot base asset is on the platform
+        collateral-cap list) -> ``(regular_spot, collateral_cap_precheck)``;
+      - else ``contract_type == "TRADIFI_PERPETUAL"`` (bStock) ->
+        ``(regular_spot, tradifi_regular_spot)``;
+      - else -> ``(papi_margin, papi_default)``.
+
+    ``cap_exceeded`` is ``True``/``False`` for a fresh successful list read and
+    ``None`` only when the read could not be completed — the caller MUST treat
+    ``None`` on a forward direction as preflight-incomplete (never guess a route);
+    this function is reached for forward directions ONLY with a decisive bool.
+    ``spot_base_asset`` is carried for API symmetry / future auditing; the
+    cap-membership decision itself is made by the caller (the matched asset is the
+    resolved spot base, e.g. ``TSLAB`` for a bStock — never the contract base).
+    """
+    if direction != DIR_FORWARD:
+        return SPOT_ROUTE_PAPI_MARGIN, ROUTE_REASON_PAPI_DEFAULT
+    if cap_exceeded is True:
+        return SPOT_ROUTE_REGULAR_SPOT, ROUTE_REASON_COLLATERAL_CAP_PRECHECK
+    if contract_type == "TRADIFI_PERPETUAL":
+        return SPOT_ROUTE_REGULAR_SPOT, ROUTE_REASON_TRADIFI_REGULAR_SPOT
+    return SPOT_ROUTE_PAPI_MARGIN, ROUTE_REASON_PAPI_DEFAULT
+
+
+def spot_route_endpoint(route: str) -> str:
+    """The spot leg's POST/GET endpoint path for a route (design §4). The leg
+    row ``endpoint`` column carries this verbatim; query + raw-response recording
+    read it from the leg row, never from leg name or task-level route."""
+    if route == SPOT_ROUTE_REGULAR_SPOT:
+        return REGULAR_SPOT_ORDER_PATH
+    return SPOT_ORDER_PATH
+
+
+def build_regular_spot_order_params(
+    coin: str, actions: LegActions, quantity: Decimal, client_order_id: str
+) -> dict:
+    """The exact signed-body params for POST /api/v3/order — the regular-spot
+    account leg (design §4). Same shape as the PAPI margin spot builder MINUS
+    ``sideEffectType``: a standard spot order is not a margin borrow/repay, so the
+    PAPI-only ``sideEffectType=NO_SIDE_EFFECT`` must NOT be sent (sending it to
+    /api/v3/order is an unknown parameter). Defined here (pure vocabulary) so the
+    service's durable request_shape record and the live executor's actual POST
+    share ONE shape definition. The PAPI margin spot shape
+    (:func:`backend.hedge_open_tasks.executor.build_spot_order_params`) keeps
+    ``sideEffectType``; the two are deliberately distinct so a route mistake shows
+    up as a wrong key, not a silent borrow."""
+    return {
+        "symbol": coin,
+        "side": actions.spot_side,
+        "type": ORDER_TYPE_MARKET,
+        "quantity": fmt_decimal(quantity),
+        "newClientOrderId": client_order_id,
+        "newOrderRespType": ORDER_RESP_RESULT,
+    }
 
 
 def compute_preflight(
@@ -961,6 +1080,13 @@ def compute_preflight(
     }
     if snapshot.spot_symbol and snapshot.spot_symbol != coin:
         snapshot_record["spot_symbol"] = snapshot.spot_symbol
+    # Record the resolved spot account route (design §3 step 4) on the immutable
+    # preflight fingerprint so the executor, the leg-row endpoint and the audit
+    # trail all follow ONE decision. ``spot_route`` is papi_margin | regular_spot;
+    # ``spot_endpoint`` is the path the spot leg posts/queries.
+    snapshot_record["spot_route"] = snapshot.spot_route
+    snapshot_record["spot_route_reason"] = snapshot.spot_route_reason
+    snapshot_record["spot_endpoint"] = snapshot.spot_route_endpoint
     # Price-completeness is direction-independent (amendment 21 / dispatch P1#1):
     # a missing/zero/negative est_price cannot size notional or the USDT need, and
     # is an UNREADABLE fact, so it fails closed to INCOMPLETE (not a filter
@@ -992,14 +1118,27 @@ def compute_preflight(
             rejection=filter_reject,
             snapshot_record=snapshot_record,
         )
-    # Balance gate (ADR-3): forward needs USDT crossMarginFree >= q*N*price;
-    # reverse needs base crossMarginFree >= q*N. maxBorrowable is never sellable.
-    # est_price is guaranteed present and positive by the direction-independent
-    # check above, so the forward USDT need can always be sized.
+    # Balance gate (ADR-3): forward needs USDT >= q*N*price; reverse needs base
+    # >= q*N. maxBorrowable is never sellable. est_price is guaranteed present
+    # and positive by the direction-independent check above, so the forward USDT
+    # need can always be sized.
+    #
+    # Route-aware (design §3 steps 5–6): a positive-funding ``regular_spot`` route
+    # sizes the USDT need against the STANDARD spot account free USDT
+    # (``spot_account_usdt``), NOT PAPI ``crossMarginFree`` — the two wallets are
+    # distinct and PAPI's crossMarginFree cannot answer what the regular spot
+    # account can buy. Every other path (papi_margin forward USDT, reverse base)
+    # keeps the PAPI balance read. The provider already fail-closed the snapshot
+    # (returned None) when a regular_spot account/rate-limit read failed, so a
+    # non-None snapshot here carries the figure; a shortfall is a readable
+    # insufficient-balance fact distinct from a read failure.
     base = base_asset(coin)
     if direction == DIR_FORWARD:
         required = q_common * target_n * snapshot.est_price
-        available = snapshot.balances.get(QUOTE_ASSET, Decimal(0))
+        if snapshot.spot_route == SPOT_ROUTE_REGULAR_SPOT:
+            available = snapshot.spot_account_usdt or Decimal(0)
+        else:
+            available = snapshot.balances.get(QUOTE_ASSET, Decimal(0))
     else:
         required = q_common * target_n
         available = snapshot.balances.get(base, Decimal(0))

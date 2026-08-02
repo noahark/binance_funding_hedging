@@ -124,8 +124,22 @@ class RefreshSymbolCommand:
 
 
 class SnapshotService:
-    def __init__(self, config: Config, client: Optional[BinancePublicClient] = None):
+    def __init__(
+        self,
+        config: Config,
+        client: Optional[BinancePublicClient] = None,
+        *,
+        restricted_asset_client: Optional["object"] = None,
+    ):
         self.config = config
+        # Restricted-asset read-only client (decision §E-4 / interface §10): a
+        # HedgeOpenLiveClient (or duck-typed object exposing
+        # ``get_restricted_asset()``) built in the composition root from the hedge
+        # API key, INDEPENDENT of APP_HEDGE_EXECUTOR and the private channel.
+        # Creating it sends no request and changes no Start gate; SnapshotService
+        # may call ONLY the restricted-asset GET through it. None (offline / no
+        # key) -> the column degrades to ``unknown`` for every row.
+        self._restricted_asset_client = restricted_asset_client
         self.client = client or BinancePublicClient(
             offline=config.offline,
             offline_dir=config.offline_raw_dir,
@@ -185,6 +199,13 @@ class SnapshotService:
         self._borrow_rate_cache: Dict[str, tuple] = {}
         self._max_borrowable_cache: Dict[str, tuple] = {}
         self._coverage_attempted: set = set()
+        # Restricted-asset display cache (decision §E-4 / interface §3). The
+        # success-only entry in _global_source_cache["restricted_asset"] drives
+        # the due timestamp (FR-2: only a success advances it). This flag records
+        # whether the MOST RECENT attempt FAILED, so the row projection emits the
+        # UNKNOWN state on a failure even though last-good is retained internally
+        # for the next retry — last-good is NEVER projected to the page (§E-4).
+        self._restricted_asset_failed: bool = False
         # Wall-clock timestamp of the most recent successful Group A private
         # account-panel refresh (unified/um/spot). Cache-only assembly reads it
         # for ``assemble_private_account(checked_at=...)`` instead of stamping
@@ -419,6 +440,7 @@ class SnapshotService:
         *,
         funding_history_overlay: Optional[dict] = None,
         premium_overlay: Optional[dict] = None,
+        collateral_cap_state: Optional[tuple] = None,
     ) -> tuple:
         """Filter base_raw to eligible rows + build_rows (pure; no HTTP).
 
@@ -426,6 +448,8 @@ class SnapshotService:
         click) replaces only the overlaid symbol's premium entry; the rest of
         the universe is unchanged. ``funding_history_overlay`` merges cached
         successful history on top of whatever base_raw carries.
+        ``collateral_cap_state`` is ``(exceeded_assets, checked_at)`` from the
+        restricted-asset cache (None -> unknown, the offline / no-key state).
         """
         futures_symbols = [
             s
@@ -454,6 +478,7 @@ class SnapshotService:
             funding_by_sym,
             funding_interval_by_sym=funding_interval_by_sym,
             t_end_ms=data_time_ms,
+            collateral_cap_state=collateral_cap_state,
         )
         return rows, data_time_ms
 
@@ -523,6 +548,7 @@ class SnapshotService:
             base_raw,
             funding_history_overlay=funding_history_overlay,
             premium_overlay=premium_overlay,
+            collateral_cap_state=self._collateral_cap_state(),
         )
         pi = self._gather_private_inputs(
             rows, forced_overrides=forced_overrides, reuse=private_reuse
@@ -1035,6 +1061,52 @@ class SnapshotService:
         entry = self._global_source_cache.get(source_id)
         return entry[1] if entry is not None else default
 
+    def _collateral_cap_state(self) -> Optional[tuple]:
+        """The ``(exceeded_assets, checked_at)`` to project onto rows, or ``None``
+        when the projection must be the UNKNOWN state (interface §3 / decision
+        §E-4): no read has succeeded yet, the most recent attempt failed, or no
+        read-only client is configured (offline / no hedge key). ``None`` yields
+        ``exceeded=None`` in :func:`build_rows` — last-good is NEVER projected to
+        the page; it is retained only inside the cache to advance the due
+        timestamp."""
+        if self._restricted_asset_client is None:
+            return None
+        entry = self._global_source_cache.get("restricted_asset")
+        if entry is None or self._restricted_asset_failed:
+            return None
+        value = entry[1]
+        return value["exceeded"], value["checked_at"]
+
+    def _read_restricted_asset(self) -> tuple:
+        """Fresh platform restricted-asset read (display path, decision §E-4).
+
+        Returns ``(exceeded_set, checked_at_iso)`` on success, or ``(None, None)``
+        on any failure (transport error / non-2xx / bad shape / missing field).
+        Reads ONLY ``maxCollateralExceededAsset`` (decision §A-3:
+        ``openLongRestrictedAsset`` is never read or stored). ``checked_at`` is the
+        request-completion UTC moment (the read-succeeded time, not the list's
+        effective time). Raises are swallowed — a read failure degrades to
+        unknown and never takes the worker down."""
+        client = self._restricted_asset_client
+        if client is None:
+            return None, None
+        try:
+            response = client.get_restricted_asset()
+        except Exception:
+            return None, None
+        if (
+            response.transport_error is not None
+            or response.http_status is None
+            or response.http_status >= 400
+            or not isinstance(response.body, dict)
+        ):
+            return None, None
+        assets = response.body.get("maxCollateralExceededAsset")
+        if not isinstance(assets, list):
+            return None, None
+        checked_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return {a for a in assets if isinstance(a, str)}, checked_at
+
     def _refresh_due_sources(self, now: float) -> None:
         """Refresh due Group A/B sources into _global_source_cache (worker-only).
 
@@ -1118,6 +1190,24 @@ class SnapshotService:
                         "futures": pair["futures"],
                     },
                 )
+        # ---- restricted-asset display read (decision §E-4 / interface §6):
+        # GROUP_B_REFRESH_SECONDS cadence, independent source_id, success-only
+        # timestamp advance (FR-2). The read-only client is independent of
+        # APP_HEDGE_EXECUTOR and the private channel (interface §10). On failure
+        # the timestamp is NOT advanced (FR-2) and the failed flag makes the
+        # projection emit UNKNOWN instead of last-good (§E-4). ----
+        if self._restricted_asset_client is not None and self._source_due(
+            "restricted_asset", now, GROUP_B_REFRESH_SECONDS
+        ):
+            exceeded, checked_at = self._read_restricted_asset()
+            if exceeded is not None:
+                self._global_source_cache["restricted_asset"] = (
+                    time.monotonic(),
+                    {"exceeded": exceeded, "checked_at": checked_at},
+                )
+                self._restricted_asset_failed = False
+            else:
+                self._restricted_asset_failed = True
         # ---- Group B private reference: classic_reference (1800s) ----
         classic_ref = self._cached_source_value("classic_reference")
         if self._source_due("classic_reference", now, GROUP_B_REFRESH_SECONDS):

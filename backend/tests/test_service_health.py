@@ -255,7 +255,7 @@ def _parse_lifecycle(stderr_text: str):
 class _RunStubService:
     """Stub for ``run()``: records worker lifecycle and raises on demand."""
 
-    def __init__(self, config):
+    def __init__(self, config, **kwargs):
         self.config = config
         self.start_calls = 0
         self.stop_calls = 0
@@ -290,8 +290,8 @@ def test_run_fatal_when_start_worker_raises(monkeypatch, capsys):
     secret = "WORKER-BOOM-SECRET-xyz"
     instances = []
 
-    def fake_service(config):
-        svc = _RunStubService(config)
+    def fake_service(config, **kwargs):
+        svc = _RunStubService(config, **kwargs)
         svc.start_exc = RuntimeError(secret)
         instances.append(svc)
         return svc
@@ -323,8 +323,8 @@ def test_run_fatal_when_serve_forever_raises(monkeypatch, capsys):
     secret = "LOOP-BOOM-SECRET-abc"
     instances = []
 
-    def fake_service(config):
-        svc = _RunStubService(config)
+    def fake_service(config, **kwargs):
+        svc = _RunStubService(config, **kwargs)
         instances.append(svc)
         return svc
 
@@ -353,8 +353,8 @@ def test_run_fatal_when_serve_forever_raises(monkeypatch, capsys):
 def test_run_keyboard_interrupt_cleans_up_and_exits_zero(monkeypatch, capsys):
     instances = []
 
-    def fake_service(config):
-        svc = _RunStubService(config)
+    def fake_service(config, **kwargs):
+        svc = _RunStubService(config, **kwargs)
         instances.append(svc)
         return svc
 
@@ -464,3 +464,36 @@ def test_run_live_missing_credentials_emits_distinct_blocked_event(monkeypatch, 
     assert blocked["borrow_executor"] == "live"
     assert blocked["borrow_execution_blocked"] == BLOCK_BORROW_CREDENTIALS_MISSING
     assert secret not in err  # credential value never emitted
+
+
+# ---------------------------------------------------------------------------
+# Restricted-asset read-only client injection (decision §E-4 / interface §10):
+# the composition root builds + injects the display client from the hedge API
+# key, INDEPENDENT of APP_HEDGE_EXECUTOR (the column is populated even when the
+# executor is ``disabled``). Offline / no key -> None (column degrades to
+# unknown). Constructing the client sends no request and changes no Start gate.
+# ---------------------------------------------------------------------------
+def test_build_restricted_asset_client_returns_client_when_hedge_key_present():
+    from backend.app.server import _build_restricted_asset_client
+
+    # Executor disabled AND a hedge key present -> the display client is STILL
+    # built (independent of the executor mode).
+    cfg = Config(
+        offline=False, hedge_executor="disabled",
+        binance_hedge_api_key="hk", binance_hedge_api_secret="hs", bind_port=0,
+    )
+    client = _build_restricted_asset_client(cfg)
+    assert client is not None
+    assert client.credentials_present is True
+    # The client is bound to api.binance.com for the restricted-asset path.
+    from backend.services.hedge_open_live_client import ALLOWLIST
+    assert ALLOWLIST[("GET", "/sapi/v1/margin/restricted-asset")] == "https://api.binance.com"
+
+
+def test_build_restricted_asset_client_none_when_offline_or_no_key():
+    from backend.app.server import _build_restricted_asset_client
+
+    offline_cfg = Config(offline=True, binance_hedge_api_key="hk", bind_port=0)
+    assert _build_restricted_asset_client(offline_cfg) is None
+    no_key_cfg = Config(offline=False, binance_hedge_api_key="", bind_port=0)
+    assert _build_restricted_asset_client(no_key_cfg) is None

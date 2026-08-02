@@ -126,15 +126,21 @@ class PreflightProvider(Protocol):
     """Read-only preflight data source (10-design §5). Injected; the default
     returns ``None`` (dry-run, no network read). A live provider assembles a
     fresh snapshot from public filters + signed PM reads immediately before send.
+
+    ``direction`` drives the regular-spot route decision (design §3 step 4): a
+    forward (positive-funding) direction may select ``regular_spot`` from a fresh
+    collateral-cap list read; a reverse direction never reads the list.
     """
 
-    def get_snapshot(self, coin: str) -> D.PreflightSnapshot | None: ...
+    def get_snapshot(
+        self, coin: str, direction: str
+    ) -> D.PreflightSnapshot | None: ...
 
 
 class DisabledPreflightProvider:
     """The default provider: no preflight data (dry-run, no network read)."""
 
-    def get_snapshot(self, coin: str) -> D.PreflightSnapshot | None:
+    def get_snapshot(self, coin: str, direction: str) -> D.PreflightSnapshot | None:
         return None
 
 
@@ -598,7 +604,7 @@ class HedgeOpenTaskService:
                     extra={"missing": missing},
                 )
 
-        snapshot = self._preflight.get_snapshot(coin)
+        snapshot = self._preflight.get_snapshot(coin, direction)
         preflight = D.compute_preflight(
             snapshot, coin, direction, D.Decimal(single_amount), target_n
         )
@@ -1299,7 +1305,8 @@ class HedgeOpenTaskService:
         drain_signal: str | None = None
         for leg in legs:
             verdict = self._executor.query_leg(
-                leg["leg"], _leg_query_symbol(leg, task), leg["client_order_id"]
+                leg["leg"], _leg_query_symbol(leg, task), leg["client_order_id"],
+                leg["endpoint"],
             )
             # Retry counter (fix-review1-retry-counter): each query counts once
             # per leg (in-process; a restart resets it, matching the legacy JS
@@ -1334,7 +1341,7 @@ class HedgeOpenTaskService:
                 # semantics, non-terminal handling, or never-resend guarantee).
                 self._persist_leg_raw(
                     task_id, leg["attempt_id"], leg["leg"], leg["client_order_id"],
-                    "order_query", getattr(verdict, "raw_response", None), now_us,
+                    "order_query", leg["endpoint"], getattr(verdict, "raw_response", None), now_us,
                     decisive=True,
                 )
                 if drain_signal is None:
@@ -1379,7 +1386,7 @@ class HedgeOpenTaskService:
                 )
                 self._persist_leg_raw(
                     task_id, leg["attempt_id"], leg["leg"], leg["client_order_id"],
-                    "order_query", getattr(verdict, "raw_response", None), now_us,
+                    "order_query", leg["endpoint"], getattr(verdict, "raw_response", None), now_us,
                     decisive=self._query_verdict_decisive(verdict),
                 )
                 continue
@@ -1387,7 +1394,7 @@ class HedgeOpenTaskService:
             # GET that produced this verdict), after the leg-row business write.
             self._persist_leg_raw(
                 task_id, leg["attempt_id"], leg["leg"], leg["client_order_id"],
-                "order_query", getattr(verdict, "raw_response", None), now_us,
+                "order_query", leg["endpoint"], getattr(verdict, "raw_response", None), now_us,
                 decisive=self._query_verdict_decisive(verdict),
             )
             if getattr(verdict, "error_category", None) == D.ERROR_CATEGORY_COLLATERAL_CAP:
@@ -1799,7 +1806,7 @@ class HedgeOpenTaskService:
         not incomplete (e.g. a transient balance gap on a non-fatal path) are
         also treated as fail-closed retry.
         """
-        snapshot = self._preflight.get_snapshot(task["coin"])
+        snapshot = self._preflight.get_snapshot(task["coin"], task["direction"])
         if snapshot is None:
             return None
         preflight = D.compute_preflight(
@@ -1915,12 +1922,20 @@ class HedgeOpenTaskService:
             task["direction"], position_side_mode or D.POS_MODE_BOTH
         )
         send_qty = q_common if q_common is not None else D.Decimal(task["single_amount"])
-        spot_shape = build_spot_order_params(
-            D.spot_order_symbol(task["coin"], snapshot_record),
-            actions,
-            send_qty,
-            spot_cid,
+        spot_route = (snapshot_record or {}).get(
+            "spot_route", D.SPOT_ROUTE_PAPI_MARGIN
         )
+        spot_order_symbol = D.spot_order_symbol(task["coin"], snapshot_record)
+        if spot_route == D.SPOT_ROUTE_REGULAR_SPOT:
+            # /api/v3/order shape: no sideEffectType (a standard spot order is not
+            # a margin borrow/repay). Defined once in domain.build_regular_spot_order_params.
+            spot_shape = D.build_regular_spot_order_params(
+                spot_order_symbol, actions, send_qty, spot_cid
+            )
+        else:
+            spot_shape = build_spot_order_params(
+                spot_order_symbol, actions, send_qty, spot_cid
+            )
         perp_shape = build_perp_order_params(task["coin"], actions, send_qty, perp_cid)
         q_common_str = D.fmt_decimal(q_common) if q_common is not None else task["single_amount"]
         attempt = self._store.prepare_attempt(
@@ -1932,6 +1947,7 @@ class HedgeOpenTaskService:
             snapshot_record,
             spot_cid,
             spot_shape,
+            D.spot_route_endpoint(spot_route),
             perp_cid,
             perp_shape,
             now_us,
@@ -2002,14 +2018,22 @@ class HedgeOpenTaskService:
         # path), or rate-limited — so the next unexplainable response is readable
         # from the DB alone.
         spot_cid, perp_cid = _client_order_ids(attempt["attempt_uuid"])
+        # The leg-row endpoints (design §4 authority): the spot endpoint follows
+        # the resolved route (regular_spot /api/v3/order vs PAPI margin); the perp
+        # leg is always UM. Raw responses are recorded against these paths so a
+        # regular-spot POST/GET is never misattributed to the PAPI margin path.
+        spot_endpoint = D.spot_route_endpoint(
+            (ctx.preflight_snapshot or {}).get("spot_route", D.SPOT_ROUTE_PAPI_MARGIN)
+        )
+        perp_endpoint = D.PERP_ORDER_PATH
         self._persist_leg_raw(
             ctx.task_id, attempt["id"], spot.leg, spot_cid, "order_post",
-            spot.raw_response, now_us,
+            spot_endpoint, spot.raw_response, now_us,
             decisive=True,
         )
         self._persist_leg_raw(
             ctx.task_id, attempt["id"], perp.leg, perp_cid, "order_post",
-            perp.raw_response, now_us,
+            perp_endpoint, perp.raw_response, now_us,
             decisive=True,
         )
         # T1+T3 (§1(b)/§3(b)): the UM leg's inline-confirm GET (the authoritative
@@ -2017,7 +2041,7 @@ class HedgeOpenTaskService:
         # distinguishable in the raw table.
         self._persist_leg_raw(
             ctx.task_id, attempt["id"], perp.leg, perp_cid, "order_confirm",
-            getattr(perp, "confirm_raw_response", None), now_us,
+            perp_endpoint, getattr(perp, "confirm_raw_response", None), now_us,
             decisive=True,
         )
         # T3 (§3): the UNKNOWN-POST immediate best-effort query GET (the order-detail
@@ -2029,12 +2053,12 @@ class HedgeOpenTaskService:
         # itself inconclusive and the leg stayed UNKNOWN for the drain path).
         self._persist_leg_raw(
             ctx.task_id, attempt["id"], spot.leg, spot_cid, "order_query",
-            getattr(spot, "query_raw_response", None), now_us,
+            spot_endpoint, getattr(spot, "query_raw_response", None), now_us,
             decisive=self._query_verdict_decisive(spot),
         )
         self._persist_leg_raw(
             ctx.task_id, attempt["id"], perp.leg, perp_cid, "order_query",
-            getattr(perp, "query_raw_response", None), now_us,
+            perp_endpoint, getattr(perp, "query_raw_response", None), now_us,
             decisive=self._query_verdict_decisive(perp),
         )
         if rate_limited:
@@ -2158,10 +2182,16 @@ class HedgeOpenTaskService:
 
     def _persist_leg_raw(
         self, task_id: str, attempt_id: int, leg_name: str,
-        client_order_id: str | None, source: str, raw: dict | None, now_us: int,
+        client_order_id: str | None, source: str, endpoint: str,
+        raw: dict | None, now_us: int,
         *, decisive: bool = False,
     ) -> None:
         """Persist one leg's sanitized raw exchange response (T3 / 10-design §3).
+
+        ``endpoint`` is the leg row's persisted endpoint (design §4: the SOLE
+        authority for which path a raw response rode on — never re-derived from
+        leg name or task-level route, so a regular-spot ``/api/v3/order`` response
+        is recorded against that path even though the leg name is still ``spot``).
 
         ``decisive`` marks this response as one of the four conclusive verdicts §T3
         requires persisted; the caller decides it from the verdict it already holds
@@ -2178,7 +2208,6 @@ class HedgeOpenTaskService:
         a query that returned no verdict)."""
         if raw is None:
             return
-        endpoint = D.SPOT_ORDER_PATH if leg_name == "spot" else D.PERP_ORDER_PATH
         try:
             self._store.append_raw_response(
                 attempt_id, leg_name, client_order_id, source, endpoint, raw, now_us,

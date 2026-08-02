@@ -49,6 +49,7 @@ def _apply(
     attempt = store.prepare_attempt(
         task_id, outcome.attempt_id, direction, q_common, D.POS_MODE_BOTH,
         {"est_price": "50000"}, f"hgo-{outcome.attempt_id}-s", {"side": "BUY"},
+        D.SPOT_ORDER_PATH,
         f"hgo-{outcome.attempt_id}-p", {"side": "SELL"}, now_us,
     )
     assert attempt is not None, "task must be dispatch-eligible when prepared"
@@ -347,7 +348,7 @@ def test_resolve_attempt_persists_null_quote_when_absent_no_derivation(tmp_path)
     _create(store, "tn", direction=D.DIR_FORWARD, target=1)
     attempt = store.prepare_attempt(
         "tn", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
-        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"},
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"}, D.SPOT_ORDER_PATH,
         "hgo-att1-p", {"side": "SELL"}, 1_000,
     )
     # avg_price present and filled_qty > 0, but NO cumulative_quote: the old path
@@ -378,7 +379,7 @@ def test_aggregate_positions_skips_null_quote_and_flags_incomplete(tmp_path):
     _create(store, "tn", direction=D.DIR_FORWARD, target=1)
     attempt = store.prepare_attempt(
         "tn", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
-        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"},
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"}, D.SPOT_ORDER_PATH,
         "hgo-att1-p", {"side": "SELL"}, 1_000,
     )
     perp_leg = next(l for l in store.list_legs_for_attempt(attempt["id"])
@@ -708,7 +709,7 @@ def test_migrate_m1_m2_repair_defect_rows_audit_then_idempotent(tmp_path):
     _create(store, "t1", direction=D.DIR_FORWARD, target=1)
     attempt = store.prepare_attempt(
         "t1", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
-        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"},
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"}, D.SPOT_ORDER_PATH,
         "hgo-att1-p", {"side": "SELL"}, 5_000_000,
     )
     perp_leg_id = next(l["id"] for l in store.list_legs_for_attempt(attempt["id"])
@@ -966,7 +967,7 @@ def test_prepare_attempt_seeds_unknown_quote_not_zero(tmp_path):
     _create(store, "t1", target=1)
     attempt = store.prepare_attempt(
         "t1", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
-        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"},
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"}, D.SPOT_ORDER_PATH,
         "hgo-att1-p", {"side": "SELL"}, 1_000,
     )
     legs = {leg["leg"]: leg for leg in store.list_legs_for_attempt(attempt["id"])}
@@ -986,7 +987,7 @@ def test_inflight_leg_projects_unknown_notional_not_zero(tmp_path):
     _create(store, "t1", target=1)
     attempt = store.prepare_attempt(
         "t1", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
-        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"},
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"}, D.SPOT_ORDER_PATH,
         "hgo-att1-p", {"side": "SELL"}, 1_000,
     )
     # Spot sent + accepted (real order_id, NEW/polling); perp still querying. The
@@ -1049,7 +1050,7 @@ def test_resolve_attempt_rolls_up_collateral_cap_to_attempt_row(tmp_path):
     )
     attempt = store.prepare_attempt(
         "t1", outcome.attempt_id, D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
-        {"est_price": "50000"}, f"hgo-{outcome.attempt_id}-s", {"side": "BUY"},
+        {"est_price": "50000"}, f"hgo-{outcome.attempt_id}-s", {"side": "BUY"}, D.SPOT_ORDER_PATH,
         f"hgo-{outcome.attempt_id}-p", {"side": "SELL"}, 1_000,
     )
     store.resolve_attempt(attempt["id"], outcome, 2_000)
@@ -1070,7 +1071,7 @@ def test_resolve_attempt_rollup_fatal_beats_collateral_cap_and_stops(tmp_path):
     )
     attempt = store.prepare_attempt(
         "t1", outcome.attempt_id, D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
-        {"est_price": "50000"}, f"hgo-{outcome.attempt_id}-s", {"side": "BUY"},
+        {"est_price": "50000"}, f"hgo-{outcome.attempt_id}-s", {"side": "BUY"}, D.SPOT_ORDER_PATH,
         f"hgo-{outcome.attempt_id}-p", {"side": "SELL"}, 1_000,
     )
     store.resolve_attempt(attempt["id"], outcome, 2_000)
@@ -1090,7 +1091,7 @@ def test_finalize_attempt_rolls_up_category_from_leg_rows(tmp_path):
     _create(store, task_id="t1", target=5)
     attempt = store.prepare_attempt(
         "t1", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
-        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"},
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"}, D.SPOT_ORDER_PATH,
         "hgo-att1-p", {"side": "SELL"}, 1_000,
     )
     legs = {row["leg"]: row for row in store.list_legs_for_attempt(attempt["id"])}
@@ -1120,7 +1121,7 @@ def test_settle_attempt_no_counters_records_rollup_without_stopping(tmp_path):
     _create(store, task_id="t1", target=5)
     attempt = store.prepare_attempt(
         "t1", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
-        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"},
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"}, D.SPOT_ORDER_PATH,
         "hgo-att1-p", {"side": "SELL"}, 1_000,
     )
     store.mark_attempt_rate_limited(attempt["id"])
@@ -1163,7 +1164,7 @@ def _prepared_attempt(store, task_id="t1", attempt_id="att1"):
     _create(store, task_id=task_id, target=5)
     return store.prepare_attempt(
         task_id, attempt_id, D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
-        {"est_price": "50000"}, f"hgo-{attempt_id}-s", {"side": "BUY"},
+        {"est_price": "50000"}, f"hgo-{attempt_id}-s", {"side": "BUY"}, D.SPOT_ORDER_PATH,
         f"hgo-{attempt_id}-p", {"side": "SELL"}, 1_000,
     )
 
@@ -1266,7 +1267,7 @@ def test_resolve_leg_from_query_persists_avg_price(tmp_path):
     _create(store, "tn", target=1)
     attempt = store.prepare_attempt(
         "tn", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
-        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"},
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"}, D.SPOT_ORDER_PATH,
         "hgo-att1-p", {"side": "SELL"}, 1_000,
     )
     perp_leg = next(l for l in store.list_legs_for_attempt(attempt["id"]) if l["leg"] == "perp")
@@ -1306,7 +1307,7 @@ def test_avg_price_migration_idempotent_and_preserves_existing_rows(tmp_path):
     _create(store, "tn", target=1)
     attempt = store.prepare_attempt(
         "tn", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
-        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"},
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"}, D.SPOT_ORDER_PATH,
         "hgo-att1-p", {"side": "SELL"}, 1_000,
     )
     outcome = AttemptOutcome(

@@ -533,3 +533,161 @@ def test_spot_leg_missing_or_unknown_status_fails_closed():
     leg, match = resolve_spot_leg("PERPETUAL", "BAR", "USDT", unknown)
     assert leg is None
     assert match is None
+
+
+# ---------------------------------------------------------------------------
+# Collateral cap (v0.9, stage 2026-08-02-spot-order-routing-cap-display-v1):
+# three-state + not-applicable projection, direction-not-filtered, failure
+# clears checked_at, and schema additive-ness.
+# ---------------------------------------------------------------------------
+from backend.domain.snapshot import (  # noqa: E402
+    UI_FLAG_COLLATERAL_CAP_EXCEEDED,
+    UI_FLAG_COLLATERAL_CAP_UNKNOWN,
+    collateral_cap_for_row,
+)
+
+
+def test_collateral_cap_truth_table_four_states_no_fifth():
+    # State 1: hit -> exceeded=true + EXCEEDED flag.
+    cap, flags = collateral_cap_for_row("LINK", {"LINK"}, "2026-08-03T00:00:00Z")
+    assert cap == {"exceeded": True, "asset": "LINK", "checked_at": "2026-08-03T00:00:00Z"}
+    assert flags == [UI_FLAG_COLLATERAL_CAP_EXCEEDED]
+    # State 2: read ok, not hit -> exceeded=false, no flag.
+    cap, flags = collateral_cap_for_row("BTC", {"LINK"}, "2026-08-03T00:00:00Z")
+    assert cap == {"exceeded": False, "asset": "BTC", "checked_at": "2026-08-03T00:00:00Z"}
+    assert flags == []
+    # State 3: read failed -> exceeded=null, checked_at=null, UNKNOWN flag.
+    cap, flags = collateral_cap_for_row("LINK", None, None)
+    assert cap == {"exceeded": None, "asset": "LINK", "checked_at": None}
+    assert flags == [UI_FLAG_COLLATERAL_CAP_UNKNOWN]
+    # State 4: no spot leg -> exceeded=null, asset=null, no flag, checked_at=global.
+    cap, flags = collateral_cap_for_row(None, {"LINK"}, "2026-08-03T00:00:00Z")
+    assert cap == {"exceeded": None, "asset": None, "checked_at": "2026-08-03T00:00:00Z"}
+    assert flags == []
+
+
+def test_collateral_cap_state4_checked_at_follows_global_even_on_failure():
+    # On a failed global read, a no-spot-leg row carries checked_at=null (the
+    # global value), consistent with the rest of the snapshot.
+    cap, _ = collateral_cap_for_row(None, None, None)
+    assert cap["checked_at"] is None
+    assert cap["asset"] is None
+
+
+def _cc_rows(cap_state):
+    """Build two rows (positive & negative funding) whose resolved spot base is
+    LINK, plus a no-spot-leg row, projecting a cap state."""
+    link_spot = {"symbol": "LINKUSDT", "baseAsset": "LINK", "status": "TRADING",
+                 "isMarginTradingAllowed": True, "filters": []}
+    rows = build_rows(
+        [
+            {"symbol": "LINKUSDT", "contractType": "PERPETUAL", "baseAsset": "LINK",
+             "quoteAsset": "USDT", "status": "TRADING", "filters": []},
+            {"symbol": "XMRUSDT", "contractType": "PERPETUAL", "baseAsset": "XMR",
+             "quoteAsset": "USDT", "status": "TRADING", "filters": []},  # no spot leg
+        ],
+        {"LINKUSDT": {"lastFundingRate": "0.0001"}, "XMRUSDT": {"lastFundingRate": "-0.0001"}},
+        {"LINKUSDT": link_spot}, {}, collateral_cap_state=cap_state,
+    )
+    return {r["symbol"]: r for r in rows}
+
+
+def test_collateral_cap_not_filtered_by_funding_direction():
+    # Decision §E-3: the SAME hit asset highlights on BOTH a positive-funding row
+    # and a negative-funding row. (Here both rows are LINKUSDT-ish; the display
+    # path does not consult the funding sign at all.)
+    exceeded, checked_at = {"LINK"}, "2026-08-03T01:00:00Z"
+    rows = _cc_rows((exceeded, checked_at))
+    link = rows["LINKUSDT"]
+    assert link["collateral_cap"]["exceeded"] is True
+    assert UI_FLAG_COLLATERAL_CAP_EXCEEDED in link["ui_flags"]
+    assert link["collateral_cap"]["asset"] == "LINK"  # spot base, exact match
+
+
+def test_collateral_cap_unknown_when_no_read_performed():
+    # Offline / no-key: no cap state -> the row degrades to unknown (state 3),
+    # never "not full"; checked_at cleared.
+    rows = _cc_rows(None)
+    link = rows["LINKUSDT"]
+    assert link["collateral_cap"]["exceeded"] is None
+    assert link["collateral_cap"]["checked_at"] is None
+    assert UI_FLAG_COLLATERAL_CAP_UNKNOWN in link["ui_flags"]
+
+
+def test_collateral_cap_no_spot_leg_is_not_applicable_no_flag():
+    # A row with no tradable spot leg is state 4 (not applicable): no cap flag,
+    # asset=null, regardless of the cap state. checked_at follows the global.
+    rows = _cc_rows(({"XMR"}, "2026-08-03T02:00:00Z"))
+    xmr = rows["XMRUSDT"]
+    assert xmr["collateral_cap"] == {"exceeded": None, "asset": None, "checked_at": "2026-08-03T02:00:00Z"}
+    assert UI_FLAG_COLLATERAL_CAP_EXCEEDED not in xmr["ui_flags"]
+    assert UI_FLAG_COLLATERAL_CAP_UNKNOWN not in xmr["ui_flags"]
+
+
+def test_collateral_cap_bstock_uses_resolved_spot_base_tslab():
+    # The match input is the resolved SPOT base (TSLAB), never the contract base
+    # (TSLA) — interface §5 single-point rule.
+    spot = {"TSLABUSDT": {"symbol": "TSLABUSDT", "baseAsset": "TSLAB", "status": "TRADING",
+                          "isMarginTradingAllowed": True, "filters": []}}
+    rows = build_rows(
+        [{"symbol": "TSLAUSDT", "contractType": "TRADIFI_PERPETUAL", "baseAsset": "TSLA",
+          "quoteAsset": "USDT", "status": "TRADING", "filters": []}],
+        {"TSLAUSDT": {"lastFundingRate": "0.0001"}}, spot, {},
+        collateral_cap_state=({"TSLAB"}, "2026-08-03T03:00:00Z"),
+    )
+    row = rows[0]
+    assert row["collateral_cap"]["asset"] == "TSLAB"
+    assert row["collateral_cap"]["exceeded"] is True
+    # Exact match: "TSLA" is NOT on the list (only "TSLAB" is), so had the code
+    # wrongly used the contract base it would be false.
+    rows2 = build_rows(
+        [{"symbol": "TSLAUSDT", "contractType": "TRADIFI_PERPETUAL", "baseAsset": "TSLA",
+          "quoteAsset": "USDT", "status": "TRADING", "filters": []}],
+        {"TSLAUSDT": {"lastFundingRate": "0.0001"}}, spot, {},
+        collateral_cap_state=({"TSLAB"}, "2026-08-03T03:00:00Z"),
+    )
+    assert rows2[0]["collateral_cap"]["exceeded"] is True
+
+
+def test_collateral_cap_failure_clears_projection_after_prior_success():
+    # Decision §E-4: a successful read populates the cache + clears the failed
+    # flag (projection = the read). A later FAILED refresh sets the failed flag,
+    # so the projection becomes unknown (None) — last-good is retained inside the
+    # cache for the next retry, but NEVER projected to the page.
+    import time
+
+    svc = SnapshotService.__new__(SnapshotService)  # bypass full __init__
+    svc._restricted_asset_client = object()  # truthy: a client is configured
+    svc._global_source_cache = {}
+    svc._restricted_asset_failed = False
+
+    # 1) prior success: cache holds a good read, failed flag clear.
+    svc._global_source_cache["restricted_asset"] = (
+        time.monotonic(), {"exceeded": {"LINK"}, "checked_at": "2026-08-03T01:00:00Z"},
+    )
+    svc._restricted_asset_failed = False
+    assert svc._collateral_cap_state() == ({"LINK"}, "2026-08-03T01:00:00Z")
+
+    # 2) refresh fails: failed flag set, cache entry RETAINED (for retry timing),
+    # but the projection is now unknown.
+    svc._restricted_asset_failed = True
+    assert svc._collateral_cap_state() is None
+    # last-good is still inside the cache (not erased).
+    assert "restricted_asset" in svc._global_source_cache
+
+    # 3) no client configured (offline / no key) -> always unknown.
+    svc._restricted_asset_client = None
+    assert svc._collateral_cap_state() is None
+
+
+def test_collateral_cap_block_is_schema_valid_and_optional(schema, raw_inputs):
+    # A freshly built snapshot (producer always emits collateral_cap) validates.
+    rows, data_time = _build_snapshot(raw_inputs)
+    from backend.domain.snapshot import assemble_snapshot
+    snap = assemble_snapshot(rows, generated_at="2026-08-03T00:00:00Z",
+                             data_time=data_time, source_sample_id="20260803T000000Z")
+    jsonschema.validate(snap, schema)
+    # Every row carries the key.
+    assert all("collateral_cap" in r for r in snap["rows"])
+    # schema_version unchanged (additive).
+    assert snap["schema_version"] == "public-market-snapshot/v1"

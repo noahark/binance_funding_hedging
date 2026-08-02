@@ -277,6 +277,24 @@
             }
           }
         },
+        "collateral_cap": {
+          "description": "Platform collateral-cap (maxCollateralExceededAsset) state for the row's resolved SPOT base asset (v0.9, stage 2026-08-02-spot-order-routing-cap-display-v1). Optional: legacy rows without the key still validate; the producer always emits it. exceeded=true = the asset is on the platform cap list; false = read succeeded and not on it; null = the read failed (unknown) OR the row has no tradable spot leg (see asset). checked_at is the platform-level read completion time, shared by every row in a snapshot (null on failure). asset is the resolved spot base asset (TSLAB for a bStock, never the contract TSLA); null only when the row has no tradable spot leg. Direction is NOT consulted. Display-only: never drives routing, sorting, filtering, or open/borrow gating.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["exceeded", "asset", "checked_at"],
+          "properties": {
+            "exceeded": {
+              "type": ["boolean", "null"]
+            },
+            "asset": {
+              "type": ["string", "null"]
+            },
+            "checked_at": {
+              "type": ["string", "null"],
+              "format": "date-time"
+            }
+          }
+        },
         "funding_history": {
           "type": "array",
           "items": {

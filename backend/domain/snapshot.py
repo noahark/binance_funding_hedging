@@ -19,6 +19,57 @@ SCHEMA_VERSION = "public-market-snapshot/v1"
 SORT_BASIS_NET = "net_daily_yield"
 SORT_BASIS_ABS = "abs_daily_funding_rate"
 
+# Collateral-cap ui_flags (interface §4). Exactly two: a row is either exceeded
+# or unknown; "not exceeded" and "not applicable" carry NO flag (the
+# ``collateral_cap`` block is the authority — same fact in two places would drift).
+UI_FLAG_COLLATERAL_CAP_EXCEEDED = "COLLATERAL_CAP_EXCEEDED"
+UI_FLAG_COLLATERAL_CAP_UNKNOWN = "COLLATERAL_CAP_UNKNOWN"
+
+
+def collateral_cap_for_row(
+    spot_base_asset: Optional[str],
+    exceeded_assets: Optional[set],
+    checked_at: Optional[str],
+) -> tuple:
+    """Pure three-state + not-applicable projection (interface §2/§3 truth table).
+
+    Returns ``(collateral_cap_dict, extra_ui_flags)``. ``exceeded_assets`` is the
+    set of assets on the platform ``maxCollateralExceededAsset`` list (``None`` =
+    the read failed this refresh), and ``checked_at`` is the global platform-read
+    completion timestamp (``None`` on failure). The match input is the row's
+    resolved SPOT base asset (``TSLAB`` for a bStock — never the contract
+    ``TSLA``), supplied by :func:`build_rows` from the same ``resolve_spot_leg``
+    record the display path already uses (single-point rule, interface §5).
+
+    States (no fifth combination is emitted):
+      1. asset in list      -> exceeded=true,  asset=base, checked_at=global, EXCEEDED flag;
+      2. read ok, not in    -> exceeded=false, asset=base, checked_at=global, no flag;
+      3. read failed        -> exceeded=null,  asset=base, checked_at=null,   UNKNOWN flag;
+      4. no spot leg        -> exceeded=null,  asset=null, checked_at=global, no flag.
+
+    ``checked_at`` is the platform-level read's attribute and is shared by every
+    row; state 3 forces ``null`` (a failed read has no completion time), which is
+    consistent because a failed read also clears the global ``checked_at``.
+    Direction (positive/negative funding) is deliberately NOT consulted — a hit
+    highlights on both directions (decision §E-3).
+    """
+    if spot_base_asset is None:
+        return {"exceeded": None, "asset": None, "checked_at": checked_at}, []
+    if exceeded_assets is None:
+        return (
+            {"exceeded": None, "asset": spot_base_asset, "checked_at": None},
+            [UI_FLAG_COLLATERAL_CAP_UNKNOWN],
+        )
+    if spot_base_asset in exceeded_assets:
+        return (
+            {"exceeded": True, "asset": spot_base_asset, "checked_at": checked_at},
+            [UI_FLAG_COLLATERAL_CAP_EXCEEDED],
+        )
+    return (
+        {"exceeded": False, "asset": spot_base_asset, "checked_at": checked_at},
+        [],
+    )
+
 # §1.4 valuation: stablecoins priced at 1 USD (spec literal: USDT/USDC).
 _STABLE_USD_ASSETS = {"USDT", "USDC"}
 _PRIVATE_ACCOUNT_PRICE_SOURCE = "api_v3_ticker_price"
@@ -108,6 +159,7 @@ def build_rows(
     *,
     funding_interval_by_sym: Optional[Dict[str, int]] = None,
     t_end_ms: Optional[int] = None,
+    collateral_cap_state: Optional[tuple] = None,
 ) -> List[dict]:
     """Build snapshot rows from already-filtered futures symbols.
 
@@ -129,8 +181,19 @@ def build_rows(
     annualization is always estimate-derived (``daily_funding_rate * 365``) and
     independent of history. When ``t_end_ms`` is None the history is passed
     through unfiltered and 7D/30D are null (24h is still computed).
+
+    ``collateral_cap_state`` (stage 2026-08-02-spot-order-routing-cap-display-v1)
+    is ``(exceeded_assets, checked_at)`` from the platform restricted-asset read
+    (``None`` when no read was performed — offline / no key — yielding the unknown
+    state). Each row emits a ``collateral_cap`` block derived from its resolved
+    SPOT base asset (the same ``resolve_spot_leg`` record below — single-point
+    rule, interface §5); see :func:`collateral_cap_for_row` for the truth table.
+    Direction is NOT consulted (decision §E-3: a hit highlights on both signs).
     """
     interval_map = funding_interval_by_sym or {}
+    cc_exceeded, cc_checked_at = (
+        (None, None) if collateral_cap_state is None else collateral_cap_state
+    )
     rows: List[dict] = []
     for obj in futures_symbols:
         sym = obj["symbol"]
@@ -140,6 +203,14 @@ def build_rows(
         )
         spot, match_type = resolve_spot_leg(
             contract_type, obj.get("baseAsset", ""), obj.get("quoteAsset", ""), spot_by_sym
+        )
+        # The collateral-cap match input is the resolved SPOT leg's baseAsset
+        # (TSLAB for a bStock), never the contract top-level base_asset (TSLA) —
+        # interface §5 single-point rule (same resolve_spot_leg call as the
+        # preflight path). None when there is no tradable spot leg (state 4).
+        spot_base_asset = spot.get("baseAsset") if spot else None
+        cap_block, cap_flags = collateral_cap_for_row(
+            spot_base_asset, cc_exceeded, cc_checked_at
         )
         spot_margin = bool(spot and spot.get("isMarginTradingAllowed"))
         route = classify_route(
@@ -157,6 +228,7 @@ def build_rows(
             ui_flags.append("PERP_ONLY_NO_SPOT_LEG")
         if asset_tag == "BSTOCK":
             ui_flags.append("TRADIFI_BSTOCK")
+        ui_flags.extend(cap_flags)
 
         funding_history = _build_funding_history(
             funding_history_by_sym.get(sym, []), t_end_ms
@@ -203,6 +275,7 @@ def build_rows(
                     "public_cross_margin_pair": None,
                     "source": "unverified",
                 },
+                "collateral_cap": cap_block,
                 "funding_history": funding_history,
                 "funding_interval_hours": interval_hours,
                 "daily_funding_rate": daily_rate,

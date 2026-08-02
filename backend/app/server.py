@@ -756,9 +756,33 @@ def _build_hedge_service(config: Config) -> HedgeOpenTaskService:
     )
 
 
+def _build_restricted_asset_client(config: Config):
+    """Build the read-only restricted-asset client injected into SnapshotService
+    (decision §E-4 / interface §10). Uses the existing hedge API key and is
+    INDEPENDENT of ``APP_HEDGE_EXECUTOR`` and the private channel: the display
+    column is populated even when the hedge executor is ``disabled``. Returns
+    ``None`` in offline mode or when the hedge API key is absent — either way the
+    column degrades to ``unknown`` for every row (the honest state, §10).
+
+    Constructing the client sends NO request and changes no Start gate;
+    SnapshotService may call ONLY ``get_restricted_asset`` through it (the client's
+    deny-by-default allowlist + hardcoded host enforce that)."""
+    if config.offline or not config.binance_hedge_api_key:
+        return None
+    from ..services.hedge_open_live_client import HedgeOpenLiveClient
+
+    return HedgeOpenLiveClient(
+        api_key=config.binance_hedge_api_key,
+        api_secret=config.binance_hedge_api_secret,
+        user_agent=config.user_agent,
+    )
+
+
 def run(config: Config = None) -> None:
     config = config or DEFAULT
-    service = SnapshotService(config)
+    service = SnapshotService(
+        config, restricted_asset_client=_build_restricted_asset_client(config)
+    )
     borrow_service = _build_borrow_service(config)
     hedge_open_service = _build_hedge_service(config)
     # build_server keeps its original 2-arg call shape here so process-level

@@ -37,6 +37,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Callable, Optional
 
 from ..hedge_open_tasks import domain as D
+from ..domain.normalize import resolve_spot_leg
 from .hedge_open_live_client import HedgeOpenLiveClient
 
 # Public (unsigned) market-data hosts (recon §2.1 / §3.4). Hardcoded; the public
@@ -226,15 +227,15 @@ class HedgePreflightProvider:
         except Exception:
             return None, None
 
-    def _read_spot_filters(self, coin: str) -> Optional[tuple[dict, bool]]:
-        data = self._read_public_json(f"{_SPOT_API_BASE}/api/v3/exchangeInfo?symbol={coin}")
+    def _read_spot_record(self, symbol: str) -> Optional[dict]:
+        """Read one spot exchangeInfo symbol record (raw dict), or None on a read
+        failure / absent symbol."""
+        data = self._read_public_json(
+            f"{_SPOT_API_BASE}/api/v3/exchangeInfo?symbol={symbol}"
+        )
         if not isinstance(data, dict):
             return None
-        symbol = _find_symbol(data.get("symbols", []), coin)
-        if symbol is None:
-            return None
-        tradable = symbol.get("status") == "TRADING"
-        return _parse_spot_filters(symbol), tradable
+        return _find_symbol(data.get("symbols", []), symbol)
 
     def _read_perp_filters(self, coin: str) -> Optional[tuple[dict, bool, dict]]:
         data = self._read_public_json(f"{_FAPI_BASE}/fapi/v1/exchangeInfo")
@@ -247,25 +248,59 @@ class HedgePreflightProvider:
         return _parse_perp_filters(symbol), tradable, symbol
 
     def _read_spot_leg(
-        self, coin: str, perp_symbol: dict
-    ) -> Optional[tuple[dict, bool, str]]:
-        """Resolve exact spot first, then the frozen bStock B-suffix alias."""
-        exact = self._read_spot_filters(coin)
-        if exact is not None and exact[1]:
-            return exact[0], exact[1], coin
+        self, coin: str, perp_symbol: Optional[dict]
+    ) -> Optional[tuple[dict, bool, str, str]]:
+        """Resolve the spot leg via the shared :func:`resolve_spot_leg` pure
+        function — the SINGLE resolution rule shared with the display path
+        (design §6.5 / interface §5, acceptance S8). Reads the exact + bStock
+        B-suffix candidate records, delegates selection (exact-first, then alias
+        only for TRADIFI, both must be TRADING) to ``resolve_spot_leg``, and
+        distinguishes a readable-but-non-tradable record (a fatal
+        ``symbol_unavailable`` fact) from a read failure (``None`` -> fail-closed
+        incomplete).
 
+        Returns ``(filters, tradable, symbol, base_asset)`` — ``base_asset`` is
+        the resolved spot record's ``baseAsset`` (``TSLAB`` for a bStock, never
+        the contract ``TSLA``), the input used by the collateral-cap membership
+        check. Returns ``None`` only when no candidate record could be read.
+        """
+        candidates = [coin]
         alias = _bstock_spot_alias(coin, perp_symbol)
         if alias is not None:
-            aliased = self._read_spot_filters(alias)
-            if aliased is not None:
-                return aliased[0], aliased[1], alias
-            # An exact non-trading/missing bStock symbol is not enough to
-            # authorize a send when the alias read is incomplete.
-            if exact is None or not exact[1]:
-                return None
-
-        if exact is not None:
-            return exact[0], exact[1], coin
+            candidates.append(alias)
+        spot_by_sym: dict[str, dict] = {}
+        read_ok = False
+        for sym in candidates:
+            rec = self._read_spot_record(sym)
+            if rec is not None:
+                read_ok = True
+                spot_by_sym[sym] = rec
+        if isinstance(perp_symbol, dict):
+            contract_type = perp_symbol.get("contractType", "")
+            base = perp_symbol.get("baseAsset", "")
+            quote = perp_symbol.get("quoteAsset", "")
+        else:
+            contract_type = base = quote = ""
+        spot, _match_type = resolve_spot_leg(contract_type, base, quote, spot_by_sym)
+        if spot is not None:
+            return (
+                _parse_spot_filters(spot),
+                True,
+                spot.get("symbol", coin),
+                spot.get("baseAsset", ""),
+            )
+        if read_ok:
+            # A record was read but none is tradable -> a fatal symbol_unavailable
+            # fact (compute_preflight maps it to REJECT_SYMBOL_UNAVAILABLE), not a
+            # read failure. Surface the read record so the filters/tradable flag
+            # carry the fact; base_asset is informational only on this path.
+            non_tradable = next(iter(spot_by_sym.values()))
+            return (
+                _parse_spot_filters(non_tradable),
+                False,
+                non_tradable.get("symbol", coin),
+                non_tradable.get("baseAsset", ""),
+            )
         return None
 
     def _read_est_price(self, coin: str) -> Optional[Decimal]:
@@ -348,7 +383,90 @@ class HedgePreflightProvider:
                     return limit
         return None
 
-    def get_snapshot(self, coin: str) -> Optional[D.PreflightSnapshot]:
+    # --------------------------------------------- regular-spot route reads (§3)
+    def _read_collateral_cap_hit(self, spot_base_asset: str) -> Optional[bool]:
+        """FRESH read of the platform collateral-cap list (design §3 step 4).
+        Returns True/False for whether ``spot_base_asset`` is on
+        ``maxCollateralExceededAsset``, or None when the read failed (the caller
+        fail-closes — never guess a route from a missing read).
+
+        Reads ONLY ``maxCollateralExceededAsset``; ``openLongRestrictedAsset`` is
+        never read or stored (decision §A-3). Membership is EXACT (design §5): no
+        normalization, no case-folding, no multiplier-prefix stripping — the list
+        and the spot ``baseAsset`` share one naming domain. The match input is
+        the resolved spot base asset (``TSLAB`` for a bStock), never the contract
+        base, because the caller passes the value ``resolve_spot_leg`` resolved.
+        """
+        if self._client is None:
+            return None
+        response = self._client.get_restricted_asset()
+        if (
+            response.transport_error is not None
+            or response.http_status is None
+            or response.http_status >= 400
+            or not isinstance(response.body, dict)
+        ):
+            return None
+        assets = response.body.get("maxCollateralExceededAsset")
+        if not isinstance(assets, list):
+            return None
+        return spot_base_asset in {a for a in assets if isinstance(a, str)}
+
+    def _read_spot_account_usdt(self) -> Optional[Decimal]:
+        """Standard Spot account free USDT (design §3 step 5). The regular_spot
+        balance gate sizes the positive-funding BUY against THIS wallet, not PAPI
+        ``crossMarginFree`` (design §2.4 — the two wallets are distinct). Returns
+        the Decimal free USDT (``Decimal(0)`` when USDT is absent but the account
+        read succeeded — a real zero, an insufficient-balance fact), or None when
+        the read failed (caller fail-closes)."""
+        if self._client is None:
+            return None
+        response = self._client.get_spot_account(timestamp_ms=self._now_ms())
+        if (
+            response.transport_error is not None
+            or response.http_status is None
+            or response.http_status >= 400
+            or not isinstance(response.body, dict)
+        ):
+            return None
+        balances = response.body.get("balances")
+        if not isinstance(balances, list):
+            return None
+        for row in balances:
+            if isinstance(row, dict) and row.get("asset") == "USDT":
+                free = row.get("free")
+                if free is None:
+                    return Decimal(0)
+                try:
+                    return Decimal(str(free))
+                except (InvalidOperation, ValueError, TypeError):
+                    return None
+        return Decimal(0)
+
+    def _read_spot_rate_limit_order(self) -> Optional[int]:
+        """Standard Spot order-rate limit (design §3 step 5). A regular_spot
+        order consumes the spot rate-limit budget, not the PAPI one (§3.5).
+        Returns the ORDERS cap or None on a read failure."""
+        if self._client is None:
+            return None
+        response = self._client.get_spot_rate_limit_order(timestamp_ms=self._now_ms())
+        if (
+            response.transport_error is not None
+            or response.http_status is None
+            or response.http_status >= 400
+            or not isinstance(response.body, list)
+        ):
+            return None
+        for row in response.body:
+            if isinstance(row, dict) and row.get("rateLimitType") == "ORDERS":
+                limit = row.get("limit")
+                if isinstance(limit, int) and limit > 0:
+                    return limit
+        return None
+
+    def get_snapshot(
+        self, coin: str, direction: str
+    ) -> Optional[D.PreflightSnapshot]:
         """Assemble a fresh preflight snapshot, or ``None`` on any gap.
 
         ``None`` covers both the dry-run default (no live client) and a live read
@@ -358,6 +476,16 @@ class HedgePreflightProvider:
         readable-but-not-tradable symbol or a two-way position mode is NOT ``None``
         here — it is a fully-read fatal fact surfaced via the snapshot so
         :func:`domain.compute_preflight` can stop the task (amendment rows 1–2).
+
+        ``direction`` drives the regular-spot route decision (design §3 step 4):
+        a positive-funding (``forward``) direction reads the platform collateral-
+        cap list FRESH and selects ``regular_spot`` when the resolved spot base
+        asset hits the list (or the symbol is a TRADIFI bStock), then reads the
+        standard Spot account/rate-limit facts that route needs. A negative-
+        funding (``reverse``) direction NEVER reads the list and never selects
+        ``regular_spot`` — it keeps the existing PAPI path (decision §E-1). Any
+        read failure on a needed fact fails the whole snapshot closed (never guess
+        a route from a missing read).
         """
         if self._client is None or not self._client.credentials_present:
             return None
@@ -373,11 +501,7 @@ class HedgePreflightProvider:
         rate_limit = self._read_rate_limit_order()
         spot_symbol = spot[2] if spot is not None else coin
         est_price = self._read_est_price(spot_symbol)
-        # Any read gap fails closed — never assemble a half-populated snapshot
-        # (amendment clause 3: account/symbol status, position mode, price/
-        # balance, NOTIONAL/MIN_NOTIONAL, the current order rate-limit fact; a
-        # missing one is rejected). The rate-limit fact is direction-independent,
-        # so a missing read fails the snapshot here.
+        # Any base read gap fails closed — never assemble a half-populated snapshot.
         if (
             spot is None
             or perp is None
@@ -386,8 +510,34 @@ class HedgePreflightProvider:
             or rate_limit is None
         ):
             return None
-        spot_filters, spot_tradable, spot_symbol = spot
-        perp_filters, perp_tradable, _ = perp
+        spot_filters, spot_tradable, spot_symbol, spot_base_asset = spot
+        perp_filters, perp_tradable, perp_symbol_dict = perp
+        contract_type = (
+            perp_symbol_dict.get("contractType", "")
+            if isinstance(perp_symbol_dict, dict)
+            else ""
+        )
+        # Route decision (design §3 step 4). Forward reads the collateral-cap
+        # list fresh; reverse skips it and stays papi_margin. A failed list read
+        # on a forward direction fails closed (never guess).
+        spot_route = D.SPOT_ROUTE_PAPI_MARGIN
+        spot_route_reason = D.ROUTE_REASON_PAPI_DEFAULT
+        spot_account_usdt: Optional[Decimal] = None
+        spot_rate_limit: Optional[int] = None
+        cap_exceeded: Optional[bool] = None
+        if direction == D.DIR_FORWARD:
+            cap_exceeded = self._read_collateral_cap_hit(spot_base_asset)
+            if cap_exceeded is None:
+                return None
+            spot_route, spot_route_reason = D.decide_spot_route(
+                direction, contract_type, spot_base_asset, cap_exceeded
+            )
+            if spot_route == D.SPOT_ROUTE_REGULAR_SPOT:
+                spot_account_usdt = self._read_spot_account_usdt()
+                spot_rate_limit = self._read_spot_rate_limit_order()
+                if spot_account_usdt is None or spot_rate_limit is None:
+                    return None
+        spot_endpoint = D.spot_route_endpoint(spot_route)
         return D.PreflightSnapshot(
             spot_filters=spot_filters,
             perp_filters=perp_filters,
@@ -397,6 +547,11 @@ class HedgePreflightProvider:
             rate_limit_order=rate_limit,
             symbol_tradable=spot_tradable and perp_tradable,
             spot_symbol=spot_symbol if spot_symbol != coin else None,
+            spot_route=spot_route,
+            spot_route_reason=spot_route_reason,
+            spot_route_endpoint=spot_endpoint,
+            spot_account_usdt=spot_account_usdt,
+            spot_rate_limit_order=spot_rate_limit,
         )
 
     def check_symbol_legs(self, coin: str) -> dict:

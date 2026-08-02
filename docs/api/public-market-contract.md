@@ -82,15 +82,32 @@ Endpoint auth (no API key used):
   allowed in Phase 1.
 - `GET /sapi/v1/margin/allPairs` and `GET /sapi/v1/margin/isolated/allPairs`
   require an API key: without a key they return HTTP 400 with
-  `{"code":-2014,"msg":"API-key format invalid."}`. Phase 1 forbids keys, so they
-  are not used.
+  `{"code":-2014,"msg":"API-key format invalid."}`. They require a key, so they
+  are not used this round (see the three key-use gates below, not the retired
+  blanket "Phase 1 forbids keys").
 
-Margin conclusion: because the `sapi` margin pair lists require a key,
-`margin_public.source` is `"unverified"` and `public_cross_margin_pair` is `null`
-for every row. `MARGIN_SPOT_CANDIDATE` classification uses only the PUBLIC spot
-field `isMarginTradingAllowed` from `/api/v3/exchangeInfo`, which is a candidate
-signal only. `negative_funding_status` for those rows stays
-`PRIVATE_BORROW_VALIDATION_REQUIRED`.
+Key-use gates (replace the retired blanket "Phase 1 forbids keys" — decision
+§B-2 / §7.1). Removing the ban without a rule would let scope creep silently; the
+ban is replaced by three gates:
+
+1. Keyed endpoints are permitted on the BACKEND only; the browser still never
+   calls Binance directly.
+2. The DEFAULT class is `MARKET_DATA` — keyed but unsigned, platform-level, no
+   account binding. This preserves the invariant that the public snapshot never
+   carries account data. A signed `USER_DATA` endpoint (e.g. account-level
+   `margin/available-inventory`) is a different class and needs separate Human
+   authorization.
+3. Each new keyed data source needs explicit Human authorization recorded in its
+   stage. This round authorizes exactly one: `restricted-asset` (v0.9 amendment).
+
+Margin conclusion: because the `sapi` margin pair lists require a key, and this
+round does NOT adopt `allPairs`/`allAssets`, `margin_public.source` is
+`"unverified"` and `public_cross_margin_pair` is `null` for every row — the cause
+is "not adopted this round", not "forbidden" (the key-use gates now permit the
+backend to use keyed MARKET_DATA sources). `MARGIN_SPOT_CANDIDATE`
+classification uses only the PUBLIC spot field `isMarginTradingAllowed` from
+`/api/v3/exchangeInfo`, which is a candidate signal only. `negative_funding_status`
+for those rows stays `PRIVATE_BORROW_VALIDATION_REQUIRED`.
 
 Funding semantics: `nextFundingTime` is the millisecond epoch of the next
 scheduled funding settlement (clear). `lastFundingRate` is the real-time
@@ -162,8 +179,9 @@ Consequences (driven entirely by the existing classifier, unchanged this stage):
   candidate route, so a bStock row resolves to `DISABLED_BSTOCK` (Binance states
   borrowing is not currently supported for bStocks) even though its candidate
   route is open;
-- the bStock collateral ratio is dynamic/unknown in Phase 1; no ratio is
-  hard-coded and `margin_public.source` stays `"unverified"`.
+- the bStock collateral ratio is dynamic/unknown; no ratio is hard-coded and
+  `margin_public.source` stays `"unverified"` (cause: not adopted this round, not
+  forbidden — see the key-use gates above).
 
 The actual spot leg symbol and machine-visible match source are exposed as
 `spot.symbol` and `spot.match_type` (see Enums).
@@ -1037,3 +1055,84 @@ subtraction or 2dp formatting.
 Both unified and spot balance cards show a net-value line; spot net equals
 `value_usdt`. Backend balance arrays are ordered by `abs(net)` DESC (see Balance
 array display order above) so heavily long or short-net rows surface first.
+
+## Collateral Cap Amendment (v0.9, stage `2026-08-02-spot-order-routing-cap-display-v1`)
+
+Frozen 2026-08-03. Wire `schema_version` stays `public-market-snapshot/v1`; every
+change is **additive** (the v0.1–v0.8 normalized samples still validate). Adds a
+per-row `collateral_cap` block from the platform `restricted-asset` list
+(`maxCollateralExceededAsset`) so the workstation can show, before a task is
+created, that an asset's platform collateral cap is full and its positive-funding
+BUY will route through the standard spot account instead of PAPI cross margin.
+Authority order: the interface convention
+`reports/agent-runs/2026-08-02-spot-order-routing-cap-display-v1/implementation-interface-v0.9.md`
+> this section.
+
+### Key-use gates (replace the retired "Phase 1 forbids keys")
+
+This round adopts one keyed `MARKET_DATA` source: `GET /sapi/v1/margin/restricted-
+asset` (API-key only, unsigned, platform-level, no account binding, weight 1).
+The retired blanket "Phase 1 forbids keys" is replaced by the three gates in
+Verified Findings above (backend-only; default `MARKET_DATA` class; per-source
+Human authorization). The browser still never calls Binance directly.
+
+### New row field `collateral_cap`
+
+Optional property on each row (not in `required`; `additionalProperties` stays
+`false`). The producer ALWAYS emits the key (value may carry nulls); historical
+samples without the key remain schema-valid because the property is optional.
+
+```json
+"collateral_cap": { "exceeded": true, "asset": "TSLAB", "checked_at": "2026-08-03T04:15:22Z" }
+```
+
+| field | type | semantics |
+| --- | --- | --- |
+| `exceeded` | `true \| false \| null` | `true` = the resolved spot base asset is on `maxCollateralExceededAsset`; `false` = read succeeded and not on it; `null` = read failed (unknown) OR the row has no tradable spot leg (see `asset`) |
+| `asset` | `string \| null` | the resolved SPOT base asset used for the match (bStock = the B-suffix pair's base, e.g. `TSLAB`, never the contract `TSLA`); `null` only when the row has no tradable spot leg |
+| `checked_at` | `string \| null` | the platform read's UTC completion moment (`YYYY-MM-DDTHH:MM:SSZ`), shared by EVERY row in a snapshot; `null` when the read failed |
+
+### Three-state truth table (no fifth combination is emitted)
+
+| # | exceeded | asset | checked_at | ui_flags | meaning |
+| --- | --- | --- | --- | --- | --- |
+| 1 | `true` | non-null | non-null | `COLLATERAL_CAP_EXCEEDED` | asset on the cap list |
+| 2 | `false` | non-null | non-null | (no cap flag) | read ok, not on the list |
+| 3 | `null` | non-null | `null` | `COLLATERAL_CAP_UNKNOWN` | read failed (network / rate limit / auth / no key / offline) |
+| 4 | `null` | `null` | = global | (no cap flag) | no tradable spot leg — not applicable |
+
+Frontend fail-closed: any out-of-table combination renders as unknown, never as
+"not full". "Not full" (state 2) means only "no cap-full observed this read"; it
+does NOT assert PAPI margin-buy will succeed or that `51169` cannot occur.
+
+### `ui_flags` (two new values, derived from the block)
+
+| flag | when emitted |
+| --- | --- |
+| `COLLATERAL_CAP_EXCEEDED` | state 1 (asset non-null and on the list) |
+| `COLLATERAL_CAP_UNKNOWN` | state 3 (asset non-null and read unknown) |
+
+No `..._NOT_EXCEEDED` / `..._NOT_APPLICABLE` flag is added: the block is the
+authority; the same fact in two places would drift. Flags are appended after the
+existing ones; the frontend MUST test with `includes()`, never by index.
+
+### Hard rules
+
+- **Display-only.** `collateral_cap` never drives routing, sorting, filtering,
+  open/borrow gating, or button state. The positive-funding route decision reads
+  the list FRESH in the order preflight (a separate call, never this cache).
+- **Single match rule.** The match input is the resolved SPOT base asset from
+  `resolve_spot_leg` (the same pure function the preflight path uses); exact
+  membership, no normalization, no case-folding, no multiplier-prefix stripping.
+- **No direction filter.** A hit highlights on BOTH positive- and negative-funding
+  rows (decision §E-3); direction only affects the order route, not the display.
+- **Failure is unknown.** Any refresh failure emits state 3 and clears
+  `checked_at`, even if a last-good value is retained internally for the next
+  retry — last-good is NEVER projected to the page (decision §E-4). Offline mode
+  or a missing/invalid hedge API key leaves the whole column unknown.
+- **Cache isolation.** The display cache NEVER feeds the order preflight, and the
+  preflight's fresh read NEVER back-fills the display cache (decision §B-3-1 /
+  §6.4). Crossing them would route a just-capped asset through PAPI → contract
+  leg fills, spot leg rejected → naked short.
+- `summary` adds no count; `warnings` adds no entry; the public endpoint shapes
+  and the Start gate are unchanged; no database migration.

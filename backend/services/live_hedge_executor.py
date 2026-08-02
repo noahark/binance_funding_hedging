@@ -78,6 +78,17 @@ FILL_FIGURES_SOURCE = {
 }
 
 
+def _leg_product(leg: str, spot_route: str) -> str:
+    """The endpoint product a leg speaks (design §4). The perp leg is always UM;
+    the spot leg is ``PRODUCT_SPOT`` on a ``regular_spot`` route (``/api/v3/order``
+    on api.binance.com) and ``PRODUCT_MARGIN`` on the PAPI margin route. The
+    product drives per-leg business-code classification so a regular-spot leg
+    never inherits margin's 51169 collateral-cap rule."""
+    if leg == "perp":
+        return D.PRODUCT_UM
+    return D.PRODUCT_SPOT if spot_route == D.SPOT_ROUTE_REGULAR_SPOT else D.PRODUCT_MARGIN
+
+
 def _quote_decimal(raw) -> Optional[str]:
     """Coerce one fill-figure field to a decimal string, or ``None`` when the
     response did not carry it (T1 §1(d): ``None`` = unknown, never a coerced 0)."""
@@ -324,9 +335,21 @@ def _empty_dispatch(
     )
 
 
-def classify_leg_response(response: HedgeHttpResponse, leg: str) -> LegDispatch:
+def classify_leg_response(
+    response: HedgeHttpResponse, leg: str, product: Optional[str] = None
+) -> LegDispatch:
     """Map one leg's POST response to a dispatch verdict (recon §3.3 + amendment
-    §Error handling)."""
+    §Error handling).
+
+    ``product`` is the leg's endpoint product (:data:`domain.PRODUCT_MARGIN`,
+    :data:`domain.PRODUCT_UM`, or :data:`domain.PRODUCT_SPOT` for a regular-spot
+    leg); the live executor always passes it explicitly (a regular-spot leg gets
+    ``PRODUCT_SPOT`` so the per-product business-code layer keeps it OFF the
+    margin 51169 collateral-cap rule — design §4, ``/api/v3/order`` cannot return
+    that PAPI margin code). When omitted, the legacy PAPI inference
+    (spot→margin, perp→um) applies for direct callers."""
+    if product is None:
+        product = D.PRODUCT_MARGIN if leg == "spot" else D.PRODUCT_UM
     # T3 (10-design §3): capture every POST interaction's sanitized response —
     # including transport failures, rate limits, 5xx and rejections — so the next
     # 51169 is explainable from the DB alone. Built once, threaded through every
@@ -382,7 +405,6 @@ def classify_leg_response(response: HedgeHttpResponse, leg: str) -> LegDispatch:
     # distinguishable (the defect this stage fixes).
     if 400 <= status < 500:
         code = _business_code(response)
-        product = D.PRODUCT_MARGIN if leg == "spot" else D.PRODUCT_UM
         category = D.classify_exchange_code(product, code, _business_msg(response))
         if category == D.ERROR_CATEGORY_AUTH:
             return _empty_dispatch(
@@ -395,9 +417,14 @@ def classify_leg_response(response: HedgeHttpResponse, leg: str) -> LegDispatch:
     return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING, raw=raw)
 
 
-def classify_query_response(response: HedgeHttpResponse, leg: str) -> Optional[LegDispatch]:
+def classify_query_response(
+    response: HedgeHttpResponse, leg: str, product: Optional[str] = None
+) -> Optional[LegDispatch]:
     """Map a GET origClientOrderId query to a leg verdict, or ``None`` if still
-    inconclusive (keep querying — never resend).
+    inconclusive (keep querying — never resend). ``product`` selects the
+    per-product business-code layer (regular-spot legs pass ``PRODUCT_SPOT`` so
+    they never inherit margin's 51169 rule); when omitted the legacy PAPI
+    inference (spot→margin, perp→um) applies.
 
     recon §3.3: FILLED → accepted+filled; NEW/PARTIALLY_FILLED → accepted but
     still filling (non-terminal); 404/absent → never accepted (rejected).
@@ -558,25 +585,37 @@ class LiveHedgeExecutor:
         return self._client.credentials_present
 
     def _send_one_leg(
-        self, leg: str, params: dict, symbol: str, client_order_id: str
+        self, leg: str, params: dict, symbol: str, client_order_id: str,
+        spot_route: str,
     ) -> LegDispatch:
-        """POST one leg, classify, and best-effort query once if unknown."""
+        """POST one leg, classify, and best-effort query once if unknown.
+
+        ``spot_route`` selects the spot leg's endpoint + product: ``regular_spot``
+        -> ``/api/v3/order`` (api.binance.com, ``PRODUCT_SPOT``); ``papi_margin``
+        -> the PAPI margin endpoint (``PRODUCT_MARGIN``). The perp leg is always
+        UM and ignores ``spot_route``. The query path follows the SAME endpoint
+        the POST used (the leg row ``endpoint`` is the authority — design §4)."""
         if not self._client.credentials_present:
             return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING)
+        product = _leg_product(leg, spot_route)
         if leg == "spot":
-            response = self._client.post_margin_order(params, timestamp_ms=self._now_ms())
-            querier = self._client.query_margin_order
+            if spot_route == D.SPOT_ROUTE_REGULAR_SPOT:
+                response = self._client.post_spot_order(params, timestamp_ms=self._now_ms())
+                querier = self._client.query_spot_order
+            else:
+                response = self._client.post_margin_order(params, timestamp_ms=self._now_ms())
+                querier = self._client.query_margin_order
         else:
             response = self._client.post_um_order(params, timestamp_ms=self._now_ms())
             querier = self._client.query_um_order
-        verdict = classify_leg_response(response, leg)
+        verdict = classify_leg_response(response, leg, product)
         # T1 §1(b): a UM (perp) leg whose POST proved acceptance still lacks
         # authoritative fill figures — confirm them via the order-detail GET now.
         if leg != "spot" and verdict.dispatch_state == LEG_ACCEPTED:
             verdict = self._confirm_um_figures(symbol, client_order_id, verdict)
         if verdict.dispatch_state == LEG_UNKNOWN_QUERYING:
             query_response = querier(symbol, client_order_id, timestamp_ms=self._now_ms())
-            resolved = classify_query_response(query_response, leg)
+            resolved = classify_query_response(query_response, leg, product)
             if resolved is not None:
                 # R2-F2: preserve the rate-limited signal + wait from EITHER the
                 # POST/confirm or the best-effort query (a query-time 429 must
@@ -628,7 +667,7 @@ class LiveHedgeExecutor:
         query_response = self._client.query_um_order(
             symbol, client_order_id, timestamp_ms=self._now_ms(),
         )
-        confirmed = classify_query_response(query_response, "perp")
+        confirmed = classify_query_response(query_response, "perp", D.PRODUCT_UM)
         confirm_raw = _raw_response_dict(query_response)
         rate_limited = post_verdict.rate_limited or (
             confirmed.rate_limited if confirmed is not None else False
@@ -688,7 +727,15 @@ class LiveHedgeExecutor:
         send_qty = ctx.q_common if ctx.q_common is not None else ctx.single_amount
         spot_cid, perp_cid = _client_order_ids(ctx.attempt_id)
         spot_symbol = D.spot_order_symbol(ctx.coin, ctx.preflight_snapshot)
-        spot_params = build_spot_order_params(spot_symbol, actions, send_qty, spot_cid)
+        spot_route = (ctx.preflight_snapshot or {}).get(
+            "spot_route", D.SPOT_ROUTE_PAPI_MARGIN
+        )
+        if spot_route == D.SPOT_ROUTE_REGULAR_SPOT:
+            spot_params = D.build_regular_spot_order_params(
+                spot_symbol, actions, send_qty, spot_cid
+            )
+        else:
+            spot_params = build_spot_order_params(spot_symbol, actions, send_qty, spot_cid)
         perp_params = build_perp_order_params(ctx.coin, actions, send_qty, perp_cid)
         record_payload = {
             "transport": "live",
@@ -707,7 +754,7 @@ class LiveHedgeExecutor:
         def _run(leg: str, params: dict, cid: str) -> None:
             try:
                 symbol = spot_symbol if leg == "spot" else ctx.coin
-                outcomes[leg] = self._send_one_leg(leg, params, symbol, cid)
+                outcomes[leg] = self._send_one_leg(leg, params, symbol, cid, spot_route)
             except Exception as exc:  # containment: a leg send failure is queryable, not fatal
                 errors[leg] = exc
 
@@ -735,18 +782,34 @@ class LiveHedgeExecutor:
             retry_after_seconds=retry_after,
         )
 
-    def query_leg(self, leg: str, symbol: str, client_order_id: str) -> Optional[LegDispatch]:
+    def query_leg(
+        self, leg: str, symbol: str, client_order_id: str, endpoint: str,
+    ) -> Optional[LegDispatch]:
         """Reconcile pass: query one non-terminal leg by ``origClientOrderId``.
 
         Returns ``None`` when the query is itself inconclusive (keep querying);
         a definite verdict (accepted / confirmed-absent) otherwise. Never resends
         the write POST.
+
+        ``endpoint`` is the leg row's persisted endpoint (design §4: the SOLE
+        authority for which query path a leg uses — never re-derived from leg name
+        or task-level route). A spot leg whose endpoint is the regular-spot
+        ``/api/v3/order`` queries via the spot querier with ``PRODUCT_SPOT``; a
+        PAPI margin endpoint uses the margin querier; the perp leg is always UM.
         """
         if not self._client.credentials_present:
             return None
-        querier = self._client.query_margin_order if leg == "spot" else self._client.query_um_order
+        if leg == "perp":
+            querier = self._client.query_um_order
+            product = D.PRODUCT_UM
+        elif endpoint == D.REGULAR_SPOT_ORDER_PATH:
+            querier = self._client.query_spot_order
+            product = D.PRODUCT_SPOT
+        else:
+            querier = self._client.query_margin_order
+            product = D.PRODUCT_MARGIN
         response = querier(symbol, client_order_id, timestamp_ms=self._now_ms())
-        return classify_query_response(response, leg)
+        return classify_query_response(response, leg, product)
 
 
 def _error_leg(leg: str, exc: Optional[BaseException]) -> LegDispatch:

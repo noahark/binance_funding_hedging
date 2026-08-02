@@ -56,12 +56,26 @@ class _FakeClient:
         self.perp_post_symbols = []
         self.spot_query_symbols = []
         self.perp_query_symbols = []
+        # Regular-spot route (stage 2026-08-02): distinct methods so a test can
+        # prove the spot leg used /api/v3/order, not the PAPI margin endpoint.
+        self.regular_spot_post_params = []
+        self.regular_spot_post_used = False
+        self.margin_spot_post_used = False
 
     def post_margin_order(self, params, *, timestamp_ms, recv_window_ms=None):
+        self.margin_spot_post_used = True
         self.spot_post_symbols.append(params["symbol"])
         # S5 (ADR-H4): the fake client enforces the SAME offline wire rules as the
         # record transport, so a format-class defect is rejected here with a
         # Binance-style -4015 instead of an accepted fill.
+        if validate_order_params(params):
+            return _resp(400, {"code": -4015, "msg": "Illegal characters found in parameter 'newClientOrderId'."})
+        return self._spot_post
+
+    def post_spot_order(self, params, *, timestamp_ms, recv_window_ms=None):
+        self.regular_spot_post_used = True
+        self.regular_spot_post_params.append(dict(params))
+        self.spot_post_symbols.append(params["symbol"])
         if validate_order_params(params):
             return _resp(400, {"code": -4015, "msg": "Illegal characters found in parameter 'newClientOrderId'."})
         return self._spot_post
@@ -77,16 +91,23 @@ class _FakeClient:
         self.spot_query_symbols.append(symbol)
         return self._spot_query or _resp(404)
 
+    def query_spot_order(self, symbol, cid, *, timestamp_ms, recv_window_ms=None):
+        self.spot_query_count += 1
+        self.spot_query_symbols.append(symbol)
+        return self._spot_query or _resp(404)
+
     def query_um_order(self, symbol, cid, *, timestamp_ms, recv_window_ms=None):
         self.perp_query_count += 1
         self.perp_query_symbols.append(symbol)
         return self._perp_query or _resp(404)
 
 
-def _ctx(*, spot_symbol=None) -> AttemptContext:
+def _ctx(*, spot_symbol=None, spot_route=None) -> AttemptContext:
     snapshot = {"est_price": "50000"}
     if spot_symbol is not None:
         snapshot["spot_symbol"] = spot_symbol
+    if spot_route is not None:
+        snapshot["spot_route"] = spot_route
     return AttemptContext(
         attempt_id="att1", task_id="t1", coin="BTCUSDT", direction=D.DIR_FORWARD,
         single_amount=Decimal("0.5"), q_common=Decimal("0.5"),
@@ -446,18 +467,71 @@ def test_dispatch_without_credentials_fails_closed_unknown():
     assert dispatch.perp.dispatch_state == LEG_UNKNOWN_QUERYING
 
 
+# ---- regular-spot route dispatch (design §4): /api/v3/order, no sideEffectType ----
+def test_dispatch_regular_spot_uses_spot_endpoint_and_omits_side_effect_type():
+    # A regular_spot route posts the spot leg via post_spot_order (/api/v3/order),
+    # NOT post_margin_order (PAPI), and the spot params carry NO sideEffectType.
+    # The perp leg still posts via post_um_order (PAPI UM unchanged).
+    client = _FakeClient()
+    dispatch = _exe(client).dispatch(_ctx(spot_route=D.SPOT_ROUTE_REGULAR_SPOT))
+    assert dispatch.spot.dispatch_state == LEG_ACCEPTED
+    assert client.regular_spot_post_used is True
+    assert client.margin_spot_post_used is False
+    spot_params = client.regular_spot_post_params[0]
+    assert "sideEffectType" not in spot_params  # the regular-spot shape omits it
+    # The perp leg is unchanged (PAPI UM).
+    assert client.perp_post_symbols == ["BTCUSDT"]
+    # The endpoint follows the route on the record payload's preflight snapshot.
+    assert dispatch.record_payload["preflight_snapshot"]["spot_route"] == D.SPOT_ROUTE_REGULAR_SPOT
+
+
+def test_dispatch_papi_margin_spot_keeps_side_effect_type():
+    # The default PAPI margin route keeps sideEffectType=NO_SIDE_EFFECT (unchanged).
+    client = _FakeClient()
+    _exe(client).dispatch(_ctx(spot_route=D.SPOT_ROUTE_PAPI_MARGIN))
+    assert client.margin_spot_post_used is True
+    assert client.regular_spot_post_used is False
+
+
+def test_build_regular_spot_order_params_has_no_side_effect_type():
+    # The param builder for /api/v3/order omits sideEffectType entirely; the PAPI
+    # margin builder keeps it. The two shapes are deliberately distinct (design §4).
+    from backend.hedge_open_tasks.executor import build_spot_order_params
+    actions = D.direction_to_leg_actions(D.DIR_FORWARD, D.POS_MODE_BOTH)
+    regular = D.build_regular_spot_order_params("LINKUSDT", actions, Decimal("0.5"), "cid")
+    margin = build_spot_order_params("LINKUSDT", actions, Decimal("0.5"), "cid")
+    assert "sideEffectType" not in regular
+    assert margin["sideEffectType"] == D.SIDE_EFFECT_NO_SIDE_EFFECT
+    # Both still carry the wire-approved MARKET order keys.
+    assert regular["type"] == D.ORDER_TYPE_MARKET
+    assert regular["symbol"] == "LINKUSDT"
+
+
+def test_classify_regular_spot_51169_is_unclassified_not_collateral_cap():
+    # A regular-spot leg (PRODUCT_SPOT) returning 51169 is UNCLASSIFIED — it must
+    # not inherit the margin collateral_cap pause (51169 is a PAPI margin code that
+    # /api/v3/order cannot return). PAPI margin keeps collateral_cap.
+    cap_body = _resp(400, {"code": 51169, "msg": "MARGIN_TRADE_COEFF_INSUFFICIENT"})
+    assert classify_leg_response(cap_body, "spot", D.PRODUCT_SPOT).error_category == D.ERROR_CATEGORY_UNCLASSIFIED
+    assert classify_leg_response(cap_body, "spot", D.PRODUCT_MARGIN).error_category == D.ERROR_CATEGORY_COLLATERAL_CAP
+
+
 # ---- reconcile pass: query_leg (never a resend) ----
 def test_query_leg_returns_verdict_for_non_terminal_leg():
     client = _FakeClient(spot_query=_resp(200, {"orderId": 11, "status": "FILLED"}))
     exe = _exe(client)
-    verdict = exe.query_leg("spot", "BTCUSDT", "hgo-att1-s")
+    # endpoint is the leg-row authority: PAPI margin path here (a regular-spot
+    # leg would pass /api/v3/order and route to the spot querier + PRODUCT_SPOT).
+    verdict = exe.query_leg("spot", "BTCUSDT", "hgo-att1-s", "/papi/v1/margin/order")
     assert verdict is not None
     assert verdict.dispatch_state == LEG_ACCEPTED
 
 
 def test_query_leg_without_credentials_is_inconclusive():
     client = _FakeClient(creds=False)
-    assert _exe(client).query_leg("spot", "BTCUSDT", "hgo-att1-s") is None
+    assert _exe(client).query_leg(
+        "spot", "BTCUSDT", "hgo-att1-s", "/papi/v1/margin/order"
+    ) is None
 
 
 # ---- outcome + terminal helpers ----

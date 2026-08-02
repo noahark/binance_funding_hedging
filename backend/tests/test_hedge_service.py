@@ -48,7 +48,7 @@ class _StubPreflight(PreflightProvider):
     def __init__(self, snapshot):
         self._snapshot = snapshot
 
-    def get_snapshot(self, coin):
+    def get_snapshot(self, coin, direction):
         return self._snapshot
 
 
@@ -181,7 +181,7 @@ class _ProbePreflight:
     def __init__(self, legs):
         self._legs = legs
 
-    def get_snapshot(self, coin):
+    def get_snapshot(self, coin, direction):
         return None  # dry-run path; compute_preflight tolerates a None snapshot
 
     def check_symbol_legs(self, coin):
@@ -478,6 +478,7 @@ def test_get_logs_attempts_includes_prepared_querying_attempt(tmp_path):
     svc.store.prepare_attempt(
         doc["id"], "uuid-q", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
         {"est_price": "1"}, "hgo-uuid-q-s", {"side": "BUY"},
+        D.SPOT_ORDER_PATH,
         "hgo-uuid-q-p", {"side": "SELL"}, 1000,
     )
     status, page = svc.get_logs(None, None)
