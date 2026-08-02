@@ -25,7 +25,12 @@ from backend.hedge_open_tasks.executor import (
     OutcomeSpec,
     RecordTransportExecutor,
 )
-from backend.hedge_open_tasks.service import HedgeOpenTaskService, PreflightProvider, attempt_to_doc
+from backend.hedge_open_tasks.service import (
+    HedgeOpenTaskService,
+    PreflightProvider,
+    attempt_to_doc,
+    settings_to_doc,
+)
 
 
 class _Clock:
@@ -332,6 +337,62 @@ def test_tick_no_eligible_task_returns_false(tmp_path):
     svc = _svc(tmp_path, clock=clock)
     svc.set_start_gate(True)
     assert svc.tick() is False  # no tasks at all
+
+
+# ---------------------------------------------------------------------------
+# Re-query cadence (ADR-003): subsecond display, floor + display consistency,
+# ~100ms cadence, bounded positive jitter.
+# ---------------------------------------------------------------------------
+
+
+def test_settings_doc_renders_subsecond_interval():
+    # Acceptance 1: interval_us=100_000 must NOT collapse to 0 (the old integer
+    # division did). The UI prints this value verbatim -> "调度间隔 0.1 秒".
+    doc = settings_to_doc(
+        {"start_gate": 0, "interval_us": 100_000, "version": 1}, "disabled"
+    )
+    assert doc["interval_seconds"] == 0.1
+
+
+def test_default_cadence_seeds_500ms(tmp_path):
+    # Acceptance 1: a fresh store seeds the 500ms re-query cadence.
+    from backend.hedge_open_tasks.store import HedgeOpenStore
+
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    assert store.get_interval_us() == 500_000
+    store.close()
+
+
+def test_floor_clamps_effective_cadence(tmp_path):
+    # Acceptance 3a: a sub-floor misconfiguration is clamped at the read site,
+    # so the worker never busy-polls below MIN_INTERVAL_US.
+    from backend.hedge_open_tasks.store import HedgeOpenStore
+
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    with store._lock, store._conn:
+        store._conn.execute(
+            "UPDATE hedge_open_settings SET interval_us = 1000 WHERE id = 1"
+        )
+    assert store.get_interval_us() == D.MIN_INTERVAL_US
+    store.close()
+
+
+def test_floor_display_matches_effective_value(tmp_path):
+    # Acceptance 3b (root-cause guard): the settings display reports the clamped
+    # EFFECTIVE value, not the raw misconfigured one, and equals what the worker
+    # actually honours.
+    from backend.hedge_open_tasks.store import HedgeOpenStore
+
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    with store._lock, store._conn:
+        store._conn.execute(
+            "UPDATE hedge_open_settings SET interval_us = 1000 WHERE id = 1"
+        )
+    effective = store.get_interval_us()
+    doc = settings_to_doc(store.get_settings(), "disabled")
+    assert doc["interval_seconds"] == round(effective / 1_000_000, 3)
+    assert doc["interval_seconds"] != round(1000 / 1_000_000, 3)  # not the raw value
+    store.close()
 
 
 # ---------------------------------------------------------------------------

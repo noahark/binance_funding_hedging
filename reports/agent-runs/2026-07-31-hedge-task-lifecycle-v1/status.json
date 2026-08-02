@@ -1,26 +1,28 @@
 {
   "schema_version": "2",
-  "revision": 20,
+  "revision": 38,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "awaiting_release_gate",
-  "checkpoint": "task1_both_reviews_accept_awaiting_human_smoke_check_and_merge_decision",
-  "base_sha": "c1cc10e8fb491f83fe4c09f565b34e06c2de0a50",
-  "delivery_sha": "ef53a025114933e8c472d9ae89f8ebfb35d19513",
-  "ledger_sha": "ef53a025114933e8c472d9ae89f8ebfb35d19513",
+  "phase": "docs_synced_ready_to_merge",
+  "checkpoint": "human_authorised_merge_three_gate_items_recorded_baseline_snapshot_taken",
+  "base_sha": "9faa716396cbbe67ebeec272ad6b3dd443bba583",
+  "delivery_sha": "d2ac353caf22a68c6ff59a45167280365ace5a95",
+  "ledger_sha": "f703c95bde1bbc22bfb05a959d83b57b17b72552",
   "current_task": {
-    "id": "review-2-codex-task1-r2",
+    "id": "review-2-fable5-task3",
     "state": "verified",
-    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/review-2-codex-task1-r2.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/review-2-fable5-task3.dispatch.md"
   },
   "next": {
-    "actor": "human_operator",
-    "action": "run-preflight-smoke-then-decide-merge"
+    "actor": "bookkeeper",
+    "action": "merge-d2ac353-to-main-and-push"
   },
   "rework_count": 2,
   "blockers": [
-    "合并前置：须 Human 授权并完成 ef53a02 的完整只读真机冒烟检查，清单见 49-preflight-smoke-checklist.md（44- 只覆盖了 6d6aa7b 与正常账户读，不等同于本次发布检查）。",
-    "Task 2 须一并修 F4（账户读不到时不得输出 no_um），要求见 46- §3.3；未修则合并 main 前须重新交 Human 裁定。",
-    "交付随附四条用户须知（48- §4）：均价为已知金额子集口径、F4 辨别法、限制 A/B 仍在、match_status 为新键须前后端同发。"
+    "**三项合并前事项已按 Human 授权合并处置**（记录而非逐一裁定，Human 2026-08-02「有问题记录下来，然后…合并推送」）：① F4 **维持接受**，理由与 review-2 的交互放大发现一并写入 PROJECT_STATE，并附操作规则「账户未就绪 banner 在屏时不采信持仓表」；② BK-T3-002 **closed-out**，已建基线快照 data/…bak-premerge-20260802-161143（interval_us=500000 version=4）+ 立「开发运行不触达 data/ 真实路径」规则 + 归因终点显式关闭；③ **49- 升格为下次实盘启用硬前置**（不挡合并）。",
+    "六条后续项已迁入 PROJECT_STATE：前端卡片 1/7 中文（d873699）、exposure_alert 死枚举（d90f2f1）、已删任务 OSU 事件措辞、并发上限 ≤5、49- 升格、F4 单独排期。",
+    "PROJECT_STATE 已精简回 8KB 预算内（曾达 13KB）；scheduler「唤醒率五倍」follow-up 经核实为虚惊已删除（500ms 切片 0.25s 与 1s 同值）；Task 1「not pushed」过时记录已更正为已推送。",
+    "Task 2 仍为「设计存疑，暂缓」；重启前必读 36-。",
+    "rework_count 2/3；review-1 三轮 + review-2 均 ACCEPT，无 in-range 阻塞缺陷。"
   ]
 }

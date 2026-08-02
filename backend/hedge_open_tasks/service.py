@@ -194,11 +194,20 @@ def fill_to_doc(fill: dict) -> dict:
     }
 
 
+def _interval_seconds_doc(interval_us) -> float:
+    """The cadence the UI prints, in seconds (ADR-003). Sub-second aware: the
+    raw microsecond value is clamped to the same floor the worker honours, then
+    divided — so a 100ms cadence renders as 0.1 (not the 0 the old integer
+    division produced) and a sub-floor misconfiguration reports the effective
+    value, never the misconfigured one."""
+    return round(max(int(interval_us), D.MIN_INTERVAL_US) / 1_000_000, 3)
+
+
 def settings_to_doc(settings: dict, executor_mode: str) -> dict:
     return {
         "executor_mode": executor_mode,
         "start_gate": bool(settings["start_gate"]),
-        "interval_seconds": int(settings["interval_us"]) // 1_000_000,
+        "interval_seconds": _interval_seconds_doc(settings["interval_us"]),
         # Additive (S3 / ADR-H2): the settings row's version — the CAS input a
         # concurrency-safe start-gate write must echo back. Existing field names
         # and semantics are unchanged.
@@ -480,6 +489,16 @@ class HedgeOpenTaskService:
         # new column/status — it is the next-round retry R3 sanctions (a process
         # restart loses it, same crash window the system already has).
         self._rate_limit_stamp_pending: set[int] = set()
+        # fix-review1-retry-counter (F1): per-leg in-process order-detail query
+        # retry count (``hedge_open_leg.id`` -> attempts so far). The worker asks
+        # each non-terminal leg up to ``D.LEG_QUERY_MAX_RETRIES`` times, then the
+        # LAST response decides (404 / -2013 -> absent terminal; still inconclusive
+        # -> manual recovery). Process-local like the legacy JS loop: a restart
+        # resets it to zero and the budget is counted afresh (expected, not a
+        # defect). A leg reaching terminal state or a worker exit clears its entry
+        # so the dict cannot grow without bound. Each leg belongs to one task's
+        # one worker, so individual dict ops need no extra lock.
+        self._leg_query_retries: dict[int, int] = {}
         self._scheduler = HedgeOpenScheduler(
             self.tick, self._store.get_interval_us, self._mono_us
         )
@@ -912,10 +931,19 @@ class HedgeOpenTaskService:
             payload = raw
         payload = payload if isinstance(payload, dict) else {}
         kind = ev["kind"]
-        overall = {"task_stopped": "task_stopped", "threshold_paused": "task_paused"}.get(kind)
+        overall = {
+            "task_stopped": "task_stopped",
+            "threshold_paused": "task_paused",
+            # F3: task-local pauses (insufficient funds, collateral cap, and the
+            # order_state_unknown manual-verification closure) all record the
+            # ``task_paused`` kind; the entries timeline must render them as a
+            # pause with next_action=paused (previously this kind fell through to
+            # the wait branch with overall_result=None).
+            "task_paused": "task_paused",
+        }.get(kind)
         if kind == "task_stopped":
             next_action, error_category = "stopped", "fatal"
-        elif kind == "threshold_paused":
+        elif kind in ("threshold_paused", "task_paused"):
             next_action, error_category = "paused", None
         else:  # rate_limited / preflight_incomplete: a wait, not an attempt outcome
             next_action, error_category = "waiting_query", None
@@ -1102,6 +1130,10 @@ class HedgeOpenTaskService:
                     interval_s = (self._store.get_interval_us() or 1) / 1_000_000
                     ev = self._stop_events.get(task_id)
                     if ev is not None:
+                        # Deterministic pacing wait (cadence-500ms task): the
+                        # prior [0.75, 1.0] jitter is removed — it was never
+                        # requested and it cut the first-query safety margin by
+                        # up to 25% while doing nothing for the rate limit.
                         ev.wait(interval_s)
         except Exception:
             # Last-resort containment: a worker error must not leak; the task's
@@ -1115,6 +1147,25 @@ class HedgeOpenTaskService:
             with self._workers_lock:
                 if self._workers.get(task_id) is threading.current_thread():
                     self._workers.pop(task_id, None)
+            # F1: worker exit clears this task's per-leg retry counters — a leg
+            # left non-terminal (e.g. the manual-recovery pause) must not keep its
+            # old count, and a paused/done/deleted card re-drained on recovery
+            # starts a fresh budget (never resends). Best-effort: a store read
+            # failure here must not mask the exit.
+            self._clear_task_leg_retries(task_id)
+
+    def _clear_task_leg_retries(self, task_id: str) -> None:
+        """F1: drop every per-leg query-retry counter of one task. Called when a
+        leg reaches terminal state (in :meth:`_reconcile_own_legs`) and when the
+        task's worker exits (:meth:`_run_task_worker` finally) so the in-process
+        dict cannot grow without bound. Best-effort: the store reads are for
+        enumerating the task's legs only and must never mask a worker exit."""
+        try:
+            for attempt in self._store.list_attempts_for_task(task_id):
+                for leg in self._store.list_legs_for_attempt(attempt["id"]):
+                    self._leg_query_retries.pop(leg["id"], None)
+        except Exception:
+            pass
 
     def _pump_worker(self, task_id: str, max_rounds: int = 64) -> int:
         """TEST SEAM (amendment 21): synchronously run the task-local worker loop
@@ -1181,6 +1232,19 @@ class HedgeOpenTaskService:
             # loop back into the throttle. The operator resumes manually; a drain-
             # only worker on recovery re-queries the saved client IDs.
             return True
+        if drain_signal == D.SIGNAL_ORDER_STATE_UNKNOWN:
+            # Retry-counter task (F1): a leg whose queries stayed inconclusive
+            # (5xx / timeout / malformed 2xx / verdict None) for the whole
+            # LEG_QUERY_MAX_RETRIES budget. NOT a confirmed-absent signal (R2-F2),
+            # so it is NOT terminalized — it is left non-terminal (never resent)
+            # and THIS task pauses for manual verification, then the worker exits.
+            # The operator checks the order on the exchange and manually resumes;
+            # recovery re-queries by client ID only. F2: the pause is applied only
+            # to running/paused tasks — deleted/done/stopped keep their sticky
+            # status (the event is still recorded, visible on the entries
+            # timeline, and the legs stay non-terminal for manual verification).
+            self._signal_order_state_unknown_recovery(task, drain_signal, now_us)
+            return True
         if drain_signal in D.SIGNAL_TASK_LOCAL_PAUSE:
             self._pause_from_signal(task, drain_signal, now_us)
             return False
@@ -1214,9 +1278,16 @@ class HedgeOpenTaskService:
         """Query ONLY this task's non-terminal legs by client order ID to
         terminal, then settle the pair once (amendment 21: no global scan). The
         executor is called with no store lock held. Returns a drain signal when a
-        leg surfaces a 429 (rate_limited) or a confirmed insufficient-funds fact;
-        None otherwise. A query that stays inconclusive leaves the leg
-        non-terminal (keep querying, never resend — ADR-2)."""
+        leg surfaces a 429 (rate_limited), a confirmed insufficient-funds fact,
+        or — after the whole LEG_QUERY_MAX_RETRIES retry budget — an order whose
+        state stayed inconclusive; None otherwise. Within that budget a 404 /
+        -2013 is eventual-consistency noise (mirrors ``_confirm_um_figures``) and
+        an inconclusive response is genuinely unknown, so the leg stays
+        non-terminal and is re-queried; only at the budget cap does a 404 / -2013
+        confirm absent, while a still-inconclusive leg escalates to manual
+        recovery (never resent, never equated with absent — ADR-2 / R2-F2). The
+        budget is per-leg, in-process, and needs no ``dispatched_at_us`` anchor,
+        so legacy rows and crash gaps without one behave identically (F1)."""
         if not hasattr(self._executor, "query_leg"):
             self._recover_crash_gaps(task_id, now_us)
             return None
@@ -1227,8 +1298,25 @@ class HedgeOpenTaskService:
             verdict = self._executor.query_leg(
                 leg["leg"], _leg_query_symbol(leg, task), leg["client_order_id"]
             )
+            # Retry counter (fix-review1-retry-counter): each query counts once
+            # per leg (in-process; a restart resets it, matching the legacy JS
+            # getSpotOrderInfo(id, 10) loop). Below LEG_QUERY_MAX_RETRIES a 404 /
+            # -2013 or an inconclusive response stays non-terminal and is
+            # re-queried; at the cap the LAST response decides — absent terminal
+            # for a 404 / -2013, manual recovery for still-inconclusive. No
+            # dispatched_at_us anchor is needed, so legacy rows and crash gaps
+            # behave identically (F1 root cause removed).
+            retries = self._leg_query_retries.get(leg["id"], 0) + 1
+            self._leg_query_retries[leg["id"]] = retries
+            retries_exhausted = retries >= D.LEG_QUERY_MAX_RETRIES
             if verdict is None:
-                continue  # inconclusive — keep querying
+                # Inconclusive (transport error / 5xx / ambiguous 4xx): keep
+                # querying below the cap; at the cap this is NOT an absent signal
+                # (R2-F2) — escalate to manual recovery instead of polling on
+                # indefinitely.
+                if retries_exhausted and drain_signal is None:
+                    drain_signal = D.SIGNAL_ORDER_STATE_UNKNOWN
+                continue
             if getattr(verdict, "rate_limited", False):
                 # R2-F2 (user authorization 28 §2.2): a query-phase 429/-1003/418.
                 # Leave the leg EXACTLY as it is (non-terminal; the write POST is
@@ -1250,6 +1338,14 @@ class HedgeOpenTaskService:
                     drain_signal = D.SIGNAL_RATE_LIMITED
                 continue
             terminal = self._query_verdict_terminal(verdict)
+            # Retry budget: a 404 / -2013 below the cap is eventual-consistency
+            # noise, NOT a confirmed-absent signal (mirrors _confirm_um_figures).
+            # Keep it non-terminal and re-query; only at the cap is a 404 / -2013
+            # a confirmed absent terminal (the prior behaviour, deferred up to
+            # the budget).
+            if (terminal and not retries_exhausted
+                    and getattr(verdict, "error_category", None) == D.ERROR_CATEGORY_ABSENT):
+                terminal = False
             try:
                 self._store.resolve_leg_from_query(
                     leg["id"],
@@ -1295,8 +1391,19 @@ class HedgeOpenTaskService:
                 drain_signal = D.SIGNAL_COLLATERAL_CAP
             elif getattr(verdict, "error_category", None) == D.ERROR_CATEGORY_INSUFFICIENT_FUNDS:
                 drain_signal = D.SIGNAL_INSUFFICIENT_BALANCE
+            elif (not terminal and retries_exhausted
+                    and verdict.dispatch_state == D.LEG_UNKNOWN_QUERYING
+                    and drain_signal is None):
+                # Inconclusive (5xx / timeout / malformed 2xx) at the retry cap:
+                # NOT a confirmed-absent signal (R2-F2 — never equate "unknown"
+                # with "absent"). Escalate to manual recovery instead of polling
+                # on; the leg was left non-terminal above.
+                drain_signal = D.SIGNAL_ORDER_STATE_UNKNOWN
             if terminal:
                 finalized.add(leg["attempt_id"])
+                # F1: a terminal leg no longer needs its retry counter — clear it
+                # so the in-process dict cannot grow without bound.
+                self._leg_query_retries.pop(leg["id"], None)
         # Review-1 r3 P1-1: "this pair does not count as a failure" is decided by
         # the ATTEMPT's own rate-limited fact (stamped at the 429 dispatch), NOT by
         # the task-level pause_reason — which a manual resume has already cleared.
@@ -1476,9 +1583,19 @@ class HedgeOpenTaskService:
         no consecutive-failure churn. A 429 uses the ``rate_limited`` kind; an
         insufficient-funds fact or a collateral-cap rejection uses ``task_paused``.
         ``pause_zh`` overrides the table lookup (used by collateral_cap, whose
-        frozen message carries the blocked asset). Idempotent on status."""
+        frozen message carries the blocked asset). Idempotent on status.
+
+        fix-runtime-seam-scan (F2-P1 root fix): the store applies the pause as a
+        CONDITIONAL write (current status running/paused only). When the
+        condition misses — e.g. a concurrent post_delete landed while the worker
+        was inside a no-lock executor query — NO status is rewritten, the audit
+        event is STILL recorded (the closure stays visible on the entries
+        timeline), and the caller's stale snapshot is not refreshed (the next
+        worker round re-reads authoritative state)."""
         reason_zh = pause_zh or D.pause_reason_zh(pause_reason)
-        updated = self._store.pause_task(task["id"], pause_reason, reason_zh, now_us)
+        updated, applied = self._store.pause_task(
+            task["id"], pause_reason, reason_zh, now_us,
+        )
         payload = {
             "reason": pause_reason,
             "reason_zh": reason_zh,
@@ -1488,8 +1605,38 @@ class HedgeOpenTaskService:
         if pause_signal is not None:
             payload["signal"] = pause_signal
         self._store.record_task_event(task["id"], kind, payload, now_us)
-        if updated is not None:
+        if applied and updated is not None:
             task.update(updated)
+
+    def _signal_order_state_unknown_recovery(
+        self, task: dict, drain_signal: str, now_us: int,
+    ) -> None:
+        """F2+F3: apply the order_state_unknown manual-verification closure.
+
+        running/paused tasks are paused (existing task-local pause semantics)
+        with a ``task_paused`` event so the closure lands on the additive
+        entries timeline as ``overall_result=task_paused`` /
+        ``next_action=paused`` with the Chinese reason (F3). deleted/done/stopped
+        tasks are sticky: their status is NOT rewritten to paused (F2); the same
+        visible manual-verification event is recorded and the legs stay
+        non-terminal for manual verification (never resent)."""
+        if task["status"] in (D.STATUS_RUNNING, D.STATUS_PAUSED):
+            self._pause_task_local(
+                task, D.PAUSE_REASON_ORDER_STATE_UNKNOWN, drain_signal, now_us,
+            )
+            return
+        self._store.record_task_event(
+            task["id"],
+            "task_paused",
+            {
+                "reason": D.PAUSE_REASON_ORDER_STATE_UNKNOWN,
+                "reason_zh": D.pause_reason_zh(D.PAUSE_REASON_ORDER_STATE_UNKNOWN),
+                "coin": task["coin"],
+                "direction": task["direction"],
+                "signal": drain_signal,
+            },
+            now_us,
+        )
 
     def _pause_from_signal(
         self, task: dict, signal: str, now_us: int, *, kind: str = "task_paused",
@@ -1926,11 +2073,18 @@ class HedgeOpenTaskService:
             # Both legs terminal with a confirmed pause-class fact (insufficient
             # funds or a collateral-cap rejection): settle the pair once (clearing
             # the in-flight guard); the worker pauses THIS task only.
+            # fix-runtime-seam-scan: ``suppress_done`` — a terminal pause-class
+            # settlement must NOT auto-promote the task to done past the pause
+            # the worker applies right after (the conditional pause write would
+            # then miss and the amendment-21 "insufficient -> pause THIS task,
+            # no threshold wait" contract would silently degrade to done).
             outcome = self._dispatch_to_outcome(
                 attempt["attempt_uuid"], spot, perp, dispatch.record_payload, now_us
             )
             try:
-                self._store.resolve_attempt(attempt["id"], outcome, now_us)
+                self._store.resolve_attempt(
+                    attempt["id"], outcome, now_us, suppress_done=True,
+                )
             except Exception as exc:
                 # S3 (task1d): orders already sent and both legs terminal; a
                 # discarded resolve_attempt leaves pair_outcome NULL and the
