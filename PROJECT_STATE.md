@@ -14,30 +14,22 @@ check.
   `HIGH_RISK` by §8, passed **no review of any kind**; merged on explicit Human
   authorisation. Ordinary symbols unaffected and no bStock task exists today —
   **the first bStock task created will exercise unreviewed live order behaviour.**
-- `[OPEN][DECISION-CONFLICT]` **The Task 3 interval backfill violates
-  DEC-2026-07-30-003, and that is the real root of BK-T3-002.** `store.py:531`
-  runs `UPDATE hedge_open_settings SET interval_us…` **unconditionally inside
-  `_migrate`** — outside the `if repair_legacy_exposure_ts:` guard (`:472`) that
-  DEC-2026-07-30-003 established precisely so that "a default construction never
-  rewrites a row (the 2026-07-28 silent-rewrite incident)". So **BK-T3-002 was not
-  a stray run that happened to point at the real path — any construction against
-  the real DB rewrites it by design.** Same defect class as 2026-07-28, three days
-  after the decision meant to prevent it. Missed by the packet (which never
-  checked the decision log), by three review-1 rounds, by review-2 and by the
-  Bookkeeper; found while writing the decision entry, after merge. **Currently
-  dormant**: the live DB already reads `500000`, so the `WHERE interval_us =
-  1_000_000` no longer matches. **Human decides**: make it opt-in like M2 (live DB
-  is already migrated, so nothing is lost), or record an explicit exception.
-- `[CLOSED-OUT][VERIFIED-INCIDENT]` **BK-T3-002 — the live task DB was written
-  during development** (2026-08-01 23:45:48). It **changed the cadence of a
-  running live service**, not data at rest (the worker re-reads
-  `get_interval_us()` inside its loop); the value written was correct and no
-  task/attempt/leg/order data was touched. Root cause: the entry above (the
-  earlier "attribution stops at some run pointed at the real path" is superseded).
-  **Two rules adopted at the 2026-08-02 merge:** ① verify `interval_us=500000
-  version=4` against baseline snapshot `data/…bak-premerge-20260802-161143`
-  **before each service start**; ② **development and verification runs never touch
-  the real `data/` path.** Evidence: stage `27-` §3 and `39-` §1.2.
+- `[CLOSED][VERIFIED-INCIDENT]` **BK-T3-002 — the live task DB was written during
+  development** (2026-08-01 23:45:48), changing **the cadence of a running live
+  service** rather than data at rest. Value written was correct; no
+  task/attempt/leg/order data touched. **Root cause, found after merge**: the
+  Task 3 interval backfill rewrote a row **unconditionally on every store
+  construction**, outside the opt-in guard DEC-2026-07-30-003 had added three days
+  earlier for exactly this. It was never a stray run — any construction against
+  the real DB rewrote it by design. Missed by the packet (never checked the
+  decision log), three review-1 rounds, review-2 and the Bookkeeper.
+  **Fixed 2026-08-02 (`9c6b3b2`, DEC-2026-08-02-002)**: the cadence now comes from
+  the code constant, the migration is deleted, and a byte-level regression asserts
+  that constructing a store never writes — the test that would have caught this.
+  **Two operating rules stand:** ① verify `interval_us=500000 version=4` against
+  snapshot `data/…bak-premerge-20260802-161143` before each service start;
+  ② **development and verification runs never touch the real `data/` path.**
+  Evidence: archive `27-` §3, `39-` §1.2.
 
 ## Merged Position Table — Accepted Limitations (Task 1, merged 2026-08-01)
 
@@ -63,10 +55,10 @@ know.** None costs money directly; each can mislead an operating decision.
   the table is least trustworthy, and believing it can lead to rebuilding a task
   that already has a live leg. **Rule while accepted: when the 账户数据未就绪
   banner is on screen, verify on Binance, not in this table.** Fix is fully
-  specified in the stage's `46-` §3.3 and should be scheduled on its own.
+  specified in the archive `46-` §3.3 and should be scheduled on its own.
 - `[OPEN][RELEASE-GATE]` The read-only smoke run review-2 made its ACCEPT
   conditional on was **never executed** (Human authorised the merge without it).
-  Checklist: that stage's `49-`. **Now a hard prerequisite for the next live
+  Checklist: archive `49-`. **Now a hard prerequisite for the next live
   activation** (review-2, 2026-08-02) — its account-not-ready item covers F4.
 
 ## Task 3 — Cadence + Absent Tolerance (merged 2026-08-02)
@@ -87,7 +79,7 @@ is the strongest this project has produced.
   retry counters (leg regains its full budget, settlement ~5s late; no money
   error, no resend). Accepted because all three `ensure_worker` entries are manual
   clicks and the window is milliseconds. **Re-review the moment any non-manual
-  path to `ensure_worker` appears.** Five elements: stage `32-` §7.3.
+  path to `ensure_worker` appears.** Five elements: archive `32-` §7.3.
 - `[OPEN][FOLLOW-UP]` Task-card pause reasons render **1 of 7** in Chinese — the
   frontend never reads the `pause_reason_zh` the backend already returns. The log
   timeline *is* wired (via `error_reason_zh`), so the frozen 51169 text and the
@@ -115,29 +107,31 @@ is the strongest this project has produced.
   costs one failure count (pauses one early, fail-closed). Fix = a new column.
 - `[OPEN][RESIDUAL]` The money-zero tripwire is a speed bump, not a proof: five
   evasions + `fee_amount` outside the money names. DEC-2026-07-30-001.
-- `[OPEN][HARNESS]` ~39 completed stage dirs in `reports/agent-runs/`, vs §9.5.
+- `[OPEN][HARNESS]` ~41 completed stage dirs in `reports/agent-runs/`, vs §9.5.
   v2 findings: batch A merged; batch B + R3/R4 wait for a real problem, G1/G14
   OPEN by decision (Human 2026-07-31). Detail: archive `22-`.
 
 ## Next Priority
 
-- Active stage: `2026-07-31-hedge-task-lifecycle-v1`. **Task 1 (`ef53a02`) and
-  Task 3 (`d2ac353`) are merged and pushed.** Remaining: **Task 2** (deadlock fix
-  + five-reason auto-delete + `rate_limited` backoff + the `COALESCE` guard), now
-  **design-questioned and deferred** (Human 2026-08-02: "does not look right
-  either"). **Read the stage's `36-` before restarting it** — it holds five
-  problems the frozen design docs do not, including the two dead/mis-wired display
-  paths above and why `order_state_unknown` must stay a manual pause.
-  **F4 need not ride Task 2**; schedule it separately.
+- **No active stage.** `2026-07-31-hedge-task-lifecycle-v1` closed 2026-08-02:
+  Task 1 (`ef53a02`) and Task 3 (`d2ac353`) merged and pushed, Task 2 designed but
+  deliberately not built (DEC-2026-08-02-003).
+- Highest-value next pieces, in order: **F4's fix** (fully specified, and the one
+  limitation that can mislead an operating decision during an outage);
+  **the task-card Chinese gap** (two-line frontend change); then the deferred
+  lifecycle rework itself — read `docs/planning/deferred-hedge-task-lifecycle.md`
+  first, it holds five problems the frozen design docs do not.
 - Idle, not closed: `2026-07-hedge-fast-fix-v1` (`awaiting_findings`).
 - Main line: live testing of the immediate-hedge scenario — still **no runtime
   verification** of the hedge-open path.
 
 ## Last Completed
 
-- stage: `2026-07-31-hedge-task-inline-log-v1`
-- archive_ref: `archive/2026-07-31-hedge-task-inline-log-v1` (delivery `e9ba135`)
-- recorded_completed_at: `2026-07-31`
+- stage: `2026-07-31-hedge-task-lifecycle-v1`
+- archive_ref: `archive/2026-07-31-hedge-task-lifecycle-v1` (Task 1 `ef53a02`,
+  Task 3 `d2ac353`; Task 2 designed but not built, see
+  `docs/planning/deferred-hedge-task-lifecycle.md`)
+- recorded_completed_at: `2026-08-02`
 
 ## Update Rule
 
