@@ -1,34 +1,33 @@
 {
   "schema_version": "2",
-  "revision": 36,
+  "revision": 37,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "review_2_dispatched",
-  "checkpoint": "review_1_accept_registered_after_three_rounds_review_2_fable5_dispatched",
+  "phase": "both_reviews_accepted_awaiting_human_merge_decisions",
+  "checkpoint": "review1_r3_accept_and_review2_accept_release_readiness_is_merge_after_three_actions",
   "base_sha": "9faa716396cbbe67ebeec272ad6b3dd443bba583",
   "delivery_sha": "d2ac353caf22a68c6ff59a45167280365ace5a95",
-  "ledger_sha": "80a763a7361936864d9f850a809215e7425bcfff",
+  "ledger_sha": "074dc213a33647c6bc148f7458e9491d610771ca",
   "current_task": {
     "id": "review-2-fable5-task3",
-    "state": "dispatched",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/review-2-fable5-task3.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-task"
+    "action": "make-three-merge-decisions-then-authorise-merge"
   },
   "rework_count": 2,
   "blockers": [
-    "**review-1 已 ACCEPT 收口**（三轮：codex REWORK → gpt REWORK → gpt ACCEPT）。Bookkeeper 复验了三个可查证结论：pre-existing 引用 ab3126d7(07-25)/8af3f22d(07-24) 均经 git merge-base 确认早于 base_sha（§8 硬要求）；前端 4 处定时器均不触发下单类动作，F1-P1 接受前提成立；suppress_done=True 全项目仅 1 处传入且只关一个兜底分支，无误伤。rework_count 保持 2/3（ACCEPT 不递增）。详见 37-。",
-    "**Task 2 状态由「暂缓」改为「设计存疑，暂缓」**（Human 2026-08-02：「看起来也不是很理想，先保持这样」）。重启前必读 36-，含 5 个讨论中暴露的问题与 1 条已确认输入：done 语义因死锁修复而更隐蔽；Human 的「全进已完成」简化方案有三处障碍；**exposure_alert 经核实是死状态（全后端无写入路径，前端标签永不出现）**；**前端 7 个暂停原因只译了 1 个，后端 pause_reason_zh 完全未被读取（51169 冻结文案从未显示过）**；删除入口的状态限制未定。已确认：order_state_unknown 保留为人工暂停（Human 确认）。",
-    "**两条 pre-existing-release-critical 已消除**：429 与 insufficient_*/collateral_cap 的旧快照写状态缺陷（早于 base_sha，本属「合并前由 Human 决定」的具名事项）因与 in-range 站点共用同一修法（单个 WHERE 条件）已一并修复，不再需要 Human 单独裁定这两条。证据：Bookkeeper 派工前的家族探针改前三条全红、改后全绿（34- §1）。",
-    "扫描自身新确认并修复 2 个同族站点：1e _stop_task_fatal_preflight（preflight 无锁网络读期间 post_delete → 旧快照写 stopped）；1f pause 类结算的 done 推进（条件写引入的副作用——done 不在允许集内导致随后的 pause 必然未命中，「余额不足则暂停」契约会悄悄降级为 done），修法 suppress_done。破坏 suppress_done 使 4 条既有测试转红。",
-    "F1-P1 经 Human 接受为已知限制，本轮确认未被触碰。**复看条件：若将来引入任何非人工触发 ensure_worker 的路径（自动重启/自动补单/定时重试），须重新评估。** review-1 r3 packet 已要求评审者独立核查「三个入口全为人工点击」这一事实基础。",
-    "**rework_count 2/3，仅剩 1 次**：若 review-1 r3 或 review-2 出 REWORK，须由 Human 在缩小范围/重新设计/接受限制/停止中选择，Bookkeeper 不得自行再派修复。",
-    "BK-T3-002 **发布门维持**：本轮无新增 data/ 写入（mtime/值/区间 diff 三重确认），但 2026-08-01 历史事故不因此消除；合并、部署或实盘启用仍须 Human 单独裁定。",
-    "review-1 r3 → gpt（openai）；review-2 → Fable5（anthropic，Human 已显式启用付费额度，本 stage 零参与）。",
-    "Task 2 仍暂缓；F4（账户读不到谎称交易所无仓）随之推迟，按 46- §3.3 须在合并 main 前重新交 Human 裁定。",
-    "Task 1 已合并但 review-2 的发布前置（只读真机冒烟，清单 49-）未执行。",
+    "**两道评审均 ACCEPT，交付技术收口，无 in-range 阻塞缺陷。** 发布就绪 = 「合并前须补做」：① F4 重新裁定；② BK-T3-002 显式接受 + 实盘库快照基线 + 流程规则；③ 49- 升格为实盘启用硬前置（不挡合并）。详见 39- §4。合并本身仍须 Human 显式授权（AGENTS.md §9）。",
+    "**Bookkeeper 自我更正一（影响 Human 决策）**：曾向 Human 陈述「500ms 下每任务约 2 次/秒、约 10 个任务打满」——**错误，那是单腿口径**。_reconcile_own_legs 对每条非终态腿各查一次，两腿在途时为 **4 次/秒/任务**，**约 5 个任务即打满** ~20 次/秒 权重上限。「控制开单标的数量」手柄应按 **≤5** 校准。",
+    "**Bookkeeper 自我更正二**：曾称 51169 冻结文案「从未真正显示过」——**表述过重**。后端 error_reason_zh → 前端回退链是通的，**日志页可见**（本轮 F3 修复后还正确标为「任务暂停」）；缺口仅为任务卡那一行（1/7 中文映射，pre-existing d873699）。",
+    "**BK-T3-002 定性加重（review-2 补，两轮 review-1 与 Bookkeeper 均漏）**：base 版 worker 在 while 循环体内每轮重读 get_interval_us()，故 2026-08-01 23:45:48 那次写入**即时改变了正在运行的实盘服务的节奏配置**，非「改静止数据」。已同步 PROJECT_STATE。",
+    "**过程事件**：评审进行中（约 15:50:58）主工作区被会话外操作切至 main，Fable5 一度 grep 到旧代码险些误判「交付被回退」。核验：stage 分支 ref 与交付对象均完好，无改动丢失，Bookkeeper 已切回。**建议：模型终端运行期间不要切换主工作区分支，需在 main 操作时用独立 worktree。**",
+    "scheduler 唤醒率 follow-up 经核实为**虚惊**，可关闭：500ms 下切片 = 0.25s，与 1s 完全相同（min(x,0.25) 封顶），仅已放弃的 100ms 会降至 0.05s。",
+    "六条后续项已登记（全部非阻塞，见 39- §5）：前端卡片读 pause_reason_zh；exposure_alert 死枚举；deleted/done/stopped 的 OSU 事件措辞失真（该家族轻症形态）；操作守则两条；49- 升格；F4 从暂缓的 Task 2 拆出单独排期。",
+    "rework_count 保持 2/3（ACCEPT 不递增）。review-1 三轮（codex REWORK → gpt REWORK → gpt ACCEPT）+ review-2（fable5 ACCEPT）。",
+    "Task 2 仍为「设计存疑，暂缓」（36-）。",
     "bStock 下单路径修复 3dc6756 已合入 main 且零评审。"
   ]
 }

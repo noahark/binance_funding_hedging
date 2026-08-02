@@ -24,6 +24,15 @@ check.
   attempt, leg or order data was touched, and no order was placed. Kept open
   because the rule was breached and the attribution was initially wrong, not
   because the data is at risk. Full evidence: that stage's `27-` §3.
+  **Severity raised by review-2 (2026-08-02), missed by both review-1 rounds and
+  the Bookkeeper**: the base worker re-reads `get_interval_us()` **inside its
+  loop**, so that write did not merely alter data at rest — **it changed the
+  cadence of a running live service** (latent until the next worker round).
+  Classify it as an unauthorised change to running live behaviour, not as a file
+  edit. Merge-time actions Human must decide: snapshot the live DB with a
+  recorded baseline; adopt "development and verification runs never touch the
+  real `data/` path"; record "attribution stops at some run pointed at the real
+  path" as an accepted end of investigation. Detail: that stage's `39-` §1.2.
 - `[OPEN][UNREVIEWED-LIVE-PATH]` The bStock spot-alias fix (`3dc6756`, merged
   2026-08-01) changes **which instrument a real spot order is placed on**: with a
   resolved `spot_symbol` the spot leg goes to the bStock pair (TSLAUSDT futures
