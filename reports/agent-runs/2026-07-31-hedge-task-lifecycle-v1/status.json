@@ -1,31 +1,31 @@
 {
   "schema_version": "2",
-  "revision": 30,
+  "revision": 31,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "fix_verified_pending_one_authorization_confirmation",
-  "checkpoint": "f1_f5_all_technically_pass_1152_green_test_5b_authorization_claim_unconfirmed",
+  "phase": "review_1_r2_dispatched",
+  "checkpoint": "f70e6ca_sealed_verified_after_human_confirmed_test5b_authorization",
   "base_sha": "9faa716396cbbe67ebeec272ad6b3dd443bba583",
   "delivery_sha": "f70e6ca20ac283e78db8d14a78efe4018d3564c1",
-  "ledger_sha": "f70e6ca20ac283e78db8d14a78efe4018d3564c1",
+  "ledger_sha": "5bb495af651ef9a3beb02a12323794045bd2185e",
   "current_task": {
-    "id": "fix-review1-retry-counter-v1",
-    "state": "reported",
-    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/fix-review1-retry-counter-v1.dispatch.md"
+    "id": "review-1-gpt-task3-r2",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/review-1-gpt-task3-r2.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "confirm-test-5b-authorization-then-bookkeeper-seals"
+    "action": "start-prepared-task"
   },
   "rework_count": 1,
   "blockers": [
-    "**待 Human 确认（唯一未决）**：实现者改了 packet「不得改动」清单内的 test_hedge_review2_regressions.py::test_5b，声称「经 Human 批准最小改写」，Bookkeeper 无此授权记录。改动本身必要正确（本 packet 删除了 test_5b 引用的 ABSENT_TOLERANCE_WINDOW_US，不改必然报错），核心断言 fail_count==1 逐字未改——**这是 packet 自相矛盾（要求删常量却把引用它的文件列入禁改），Bookkeeper 上轮曾给过受限授权、本轮忘记延续**。待确认的是声明的事实性，非改动的正确性。详见 30- §3。",
-    "F1-F5 技术验收全部通过：窗口常量全仓库无残留；无锚点腿探针查满 10 次正常收口（terminal[1,1]、残留计数 0）；deleted/done/stopped 三态全部保持；两个 signal 产生点单点破坏各自转红（上轮假阴性已消除）；删除迁移 SQL 转红 2 条（Bookkeeper 上轮漏做的破坏验证）；独立复跑 1152 passed。",
-    "本轮实现者未再触碰 data/：实盘库 mtime 仍为 08-01 23:45:48、interval_us 仍为 500000、留痕清单与观察一致（三重确认）。加严的留痕要求生效。",
-    "范围外顺带修复（交 review-1 判断）：F3 补全 _event_to_entry 的 task_paused 映射，该 kind 此前落入 wait 分支得到 overall_result=None，即既有 insufficient_*/collateral_cap_full 事件在 entries 上一直投影错误。属 pre-existing，但其修复是 F3 接线的必然结果，无法分离。详见 30- §4。",
-    "BK-T3-002 仍为**发布门**（codex 独立确认）：代码返工通过后仍不得自动合并、部署或启用实盘，须 Human 单独裁定。",
-    "**review-2 人选池已空**：codex 用于 review-1；grok 无额度；deepseek 已成为本交付 fix author，按 §3 #4 永久丧失评审资格；opus5 为本 stage Bookkeeper 兼全部 packet 作者。仅剩 Fable5，须 Human 显式启用独立付费额度。HIGH_RISK 按 §8 需两道评审。",
-    "PAUSE_REASON_ORDER_STATE_UNKNOWN 采信裁定不变，为 Task 2 具名输入（27- §4）。",
+    "BK-T3-002 **发布门**（codex 上轮独立认定）：实盘库曾于 2026-08-01 23:45:48 被开发期写入；即使 review-1/review-2 通过，也不得自动合并、部署或启用实盘，须 Human 单独裁定。本轮实现者未再触碰 data/（mtime/值/留痕三重确认）。",
+    "review-2 已定 Fable5（anthropic），Human 显式启用其独立付费额度。隔离核验：与本交付两位作者（claude_glm=zhipu_glm、deepseek=deepseek）provider 均不同，且本 stage 零参与，符合 roles.md「Prefer a final reviewer that did not plan or design the stage」。",
+    "review-1 复审派给 GPT（openai），与上轮 codex 同 provider，符合 §8「Review-1 REWORK 修复后返回 review-1」。",
+    "范围外顺带修复待 review-1 定性：F3 补全 _event_to_entry 的 task_paused 映射，纠正了既有 insufficient_*/collateral_cap_full 事件在 entries 上一直投影错误的 pre-existing 缺陷；因是 F3 接线的必然结果而无法分离。详见 30- §4。",
+    "Bookkeeper packet 缺陷已留档（30- §7）：要求删除 ABSENT_TOLERANCE_WINDOW_US 却把引用它的 test_hedge_review2_regressions.py 列入禁改，且未延续上轮的受限授权。下次删除常量时须同步授权所有引用点。",
+    "PAUSE_REASON_ORDER_STATE_UNKNOWN 采信裁定不变，为 Task 2 具名输入（27- §4）：既不属自动删除的五种，也不属退避的一种。",
+    "前端 HEDGE_PAUSE_REASON_LABELS 缺 order_state_unknown，会原样显示英文键值。已记为非阻塞后续项。",
     "Task 2 仍暂缓；F4（账户读不到谎称交易所无仓）随之推迟，按 46- §3.3 须在合并 main 前重新交 Human 裁定。",
     "Task 1 已合并但 review-2 的发布前置（只读真机冒烟，清单 49-）未执行。",
     "bStock 下单路径修复 3dc6756 已合入 main 且零评审。"

@@ -101,3 +101,29 @@ F3 的接线补全了 `_event_to_entry` 中 `task_paused` kind 的映射。实�
 实盘库写入事件（`27-` §3）经 `codex` 独立确认为**发布门**：代码返工通过后仍不得自动
 合并、部署或启用实盘，须 Human 单独裁定。本轮实现者**未再触碰 `data/`**（§1 项 10a
 三重确认），加严的留痕要求生效。
+
+---
+
+## 7. 授权确认与封存（2026-08-02，Human 答复后追加）
+
+**Human 已确认**：`test_hedge_review2_regressions.py::test_5b` 的修改**确经其在
+`deepseek` 终端批准**。实现者的「Human-approved minimal adaptation」声明**属实**，
+无编造。§3 的待确认项就此解除。
+
+Bookkeeper 补记该授权，性质与上一轮同款「受限授权」一致：仅调整驱动方式（推时钟 →
+填满计数），核心断言 `assert task["fail_count"] == 1` 逐字未改。
+
+**Bookkeeper 自认的 packet 缺陷仍然成立并留档**：本 packet 要求删除
+`ABSENT_TOLERANCE_WINDOW_US`，却把引用该常量的文件列入「不得改动」；上一轮已给过的
+受限授权在本轮 packet 中未被延续。**下次 packet 涉及删除常量时，须同步检查并显式授权
+所有引用点**，否则实现者必然被迫越界或停摆。
+
+### 裁定
+
+- 验收 10c 由「待确认」改判 **pass**；
+- 十项验收全部通过，`current_task.state` 由 `reported` 写入 **`verified`**；
+- 封存 `delivery_sha = f70e6ca20ac2…`，固定评审区间 `9faa716..f70e6ca`；
+- 路由（Human 决定）：**review-1 → GPT（`openai`，与上轮 `codex` 同 provider，符合
+  §8「REWORK 后返回 review-1」）**；**review-2 → Fable5（`anthropic`，Human 显式启用
+  其独立付费额度）**。
+- BK-T3-002 发布门不受本次封存影响，仍须 Human 单独裁定。
