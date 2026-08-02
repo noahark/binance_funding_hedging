@@ -106,3 +106,71 @@
 
 - `service.py:1111` 的 `(self._store.get_interval_us() or 1)` 中 `or 1` 仍是死代码（`get_interval_us` 夹下限后恒 `>= 50_000`）。属既有写法，未在本轮范围内。
 - `scheduler.py:51` 异常兜底为 `interval_us = 1`（**1 微秒**，非 1 秒），轮询切片被下限夹到 5ms。`deepseek` 复核曾将其描述为「兜到 1 秒」，**该描述有误**，照其改动会改错位置。live 模式 `tick()` 为空操作，不产生交易所请求，非阻塞。
+
+---
+
+## 6. 追加更正（2026-08-02，review-1 之后）
+
+review-1（`codex`，`28-`）返回 `REWORK`，五条发现经 Bookkeeper 逐条复验**全部成立**。
+其中两条直接纠正了本文件上文的判断。**上文原样保留**（不编辑，以留存当时的误判），
+更正在此追加：
+
+### 6.1 §2 的「双保险而非覆盖缺口」判定 —— 错误，由 F4 纠正
+
+上文 §2 据「单独破坏任一处不红、同时破坏才红」判定两个
+`SIGNAL_ORDER_STATE_UNKNOWN` 产生点为「实现的双保险，不是覆盖缺口」。
+
+**该推论不成立。** `codex` 指出：两处处理的是**两种不同的输入形状**——
+`service.py:1274-1275` 处理 `verdict is None`（传输错误 / 5xx / 超时），
+`:1351-1358` 处理有 verdict 但 `dispatch_state == UNKNOWN_QUERYING` 的畸形 2xx。
+它们不是同一逻辑的冗余，各自都应有独立断言。
+
+「单点破坏仍全绿」证明的是**现有测试被另一条路径遮蔽**，而非「任一站点可省」。
+新增的 `test_inconclusive_past_window_pauses_for_manual_recovery_not_absent` 注入的是
+两个 `LEG_UNKNOWN_QUERYING` 对象，**未覆盖 `verdict is None` 分支**。
+
+上文 §2 由此得出的「方法论记录」结论方向正确（单点破坏对有多路径的功能会给假阴性），
+但把成因归为「双保险」是错的，应归为**覆盖缺口**。
+
+### 6.2 §1 验收 2（迁移）记 `pass` —— 核验不完整，由 F5 纠正
+
+本 packet 的验收 1 原文要求「**去掉迁移即转红**」。上文 §1 依据 Bookkeeper 在临时目录
+手工跑的三场景实测记为 `pass`，**但未执行该破坏验证**。
+
+复验（2026-08-02）：删除 `store.py` 中迁移回填的整段 SQL 后，
+`python3 -m pytest backend/tests/ -q` → **1140 passed**，**没有任何测试转红**。
+
+即：迁移逻辑本身正确（三场景手工实测有效），但**没有自动化回归保护它**，删掉即静默失效。
+这正是 BK-T3-001 那类缺陷（改动对既有库无效）能够复发而不被发现的条件。
+验收 2 应记为 `fail`，本文件 §1 表格中的该项作废。
+
+### 6.3 复验证据（Bookkeeper 独立执行，与 `28-` 的探针输出逐字一致）
+
+```text
+F1  无 dispatched_at_us 的腿，时钟推进 2×窗口后注入 404：
+    {"status": "running", "pause_reason": null, "fail_count": 0, "terminal": [0, 0]}
+    -> 既不判 absent，也不进人工收口，两腿永久非终态 => 无限重查。成立。
+
+F2  deleted / done / stopped 任务 + 窗口耗尽的畸形 2xx：
+    {"before": "deleted", "after": "paused", "pause_reason": "order_state_unknown"}
+    {"before": "done",    "after": "paused", "pause_reason": "order_state_unknown"}
+    {"before": "stopped", "after": "paused", "pause_reason": "order_state_unknown"}
+    -> 三种终态被复活为可重启的 paused。成立。
+
+F3  _ENTRY_EVENT_KINDS = ("task_stopped","threshold_paused","task_paused",
+                          "preflight_incomplete","rate_limited")
+    事件写入 kind = "order_state_unknown"，不在白名单 => 被 entries 过滤。成立。
+```
+
+关于 F1 的补充：实现注释称无锚点行「treated as window-not-elapsed, so its prior
+behaviour is unchanged」——**该说法与事实相反**。改动前的行为是「404 立即判 absent
+终态」；改动后无锚点行的 404 被 `terminal = False` 强制改为非终态且永不耗尽窗口，
+**行为被改变，且改成了无限重查**。
+
+### 6.4 裁定更新
+
+- 上文 §1 的「代码交付通过，予以封存」**作废**。`current_task.state` 由 `verified`
+  退回，交付进入修复轮。
+- `rework_count` 由 `0` 递增为 **`1`**（`AGENTS.md` §8：为响应评审发现的再交付计一轮）。
+- BK-T3-002（§3）的裁定不变，并由 `codex` 独立确认为**发布门**：即使代码返工通过，
+  也不得自动合并、部署或启用实盘，须 Human 单独裁定。
