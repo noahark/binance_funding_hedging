@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 35,
+  "revision": 36,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "review_1_r3_dispatched",
-  "checkpoint": "review_1_r3_ready_task2_marked_design_questioned_inputs_recorded",
+  "phase": "review_2_dispatched",
+  "checkpoint": "review_1_accept_registered_after_three_rounds_review_2_fable5_dispatched",
   "base_sha": "9faa716396cbbe67ebeec272ad6b3dd443bba583",
   "delivery_sha": "d2ac353caf22a68c6ff59a45167280365ace5a95",
-  "ledger_sha": "5a6cf6c1afe1af9524eb9b9f68afb4bc1ad20df7",
+  "ledger_sha": "80a763a7361936864d9f850a809215e7425bcfff",
   "current_task": {
-    "id": "review-1-gpt-task3-r3",
+    "id": "review-2-fable5-task3",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/review-1-gpt-task3-r3.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/review-2-fable5-task3.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
@@ -19,6 +19,7 @@
   },
   "rework_count": 2,
   "blockers": [
+    "**review-1 已 ACCEPT 收口**（三轮：codex REWORK → gpt REWORK → gpt ACCEPT）。Bookkeeper 复验了三个可查证结论：pre-existing 引用 ab3126d7(07-25)/8af3f22d(07-24) 均经 git merge-base 确认早于 base_sha（§8 硬要求）；前端 4 处定时器均不触发下单类动作，F1-P1 接受前提成立；suppress_done=True 全项目仅 1 处传入且只关一个兜底分支，无误伤。rework_count 保持 2/3（ACCEPT 不递增）。详见 37-。",
     "**Task 2 状态由「暂缓」改为「设计存疑，暂缓」**（Human 2026-08-02：「看起来也不是很理想，先保持这样」）。重启前必读 36-，含 5 个讨论中暴露的问题与 1 条已确认输入：done 语义因死锁修复而更隐蔽；Human 的「全进已完成」简化方案有三处障碍；**exposure_alert 经核实是死状态（全后端无写入路径，前端标签永不出现）**；**前端 7 个暂停原因只译了 1 个，后端 pause_reason_zh 完全未被读取（51169 冻结文案从未显示过）**；删除入口的状态限制未定。已确认：order_state_unknown 保留为人工暂停（Human 确认）。",
     "**两条 pre-existing-release-critical 已消除**：429 与 insufficient_*/collateral_cap 的旧快照写状态缺陷（早于 base_sha，本属「合并前由 Human 决定」的具名事项）因与 in-range 站点共用同一修法（单个 WHERE 条件）已一并修复，不再需要 Human 单独裁定这两条。证据：Bookkeeper 派工前的家族探针改前三条全红、改后全绿（34- §1）。",
     "扫描自身新确认并修复 2 个同族站点：1e _stop_task_fatal_preflight（preflight 无锁网络读期间 post_delete → 旧快照写 stopped）；1f pause 类结算的 done 推进（条件写引入的副作用——done 不在允许集内导致随后的 pause 必然未命中，「余额不足则暂停」契约会悄悄降级为 done），修法 suppress_done。破坏 suppress_done 使 4 条既有测试转红。",
