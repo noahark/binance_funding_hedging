@@ -346,12 +346,15 @@ def test_tick_no_eligible_task_returns_false(tmp_path):
 
 
 def test_settings_doc_renders_subsecond_interval():
-    # Acceptance 1: interval_us=100_000 must NOT collapse to 0 (the old integer
-    # division did). The UI prints this value verbatim -> "调度间隔 0.1 秒".
+    # A sub-second cadence must NOT collapse to 0 (the old integer division did);
+    # the UI prints this value verbatim -> "调度间隔 0.5 秒".
+    # Since 2026-08-02 the doc reports D.DEFAULT_INTERVAL_US, so a stale row value
+    # (here 100_000) is deliberately ignored — one source of truth.
     doc = settings_to_doc(
         {"start_gate": 0, "interval_us": 100_000, "version": 1}, "disabled"
     )
-    assert doc["interval_seconds"] == 0.1
+    assert doc["interval_seconds"] == round(D.DEFAULT_INTERVAL_US / 1_000_000, 3)
+    assert doc["interval_seconds"] != 0
 
 
 def test_default_cadence_seeds_500ms(tmp_path):
@@ -364,8 +367,9 @@ def test_default_cadence_seeds_500ms(tmp_path):
 
 
 def test_floor_clamps_effective_cadence(tmp_path):
-    # Acceptance 3a: a sub-floor misconfiguration is clamped at the read site,
-    # so the worker never busy-polls below MIN_INTERVAL_US.
+    # The floor still guards the worker against a busy poll, but since 2026-08-02
+    # the value being clamped is the code constant, not a database row — so a
+    # sub-floor row (1000us here) can no longer reach the worker at all.
     from backend.hedge_open_tasks.store import HedgeOpenStore
 
     store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
@@ -373,7 +377,8 @@ def test_floor_clamps_effective_cadence(tmp_path):
         store._conn.execute(
             "UPDATE hedge_open_settings SET interval_us = 1000 WHERE id = 1"
         )
-    assert store.get_interval_us() == D.MIN_INTERVAL_US
+    assert store.get_interval_us() == D.DEFAULT_INTERVAL_US
+    assert store.get_interval_us() >= D.MIN_INTERVAL_US
     store.close()
 
 

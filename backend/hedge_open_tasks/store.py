@@ -520,19 +520,14 @@ class HedgeOpenStore:
                         ),
                     ),
                 )
-        # BK-T3-001 (cadence-500ms task): backfill the re-query interval on
-        # EXISTING databases whose settings row still holds the legacy 1s default,
-        # so the new 500ms default actually takes effect — the seed INSERT above
-        # only covers brand-new databases (``COUNT(*) == 0``), so a pre-existing
-        # settings row kept its build-time 1_000_000 forever. Only the EXACT legacy
-        # default is rewritten; a deliberately customized value is preserved.
-        # Idempotent: a second run finds interval_us != 1_000_000 and is a no-op.
-        self._conn.execute(
-            "UPDATE hedge_open_settings"
-            " SET interval_us = ?, interval_seconds = ?"
-            " WHERE id = 1 AND interval_us = ?",
-            (D.DEFAULT_INTERVAL_US, D.DEFAULT_INTERVAL_SECONDS, 1_000_000),
-        )
+        # BK-T3-001's interval backfill was REMOVED here (Human decision
+        # 2026-08-02). It rewrote a row unconditionally on every construction,
+        # violating DEC-2026-07-30-003 ("a default construction never rewrites a
+        # row"), and that is what silently changed the running production
+        # database on 2026-08-01 (BK-T3-002). It is not needed any more:
+        # get_interval_us() now reads D.DEFAULT_INTERVAL_US directly, so every
+        # database — old, new or restored from backup — uses the current cadence
+        # without anyone writing to it.
 
     def close(self) -> None:
         with self._lock:
@@ -2159,15 +2154,22 @@ class HedgeOpenStore:
             }
 
     def get_interval_us(self) -> int:
-        # Clamp at the read site (ADR-003): the worker throttle, the DRY-RUN
-        # tick and the scheduler wake all derive the effective cadence from this
-        # value, so a sub-floor misconfiguration is contained here rather than
-        # letting the worker busy-poll.
-        with self._lock:
-            raw = self._conn.execute(
-                "SELECT interval_us FROM hedge_open_settings WHERE id = 1"
-            ).fetchone()[0]
-            return max(int(raw), D.MIN_INTERVAL_US)
+        """The effective re-query cadence, read from the code constant — NOT from
+        the database (Human decision 2026-08-02).
+
+        The cadence has exactly one source of truth: ``D.DEFAULT_INTERVAL_US``.
+        The ``hedge_open_settings.interval_us`` / ``interval_seconds`` columns are
+        **dead data**: no API, no endpoint and no UI can write them, so a value
+        stored at build time could never be changed — which is why a cadence
+        change needed a row-rewriting migration, and that migration is what
+        silently rewrote the production database on 2026-08-01 (BK-T3-002) in
+        violation of DEC-2026-07-30-003. Reading the constant removes the second
+        source, so no migration is needed and constructing a store against any
+        database never rewrites it. The columns are left in place on purpose:
+        dropping them would itself require a schema migration against the live
+        DB — the very thing this change exists to avoid.
+        """
+        return max(int(D.DEFAULT_INTERVAL_US), D.MIN_INTERVAL_US)
 
     def set_start_gate(self, enabled: bool, now_us: int) -> dict:
         with self._lock, self._conn:

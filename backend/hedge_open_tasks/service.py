@@ -195,12 +195,15 @@ def fill_to_doc(fill: dict) -> dict:
 
 
 def _interval_seconds_doc(interval_us) -> float:
-    """The cadence the UI prints, in seconds (ADR-003). Sub-second aware: the
-    raw microsecond value is clamped to the same floor the worker honours, then
-    divided — so a 100ms cadence renders as 0.1 (not the 0 the old integer
-    division produced) and a sub-floor misconfiguration reports the effective
-    value, never the misconfigured one."""
-    return round(max(int(interval_us), D.MIN_INTERVAL_US) / 1_000_000, 3)
+    """The cadence the UI prints, in seconds (ADR-003). Sub-second aware, so a
+    500ms cadence renders as 0.5 rather than the 0 the old integer division
+    produced.
+
+    The argument is ignored: since 2026-08-02 the cadence has a single source of
+    truth (``D.DEFAULT_INTERVAL_US`` via ``store.get_interval_us``), so the UI
+    must print the value the worker actually honours — never whatever a database
+    row happens to hold. Kept as a parameter so callers need not change."""
+    return round(max(int(D.DEFAULT_INTERVAL_US), D.MIN_INTERVAL_US) / 1_000_000, 3)
 
 
 def settings_to_doc(settings: dict, executor_mode: str) -> dict:

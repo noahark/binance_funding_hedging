@@ -484,52 +484,61 @@ def test_stop_task_fatal_conditional_write_misses_on_non_running(tmp_path):
 # to the legacy default), reopen the store, and assert the rewrite.
 
 
-def test_migrate_backfills_legacy_interval_default_and_is_idempotent(tmp_path):
-    """F5: a settings row still holding the legacy 1s default (1_000_000) is
-    rewritten to the new 500ms default on open; re-opening again is a no-op
-    (idempotent). Deleting the backfill SQL in ``HedgeOpenStore._migrate`` must
-    fail this test."""
+def test_cadence_ignores_database_value_entirely(tmp_path):
+    """Human decision 2026-08-02: the cadence has ONE source of truth —
+    ``D.DEFAULT_INTERVAL_US``. Whatever a settings row happens to hold (the legacy
+    1s default, a hand-edited value, anything) must not affect the effective
+    cadence. Making ``get_interval_us`` read the database again fails this."""
     db = str(tmp_path / "ho.sqlite3")
     store = HedgeOpenStore(db)
-    with store._lock, store._conn:
-        store._conn.execute(
-            "UPDATE hedge_open_settings SET interval_us = 1_000_000,"
-            " interval_seconds = '1.0' WHERE id = 1"
+    for stored in (1_000_000, 250_000, 7):
+        with store._lock, store._conn:
+            store._conn.execute(
+                "UPDATE hedge_open_settings SET interval_us = ? WHERE id = 1",
+                (stored,),
+            )
+        assert store.get_interval_us() == D.DEFAULT_INTERVAL_US, (
+            f"stored {stored} leaked into the effective cadence"
         )
     store.close()
 
-    reopened = HedgeOpenStore(db)
-    assert reopened.get_settings()["interval_us"] == D.DEFAULT_INTERVAL_US
-    assert reopened.get_interval_us() == D.DEFAULT_INTERVAL_US
-    reopened.close()
 
-    # Idempotent: a third open finds the value already migrated and changes nothing.
-    reopened2 = HedgeOpenStore(db)
-    assert reopened2.get_settings()["interval_us"] == D.DEFAULT_INTERVAL_US
-    reopened2.close()
+def test_construction_never_writes_the_database(tmp_path):
+    """BK-T3-002 / DEC-2026-07-30-003: constructing a store against an existing
+    database must not rewrite a single row. This is the regression that the
+    removed interval backfill would have failed — it silently changed the running
+    production database on 2026-08-01. Byte-level check on a settled file."""
+    import hashlib
 
-
-def test_migrate_preserves_custom_interval_value(tmp_path):
-    """F5: a deliberately customized interval (250_000) survives the backfill —
-    only the EXACT legacy default is rewritten."""
     db = str(tmp_path / "ho.sqlite3")
-    store = HedgeOpenStore(db)
-    with store._lock, store._conn:
-        store._conn.execute(
-            "UPDATE hedge_open_settings SET interval_us = 250_000,"
-            " interval_seconds = '0.25' WHERE id = 1"
+    HedgeOpenStore(db).close()          # create + settle the schema
+    HedgeOpenStore(db).close()          # second open settles any lazy DDL
+
+    with open(db, "rb") as fh:
+        before = hashlib.sha256(fh.read()).hexdigest()
+
+    # A legacy row is the exact case the removed migration used to rewrite.
+    legacy = HedgeOpenStore(db)
+    with legacy._lock, legacy._conn:
+        legacy._conn.execute(
+            "UPDATE hedge_open_settings SET interval_us = 1_000_000 WHERE id = 1"
         )
-    store.close()
+    legacy.close()
+    with open(db, "rb") as fh:
+        seeded = hashlib.sha256(fh.read()).hexdigest()
 
-    reopened = HedgeOpenStore(db)
-    assert reopened.get_settings()["interval_us"] == 250_000
-    assert reopened.get_interval_us() == 250_000
-    reopened.close()
+    HedgeOpenStore(db).close()          # the construction under test
+    with open(db, "rb") as fh:
+        after = hashlib.sha256(fh.read()).hexdigest()
+
+    assert after == seeded, "constructing a store rewrote the database"
+    assert seeded != before, "the legacy-row setup did not actually change the file"
 
 
-def test_migrate_interval_seconds_api_shape(tmp_path):
-    """F5: the settings API doc's ``interval_seconds`` reflects the backfilled
-    value (0.5), i.e. the wire shape matches the effective cadence."""
+def test_settings_api_shape_reports_effective_not_stored_cadence(tmp_path):
+    """The settings API must report the cadence the worker actually honours, not
+    whatever the (dead) database column holds. A row saying 1.0 still surfaces as
+    0.5 — the wire shape follows D.DEFAULT_INTERVAL_US, single source of truth."""
     db = str(tmp_path / "ho.sqlite3")
     store = HedgeOpenStore(db)
     with store._lock, store._conn:
