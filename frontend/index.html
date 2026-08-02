@@ -1574,6 +1574,48 @@
         return formatted === null ? '≈ — USDT' : `≈ ${formatted} USDT`;
       }
 
+      function sub8(a, b) {
+        // Fixed 8dp string subtraction via BigInt (no Number/float). Returns an
+        // 8dp signed decimal string, or null when either operand is missing/invalid.
+        // No intermediate rounding — callers apply formatUsdt2 once for display.
+        if (a === undefined || a === null || a === '' ||
+            b === undefined || b === null || b === '') return null;
+        const as = String(a);
+        const bs = String(b);
+        if (!/^-?\d+\.?\d*$/.test(as) || !/^-?\d+\.?\d*$/.test(bs)) return null;
+        const toScaled = (s) => {
+          const neg = s.startsWith('-');
+          const abs = neg ? s.slice(1) : s;
+          const [intPart, fracPart = ''] = abs.split('.');
+          const frac8 = (fracPart + '00000000').slice(0, 8);
+          const scaled = BigInt((intPart || '0') + frac8);
+          return neg ? -scaled : scaled;
+        };
+        const diff = toScaled(as) - toScaled(bs);
+        const neg = diff < 0n;
+        const abs = neg ? -diff : diff;
+        const digits = abs.toString().padStart(9, '0');
+        const intPart = digits.slice(0, -8).replace(/^0+(?=\d)/, '') || '0';
+        const fracPart = digits.slice(-8);
+        return (neg ? '-' : '') + intPart + '.' + fracPart;
+      }
+
+      function unifiedNetValueLine(valueUsdt, borrowedValueUsdt) {
+        // Net = hold − borrowed (display-only). Privacy short-circuits before
+        // sub8 / formatUsdt2. B=null or V=null -> ≈ — (unknown, not zero).
+        if (state.privacyHidden) return '≈ **** USDT';
+        if (valueUsdt === undefined || valueUsdt === null || valueUsdt === '') {
+          return '≈ — USDT';
+        }
+        if (borrowedValueUsdt === undefined || borrowedValueUsdt === null || borrowedValueUsdt === '') {
+          return '≈ — USDT';
+        }
+        const net = sub8(valueUsdt, borrowedValueUsdt);
+        if (net === null) return '≈ — USDT';
+        const formatted = formatUsdt2(net);
+        return formatted === null ? '≈ — USDT' : `≈ ${formatted} USDT`;
+      }
+
       function formatBeijing(ms) {
         if (typeof ms !== 'number' || Number.isNaN(ms) || ms === 0) return '—';
         const d = new Date(ms);
@@ -2804,12 +2846,14 @@
           ? pa.balances_unified.map(b => {
               const borrowedPositive = isPositiveBorrowedAmount(b.cross_margin_borrowed);
               const borrowedCls = borrowedPositive ? 'borrowed-debt' : 'locked';
+              // Hold + borrowed values on their amount rows; net value replaces
+              // the old bottom-only value_usdt line (spot cards unchanged).
               return `
               <div class="balance-card">
                 <div class="asset">${escapeHtml(b.asset || '—')}</div>
-                <div class="amount">${formatBalanceAmount(b.total_balance)}</div>
-                <div class="amount ${borrowedCls}">已借: ${formatBalanceAmount(b.cross_margin_borrowed)}</div>
-                <div class="amount value-usdt">${approximateUsdtLine(b.value_usdt)}</div>
+                <div class="amount">${formatBalanceAmount(b.total_balance)} ${approximateUsdtLine(b.value_usdt)}</div>
+                <div class="amount ${borrowedCls}">已借: ${formatBalanceAmount(b.cross_margin_borrowed)} ${approximateUsdtLine(b.cross_margin_borrowed_value_usdt)}</div>
+                <div class="amount value-usdt">净价值 ${unifiedNetValueLine(b.value_usdt, b.cross_margin_borrowed_value_usdt)}</div>
               </div>`;
             }).join('')
           : '<span class="muted small">无数据</span>';
@@ -5457,6 +5501,9 @@
         formatBeijing,
         formatBeijingShort,
         formatUsdt2,
+        sub8,
+        unifiedNetValueLine,
+        approximateUsdtLine,
         formatOpeningSpreadPct,
         classForOpeningSpread,
         absDailyRateAtOrBelowThreshold,

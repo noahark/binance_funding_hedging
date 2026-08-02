@@ -835,6 +835,42 @@ def _max_borrowable_value_usdt(asset, max_borrowable, price_map):
     return _quantize_rate(value)
 
 
+def _cross_margin_borrowed_value_usdt(asset, cross_margin_borrowed, price_map):
+    """≈USDT value of cross_margin_borrowed (additive, 8dp string | null).
+
+    Display-only liability valuation for unified balance rows (contract v0.8).
+    Reuses the Decimal / stable-asset / price-map / 8dp path of
+    ``_max_borrowable_value_usdt``, but branches differ:
+
+    - null, blank, or valid zero amount -> ``"0.00000000"`` (no effective borrow)
+    - invalid non-empty amount -> ``None``
+    - non-zero amount with missing/invalid price -> ``None``
+    - non-zero amount with usable price -> 8dp string
+
+    Stable USD assets price at 1. Emits no warnings. Does not enter
+    ``total_value_usdt`` or any trading/borrow decision.
+    """
+    if cross_margin_borrowed is None or cross_margin_borrowed == "":
+        return "0.00000000"
+    try:
+        amt = Decimal(str(cross_margin_borrowed))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    if amt == 0:
+        return "0.00000000"
+    if asset in _STABLE_USD_ASSETS:
+        value = amt
+    else:
+        price = price_map.get(f"{asset}USDT")
+        if price is None or price == "":
+            return None
+        try:
+            value = amt * Decimal(str(price))
+        except (InvalidOperation, ValueError, TypeError):
+            return None
+    return _quantize_rate(value)
+
+
 def _user_min_borrow_value_usdt(asset, user_min_borrow, price_map):
     """≈USDT value of the classic-margin user_min_borrow (additive, 2dp string).
 
@@ -1128,12 +1164,16 @@ def assemble_private_account(
         )
         # crossMarginBorrowed = PM full-cross (全仓) margin liability for this asset
         # (from GET /papi/v1/balance). Raw string | null; not added into total_value_usdt.
+        borrowed_raw = x.get("crossMarginBorrowed")
         unified_out.append(
             {
                 "asset": asset,
                 "total_balance": x.get("totalWalletBalance"),
-                "cross_margin_borrowed": x.get("crossMarginBorrowed"),
+                "cross_margin_borrowed": borrowed_raw,
                 "value_usdt": _quantize_rate(value) if value is not None else None,
+                "cross_margin_borrowed_value_usdt": _cross_margin_borrowed_value_usdt(
+                    asset, borrowed_raw, price_map
+                ),
             }
         )
     spot_out = []

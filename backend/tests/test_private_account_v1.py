@@ -28,6 +28,7 @@ from backend.domain.snapshot import (
     select_borrow_candidates,
     sort_rows,
 )
+from backend.domain.snapshot import _cross_margin_borrowed_value_usdt
 from backend.domain.snapshot import _max_borrowable_value_usdt
 from backend.domain.snapshot import _user_min_borrow_value_usdt
 from backend.services import private_client
@@ -524,12 +525,14 @@ def test_assemble_private_account_anti_double_count():
             "total_balance": "1.5",
             "cross_margin_borrowed": None,
             "value_usdt": "90000.00000000",
+            "cross_margin_borrowed_value_usdt": "0.00000000",
         },
         {
             "asset": "USDT",
             "total_balance": "100",
             "cross_margin_borrowed": None,
             "value_usdt": "100.00000000",
+            "cross_margin_borrowed_value_usdt": "0.00000000",
         },
     ]
     assert block["balances_spot"][0] == {"asset": "ETH", "free": "2", "locked": "0.5", "value_usdt": "7500.00000000"}
@@ -1490,6 +1493,57 @@ def test_partial_batch_failure_partial_merge(monkeypatch):
 )
 def test_max_borrowable_value_usdt_conversion(asset, amount, price_map, expected):
     assert _max_borrowable_value_usdt(asset, amount, price_map) == expected
+
+
+# =========================================================================
+# unified-balance-card-net-value-b-v1 — _cross_margin_borrowed_value_usdt
+# (display-only 8dp liability; null/blank/zero -> 0; invalid or no price -> None)
+# =========================================================================
+@pytest.mark.parametrize(
+    "asset,amount,price_map,expected",
+    [
+        # stable non-zero priced at 1
+        ("USDT", "5.5", {}, "5.50000000"),
+        ("USDC", "5.5", {"USDCUSDT": "9"}, "5.50000000"),
+        # non-stable positive with price
+        ("BTC", "0.001", {"BTCUSDT": "60000"}, "60.00000000"),
+        ("CETUS", "1", {"CETUSUSDT": "0.05"}, "0.05000000"),
+        # valid zero variants
+        ("BTC", "0", {"BTCUSDT": "60000"}, "0.00000000"),
+        ("BTC", "0.0", {"BTCUSDT": "60000"}, "0.00000000"),
+        ("BTC", "0.00000000", {"BTCUSDT": "60000"}, "0.00000000"),
+        # null / blank = no effective borrow -> zero (NOT null)
+        ("BTC", None, {"BTCUSDT": "60000"}, "0.00000000"),
+        ("BTC", "", {"BTCUSDT": "60000"}, "0.00000000"),
+        # invalid non-empty amount -> null
+        ("BTC", "not-a-number", {"BTCUSDT": "60000"}, None),
+        ("BTC", "abc", {}, None),
+        # non-zero missing / blank / bad price -> null
+        ("BTC", "0.001", {}, None),
+        ("BTC", "0.001", {"BTCUSDT": ""}, None),
+        ("BTC", "0.001", {"BTCUSDT": "bad"}, None),
+    ],
+)
+def test_cross_margin_borrowed_value_usdt_branches(asset, amount, price_map, expected):
+    assert _cross_margin_borrowed_value_usdt(asset, amount, price_map) == expected
+
+
+def test_assemble_private_account_emits_borrowed_value_key_on_every_unified_row():
+    unified = [
+        {"asset": "BTC", "totalWalletBalance": "1", "crossMarginBorrowed": "0.5"},
+        {"asset": "USDT", "totalWalletBalance": "10", "crossMarginBorrowed": None},
+        {"asset": "NOPE", "totalWalletBalance": "1", "crossMarginBorrowed": "2"},
+    ]
+    block, _ = assemble_private_account(
+        unified, [], [], {"BTCUSDT": "100"}, checked_at="t", error=None,
+    )
+    by_asset = {b["asset"]: b for b in block["balances_unified"]}
+    assert by_asset["BTC"]["cross_margin_borrowed_value_usdt"] == "50.00000000"
+    assert by_asset["USDT"]["cross_margin_borrowed_value_usdt"] == "0.00000000"
+    # non-zero borrow, no price -> null; key still present
+    assert by_asset["NOPE"]["cross_margin_borrowed_value_usdt"] is None
+    # total_value_usdt path unchanged: wallet only, debt not subtracted
+    assert block["total_value_usdt"] == "110.00000000"
 
 
 # =========================================================================

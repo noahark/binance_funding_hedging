@@ -536,6 +536,13 @@
                   { "$ref": "#/$defs/decimal_string" },
                   { "type": "null" }
                 ]
+              },
+              "cross_margin_borrowed_value_usdt": {
+                "description": "Backend-computed ≈USDT value of cross_margin_borrowed (8dp string | null). Display-only liability; null/blank/zero borrow -> 0.00000000; invalid amount or non-zero missing price -> null. Not included in total_value_usdt.",
+                "anyOf": [
+                  { "$ref": "#/$defs/decimal_string" },
+                  { "type": "null" }
+                ]
               }
             }
           }

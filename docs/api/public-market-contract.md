@@ -1,6 +1,6 @@
 # Public Market API Contract
 
-Status: contract v0.7 as-built read-only snapshot. The wire `schema_version`
+Status: contract v0.8 as-built read-only snapshot. The wire `schema_version`
 stays `public-market-snapshot/v1`; every addition remains backward-compatible.
 The `GET /api/public-market/snapshot` route and `public-market-snapshot/v1`
 wire version are historical compatibility names. The payload now represents a
@@ -11,7 +11,8 @@ v0.2 additions are in "Phase 2 Amendment (v0.2)"; v0.3 additions (net yield,
 cost-leg chain, `private_account`, `sort_basis`) are in "Private Account v1
 Amendment (v0.3)"; v0.4 through v0.6 UI/value-display, metal-tag, and
 borrowability refinements are in later amendments; v0.7 additive
-`opening_quotes` is in the final amendment at the end of this file.
+`opening_quotes` and v0.8 additive `cross_margin_borrowed_value_usdt` are in the
+amendments at the end of this file.
 Binance public fields verified
 2026-07-03 by Claude-GLM against live no-key public calls and `llms-full.txt`;
 private fields verified 2026-07-05 by bookkeeper H_intake live capture
@@ -977,3 +978,51 @@ to the full-snapshot row's.
 are unchanged. `opening_quotes` is additive and optional; the `symbol-snapshot`
 schema inherits it automatically via the shared row `$ref` (no change to that
 file). No new config/env, no per-symbol HTTP, no WebSocket, no execution path.
+
+## Unified Borrowed Value Amendment (v0.8, stage `2026-08-02-frontend-display-tweaks-v1`)
+
+Frozen 2026-08-02. Wire `schema_version` stays `public-market-snapshot/v1`; every
+change is **additive** (the v0.1–v0.7 normalized samples still validate). Adds an
+optional per-row liability valuation on unified balances so the workstation can
+show hold value, borrowed value, and net value without the frontend reverse-
+engineering a unit price. Authority order: `10-design.md` > this contract section.
+
+### New field `private_account.balances_unified[].cross_margin_borrowed_value_usdt`
+
+Optional property on each unified balance item (not in `required`;
+`additionalProperties` remains `false`). Type: **8-place decimal string | null**
+(same precision as `value_usdt`, not the 2dp `user_min_borrow_value_usdt` path).
+
+Semantics (backend):
+
+- `cross_margin_borrowed` is null, blank, or a valid zero →
+  `cross_margin_borrowed_value_usdt = "0.00000000"` (no effective borrow).
+- `cross_margin_borrowed` is a non-empty invalid decimal → `null`.
+- non-zero valid borrow and the asset price is missing/invalid → `null`.
+- non-zero valid borrow and price is usable → Decimal multiply then quantize once
+  to 8dp (`_quantize_rate`). Stable USD assets (USDT/USDC) price at 1; other
+  assets use the same P5 `/api/v3/ticker/price` map key `{asset}USDT` as
+  `value_usdt`.
+
+Hard rules:
+
+- **Display-only.** The field is not included in `total_value_usdt` and must not
+  drive trading, borrow, repay, or risk decisions.
+- The producer always emits the key on every unified balance row (value may be
+  null). Historical samples without the key remain schema-valid because the
+  property is optional.
+- No warnings are emitted for valuation gaps (same class as
+  `max_borrowable_value_usdt`).
+
+### Frontend display (unified balance card only)
+
+Hold value continues to use backend `value_usdt`. Borrowed value uses the new
+field. Net value is display-only:
+
+`net = value_usdt − cross_margin_borrowed_value_usdt`
+
+with fixed 8dp integer arithmetic, then a single ROUND_HALF_UP to 2dp for display.
+When either operand is null/missing, net shows `≈ —` (fail-closed; never treat
+unknown borrow value as zero). Negative net retains its sign. Privacy-hidden
+state short-circuits all three value lines to `≈ **** USDT` before any
+subtraction or 2dp formatting. Spot balance cards are unchanged.
