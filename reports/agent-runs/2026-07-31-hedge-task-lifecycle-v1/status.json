@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 28,
+  "revision": 29,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "review_1_rework_fix_dispatched",
-  "checkpoint": "review_1_codex_rework_f1_f5_all_five_reverified_by_bookkeeper_verified_rescinded",
+  "phase": "fix_retry_counter_dispatched",
+  "checkpoint": "f1_remedy_switched_from_time_window_to_in_memory_retry_counter_per_human",
   "base_sha": "9faa716396cbbe67ebeec272ad6b3dd443bba583",
   "delivery_sha": "d8522dfd6f4a3fa64c27d383a900a8e7f84df7fc",
-  "ledger_sha": "10b4c2e9fd7089caaf0d0b57c14b8f7010c81714",
+  "ledger_sha": "0aac1855e90b99c37d04659b7fb2908b1768f9a4",
   "current_task": {
-    "id": "fix-review1-f1-f5-v1",
+    "id": "fix-review1-retry-counter-v1",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/fix-review1-f1-f5-v1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/fix-review1-retry-counter-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
@@ -19,12 +19,13 @@
   },
   "rework_count": 1,
   "blockers": [
-    "review-1（codex）REWORK：F1-F5 五条 in-range，Bookkeeper 逐条独立复验全部成立（探针输出与 28- 逐字一致，见 27- §6.3）。27- §1 的『代码交付通过，予以封存』已作废，d8522df 的 verified 撤销。",
-    "**Bookkeeper 自身核验的两处错误已记录（27- §6）**：(1) 把两个 SIGNAL_ORDER_STATE_UNKNOWN 产生点判为『双保险』错误，实为覆盖缺口（F4）；(2) 验收 2 记 pass 但未执行 packet 要求的『去掉迁移即转红』破坏验证，复验证实删掉迁移后 1140 仍全绿（F5）。",
-    "根因（写入修复 packet 的 Goal）：新增收口路径未与既有契约全面接线——F1 未接『腿可能无 dispatched_at_us 锚点』、F2 未接『任务状态粘性』、F3 未接『事件须进 entries』。修复 packet 要求交同族扫描清单，不接受三点补丁。",
-    "BK-T3-002 经 codex 独立确认为**发布门**：即使代码返工通过，也不得自动合并、部署或启用实盘，须 Human 单独裁定。修复 packet 已加严 data/ 红线并新增运行留痕要求。",
-    "**review-2 仍无可用人选**（Human 须裁定）：codex 已用于 review-1；grok 无额度；deepseek 提出了本交付第 5/6 项且做过计划评审；opus5 是本 stage Bookkeeper 与全部 packet 作者；Fable5 须 Human 显式启用独立付费额度。HIGH_RISK 按 §8 需两道评审。",
-    "PAUSE_REASON_ORDER_STATE_UNKNOWN 采信裁定不变（27- §4），仍为 Task 2 具名输入：既不属自动删除的五种，也不属退避的一种。",
+    "F1 修法已改：Bookkeeper 曾擅自把 Human 要求的『重试 10 次计数』替换为『距下单 5 秒的时间窗口』，理由（需新增 DB 字段）不成立——计数器无需持久化。两者不等价：请求超时 DEFAULT_TIMEOUT_SECONDS=10 秒 > 窗口 5 秒，一次超时即吃光窗口、实际只查 1 次；且时间窗口需锚点，锚点缺失正是 F1 的根因。改回内存计数后 F1 从根上消失。Human 2026-08-02 决定：只在内存、重启重新计数。",
+    "实现者改派 deepseek（Human 决定，试验其效果）。**后果**：deepseek 执行后即成为 fix author，按 §3 #4 永久失去本交付评审资格；它此前已因提出本交付第 5/6 项与做过计划评审而不宜评审。review-2 人选池因此只剩 Fable5（须 Human 显式启用独立付费额度）。",
+    "review-1（codex）REWORK 的 F1-F5 五条经 Bookkeeper 逐条独立复验全部成立（27- §6.3）；d8522df 的 verified 已撤销。",
+    "Bookkeeper 自身两处核验错误已记录（27- §6）：把两个 signal 产生点误判为『双保险』（实为覆盖缺口，F4）；验收 2 记 pass 却未执行 packet 要求的破坏验证（删除迁移后 1140 仍全绿，F5）。",
+    "根因写入 packet Goal：新增收口路径未与既有契约全面接线（F1 缺锚点 / F2 缺状态粘性 / F3 缺 entries 接线）。要求交同族扫描清单，不接受三点补丁。",
+    "BK-T3-002 经 codex 独立确认为**发布门**：代码返工通过后仍不得自动合并、部署或启用实盘，须 Human 单独裁定。packet 已加严 data/ 红线并新增运行留痕要求。",
+    "PAUSE_REASON_ORDER_STATE_UNKNOWN 采信裁定不变（27- §4），为 Task 2 具名输入。",
     "Task 2 仍暂缓；F4（账户读不到谎称交易所无仓）随之推迟，按 46- §3.3 须在合并 main 前重新交 Human 裁定。",
     "Task 1 已合并但 review-2 的发布前置（只读真机冒烟，清单 49-）未执行。",
     "bStock 下单路径修复 3dc6756 已合入 main 且零评审。"
