@@ -116,7 +116,7 @@ is the strongest this project has produced.
   problems the frozen design docs do not, including the two dead/mis-wired display
   paths above and why `order_state_unknown` must stay a manual pause.
   **F4 need not ride Task 2**; schedule it separately.
-- Idle, not closed: `2026-07-hedge-fast-fix-v1` (`awaiting_findings`, no current task).
+- Idle, not closed: `2026-07-hedge-fast-fix-v1` (`awaiting_findings`).
 - Main line: live testing of the immediate-hedge scenario — still **no runtime
   verification** of the hedge-open path.
 
