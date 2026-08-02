@@ -744,12 +744,19 @@ Authority order: `10-design.md` > this contract section.
 The frontend renders `value_usdt` as display-only data and must not recompute
 `total_value_usdt` or derive trading decisions from per-row values.
 
-### Balance array display order (v1.1-ui-polish-2 addendum)
+### Balance array display order (v1.1-ui-polish-2 addendum; net-value sort v0.8)
 
 `private_account.balances_unified[]` and `private_account.balances_spot[]` are
-emitted by `value_usdt` DESC, null last, `asset` ASC. This is an additive display
-convention only; it does not change the frozen market `rows` order or `sort_basis`
-semantics, and `schema_version` remains `public-market-snapshot/v1`.
+emitted by **`abs(net value)` DESC**, null last, `asset` ASC (original input
+order retained for the same asset). Net value for sort:
+
+- unified: `value_usdt − cross_margin_borrowed_value_usdt` when both are known;
+  if either is null/missing/invalid, the row sorts with nulls last
+- spot: `value_usdt` (no borrow field)
+
+This is an additive display convention only; it does not change the frozen market
+`rows` order or `sort_basis` semantics, and `schema_version` remains
+`public-market-snapshot/v1`.
 
 ## METAL Asset Tag + UI Amendments (v0.5, stage `2026-07-ui-filter-balance-metal-v1`)
 
@@ -1014,7 +1021,7 @@ Hard rules:
 - No warnings are emitted for valuation gaps (same class as
   `max_borrowable_value_usdt`).
 
-### Frontend display (unified balance card only)
+### Frontend display and array order
 
 Hold value continues to use backend `value_usdt`. Borrowed value uses the new
 field. Net value is display-only:
@@ -1025,4 +1032,8 @@ with fixed 8dp integer arithmetic, then a single ROUND_HALF_UP to 2dp for displa
 When either operand is null/missing, net shows `≈ —` (fail-closed; never treat
 unknown borrow value as zero). Negative net retains its sign. Privacy-hidden
 state short-circuits all three value lines to `≈ **** USDT` before any
-subtraction or 2dp formatting. Spot balance cards are unchanged.
+subtraction or 2dp formatting.
+
+Both unified and spot balance cards show a net-value line; spot net equals
+`value_usdt`. Backend balance arrays are ordered by `abs(net)` DESC (see Balance
+array display order above) so heavily long or short-net rows surface first.

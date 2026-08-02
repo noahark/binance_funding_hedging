@@ -903,17 +903,41 @@ def _user_min_borrow_value_usdt(asset, user_min_borrow, price_map):
     return format(value.quantize(Decimal("0.01"), ROUND_HALF_UP), "f")
 
 
-def _balance_sort_key(row_with_index):
-    idx, row = row_with_index
-    raw = row.get("value_usdt")
-    asset = str(row.get("asset") or "")
+def _balance_net_value_for_sort(row) -> Optional[Decimal]:
+    """Display net value used only for balance-card sort order.
+
+    Unified: value_usdt − cross_margin_borrowed_value_usdt when both known;
+    null when hold value missing or borrowed value is null/invalid (unknown net).
+    Spot rows omit the borrow field → net equals value_usdt.
+    """
+    raw_v = row.get("value_usdt")
     try:
-        value = Decimal(str(raw)) if raw not in (None, "") else None
+        value = Decimal(str(raw_v)) if raw_v not in (None, "") else None
     except (InvalidOperation, ValueError, TypeError):
         value = None
     if value is None:
+        return None
+    # Spot rows never carry the liability key; treat as zero borrow.
+    if "cross_margin_borrowed_value_usdt" not in row:
+        return value
+    raw_b = row.get("cross_margin_borrowed_value_usdt")
+    if raw_b is None or raw_b == "":
+        return None
+    try:
+        borrowed = Decimal(str(raw_b))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    return value - borrowed
+
+
+def _balance_sort_key(row_with_index):
+    """abs(net value) DESC, nulls last, asset ASC, original index for same asset."""
+    idx, row = row_with_index
+    net = _balance_net_value_for_sort(row)
+    asset = str(row.get("asset") or "")
+    if net is None:
         return (1, Decimal("0"), asset, idx)
-    return (0, -value, asset, idx)
+    return (0, -abs(net), asset, idx)
 
 
 def _infer_position_side(position_amt) -> Optional[str]:
@@ -1207,8 +1231,8 @@ def assemble_private_account(
                 "liquidation_price": p.get("liquidationPrice"),
             }
         )
-    # v1.1-ui-polish-2: private account balance arrays are sorted by value_usdt
-    # DESC, nulls last, asset ASC tie-break, original input order for same asset.
+    # Display order: abs(net value) DESC, nulls last, asset ASC, input-order
+    # for same asset. Unified net = value − borrowed_value; spot net = value.
     unified_out = [row for _, row in sorted(enumerate(unified_out), key=_balance_sort_key)]
     spot_out = [row for _, row in sorted(enumerate(spot_out), key=_balance_sort_key)]
     unified_wallet = _sum_priced_amount(

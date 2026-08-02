@@ -653,22 +653,21 @@ def test_infer_position_side_short_for_negative():
     assert block["um_positions"][0]["position_side"] == "SHORT"
 
 
-def test_assemble_private_account_sorts_balances_by_value_desc_nulls_last_asset_asc():
-    # v1.1-ui-polish-2: balances_unified and balances_spot are sorted by value_usdt
-    # DESC, nulls last, asset ASC tie-break, original input order stable for same asset.
+def test_assemble_private_account_sorts_balances_by_abs_net_desc_nulls_last_asset_asc():
+    # abs(net) DESC, nulls last, asset ASC; spot net = value_usdt.
     unified = [
-        {"asset": "AA", "totalWalletBalance": "1"},      # value=100
-        {"asset": "BB", "totalWalletBalance": "1"},      # value=200 -> first
-        {"asset": "CC", "totalWalletBalance": "1"},      # value=50
-        {"asset": "NO_PRICE", "totalWalletBalance": "1"},  # null
-        {"asset": "ZERO", "totalWalletBalance": "0"},    # value=0
+        {"asset": "AA", "totalWalletBalance": "1"},      # value=100, B=0, abs(net)=100
+        {"asset": "BB", "totalWalletBalance": "1"},      # value=200, B=0, abs(net)=200 -> first
+        {"asset": "CC", "totalWalletBalance": "1"},      # value=50, B=0, abs(net)=50
+        {"asset": "NO_PRICE", "totalWalletBalance": "1"},  # null net
+        {"asset": "ZERO", "totalWalletBalance": "0"},    # abs(net)=0
     ]
     spot = [
-        {"asset": "AA", "free": "1", "locked": "0"},   # value=100
-        {"asset": "BB", "free": "1", "locked": "0"},   # value=200 -> first
-        {"asset": "DD", "free": "1", "locked": "0"},   # value=150
+        {"asset": "AA", "free": "1", "locked": "0"},   # 100
+        {"asset": "BB", "free": "1", "locked": "0"},   # 200 -> first
+        {"asset": "DD", "free": "1", "locked": "0"},   # 150
         {"asset": "NO_PRICE2", "free": "1", "locked": "0"},  # null
-        {"asset": "ZERO2", "free": "0", "locked": "0"},  # value=0
+        {"asset": "ZERO2", "free": "0", "locked": "0"},  # 0
     ]
     price_map = {
         "AAUSDT": "100",
@@ -683,16 +682,44 @@ def test_assemble_private_account_sorts_balances_by_value_desc_nulls_last_asset_
     )
     assert [b["asset"] for b in block["balances_unified"]] == ["BB", "AA", "CC", "ZERO", "NO_PRICE"]
     assert [b["asset"] for b in block["balances_spot"]] == ["BB", "DD", "AA", "ZERO2", "NO_PRICE2"]
-    # null rows sort last
     assert block["balances_unified"][-1]["value_usdt"] is None
     assert block["balances_spot"][-1]["value_usdt"] is None
-    # zero valued rows keep "0.00000000", not null, and sort after positive values
     assert block["balances_unified"][3]["value_usdt"] == "0.00000000"
     assert block["balances_spot"][3]["value_usdt"] == "0.00000000"
 
 
+def test_assemble_private_account_sorts_unified_by_abs_net_not_gross_hold():
+    # Large hold + large borrow ranks by abs(net), not gross hold; negative net uses abs.
+    # MID: V=100 B=0   net=+100 abs=100 -> first
+    # NEG: V=10  B=30  net=-20  abs=20
+    # HI:  V=200 B=190 net=+10  abs=10
+    # NOPRICE: no price -> null net last
+    unified = [
+        {"asset": "HI", "totalWalletBalance": "2", "crossMarginBorrowed": "1.9"},
+        {"asset": "MID", "totalWalletBalance": "1", "crossMarginBorrowed": "0"},
+        {"asset": "NEG", "totalWalletBalance": "1", "crossMarginBorrowed": "3"},
+        {"asset": "NOPRICE", "totalWalletBalance": "1", "crossMarginBorrowed": "1"},
+    ]
+    price_map = {
+        "HIUSDT": "100",
+        "MIDUSDT": "100",
+        "NEGUSDT": "10",
+    }
+    block, _ = assemble_private_account(
+        unified, [], [], price_map, checked_at="t", error=None,
+    )
+    by = {b["asset"]: b for b in block["balances_unified"]}
+    assert by["HI"]["value_usdt"] == "200.00000000"
+    assert by["HI"]["cross_margin_borrowed_value_usdt"] == "190.00000000"
+    assert by["MID"]["cross_margin_borrowed_value_usdt"] == "0.00000000"
+    assert by["NEG"]["value_usdt"] == "10.00000000"
+    assert by["NEG"]["cross_margin_borrowed_value_usdt"] == "30.00000000"
+    assert by["NOPRICE"]["value_usdt"] is None
+    assert [b["asset"] for b in block["balances_unified"]] == ["MID", "NEG", "HI", "NOPRICE"]
+
+
 def test_assemble_private_account_sort_tiebreak_asset_asc_stable_same_asset():
-    # Same value ties: asset ASC; same asset retains input order.
+    # Same abs(net) ties: asset ASC; same asset retains input order.
     unified = [
         {"asset": "B", "totalWalletBalance": "1"},   # value=100
         {"asset": "A", "totalWalletBalance": "1"},   # value=100 -> should come before B

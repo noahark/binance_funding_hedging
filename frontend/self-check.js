@@ -1860,7 +1860,7 @@ setTimeout(async () => {
     helpers.ingestSnapshot(designFixture);
     console.log('[PASS] 负费率状态行感知的六文案派生');
 
-    // 35. 余额卡片折算：统一卡=持有/已借/净价值；现货卡保留独立 value 行；隐私遮蔽
+    // 35. 余额卡片折算：统一/现货均有持有价值 + 净价值；隐私遮蔽
     const privateBody2 = elements['private-panel-body'].innerHTML;
     if (privateBody2.includes('【:')) {
       throw new Error('余额卡片仍残留旧的行内折算格式 【: ...】');
@@ -1881,10 +1881,13 @@ setTimeout(async () => {
       throw new Error('显示态下统一账户净价值（无借款）应为 ≈ 123.45 USDT: ' + shownUnified);
     }
     if (!shownSpot.includes('≈ 67.89 USDT')) {
-      throw new Error('显示态下现货账户余额未展示独立折算行 ≈ 67.89 USDT');
+      throw new Error('显示态下现货账户余额未展示持有价值 ≈ 67.89 USDT');
     }
-    if (shownSpot.includes('净价值')) {
-      throw new Error('现货账户余额卡不应出现净价值行');
+    if (!shownSpot.includes('净价值 ≈ 67.89 USDT')) {
+      throw new Error('显示态下现货账户应展示净价值 ≈ 67.89 USDT: ' + shownSpot);
+    }
+    if (!shownSpot.match(/class="amount locked value-usdt">净价值/)) {
+      throw new Error('现货净价值应与冻结行同字体样式 (locked): ' + shownSpot);
     }
     helpers.togglePrivacy(); // 恢复隐藏态
     const hiddenBody2 = elements['private-panel-body'].innerHTML;
@@ -1893,7 +1896,7 @@ setTimeout(async () => {
     }
     console.log('[PASS] 余额卡片三行折算值与隐私遮蔽');
 
-    // 36. value_usdt null：统一卡持有/净价值 ≈ —；现货独立行 ≈ —；隐藏态遮蔽
+    // 36. value_usdt null：统一/现货持有与净价值均为 ≈ —；隐藏态遮蔽
     const nullValueFixture = JSON.parse(JSON.stringify(designFixture));
     nullValueFixture.private_account.balances_unified[0].value_usdt = null;
     nullValueFixture.private_account.balances_unified[0].cross_margin_borrowed_value_usdt = '0.00000000';
@@ -1914,6 +1917,9 @@ setTimeout(async () => {
     if (!spotSection.includes('≈ — USDT')) {
       throw new Error('value_usdt null 时现货账户未显示 "≈ — USDT"');
     }
+    if (!spotSection.includes('净价值 ≈ — USDT')) {
+      throw new Error('value_usdt null 时现货净价值应为 ≈ — USDT');
+    }
     // 隐藏态下 null 折算值应被遮蔽为 ****
     helpers.togglePrivacy();
     const hiddenNullBody = elements['private-panel-body'].innerHTML;
@@ -1923,7 +1929,7 @@ setTimeout(async () => {
     helpers.ingestSnapshot(designFixture);
     console.log('[PASS] value_usdt null 显示占位');
 
-    // 37. 合法零：统一卡持有/已借/净价值与现货独立行均可显示 ≈ 0.00 USDT
+    // 37. 合法零：统一/现货持有与净价值均可显示 ≈ 0.00 USDT
     const zeroValueFixture = JSON.parse(JSON.stringify(designFixture));
     zeroValueFixture.private_account.balances_unified[0].value_usdt = '0.00000000';
     zeroValueFixture.private_account.balances_unified[0].cross_margin_borrowed_value_usdt = '0.00000000';
@@ -1940,8 +1946,12 @@ setTimeout(async () => {
     if (!zeroUnified.includes('净价值 ≈ 0.00 USDT')) {
       throw new Error('无借款零持有时净价值应为 ≈ 0.00 USDT');
     }
-    if (!zeroValueBody.slice(zeroSStart).includes('≈ 0.00 USDT')) {
+    const zeroSpot = zeroValueBody.slice(zeroSStart);
+    if (!zeroSpot.includes('≈ 0.00 USDT')) {
       throw new Error('现货 value_usdt 零值未显示 ≈ 0.00 USDT');
+    }
+    if (!zeroSpot.includes('净价值 ≈ 0.00 USDT')) {
+      throw new Error('现货零值净价值应为 ≈ 0.00 USDT');
     }
     helpers.ingestSnapshot(designFixture);
     console.log('[PASS] value_usdt 合法零显示占位');
@@ -1956,12 +1966,12 @@ setTimeout(async () => {
     const unifiedAmtStart = amountBody.indexOf('统一账户余额');
     const spotAmtStart = amountBody.indexOf('现货账户余额');
     const unifiedAmtSection = amountBody.slice(unifiedAmtStart, spotAmtStart);
-    // 统一持有行现为「数量 ≈ 价值」同 div，不再要求 `>qty<` 独占子串
+    // 持有行现为「数量 ≈ 价值」同 div，不再要求 `>qty<` 独占子串
     if (!unifiedAmtSection.includes('1,234.56789000')) {
       throw new Error('统一账户余额数量未按「整数千分位+小数原样」格式化: ' + unifiedAmtSection);
     }
     const spotAmtSection = amountBody.slice(spotAmtStart);
-    if (!spotAmtSection.includes('>123,456.07890000<')) {
+    if (!spotAmtSection.includes('123,456.07890000')) {
       throw new Error('现货余额数量未按「整数千分位+小数原样」格式化: ' + spotAmtSection);
     }
     helpers.ingestSnapshot(designFixture);
@@ -2003,12 +2013,16 @@ setTimeout(async () => {
       if (!uSec.includes('净价值 ≈ 75.00 USDT')) {
         throw new Error('正值示例净价值应为 ≈ 75.00 USDT: ' + uSec);
       }
-      // 旧底部独立 value_usdt 行已移除：统一区不应出现单独的 class=value-usdt 仅含 ≈ 而无「净价值」
+      // 旧底部独立 value_usdt 行已移除：净价值行与已借共用 locked/borrowed-debt，并保留 value-usdt
       if (uSec.match(/class="amount value-usdt">≈ /)) {
         throw new Error('统一卡仍保留旧底部独立 value_usdt 行: ' + uSec);
       }
-      if (!uSec.includes('class="amount value-usdt">净价值')) {
+      if (!uSec.includes('value-usdt') || !uSec.includes('净价值')) {
         throw new Error('统一卡净价值行 class 缺失');
+      }
+      // 净价值应与已借共用次要行样式（locked 或 borrowed-debt）
+      if (!uSec.match(/class="amount (?:locked|borrowed-debt) value-usdt">净价值/)) {
+        throw new Error('统一卡净价值应与已借同字体/颜色 class: ' + uSec);
       }
 
       // B=null（有借款但无法估值）→ 已借≈—、净价值≈—
@@ -2052,16 +2066,16 @@ setTimeout(async () => {
         throw new Error('隐私隐藏态不得泄露真实持有/已借/净价值: ' + uSec);
       }
 
-      // 现货回归：独立 value 行仍在，无净价值
+      // 现货同步：净价值行 + 隐私遮蔽 + locked 样式
       const spotSec = body.slice(body.indexOf('现货账户余额'));
-      if (!spotSec.includes('≈ **** USDT') && !spotSec.includes('≈ 67.89 USDT')) {
-        // 隐藏态下应为 ****
-        if (!spotSec.includes('≈ **** USDT')) {
-          throw new Error('现货卡隐私遮蔽回归失败');
-        }
+      if (!spotSec.includes('≈ **** USDT')) {
+        throw new Error('现货卡隐私遮蔽失败');
       }
-      if (spotSec.includes('净价值')) {
-        throw new Error('现货卡不应渲染净价值');
+      if (!spotSec.includes('净价值')) {
+        throw new Error('现货卡应渲染净价值行');
+      }
+      if (spotSec.includes('67.89')) {
+        throw new Error('现货卡隐私隐藏态不得泄露真实价值: ' + spotSec);
       }
 
       helpers.ingestSnapshot(designFixture);

@@ -500,35 +500,40 @@
       color: var(--text);
     }
     .balance-grid {
+      /* 统一/现货余额行较长（数量 + ≈ 价值），卡片宁少列多行，避免窄卡硬换行 */
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
       gap: var(--space-3);
     }
     .balance-card {
-      padding: var(--space-3);
+      padding: var(--space-3) var(--space-4);
       border: 1px solid var(--line);
       border-radius: var(--radius);
       background: var(--surface);
+      min-width: 0;
     }
     .balance-card .asset {
       font-weight: 700;
       font-size: 13px;
-      margin-bottom: var(--space-1);
+      margin-bottom: var(--space-2);
     }
     .balance-card .amount {
       font-family: var(--mono);
       font-size: 14px;
+      line-height: 1.5;
     }
     .balance-card .amount.locked {
       color: var(--muted);
       font-size: 12px;
       margin-top: var(--space-1);
+      line-height: 1.5;
     }
     .balance-card .amount.borrowed-debt {
       color: var(--danger, #c0392b);
       font-size: 12px;
       margin-top: var(--space-1);
       font-weight: 600;
+      line-height: 1.5;
     }
 
     /* 隐私开关 */
@@ -2853,7 +2858,7 @@
                 <div class="asset">${escapeHtml(b.asset || '—')}</div>
                 <div class="amount">${formatBalanceAmount(b.total_balance)} ${approximateUsdtLine(b.value_usdt)}</div>
                 <div class="amount ${borrowedCls}">已借: ${formatBalanceAmount(b.cross_margin_borrowed)} ${approximateUsdtLine(b.cross_margin_borrowed_value_usdt)}</div>
-                <div class="amount value-usdt">净价值 ${unifiedNetValueLine(b.value_usdt, b.cross_margin_borrowed_value_usdt)}</div>
+                <div class="amount ${borrowedCls} value-usdt">净价值 ${unifiedNetValueLine(b.value_usdt, b.cross_margin_borrowed_value_usdt)}</div>
               </div>`;
             }).join('')
           : '<span class="muted small">无数据</span>';
@@ -2862,9 +2867,9 @@
           ? pa.balances_spot.map(b => `
               <div class="balance-card">
                 <div class="asset">${escapeHtml(b.asset || '—')}</div>
-                <div class="amount">${formatBalanceAmount(b.free)}</div>
+                <div class="amount">${formatBalanceAmount(b.free)} ${approximateUsdtLine(b.value_usdt)}</div>
                 <div class="amount locked">冻结: ${formatBalanceAmount(b.locked)}</div>
-                <div class="amount value-usdt">${approximateUsdtLine(b.value_usdt)}</div>
+                <div class="amount locked value-usdt">净价值 ${approximateUsdtLine(b.value_usdt)}</div>
               </div>
             `).join('')
           : '<span class="muted small">无数据</span>';
