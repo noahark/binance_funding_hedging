@@ -85,6 +85,13 @@
 
 ## Bookkeeper Verification (Bookkeeper append-only)
 
-由 Bookkeeper 核验后追加：源区块 SHA-256、核验时间、核对的 status revision、通过或拒收依据、可复现命令与后续状态。
+- verified_at: `2026-08-03 19:09:01 CST`
+- source_sha256: `1cab6c9becb7a45f66ea4a5950caf0904d500216d8c0d363a27fb50494e88b06`（首个完整 `BOOKKEEPER_APPEND_ONLY` marker 之前的原始 bytes）
+- status_revision_checked: `1`；task/state: `backend-cache-refresh-v1` / `reported`
+- SHA verification: `base_sha=6f1901ee7eb552102645f41f1e124fd7cf6e3ff7` 与 packet 一致；唯一 delivery commit 为 `8b624f733362e3a523d7f06613534af4f2451ad2`，其父为 stage intake `1ab6bfe32185862b2fc826588c7fb6d90f54505c`；delivery 只触及 packet Allowed Files，status 仅从 `dispatched` 改为 `reported`。
+- evidence verification: author handoff 的 task/model/stage/base、`delivery_sha=pending`、Human Brief、必读路径和下一步格式均有效；两份 pytest 原始输出存在，分别记录 340 与 1256 passed。
+- independent checks: `PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -p no:cacheprovider -q backend/tests/test_account_cache_refresh_v1.py` → `41 passed in 10.44s`；同一设置下运行 packet 指定七个测试模块 → `340 passed in 34.34s`。首次 sandbox 全量运行因 localhost bind 被拒；受控本机复跑使用 localhost、无网络、无凭证、无实盘 I/O。
+- verdict: verified for delivery routing. `git diff --check 1ab6bfe..8b624f7` 仅报告 `docs/api/public-market-contract.md:1246: new blank line at EOF`；这不改变本任务代码行为、契约语义、验收事实或测试结论，作为 Review-1 的非功能观察，不阻塞本次 Bookkeeper 核验。
+- next state: Bookkeeper resolves `delivery_sha` to `8b624f733362e3a523d7f06613534af4f2451ad2`，并派发跨 provider Review-1。
 
 ## Errata (append-only)

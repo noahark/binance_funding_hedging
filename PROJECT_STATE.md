@@ -121,11 +121,11 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
 
 ## Next Priority
 
-- **Active stage:** `2026-08-03-hedge-status-account-refresh-v1`. Human approved
-  the corrected cache-refresh design and assigned Codex as Bookkeeper. First
-  task is the bounded backend/API/schema/status-hook implementation; frontend
-  waits for its committed, independently reviewed contract. This stage does not
-  authorize deployment, Start-gate changes, credentials, or live operation.
+- **Active stage:** `2026-08-03-hedge-status-account-refresh-v1`. Backend/API/
+  schema/status-hook delivery `8b624f7` is Bookkeeper-verified; cross-provider
+  Review-1 (Kimi) is ready. Frontend waits for the committed, reviewed contract.
+  This stage does not authorize deployment, Start-gate changes, credentials, or
+  live operation.
 - F4 and the lifecycle Task 2 remain deliberately deferred; the Chinese task-card
   gap remains a separate low-scope follow-up.
 
