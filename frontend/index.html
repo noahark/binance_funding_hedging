@@ -1351,6 +1351,12 @@
         'net_daily_yield',
         'borrow_rate_source'
       ];
+      // v0.9 additive row object: producer always emits; frozen v0.1–v0.8 samples omit.
+      // Must stay out of REQUIRED_ROW_FIELDS (missing key = legacy freeze, not contract error).
+      // Do not auto-fill: absent key is a distinct "not applicable / legacy" state.
+      const OPTIONAL_ROW_FIELDS = [
+        'collateral_cap'
+      ];
 
       const AUTO_REFRESH_MS = 60000; // 与后端 Config.cache_ttl_seconds=60 对齐
       const PRIVACY_STORAGE_KEY = 'funding_hedging_privacy_hidden';
@@ -2193,6 +2199,61 @@
         return openable.concat(rest);
       }
 
+      // v0.9 collateral_cap display (pure UI; never drives sort/filter/buttons).
+      // Ordered rules match docs/api public-market-contract v0.9 + interface §8.
+      function resolveCollateralCapKind(row) {
+        if (!row || !('collateral_cap' in row) || row.collateral_cap == null) return 'na';
+        const flags = Array.isArray(row.ui_flags) ? row.ui_flags : [];
+        if (flags.includes('COLLATERAL_CAP_EXCEEDED')) return 'exceeded';
+        if (flags.includes('COLLATERAL_CAP_UNKNOWN')) return 'unknown';
+        const cap = row.collateral_cap;
+        if (cap.asset == null) return 'na';
+        if (cap.exceeded === false && typeof cap.checked_at === 'string' && cap.checked_at !== '') {
+          return 'ok';
+        }
+        // Out-of-table combinations: fail-closed as unknown (never "not full").
+        return 'unknown';
+      }
+
+      function formatCollateralCapCheckedAt(iso) {
+        // null/empty/invalid → 「未知」; never empty string, never Date.now().
+        if (iso == null || iso === '') return '未知';
+        const ms = new Date(iso).getTime();
+        if (Number.isNaN(ms)) return '未知';
+        return formatBeijing(ms);
+      }
+
+      function snapshotCollateralCapAsOfText(snapshot) {
+        if (!snapshot || !Array.isArray(snapshot.rows)) return '未知';
+        for (const row of snapshot.rows) {
+          if (!row || !row.collateral_cap || typeof row.collateral_cap !== 'object') continue;
+          const ca = row.collateral_cap.checked_at;
+          if (typeof ca === 'string' && ca !== '') {
+            return formatCollateralCapCheckedAt(ca);
+          }
+        }
+        return '未知';
+      }
+
+      function renderCollateralCapBadge(row) {
+        const kind = resolveCollateralCapKind(row);
+        if (kind === 'na' || kind === 'ok') return '';
+        const cap = row.collateral_cap || {};
+        // Display asset must be the resolved spot base from the block (e.g. TSLAB), never base_asset.
+        const asset = (typeof cap.asset === 'string' && cap.asset) ? cap.asset : '';
+        const timeText = formatCollateralCapCheckedAt(cap.checked_at);
+        if (kind === 'exceeded') {
+          const title = asset
+            ? `抵押额度已满 · 判定资产 ${asset} · 名单截至 ${timeText}`
+            : `抵押额度已满 · 名单截至 ${timeText}`;
+          return ` <span class="badge compact danger collateral-cap-badge" title="${escapeHtml(title)}">抵押额度已满</span>`;
+        }
+        const title = asset
+          ? `抵押额度未知（读取失败，不代表未满）· 判定资产 ${asset} · 名单截至 ${timeText}`
+          : `抵押额度未知（读取失败，不代表未满）· 名单截至 ${timeText}`;
+        return ` <span class="badge compact warn collateral-cap-badge" title="${escapeHtml(title)}">抵押额度未知</span>`;
+      }
+
       function renderSummary() {
         if (!state.snapshot) {
           els.summaryRow.innerHTML = '';
@@ -2204,7 +2265,8 @@
           `共 ${rows.length} 行`,
           `路由: ${countString(s.route_counts, ROUTE_CLASS_LABEL_ZH)}`,
           `资产: ${countString(s.asset_tag_counts, ASSET_TAG_LABEL_ZH)}`,
-          `负费率: ${countString(s.negative_funding_status_counts, NEGATIVE_FUNDING_STATUS_LABEL_ZH)}`
+          `负费率: ${countString(s.negative_funding_status_counts, NEGATIVE_FUNDING_STATUS_LABEL_ZH)}`,
+          `抵押额度名单截至 ${snapshotCollateralCapAsOfText(state.snapshot)}`
         ];
         els.summaryRow.innerHTML = parts.map(p => `<span class="badge">${escapeHtml(p)}</span>`).join('');
       }
@@ -2375,9 +2437,11 @@
         }
         const maxBorrowLine = maxBorrowableSubline(row);
         const dirBadge = directionBadgeForSymbol(row.symbol, umPositions);
+        // Pure display: highlight on the symbol cell only; never the 借贷状态 / 资产 column.
+        const capBadge = renderCollateralCapBadge(row);
         return `
           <tr class="${isBstock ? 'bstock' : ''} selectable" data-symbol="${escapeHtml(row.symbol)}" tabindex="0" role="button" aria-label="查看 ${escapeHtml(row.symbol)} 的年化与已结算历史">
-            <td class="mono">${escapeHtml(row.symbol)}${dirBadge}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span></td>
+            <td class="mono">${escapeHtml(row.symbol)}${dirBadge}${capBadge}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span></td>
             ${renderOpeningQuotesCell(row, 'forward')}
             ${renderOpeningQuotesCell(row, 'reverse')}
             <td class="${rateClass}" title="${escapeHtml(rateTitle)}">${rateText}</td>
@@ -5517,6 +5581,10 @@
         isNegativeFundingRate,
         isOpenablePreferredRow,
         isStrictlyPositiveDecimalString,
+        resolveCollateralCapKind,
+        formatCollateralCapCheckedAt,
+        snapshotCollateralCapAsOfText,
+        renderCollateralCapBadge,
         displayRows,
         filteredRows,
         ingestSnapshot,

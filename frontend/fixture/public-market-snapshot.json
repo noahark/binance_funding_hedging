@@ -103,7 +103,8 @@
       "annualized_funding_7d": "0.03170755",
       "annualized_funding_30d": "0.00739843",
       "ui_flags": [
-        "MARGIN_PUBLIC_UNVERIFIED"
+        "MARGIN_PUBLIC_UNVERIFIED",
+        "COLLATERAL_CAP_EXCEEDED"
       ],
       "opening_quotes": {
         "status": "fresh",
@@ -114,6 +115,11 @@
         "futures_ask_price": "64925.10",
         "forward_spread_pct": "-0.04",
         "reverse_spread_pct": "0.04"
+      },
+      "collateral_cap": {
+        "exceeded": true,
+        "asset": "BTC",
+        "checked_at": "2026-08-03T04:15:22Z"
       }
     },
     {
@@ -166,6 +172,11 @@
         "futures_ask_price": "1705.60000000",
         "forward_spread_pct": null,
         "reverse_spread_pct": "0.02"
+      },
+      "collateral_cap": {
+        "exceeded": false,
+        "asset": "ETH",
+        "checked_at": "2026-08-03T04:15:22Z"
       }
     },
     {
@@ -207,7 +218,8 @@
       "annualized_funding_7d": null,
       "annualized_funding_30d": null,
       "ui_flags": [
-        "MARGIN_PUBLIC_UNVERIFIED"
+        "MARGIN_PUBLIC_UNVERIFIED",
+        "COLLATERAL_CAP_UNKNOWN"
       ],
       "opening_quotes": {
         "status": "fresh",
@@ -218,6 +230,11 @@
         "futures_ask_price": "0.00224900",
         "forward_spread_pct": "-0.09",
         "reverse_spread_pct": "-0.09"
+      },
+      "collateral_cap": {
+        "exceeded": null,
+        "asset": "XVG",
+        "checked_at": null
       }
     },
     {
@@ -271,6 +288,11 @@
         "futures_ask_price": null,
         "forward_spread_pct": null,
         "reverse_spread_pct": null
+      },
+      "collateral_cap": {
+        "exceeded": null,
+        "asset": null,
+        "checked_at": "2026-08-03T04:15:22Z"
       }
     },
     {
@@ -325,6 +347,11 @@
         "futures_ask_price": null,
         "forward_spread_pct": null,
         "reverse_spread_pct": null
+      },
+      "collateral_cap": {
+        "exceeded": null,
+        "asset": null,
+        "checked_at": "2026-08-03T04:15:22Z"
       }
     },
     {
@@ -367,7 +394,8 @@
       "annualized_funding_30d": null,
       "ui_flags": [
         "MARGIN_PUBLIC_UNVERIFIED",
-        "TRADIFI_BSTOCK"
+        "TRADIFI_BSTOCK",
+        "COLLATERAL_CAP_EXCEEDED"
       ],
       "opening_quotes": {
         "status": "fresh",
@@ -378,6 +406,11 @@
         "futures_ask_price": "396.11000000",
         "forward_spread_pct": "-0.03",
         "reverse_spread_pct": "0.02"
+      },
+      "collateral_cap": {
+        "exceeded": true,
+        "asset": "TSLAB",
+        "checked_at": "2026-08-03T04:15:22Z"
       }
     },
     {
@@ -431,6 +464,11 @@
         "futures_ask_price": "2600.00000000",
         "forward_spread_pct": null,
         "reverse_spread_pct": null
+      },
+      "collateral_cap": {
+        "exceeded": null,
+        "asset": null,
+        "checked_at": "2026-08-03T04:15:22Z"
       }
     }
   ],

@@ -286,6 +286,47 @@ if (designFixture.rows[1]) designFixture.rows[1].opening_quotes = OPENING_QUOTES
 if (designFixture.rows[2]) designFixture.rows[2].opening_quotes = OPENING_QUOTES_STALE;
 if (designFixture.rows[3]) designFixture.rows[3].opening_quotes = OPENING_QUOTES_UNAVAILABLE;
 // rows[4] (EUSDT) 与 rows[5] (FUSDT) 保持 opening_quotes 缺失，测试字段整体缺失降级。
+
+// v0.9 collateral_cap 各态：内存注入，不改 backend fixture。
+// AUSDT 负费率已满；BUSDT 未满；CUSDT 正费率已满（同态方向无关）；
+// DUSDT 未知；EUSDT 不适用 (asset=null)；FUSDT 缺键（冻结快照降级）。
+const COLLATERAL_CAP_CHECKED_AT = '2026-08-03T04:15:22Z';
+function injectCap(row, cap, extraFlags) {
+  if (!row) return;
+  row.collateral_cap = cap;
+  const flags = Array.isArray(row.ui_flags) ? row.ui_flags.slice() : [];
+  const cleaned = flags.filter(f => f !== 'COLLATERAL_CAP_EXCEEDED' && f !== 'COLLATERAL_CAP_UNKNOWN');
+  for (const f of (extraFlags || [])) {
+    if (!cleaned.includes(f)) cleaned.push(f);
+  }
+  row.ui_flags = cleaned;
+}
+if (designFixture.rows[0]) {
+  injectCap(designFixture.rows[0], {
+    exceeded: true, asset: 'A', checked_at: COLLATERAL_CAP_CHECKED_AT
+  }, ['COLLATERAL_CAP_EXCEEDED']);
+}
+if (designFixture.rows[1]) {
+  injectCap(designFixture.rows[1], {
+    exceeded: false, asset: 'B', checked_at: COLLATERAL_CAP_CHECKED_AT
+  }, []);
+}
+if (designFixture.rows[2]) {
+  injectCap(designFixture.rows[2], {
+    exceeded: true, asset: 'C', checked_at: COLLATERAL_CAP_CHECKED_AT
+  }, ['COLLATERAL_CAP_EXCEEDED']);
+}
+if (designFixture.rows[3]) {
+  injectCap(designFixture.rows[3], {
+    exceeded: null, asset: 'D', checked_at: null
+  }, ['COLLATERAL_CAP_UNKNOWN']);
+}
+if (designFixture.rows[4]) {
+  injectCap(designFixture.rows[4], {
+    exceeded: null, asset: null, checked_at: COLLATERAL_CAP_CHECKED_AT
+  }, []);
+}
+// rows[5] FUSDT: deliberately omit collateral_cap key (legacy freeze).
 // 给 AUSDT 行附加 settled history，用于抽屉 newest-first / 负费率 / 北京时间测试。
 const ausdt = designFixture.rows.find(r => r.symbol === 'AUSDT');
 if (ausdt) {
@@ -5236,6 +5277,220 @@ setTimeout(async () => {
       clickHandlers[0]();
       if (panel.hidden !== true) throw new Error('再次点击开关应收起预览');
       console.log('[PASS] 假数据·预览：默认关闭 + 开关可切 + 51169 冻结文案逐字渲染 + 打开零网络请求');
+    }
+
+    // 99. v0.9 collateral_cap 纯展示：标的列徽标三态 + 不适用 + 缺键；摘要截至时间；
+    //     不进 REQUIRED；不驱动排序/过滤/按钮；借贷状态列零文案；bStock 用 cap.asset。
+    {
+      // Ensure baseline designFixture is active (filters already open for all 6 rows).
+      helpers.ingestSnapshot(designFixture);
+      elements['filter-hide-low-daily-rate'].checked = false;
+      (elements['filter-hide-low-daily-rate'].listeners.change || []).forEach(h => h());
+      elements['filter-hide-low-net-yield'].checked = false;
+      (elements['filter-hide-low-net-yield'].listeners.change || []).forEach(h => h());
+      elements['filter-prefer-openable'].checked = false;
+      (elements['filter-prefer-openable'].listeners.change || []).forEach(h => h());
+
+      const capTbody = elements['market-table-body'].innerHTML;
+      const ausdtSym = getRowCell(capTbody, 'AUSDT', 0);
+      const busdtSym = getRowCell(capTbody, 'BUSDT', 0);
+      const cusdtSym = getRowCell(capTbody, 'CUSDT', 0);
+      const dusdtSym = getRowCell(capTbody, 'DUSDT', 0);
+      const eusdtSym = getRowCell(capTbody, 'EUSDT', 0);
+      const fusdtSym = getRowCell(capTbody, 'FUSDT', 0);
+
+      if (!ausdtSym.includes('抵押额度已满')) {
+        throw new Error('AUSDT（已满）标的列应含「抵押额度已满」: ' + ausdtSym);
+      }
+      if (!cusdtSym.includes('抵押额度已满')) {
+        throw new Error('CUSDT（正费率已满）标的列应含「抵押额度已满」: ' + cusdtSym);
+      }
+      if (!dusdtSym.includes('>抵押额度未知<') && !dusdtSym.includes('抵押额度未知</span>')) {
+        throw new Error('DUSDT（未知）标的列应含可见文案「抵押额度未知」: ' + dusdtSym);
+      }
+      // 未知绝不可呈现为未满/正常/充足/可用（可见徽标与非 title 文案）。
+      // title 允许接口要求的否定说明「不代表未满」——从检查中剔除 title 属性。
+      const dusdtVisible = dusdtSym.replace(/\stitle="[^"]*"/g, '');
+      for (const bad of ['未满', '正常', '充足', '可用']) {
+        if (dusdtVisible.includes(bad)) {
+          throw new Error(`DUSDT 未知行可见 DOM 不得含「${bad}」: ${dusdtVisible}`);
+        }
+      }
+      if (!dusdtSym.includes('不代表未满') && !dusdtSym.includes('读取失败')) {
+        throw new Error('未知徽标 title 应说明读取失败/不代表未满: ' + dusdtSym);
+      }
+      if (busdtSym.includes('抵押额度已满') || busdtSym.includes('抵押额度未知')) {
+        throw new Error('BUSDT（未满）标的列不应有抵押额度徽标: ' + busdtSym);
+      }
+      if (eusdtSym.includes('抵押额度已满') || eusdtSym.includes('抵押额度未知')) {
+        throw new Error('EUSDT（不适用）标的列不应有抵押额度徽标: ' + eusdtSym);
+      }
+      if (fusdtSym.includes('抵押额度已满') || fusdtSym.includes('抵押额度未知')) {
+        throw new Error('FUSDT（缺键）标的列不应有抵押额度徽标: ' + fusdtSym);
+      }
+
+      // 正费率行 + 负费率行均高亮（不按方向过滤）
+      // AUSDT daily_funding_rate 为负，CUSDT 为正，二者皆「已满」。
+      if (!(helpers.isNegativeFundingRate(designFixture.rows[0]) && helpers.isPositiveFundingRate(designFixture.rows[2]))) {
+        throw new Error('夹具费率方向被改：期望 AUSDT 负 / CUSDT 正以覆盖双向高亮');
+      }
+
+      // 借贷状态 / 资产 列（index 11）不得含任何抵押额度文案
+      for (const sym of ['AUSDT', 'BUSDT', 'CUSDT', 'DUSDT', 'EUSDT', 'FUSDT']) {
+        const borrowCell = getRowCell(capTbody, sym, 11);
+        if (borrowCell.includes('抵押额度')) {
+          throw new Error(`${sym} 借贷状态列不得含抵押额度文案: ${borrowCell}`);
+        }
+      }
+
+      // 摘要/表头区一处露出「抵押额度名单截至 <北京时间>」
+      const expectedAsOf = helpers.formatBeijing(new Date(COLLATERAL_CAP_CHECKED_AT).getTime());
+      const summaryHtml = elements['summary-row'].innerHTML;
+      if (!summaryHtml.includes('抵押额度名单截至')) {
+        throw new Error('摘要区缺少「抵押额度名单截至」: ' + summaryHtml);
+      }
+      if (!summaryHtml.includes(expectedAsOf)) {
+        throw new Error(`摘要截至时间期望 ${expectedAsOf}，实际: ${summaryHtml}`);
+      }
+      // 徽标 title 也带该时间
+      if (!ausdtSym.includes(expectedAsOf)) {
+        throw new Error('已满徽标 title 应含截至北京时间: ' + ausdtSym);
+      }
+
+      // checked_at 全 null → 摘要显示「未知」
+      const nullAtFixture = JSON.parse(JSON.stringify(designFixture));
+      for (const r of nullAtFixture.rows) {
+        if (r.collateral_cap) r.collateral_cap.checked_at = null;
+      }
+      // Keep UNKNOWN flag rows consistent; strip EXCEEDED checked_at only.
+      helpers.ingestSnapshot(nullAtFixture);
+      const summaryNull = elements['summary-row'].innerHTML;
+      if (!summaryNull.includes('抵押额度名单截至 未知') && !summaryNull.includes('抵押额度名单截至')) {
+        throw new Error('checked_at 全 null 时摘要应露出截至文案: ' + summaryNull);
+      }
+      // Explicit: must show 未知, never empty as-of, never current wall clock injection
+      if (!/抵押额度名单截至\s*未知/.test(summaryNull.replace(/<[^>]+>/g, ' '))) {
+        throw new Error('checked_at 全 null 时摘要截至应为「未知」: ' + summaryNull);
+      }
+
+      // 缺键不抛错：单独只有 F 缺键已在上方渲染通过；再测全表缺键
+      const noKeyFixture = JSON.parse(JSON.stringify(designFixture));
+      for (const r of noKeyFixture.rows) {
+        delete r.collateral_cap;
+        if (Array.isArray(r.ui_flags)) {
+          r.ui_flags = r.ui_flags.filter(f => f !== 'COLLATERAL_CAP_EXCEEDED' && f !== 'COLLATERAL_CAP_UNKNOWN');
+        }
+      }
+      helpers.ingestSnapshot(noKeyFixture);
+      const noKeyTbody = elements['market-table-body'].innerHTML;
+      if (noKeyTbody.includes('抵押额度已满') || noKeyTbody.includes('抵押额度未知')) {
+        throw new Error('全表缺 collateral_cap 键不应渲染徽标');
+      }
+      if ((noKeyTbody.match(/<tr/g) || []).length !== 6) {
+        throw new Error('全表缺键仍应渲染 6 行');
+      }
+
+      // collateral_cap 不在 REQUIRED_ROW_FIELDS；在 OPTIONAL_ROW_FIELDS
+      if (!script.includes("OPTIONAL_ROW_FIELDS")) {
+        throw new Error('缺少 OPTIONAL_ROW_FIELDS 常量（collateral_cap 可选路径）');
+      }
+      // REQUIRED_ROW_FIELDS 数组字面量内不得出现 collateral_cap
+      const requiredBlock = script.match(/const REQUIRED_ROW_FIELDS\s*=\s*\[([\s\S]*?)\];/);
+      if (!requiredBlock) throw new Error('无法定位 REQUIRED_ROW_FIELDS');
+      if (requiredBlock[1].includes('collateral_cap')) {
+        throw new Error('collateral_cap 不得加入 REQUIRED_ROW_FIELDS');
+      }
+      const optionalBlock = script.match(/const OPTIONAL_ROW_FIELDS\s*=\s*\[([\s\S]*?)\];/);
+      if (!optionalBlock || !optionalBlock[1].includes('collateral_cap')) {
+        throw new Error('collateral_cap 应列入 OPTIONAL_ROW_FIELDS');
+      }
+
+      // 纯展示：不因 collateral_cap 改变开单/借币按钮启用或行序
+      helpers.ingestSnapshot(designFixture);
+      elements['filter-prefer-openable'].checked = false;
+      (elements['filter-prefer-openable'].listeners.change || []).forEach(h => h());
+      const withCapTbody = elements['market-table-body'].innerHTML;
+      const withCapOrder = ['AUSDT', 'BUSDT', 'CUSDT', 'DUSDT', 'EUSDT', 'FUSDT'];
+      assertOrder(withCapTbody, withCapOrder);
+      // 立即开单按钮仍存在且无因 cap 额外 disabled（平滑开单本就 disabled）
+      const ausdtHedge = getRowCell(withCapTbody, 'AUSDT', 13);
+      if (!ausdtHedge.includes('立即开单')) {
+        throw new Error('已满行仍应渲染立即开单按钮');
+      }
+      if (/data-hedge-open="immediate"[^>]*disabled/.test(ausdtHedge)) {
+        throw new Error('立即开单不得因 collateral_cap 被 disabled');
+      }
+      // Strip caps and re-render: order and immediate-open presence unchanged
+      const stripCap = JSON.parse(JSON.stringify(designFixture));
+      for (const r of stripCap.rows) {
+        delete r.collateral_cap;
+        if (Array.isArray(r.ui_flags)) {
+          r.ui_flags = r.ui_flags.filter(f => f !== 'COLLATERAL_CAP_EXCEEDED' && f !== 'COLLATERAL_CAP_UNKNOWN');
+        }
+      }
+      helpers.ingestSnapshot(stripCap);
+      const noCapTbody = elements['market-table-body'].innerHTML;
+      assertOrder(noCapTbody, withCapOrder);
+      const ausdtHedgeNoCap = getRowCell(noCapTbody, 'AUSDT', 13);
+      if (!ausdtHedgeNoCap.includes('立即开单')) {
+        throw new Error('无 cap 时立即开单应仍在');
+      }
+
+      // bStock：徽标/提示展示 collateral_cap.asset（TSLAB），不得用合约 base TSLA 作判定资产
+      const bstockFx = JSON.parse(JSON.stringify(designFixture));
+      bstockFx.rows[0].symbol = 'TSLAUSDT';
+      bstockFx.rows[0].base_asset = 'TSLA';
+      bstockFx.rows[0].asset_tag = 'BSTOCK';
+      bstockFx.rows[0].ui_flags = ['MARGIN_PUBLIC_UNVERIFIED', 'TRADIFI_BSTOCK', 'COLLATERAL_CAP_EXCEEDED'];
+      bstockFx.rows[0].collateral_cap = {
+        exceeded: true, asset: 'TSLAB', checked_at: COLLATERAL_CAP_CHECKED_AT
+      };
+      // Keep other rows filter-friendly
+      helpers.ingestSnapshot(bstockFx);
+      elements['filter-hide-low-daily-rate'].checked = false;
+      (elements['filter-hide-low-daily-rate'].listeners.change || []).forEach(h => h());
+      elements['filter-hide-low-net-yield'].checked = false;
+      (elements['filter-hide-low-net-yield'].listeners.change || []).forEach(h => h());
+      const bstockTbody = elements['market-table-body'].innerHTML;
+      const tslaCell = getRowCell(bstockTbody, 'TSLAUSDT', 0);
+      if (!tslaCell.includes('抵押额度已满')) {
+        throw new Error('bStock 命中行应显示已满徽标: ' + tslaCell);
+      }
+      if (!tslaCell.includes('TSLAB')) {
+        throw new Error('bStock 徽标 title 应含判定资产 TSLAB: ' + tslaCell);
+      }
+      // title 中判定资产不得写成合约 base；允许单元格 muted 行显示 TSLA/USDT
+      const titleMatch = tslaCell.match(/title="([^"]*)"/);
+      if (!titleMatch) throw new Error('bStock 徽标缺少 title: ' + tslaCell);
+      const title = titleMatch[1];
+      if (!title.includes('TSLAB')) {
+        throw new Error('title 须含 TSLAB: ' + title);
+      }
+      if (/判定资产\s*TSLA(?!B)/.test(title) || title.includes('判定资产 TSLA ·')) {
+        throw new Error('title 不得以合约 base TSLA 作为判定资产: ' + title);
+      }
+
+      // fail-closed helper：表外组合 → unknown
+      if (typeof helpers.resolveCollateralCapKind !== 'function') {
+        throw new Error('须导出 resolveCollateralCapKind 供自检');
+      }
+      const oo = helpers.resolveCollateralCapKind({
+        collateral_cap: { exceeded: true, asset: 'X', checked_at: null },
+        ui_flags: []
+      });
+      if (oo !== 'unknown') {
+        throw new Error('表外组合应 fail-closed 为 unknown，实际 ' + oo);
+      }
+
+      // Restore design fixture for any later checks
+      helpers.ingestSnapshot(designFixture);
+      elements['filter-hide-low-daily-rate'].checked = false;
+      (elements['filter-hide-low-daily-rate'].listeners.change || []).forEach(h => h());
+      elements['filter-hide-low-net-yield'].checked = false;
+      (elements['filter-hide-low-net-yield'].listeners.change || []).forEach(h => h());
+      elements['filter-prefer-openable'].checked = false;
+      (elements['filter-prefer-openable'].listeners.change || []).forEach(h => h());
+      console.log('[PASS] v0.9 collateral_cap 纯展示：三态/不适用/缺键、摘要截至、方向无关、bStock asset、不驱动按钮/排序');
     }
 
     // 76. 无泄漏证明：fetch 同源白名单、无 Binance/外域、无新任务定时器、localStorage 白名单
