@@ -1,22 +1,24 @@
 {
   "schema_version": "2",
-  "revision": 1,
+  "revision": 2,
   "stage_id": "2026-08-03-harness-task-handoff-evidence-v1",
   "bookkeeper": "codex",
-  "phase": "implementation",
-  "checkpoint": "R4 plan accepted by DeepSeek; Human authorized claude_glm implementation on the stage branch.",
-  "base_sha": "ed802bc64d5d1476a19b19aa58d773229b24bfa4",
-  "delivery_sha": null,
-  "ledger_sha": "ed802bc64d5d1476a19b19aa58d773229b24bfa4",
+  "phase": "repair",
+  "checkpoint": "Bookkeeper rejected e7c0acb for BK-001/BK-002; same claude_glm implementer repairs the bounded handoff-contract gaps.",
+  "base_sha": "e7c0acb81831060369889143072787efe753e3f7",
+  "delivery_sha": "e7c0acb81831060369889143072787efe753e3f7",
+  "ledger_sha": "e7c0acb81831060369889143072787efe753e3f7",
   "current_task": {
-    "id": "harness-handoff-contract-implementation-glm-v1",
-    "state": "reported",
-    "dispatch": "reports/agent-runs/2026-08-03-harness-task-handoff-evidence-v1/10-claude-glm-handoff-contract-implementation.dispatch.md"
+    "id": "harness-handoff-contract-repair-glm-r1",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-03-harness-task-handoff-evidence-v1/22-claude-glm-handoff-contract-repair-r1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
     "action": "start-prepared-task"
   },
-  "rework_count": 0,
-  "blockers": []
+  "rework_count": 1,
+  "blockers": [
+    "BK-001/BK-002: e7c0acb rejected; the contract lacks mandatory dispatch routing to its detailed authority and a same-file rejection record for malformed existing handoffs. See 21-bookkeeper-verification-rework-r1.md."
+  ]
 }
