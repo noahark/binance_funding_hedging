@@ -7,9 +7,12 @@ hedge domain package (10-design §9 / ADR-5):
    primitive, and never imports the services-layer live client/executor/preflight
    provider — so the dry-run record transport's zero-network proof holds and a
    real POST is reachable ONLY through the injected live adapter (the seam).
-2. ``HedgeOpenLiveClient`` carries exactly the frozen 7-endpoint allowlist pinned
-   by the archived recon (recon §3.1/§3.2/§4.1), deny-by-default, host hardcoded
-   to ``papi.binance.com`` (never caller-supplied).
+2. ``HedgeOpenLiveClient`` carries exactly the frozen 12-endpoint allowlist
+   (recon §3.1/§3.2/§4.1 for the 7 PAPI pairs; decision §E-2 / §4 + the
+   ``restricted-asset.raw.json`` sample for the 5 regular-spot pairs),
+   deny-by-default. Hosts are hardcoded per group, never caller-supplied: the 7
+   PAPI pairs -> ``papi.binance.com``; the 5 regular-spot pairs ->
+   ``api.binance.com``.
 3. The allowlist gate raises BEFORE any signing primitive is called — an unknown
    path never reaches ``urlopen`` and never sends a signature.
 """
@@ -39,17 +42,46 @@ _LIVE_MODULE_RE = re.compile(
     r"(hedge_open_live_client|live_hedge_executor|hedge_preflight_provider)"
 )
 
-# The frozen 7-endpoint allowlist pinned by the recon (recon §3.1/§3.2/§4.1).
-# Method/path/host are facts; drift here is a contract break.
+# The frozen 12-endpoint allowlist. 7 PAPI pairs (recon §3.1/§3.2/§4.1) hardbound
+# to papi.binance.com; 5 regular-spot pairs (decision §E-2 / §4, evidenced by
+# reports/api-samples/2026-08-spot-order-routing-v1/restricted-asset.raw.json)
+# hardbound to api.binance.com. Method/path/host are facts; drift here — a
+# missing entry, a sixth entry, or a wrong host — is a contract break.
+_PAPI_HOST = "https://papi.binance.com"
+_SPOT_HOST = "https://api.binance.com"
 _FROZEN_ALLOWLIST = {
-    ("POST", "/papi/v1/margin/order"): "https://papi.binance.com",
-    ("POST", "/papi/v1/um/order"): "https://papi.binance.com",
-    ("GET", "/papi/v1/margin/order"): "https://papi.binance.com",
-    ("GET", "/papi/v1/um/order"): "https://papi.binance.com",
-    ("GET", "/papi/v1/balance"): "https://papi.binance.com",
-    ("GET", "/papi/v1/um/positionSide/dual"): "https://papi.binance.com",
-    ("GET", "/papi/v1/rateLimit/order"): "https://papi.binance.com",
+    # ---- 7 PAPI endpoints (order writes + preflight reads) ----
+    ("POST", "/papi/v1/margin/order"): _PAPI_HOST,
+    ("POST", "/papi/v1/um/order"): _PAPI_HOST,
+    ("GET", "/papi/v1/margin/order"): _PAPI_HOST,
+    ("GET", "/papi/v1/um/order"): _PAPI_HOST,
+    ("GET", "/papi/v1/balance"): _PAPI_HOST,
+    ("GET", "/papi/v1/um/positionSide/dual"): _PAPI_HOST,
+    ("GET", "/papi/v1/rateLimit/order"): _PAPI_HOST,
+    # ---- 5 regular-spot endpoints (collateral-cap + spot order/account/limit) ----
+    ("GET", "/sapi/v1/margin/restricted-asset"): _SPOT_HOST,
+    ("POST", "/api/v3/order"): _SPOT_HOST,
+    ("GET", "/api/v3/order"): _SPOT_HOST,
+    ("GET", "/api/v3/account"): _SPOT_HOST,
+    ("GET", "/api/v3/rateLimit/order"): _SPOT_HOST,
 }
+# The two host groups, for the per-group hardcoded-host assertion.
+_PAPI_KEYS = frozenset({
+    ("POST", "/papi/v1/margin/order"),
+    ("POST", "/papi/v1/um/order"),
+    ("GET", "/papi/v1/margin/order"),
+    ("GET", "/papi/v1/um/order"),
+    ("GET", "/papi/v1/balance"),
+    ("GET", "/papi/v1/um/positionSide/dual"),
+    ("GET", "/papi/v1/rateLimit/order"),
+})
+_SPOT_KEYS = frozenset({
+    ("GET", "/sapi/v1/margin/restricted-asset"),
+    ("POST", "/api/v3/order"),
+    ("GET", "/api/v3/order"),
+    ("GET", "/api/v3/account"),
+    ("GET", "/api/v3/rateLimit/order"),
+})
 
 
 # ---- 1. hedge_open_tasks/** purity (the dry-run zero-network proof) ----
@@ -89,15 +121,26 @@ def test_store_never_invokes_or_holds_an_executor():
     assert "self._executor" not in text, "store.py holds an executor reference (Q6)"
 
 
-# ---- 2. frozen allowlist (recon §3.1/§3.2/§4.1) ----
-def test_allowlist_is_exactly_the_frozen_seven_endpoints():
+# ---- 2. frozen allowlist (recon §3.1/§3.2/§4.1 + decision §E-2 / §4) ----
+def test_allowlist_is_exactly_the_frozen_twelve_endpoints():
+    # Exact equality + length 12: the anti-expansion guard. A sixth endpoint or a
+    # missing authorized one both fail here. Not a subset/contains check.
     assert ALLOWLIST == _FROZEN_ALLOWLIST
-    assert len(ALLOWLIST) == 7
+    assert len(ALLOWLIST) == 12
+    assert len(_PAPI_KEYS) == 7
+    assert len(_SPOT_KEYS) == 5
+    assert _PAPI_KEYS.isdisjoint(_SPOT_KEYS)
 
 
-def test_allowlist_hosts_all_hardcoded_papi():
-    for (method, path), base in ALLOWLIST.items():
-        assert base == "https://papi.binance.com", (method, path, base)
+def test_allowlist_hosts_hardcoded_per_group():
+    # Hosts are hardcoded per endpoint group (never caller-supplied): the 7 PAPI
+    # pairs -> papi.binance.com; the 5 regular-spot pairs -> api.binance.com.
+    for key in _PAPI_KEYS:
+        assert ALLOWLIST[key] == _PAPI_HOST, f"PAPI endpoint {key} not hardbound to {_PAPI_HOST}"
+    for key in _SPOT_KEYS:
+        assert ALLOWLIST[key] == _SPOT_HOST, f"spot endpoint {key} not hardbound to {_SPOT_HOST}"
+    # No endpoint maps to any other host.
+    assert set(ALLOWLIST.values()) == {_PAPI_HOST, _SPOT_HOST}
 
 
 def test_allowlist_has_both_order_writes_and_queries():

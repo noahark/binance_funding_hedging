@@ -14,6 +14,20 @@ method/path pairs (host hardcoded, never caller-supplied) — facts pinned by
 * ``GET  /papi/v1/um/positionSide/dual`` preflight one-way position mode (weight 30)
 * ``GET  /papi/v1/rateLimit/order``      preflight order rate limit  (weight 1)
 
+Regular-spot account route (stage 2026-08-02-spot-order-routing-cap-display-v1,
+decision §E-2) — five exact pairs HARDBOUND to the public spot host
+``https://api.binance.com`` (never caller-supplied), pinned by
+``reports/api-samples/2026-08-spot-order-routing-v1/restricted-asset.raw.json``:
+
+* ``GET  /sapi/v1/margin/restricted-asset`` platform collateral-cap list (API-key
+  only, unsigned, MARKET_DATA, weight 1) — read by BOTH the positive-funding
+  order preflight (§3, fresh per preflight) and the display cache (§6); the
+  response's ``openLongRestrictedAsset`` is never read or stored (decision §A-3).
+* ``POST /api/v3/order``                 regular-spot leg write     (TRADE, signed)
+* ``GET  /api/v3/order``                 regular-spot leg query (origClientOrderId)
+* ``GET  /api/v3/account``               standard Spot account balance (preflight)
+* ``GET  /api/v3/rateLimit/order``       standard Spot order rate limit (preflight)
+
 Security gates (mirrors ``portfolio_margin_borrow_client.py`` with its OWN
 allowlist — the borrow client and this one are distinct auditable surfaces):
 
@@ -32,9 +46,19 @@ allowlist — the borrow client and this one are distinct auditable surfaces):
 5. **Module-level timeout.** ``DEFAULT_TIMEOUT_SECONDS = 10`` — test-overridable
    via the constructor, never env-configurable.
 
-Default-off (ADR-4): an instance is constructed ONLY under
-``APP_HEDGE_EXECUTOR=live`` with credentials present; in disabled/record mode no
-instance exists and zero signed traffic leaves the process. Tests inject a fake
+Default-off (ADR-4) — order execution path: an instance that may POST an order
+is constructed ONLY under ``APP_HEDGE_EXECUTOR=live`` with credentials present,
+and a real POST still requires the durable Start gate + a fresh passing
+preflight; in disabled/record mode no order-writing instance exists and zero
+signed traffic leaves the process. Display path is separate (decision §E-4 /
+interface §10): the composition root (``server._build_restricted_asset_client``)
+constructs a deny-by-default instance from the existing hedge API key and
+injects it into :class:`backend.services.snapshot_service.SnapshotService`
+INDEPENDENTLY of ``APP_HEDGE_EXECUTOR`` and the private channel, so the
+collateral-cap column is populated even when the order executor is disabled.
+That display client may call ONLY the ``GET /sapi/v1/margin/restricted-asset``
+above (enforced by the same deny-by-default allowlist + hardcoded host);
+constructing it sends no request and changes no Start gate. Tests inject a fake
 ``urlopen``; no real credential is ever placed in a URL, log, or exception.
 
 The client returns a typed :class:`HedgeHttpResponse`; classification into the
