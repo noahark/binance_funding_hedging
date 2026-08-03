@@ -5,10 +5,34 @@ check.
 
 ## Live Risks
 
-- `[OPEN][RUNTIME-UNVERIFIED]` The Start gate may still be live and no close
+- `[OPEN][RUNTIME-VERIFIED 2026-08-03]` **The Start gate IS live.** No close
   function exists. No agent may create orders, touch credentials, control the
   service, or write the live task DB; an authorized read-only check must precede
-  any live action.
+  any live action. Upgraded from `RUNTIME-UNVERIFIED` on 2026-08-03: a
+  Human-ordered service restart printed
+  `hedge_open_execution_mode mode=live start_gate=true` and
+  `borrow_execution_mode mode=live execution_owner=true
+  live_authorized_task_count=26 recovered_orphan_blocker_count=1` at startup, so
+  the gate and both live execution modes are now observed facts, not
+  assumptions, and they survive a restart unchanged. The orphan blocker recovered
+  on that boot has not been investigated.
+- `[OPEN][OPERATIONS][2026-08-03]` **The launchd service is broken and has been
+  failing in a tight loop.** `com.aoke.funding-hedging.server` reports
+  `last exit code = 126` (not executable) with `runs = 78048` and
+  `state = spawn scheduled`; it has never been the process serving traffic. The
+  service on `127.0.0.1:8787` has been a manually started foreground process in
+  the operator's terminal, so killing it does NOT hand over to launchd — the
+  restart must be manual (`scripts/run-server.sh`, which is required because
+  `backend/config.py` never parses `.env` itself). Diagnose with
+  `scripts/service-control.py doctor` (read-only); every repair subcommand needs
+  `--confirm`. Not yet fixed by decision (Human 2026-08-03).
+- `[NOTE][2026-08-03]` The "no agent may control the service" rule above was
+  waived once, explicitly and narrowly: Human directly ordered a restart
+  (old PID `2494` → new PID `99045`, port `8787` unchanged, launched detached via
+  `nohup scripts/run-server.sh`). Read-only smoke only — `/healthz` `200`,
+  `/readyz` `200`, `private_account.verified=true`, 9 merged position rows; no
+  order, borrow, transfer, credential, or gate change. The waiver was for that
+  one restart and does not generalize.
 - `[OPEN][ACCEPTED-CONFIGURATION-RISK]` Regular-spot routing intentionally does
   not perform a runtime API-key trading-permission check. Human states that the
   production API key, IP allowlist, and account permissions are fixed. If any
@@ -41,6 +65,15 @@ know.** None costs money directly; each can mislead an operating decision.
 - `[OPEN][ACCEPTED]` **B** — spot balance and drift read the classic spot account
   while the hedge buys into the unified account, so the **drift flag is
   permanently inert**. An absent drift marker does not mean "records agree".
+  **Re-stated 2026-08-03 (v4.1 merged):** the positions table now shows the
+  unified-account balance on its own 「杠杆」 line, so the account the hedge leg
+  actually lands in is finally visible — real data on merge day: `COOKIEUSDT`
+  held `2997.0` in the unified account with the classic spot side `null`, a
+  holding the previous single 「现货余额」 column could not show at all. But
+  `drift` itself was NOT changed: it still compares the task record against the
+  classic spot balance (`backend/hedge_open_tasks/domain.py:1700-1709`), so it
+  stays permanently inert. **The richer display must not be read as evidence
+  that the consistency check was fixed.**
 - `[OPEN][ACCEPTED]` **F4 — "exchange has no position" is claimed without
   checking.** Whenever the account cannot be read (`SnapshotNotReady`, or
   `verified: false` from an expired key / changed IP / Binance error), every row
@@ -92,6 +125,47 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
 
 ## Open Follow-ups
 
+- `[OPEN][FOLLOW-UP]` **O-1 — per-asset balances repeat per row, with no
+  anti-sum treatment.** The 「现货 / 杠杆」 lines are account-level per-asset
+  figures rendered in a table keyed by (coin, direction), so a coin held both
+  forward and reverse repeats the same amounts *and* the same USDT valuations on
+  both rows; summing the column double-counts. The neighbouring 全仓借款 column
+  already solves exactly this — repeats render `同↑` with the title
+  「账户级（按资产）；同币多行请勿竖向相加」 (`frontend/index.html:4934-4945`,
+  `ef53a02`), while the un-deduped `spot_balance` cell dates to `969c455`; both
+  precede `base_sha`. v4.1 §9.2 specified the two lines without dedup, so the
+  merged delivery is not a deviation — but it widened the gap from one amount to
+  two amounts plus two USDT figures, and USDT reads as summable money. Fix =
+  reuse the existing `同↑` treatment on the two balance lines (a two-line
+  frontend change). Human accepted the risk at merge (2026-08-03) and deferred
+  the fix. Detail: Review-2 handoff O-1.
+- `[OPEN][FOLLOW-UP]` **O-3 — the `≈ … U` valuation's price age is invisible.**
+  Those values are priced from `price_map`, but the 对冲开单持仓 section's source
+  clock shows only the earliest of `um_positions` / `unified_balances` /
+  `spot_balances` — v4 §5.3 deliberately keeps `price_map` off panel titles. So a
+  valuation can rest on a quote older than the time displayed above it, with
+  nothing on the page saying so. Pre-existing convention (the balance cards do
+  the same) extended to a new place; not a false statement, just an unshown
+  dimension.
+- `[OPEN][FOLLOW-UP]` **O-6 — missing `free`/`locked` still paints a fake `0`.**
+  `spot_by_asset` uses `free = _merge_num(...) or Decimal(0)`
+  (`backend/hedge_open_tasks/domain.py:1768-1770`, introduced `969c455`, earlier
+  than `base_sha` and untouched by this delivery), so a spot row carrying only
+  `asset` renders 「现货: 0 ≈ — U」 — amount painted as a true zero while its
+  valuation is unknown. This is the one hole in v4.1's 「缺失绝不画 0」 promise.
+  Reaching it requires Binance to omit both fields on a balance row; never
+  observed. Same family as the money-zero tripwire below.
+- `[OPEN][FOLLOW-UP]` **No automated check binds the frontend field names to the
+  backend ones.** The four v4.1 balance fields cross the seam by hand-typed name
+  in three places (`domain.py` row keys, `test_hedge_api.py::_POSITION_KEYS`,
+  `index.html` `p.xxx`); Review-2 verified all five keys character-by-character
+  and the 2026-08-03 live smoke confirmed them end-to-end, but a future rename on
+  either side would silently render `—` with every test still green.
+- `[OPEN][FOLLOW-UP]` **Manual-restart logs land in a session scratchpad.** The
+  2026-08-03 restart wrote stdout/stderr to a Claude session scratchpad path,
+  which is temporary. Until the launchd service is repaired (see Live Risks),
+  restart from an operator terminal so logs survive, or fix the LaunchAgent so
+  they return to `~/Library/Logs/funding-hedging/`.
 - `[OPEN][RESIDUAL]` `resolve_leg_from_query` writes `avg_price` / `quote_amt`
   without `COALESCE`, so a later `None` overwrites a known value. Unreachable
   today. Was to ride Task 2.
@@ -130,36 +204,37 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
 
 ## Next Priority
 
-- **Active stage:** `2026-08-03-hedge-status-account-refresh-v1`. Backend/API/
-  schema/status-hook delivery `8b624f7` is Bookkeeper-verified; Kimi Review-1
-  was never started because its quota was unavailable, so Human authorized the
-  prepared DeepSeek replacement, which returned ACCEPT and is Bookkeeper-verified.
-  Human cancelled the unstarted Anthropic Review-2 to complete frontend first;
-  Grok frontend delivery `e4b16b0` and the independent DeepSeek frontend
-  Review-1 ACCEPT are Bookkeeper-verified. Human accepted the observed page
-  effect but requested the v4.1 display adjustment (positions balance split,
-  label/time placement); DeepSeek plan review ACCEPT is verified and the
-  `claude_glm` backend projection delivery `65bdd8176d7e9757f97886a902932e999919a441`
-  is Bookkeeper-verified (57-item offline rerun). The Human-authorized Grok
-  frontend display delivery `7f965f8282c989625a80dfde0be96b0e008cafab` is also
-  Bookkeeper-verified (offline self-check evidence reproduced exactly). The
-  single DeepSeek Review-1 over the complete fixed v4.1 range
-  `89103303..7f965f82` returned ACCEPT with no in-range blocking finding and is
-  Bookkeeper-verified (both offline reruns reproduced; `rework_count` stays 0).
-  Human moved the Bookkeeper role from `codex` to `opus5` because the codex
-  quota is exhausted, and the provider-isolated Opus 5 Review-2 packet is
-  prepared for Human to start.
-  This stage does not authorize deployment, Start-gate changes, credentials, or
-  live operation.
+- **No active stage.** `2026-08-03-hedge-status-account-refresh-v1` closed on
+  2026-08-03 (see Last Completed). Its five deferred items are the O-1 / O-3 /
+  O-6 / field-name-binding / restart-log entries in Open Follow-ups, plus the
+  broken LaunchAgent in Live Risks; none blocks a new stage.
 - F4 and the lifecycle Task 2 remain deliberately deferred; the Chinese task-card
   gap remains a separate low-scope follow-up.
+- Nothing in the closed stage authorized deployment, Start-gate changes,
+  credentials, or live operation, and none was performed. The one waived action
+  was a Human-ordered service restart (see Live Risks `[NOTE][2026-08-03]`).
 
 ## Last Completed
 
-- stage: `2026-08-03-harness-task-handoff-evidence-v1`
-- archive_ref: `archive/2026-08-03-harness-task-handoff-evidence-v1`
-  (`0a0b952`; delivery `14e4592`, review-1 and review-2 ACCEPT)
+- stage: `2026-08-03-hedge-status-account-refresh-v1`
+- archive_ref: `archive/2026-08-03-hedge-status-account-refresh-v1`
+  (delivery range `89103303..7f965f82`; v4.1 backend projection `65bdd81`
+  (`claude_glm`) + frontend display `7f965f82` (Grok); DeepSeek Review-1 ACCEPT
+  and Opus 5 Review-2 ACCEPT, both Bookkeeper-verified; `rework_count` 0)
 - recorded_completed_at: `2026-08-03`
+- scope delivered: one shared worker-only refresh cycle behind the ~60s tick, the
+  manual 更新缓存 POST and the task-status hook; five per-source success clocks
+  (`source_checked_at`); v4.1 display adjustments — the collateral-cap badge moved
+  to the 借贷状态 / 资产 column, the positions 现货余额 column split into
+  現货/杠杆 dual-account lines with their existing valuations, and the aggregate
+  and PM clocks moved to their title positions.
+- closing note: Human accepted after reading the Review-2 brief, authorized the
+  merge, and deferred all seven Review-2 observations. The merge-day live smoke
+  (restart + read-only GET) is recorded in the Review-2 handoff's verification
+  block; it closed that review's named evidence gap by putting real account data
+  through the four new fields for the first time.
+- previous stage: `2026-08-03-harness-task-handoff-evidence-v1`
+  (`archive/2026-08-03-harness-task-handoff-evidence-v1`, `0a0b952`)
 
 ## Update Rule
 

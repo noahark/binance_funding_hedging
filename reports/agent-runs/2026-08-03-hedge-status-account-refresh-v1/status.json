@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 12,
+  "revision": 13,
   "stage_id": "2026-08-03-hedge-status-account-refresh-v1",
   "bookkeeper": "opus5",
-  "phase": "review-2",
-  "checkpoint": "DeepSeek Review-1 ACCEPT over fixed range 89103303..7f965f82 Bookkeeper-verified; Opus 5 Review-2 packet prepared",
+  "phase": "completed",
+  "checkpoint": "Opus 5 Review-2 ACCEPT over fixed range 89103303..7f965f82; Human accepted and authorized merge; stage closed and archived",
   "base_sha": "89103303bd29a64ac5915b56639f8a4a885a56b7",
   "delivery_sha": "7f965f8282c989625a80dfde0be96b0e008cafab",
   "ledger_sha": "8cef2e322c64e7db7e65f07e5a8cc2210e688c14",
   "current_task": {
     "id": "review-2-position-balance-display-v1-opus5",
-    "state": "dispatched",
+    "state": "accepted",
     "dispatch": "reports/agent-runs/2026-08-03-hedge-status-account-refresh-v1/review-2-position-balance-display-v1-opus5.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-review"
+    "action": "stage-closed-no-pending-action"
   },
   "rework_count": 0,
   "blockers": []
