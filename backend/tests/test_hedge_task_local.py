@@ -92,7 +92,7 @@ class _FakeProvider:
     def __init__(self, snapshot=None):
         self.snapshot = snapshot
 
-    def get_snapshot(self, coin):
+    def get_snapshot(self, coin, direction):
         return self.snapshot
 
 
@@ -115,7 +115,7 @@ class _RoutingExecutor:
         self.dispatched.append(ctx.task_id)
         return self.scripts[ctx.task_id].pop(0)
 
-    def query_leg(self, leg_name, coin, client_order_id):
+    def query_leg(self, leg_name, coin, client_order_id, endpoint):
         self.query_calls += 1
         if self.queries:
             return self.queries.pop(0)
@@ -235,7 +235,7 @@ def test_1_task_a_query_blocked_does_not_block_task_b(tmp_path):
             self.dispatched.append(ctx.task_id)
             return self.scripts[ctx.task_id].pop(0)
 
-        def query_leg(self, leg_name, coin, cid):
+        def query_leg(self, leg_name, coin, cid, endpoint):
             # The FIRST query call signals A reached its reconcile, then blocks.
             # After the test releases the gate, queries resolve FILLED so A's
             # worker drains and exits cleanly (no lingering daemon).
@@ -302,7 +302,7 @@ def test_2_concurrent_start_yields_one_worker_one_reservation(tmp_path):
                 state["in_dispatch"] -= 1
             return _accepted_pair(ctx.task_id)
 
-        def query_leg(self, *a, **k):
+        def query_leg(self, leg_name, coin, cid, endpoint):
             return None
 
     exe = _CountingExecutor()
@@ -1409,14 +1409,14 @@ class _BarrierQueryExecutor(_RoutingExecutor):
         self.reentered = threading.Event()
         self._qcount = 0
 
-    def query_leg(self, leg_name, coin, cid):
+    def query_leg(self, leg_name, coin, cid, endpoint):
         self._qcount += 1
         if self._qcount == 1:
             self.query_started.set()
             self.release.wait(10.0)
         elif self._qcount == 2:
             self.reentered.set()
-        return super().query_leg(leg_name, coin, cid)
+        return super().query_leg(leg_name, coin, cid, endpoint)
 
 
 def _wait_worker_past_first_drain(svc, exe, task_id, timeout=8.0):
@@ -1541,7 +1541,7 @@ class _BarrierFatalProvider:
         self.started = started
         self.release = release
 
-    def get_snapshot(self, coin):
+    def get_snapshot(self, coin, direction):
         self.started.set()
         self.release.wait(10.0)
         return self._snapshot

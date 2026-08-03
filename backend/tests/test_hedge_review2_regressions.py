@@ -113,7 +113,7 @@ class _FakeProvider:
     def __init__(self, snapshot=None):
         self.snapshot = snapshot
 
-    def get_snapshot(self, coin):
+    def get_snapshot(self, coin, direction):
         return self.snapshot
 
 
@@ -144,7 +144,7 @@ class _FakeExecutor:
             return q.popleft()
         return _accepted_pair(ctx.task_id)
 
-    def query_leg(self, leg, symbol, client_order_id):
+    def query_leg(self, leg, symbol, client_order_id, endpoint):
         self.query_calls += 1
         if self.queries:
             return self.queries.popleft()
@@ -821,6 +821,7 @@ def _seed_crash_gap(store, task_id, *, attempt_uuid="gap-1", spot_oid="os1",
     attempt = store.prepare_attempt(
         task_id, attempt_uuid, D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
         {"est_price": "50000"}, f"cid-{attempt_uuid}-s", {"side": "BUY"},
+        D.SPOT_ORDER_PATH,
         f"cid-{attempt_uuid}-p", {"side": "SELL"}, now_us,
     )
     assert attempt is not None
