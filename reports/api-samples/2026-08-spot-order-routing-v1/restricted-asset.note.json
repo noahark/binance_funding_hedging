@@ -1,0 +1,29 @@
+{
+  "endpoint": "GET /sapi/v1/margin/restricted-asset",
+  "success": true,
+  "http_status": 200,
+  "actual_top_level_field_names": [
+    "maxCollateralExceededAsset",
+    "openLongRestrictedAsset"
+  ],
+  "array_fields": {
+    "openLongRestrictedAsset": {
+      "present": true,
+      "type": "list",
+      "length": 0
+    },
+    "maxCollateralExceededAsset": {
+      "present": true,
+      "type": "list",
+      "length": 121
+    }
+  },
+  "TSLAB_membership": {
+    "in_openLongRestrictedAsset": false,
+    "in_maxCollateralExceededAsset": false,
+    "in_either": false
+  },
+  "auth_observation": "Succeeded with X-MBX-APIKEY only; no timestamp/recvWindow/signature/query. MARKET_DATA style, not USER_DATA signed.",
+  "caveat": "Absence of an asset from maxCollateralExceededAsset must not be read as proof that PAPI margin-buy will succeed (dynamic platform cap; 51169 race remains).",
+  "captured_at_utc": "2026-08-02T12:51:35Z"
+}

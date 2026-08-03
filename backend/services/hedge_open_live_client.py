@@ -57,7 +57,7 @@ injects it into :class:`backend.services.snapshot_service.SnapshotService`
 INDEPENDENTLY of ``APP_HEDGE_EXECUTOR`` and the private channel, so the
 collateral-cap column is populated even when the order executor is disabled.
 That display client may call ONLY the ``GET /sapi/v1/margin/restricted-asset``
-above (enforced by the same deny-by-default allowlist + hardcoded host);
+above（由行情服务的调用面保证；白名单只保证不会越出这 12 条）；
 constructing it sends no request and changes no Start gate. Tests inject a fake
 ``urlopen``; no real credential is ever placed in a URL, log, or exception.
 

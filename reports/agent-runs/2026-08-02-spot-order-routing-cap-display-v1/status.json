@@ -1,0 +1,22 @@
+{
+  "schema_version": "2",
+  "revision": 17,
+  "stage_id": "2026-08-02-spot-order-routing-cap-display-v1",
+  "bookkeeper": "codex",
+  "phase": "human_decision",
+  "checkpoint": "review_2_rerun_accepted_human_final_decision_pending",
+  "base_sha": "1a55781a5f80ee5b3e15d7124003af2dda73f0d5",
+  "delivery_sha": "e99974ad934af5117b0c2385e5545f9861812d5d",
+  "ledger_sha": "e99974ad934af5117b0c2385e5545f9861812d5d",
+  "current_task": {
+    "id": "review-2-reality-rerun",
+    "state": "verified",
+    "dispatch": "reports/agent-runs/2026-08-02-spot-order-routing-cap-display-v1/review-2-opus5-rerun.dispatch.md"
+  },
+  "next": {
+    "actor": "human_operator",
+    "action": "decide-whether-to-authorize-merge; deployment-and-live-operation-require-separate-authorization"
+  },
+  "rework_count": 2,
+  "blockers": []
+}

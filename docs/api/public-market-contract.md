@@ -1064,9 +1064,7 @@ per-row `collateral_cap` block from the platform `restricted-asset` list
 (`maxCollateralExceededAsset`) so the workstation can show, before a task is
 created, that an asset's platform collateral cap is full and its positive-funding
 BUY will route through the standard spot account instead of PAPI cross margin.
-Authority order: the interface convention
-`reports/agent-runs/2026-08-02-spot-order-routing-cap-display-v1/implementation-interface-v0.9.md`
-> this section.
+本契约为对外权威；接口约定仅为实现期输入，归档后不再引用。
 
 ### Key-use gates (replace the retired "Phase 1 forbids keys")
 

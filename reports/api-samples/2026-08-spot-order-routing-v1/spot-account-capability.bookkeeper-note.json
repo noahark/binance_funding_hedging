@@ -1,0 +1,22 @@
+{
+  "subject": "spot-account-capability.json",
+  "recorded_at": "2026-08-02T15:28:41Z",
+  "kind": "bookkeeper_assessment_annotation",
+  "original_observation_preserved": {
+    "canTrade": true,
+    "permissions": [
+      "LEVERAGED",
+      "TRD_GRP_236",
+      "PRE_MARKET"
+    ],
+    "literal_SPOT_match": false,
+    "original_blocker": true,
+    "original_blocker_reason": "permissions does not contain SPOT"
+  },
+  "superseding_decision": {
+    "authority": "docs/planning/2026-08-02-decisions-routing-and-cap-display.md#A-1",
+    "decision": "The literal SPOT match is an account-level, non-authoritative signal and is not a blocker for this stage. The Human accepts the fixed API-key/IP/permission environment assumption and declines runtime permission probing.",
+    "scope": "This annotation does not assert that the API key was independently proven to have TRADE permission. It records the Human risk decision only."
+  },
+  "operational_limit": "If the key, IP allowlist, or account permissions change, re-review before enabling regular_spot routing. See PROJECT_STATE.md ACCEPTED-CONFIGURATION-RISK."
+}

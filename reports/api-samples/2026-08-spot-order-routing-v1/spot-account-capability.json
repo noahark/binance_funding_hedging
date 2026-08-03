@@ -1,0 +1,33 @@
+{
+  "endpoint": "GET /api/v3/account",
+  "http_status": 200,
+  "canTrade": true,
+  "permissions": [
+    "LEVERAGED",
+    "TRD_GRP_236",
+    "PRE_MARKET"
+  ],
+  "read_at_utc": "2026-08-02T12:51:36Z",
+  "has_SPOT_permission": false,
+  "zero_trades_occurred": true,
+  "blocker": true,
+  "blocker_reasons": [
+    "permissions does not contain SPOT"
+  ],
+  "request_shape": {
+    "method": "GET",
+    "path": "/api/v3/account",
+    "query_params_present": [
+      "omitZeroBalances",
+      "timestamp",
+      "signature",
+      "recvWindow"
+    ],
+    "omitZeroBalances": true,
+    "signed": true,
+    "headers": [
+      "X-MBX-APIKEY"
+    ]
+  },
+  "security_note": "Raw account body and balances intentionally not saved."
+}
