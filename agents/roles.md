@@ -53,7 +53,7 @@ a Bookkeeper append region:
 ## Source Report (author-only; immutable after task end)
 - task_id / role / target model
 - stage_id / created_at
-- base_sha / delivery_sha（不适用时明确写 none）
+- base_sha / delivery_sha（见 Delivery SHA 小节：pending／none／已知 git rev-parse 值）
 
 完整任务背景、实际修改范围或只读评审范围、结论、未完成事项、命令与结果、仓库内
 证据路径，以及下一任务必须读取的材料和不能假设的事实。大体积测试原件只引用路径，
@@ -84,7 +84,23 @@ Human Brief。
 
 `Required Reading for the Next Task` is a `Source Report` sub-section, so it sits
 inside the immutable source payload before the `BOOKKEEPER_APPEND_ONLY` marker;
-that marker's preceding bytes define the SHA-256 source boundary.
+that marker's preceding bytes define the SHA-256 source boundary. Every read item
+in `Required Reading for the Next Task` and in the Human Brief `下一步任务` must be
+a concrete repository-relative path in written order; a self-reference uses the
+full deterministic handoff path, never shorthand such as 本交接件, a bare filename,
+or "the file in commit …".
+
+### Delivery SHA
+
+`base_sha` is always a direct `git rev-parse` value. `delivery_sha` in the author
+handoff has three forms: `pending`, used only by an Implementer or fix-author
+handoff created before the one delivery commit that contains it; `none`, when the
+task has no delivery commit; or a direct `git rev-parse` value when the SHA is
+already known. Reviewer handoffs cite the already-fixed reviewed delivery SHA,
+never `pending`. After the delivery commit, Bookkeeper verifies `base_sha`,
+resolves the actual delivery SHA from `git rev-parse`, writes it to `status.json`
+and to its same-file Verification block, and never rewrites the author source
+payload to fill `pending`.
 
 ### Author Authority And Failure Handoffs
 
@@ -115,11 +131,13 @@ names this Task Handoff Evidence Contract in the dispatch `Inputs` so every
 contract-bound task is routed to the detailed rules before execution. After the
 raw result returns it
 confirms the path exists and was newly created by this task, and that task_id,
-role, stage_id and the declared SHAs match `status.json` and `git rev-parse`. It
+role, stage_id and `base_sha` match `status.json` and `git rev-parse`; a `pending`
+`delivery_sha` is resolved after the delivery commit per Delivery SHA. It
 verifies the Human Brief's `TASK_RESULT v2` structure, review-closure fields when
-present, cited evidence paths and commands, and that `下一步任务` carries explicit
-read paths, immediate action and next gate consistent with `Required Reading for
-the Next Task`; multiple paths are read in written order and, for `REWORK`, cover
+present, cited evidence paths and commands, and that `下一步任务` carries concrete
+repository-relative read paths, immediate action and next gate consistent with
+`Required Reading for the Next Task`; multiple paths are read in written order
+and, for `REWORK`, cover
 the paths cited by `修复要求`. When the `BOOKKEEPER_APPEND_ONLY` marker is
 present it computes SHA-256 over the bytes before that marker and appends only
 the `## Bookkeeper Verification` block to the same file. If the file exists but
