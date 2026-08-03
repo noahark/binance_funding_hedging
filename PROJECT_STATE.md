@@ -130,8 +130,10 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
   Review-1 ACCEPT are Bookkeeper-verified. Human accepted the observed page
   effect but requested the v4.1 display adjustment (positions balance split,
   label/time placement); DeepSeek plan review ACCEPT is verified and the
-  `claude_glm` backend projection task is ready. A Grok frontend task follows
-  its verified delivery; no Review-2 packet is prepared until both are reviewed.
+  `claude_glm` backend projection delivery `65bdd8176d7e9757f97886a902932e999919a441`
+  is Bookkeeper-verified (57-item offline rerun). The Human-authorized Grok
+  frontend display task is prepared next; no Review-1/Review-2 packet is
+  prepared until both v4.1 deliveries are verified.
   This stage does not authorize deployment, Start-gate changes, credentials, or
   live operation.
 - F4 and the lifecycle Task 2 remain deliberately deferred; the Chinese task-card

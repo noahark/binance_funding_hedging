@@ -87,4 +87,14 @@
 
 由 Bookkeeper 核验后追加：源区块 SHA-256、核验时间、核对的 status revision、通过或拒收依据、可复现命令与后续状态。
 
+- verified_at: `2026-08-03 20:46:16 CST`
+- source_sha256: `a08b2032ff7a72b8e174fcad8847329a6f5aa7145ecb13d10386e04744f7da3f` (`9679` bytes before the sole marker)
+- status_revision_checked: `9`; source task was `reported` and its sole permitted state transition is present.
+- base_sha verified: `89103303bd29a64ac5915b56639f8a4a885a56b7`; delivery_sha resolved: `65bdd8176d7e9757f97886a902932e999919a441`; the base is an ancestor of delivery.
+- scope verified: delivery changes exactly the four approved product/test/contract files, this task's two evidence files, and its permitted `status.json` transition; no snapshot schema, refresh path, upstream client, order, credential, or deployment file changed.
+- implementation and contract verified: each merged row receives the four account fields through the sole `_merge_build_row` path; the projection reuses source `value_usdt` / unified `total_balance`, preserves `cross_margin_borrowed` as borrow-only, null/true-zero and 1000x behavior, and keeps `merge_positions` pure.
+- evidence verified: the cited raw output records `57 passed`; Bookkeeper independently reran `PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -p no:cacheprovider -q backend/tests/test_positions_merge.py backend/tests/test_hedge_api.py` with `57 passed in 18.85s`. The temporary HTTP server used by route tests bound only to local loopback; no network, credential, service, or live action occurred.
+- non-blocking observation: `git diff --check` reports one extra final blank line in each of the task's test and contract files. It does not alter code behavior, contract semantics, acceptance checks, or test results, so it is recorded rather than changing this verified delivery.
+- result: verified. The next bounded task is the Human-authorized Grok frontend display implementation; the formal review route resumes only after both v4.1 backend and frontend deliveries are verified.
+
 ## Errata (append-only)
