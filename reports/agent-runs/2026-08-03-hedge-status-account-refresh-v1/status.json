@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 11,
+  "revision": 12,
   "stage_id": "2026-08-03-hedge-status-account-refresh-v1",
-  "bookkeeper": "codex",
-  "phase": "review-1",
-  "checkpoint": "v4.1 backend 65bdd8176d7e9757f97886a902932e999919a441 and frontend 7f965f8282c989625a80dfde0be96b0e008cafab deliveries Bookkeeper-verified; DeepSeek Review-1 packet prepared",
+  "bookkeeper": "opus5",
+  "phase": "review-2",
+  "checkpoint": "DeepSeek Review-1 ACCEPT over fixed range 89103303..7f965f82 Bookkeeper-verified; Opus 5 Review-2 packet prepared",
   "base_sha": "89103303bd29a64ac5915b56639f8a4a885a56b7",
   "delivery_sha": "7f965f8282c989625a80dfde0be96b0e008cafab",
-  "ledger_sha": "7f965f8282c989625a80dfde0be96b0e008cafab",
+  "ledger_sha": "8cef2e322c64e7db7e65f07e5a8cc2210e688c14",
   "current_task": {
-    "id": "review-1-position-balance-display-v1-deepseek",
+    "id": "review-2-position-balance-display-v1-opus5",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-03-hedge-status-account-refresh-v1/review-1-position-balance-display-v1-deepseek.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-03-hedge-status-account-refresh-v1/review-2-position-balance-display-v1-opus5.dispatch.md"
   },
   "next": {
     "actor": "human_operator",

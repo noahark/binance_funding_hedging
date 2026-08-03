@@ -118,6 +118,15 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
   minimal record for a task packet that is prepared but never started and then
   replaced (for example, a provider quota change). The current Kimi-to-DeepSeek
   replacement is traceable and did not execute, so this is not a merge blocker.
+- `[OPEN][HARNESS-FOLLOW-UP]` **O-D — review-closure field lines omitted.** The
+  DeepSeek Review-1 receipt for `review-1-position-balance-display-v1-deepseek`
+  carried its ACCEPT only as the Source Report conclusion and omitted the
+  `评审结论:` / `问题记录:` / `修复要求:` field lines that `AGENTS.md` §7 requires
+  inside the result block. Bookkeeper judged it a non-rejecting format deviation
+  because the closure data was explicit and unambiguous in the same file, and
+  the Review-2 dispatch now demands the three explicit lines. Decide whether the
+  reviewer dispatch template should state them literally so the omission cannot
+  recur. Not a merge blocker.
 
 ## Next Priority
 
@@ -133,9 +142,13 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
   `claude_glm` backend projection delivery `65bdd8176d7e9757f97886a902932e999919a441`
   is Bookkeeper-verified (57-item offline rerun). The Human-authorized Grok
   frontend display delivery `7f965f8282c989625a80dfde0be96b0e008cafab` is also
-  Bookkeeper-verified (offline self-check evidence reproduced exactly). A single
-  DeepSeek Review-1 packet covers the complete v4.1 product range; Review-2 is
-  not prepared until it returns ACCEPT.
+  Bookkeeper-verified (offline self-check evidence reproduced exactly). The
+  single DeepSeek Review-1 over the complete fixed v4.1 range
+  `89103303..7f965f82` returned ACCEPT with no in-range blocking finding and is
+  Bookkeeper-verified (both offline reruns reproduced; `rework_count` stays 0).
+  Human moved the Bookkeeper role from `codex` to `opus5` because the codex
+  quota is exhausted, and the provider-isolated Opus 5 Review-2 packet is
+  prepared for Human to start.
   This stage does not authorize deployment, Start-gate changes, credentials, or
   live operation.
 - F4 and the lifecycle Task 2 remain deliberately deferred; the Chinese task-card
