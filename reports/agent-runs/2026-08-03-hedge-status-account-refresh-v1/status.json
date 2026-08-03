@@ -1,0 +1,22 @@
+{
+  "schema_version": "2",
+  "revision": 1,
+  "stage_id": "2026-08-03-hedge-status-account-refresh-v1",
+  "bookkeeper": "codex",
+  "phase": "implementation",
+  "checkpoint": "Human accepted the corrected v4 plan; backend task packet prepared",
+  "base_sha": "6f1901ee7eb552102645f41f1e124fd7cf6e3ff7",
+  "delivery_sha": null,
+  "ledger_sha": "6f1901ee7eb552102645f41f1e124fd7cf6e3ff7",
+  "current_task": {
+    "id": "backend-cache-refresh-v1",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-03-hedge-status-account-refresh-v1/backend-cache-refresh-v1.dispatch.md"
+  },
+  "next": {
+    "actor": "human_operator",
+    "action": "start-prepared-task"
+  },
+  "rework_count": 0,
+  "blockers": []
+}
