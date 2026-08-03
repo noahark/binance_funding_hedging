@@ -211,6 +211,29 @@
       flex-wrap: wrap;
       gap: var(--space-2);
       justify-content: flex-end;
+      align-items: center;
+    }
+    .refresh-meta {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+    .refresh-meta #account-asset-updated-at {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      white-space: nowrap;
+      line-height: 1.3;
+    }
+    .source-checked-at {
+      margin: 2px 0 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .source-checked-at.not-ready {
+      color: var(--warn);
     }
     .badge {
       display: inline-flex;
@@ -413,6 +436,8 @@
     .status-banner.error { background: var(--danger-soft); color: var(--danger); }
     .status-banner.info { background: var(--info-soft); color: var(--info); }
     .status-banner.loading { background: var(--surface-2); color: var(--muted); }
+    .status-banner.success { background: var(--success-soft); color: var(--success); }
+    .status-banner.warn { background: var(--warn-soft); color: var(--warn); }
 
     .empty-state {
       padding: var(--space-8) var(--space-4);
@@ -1074,8 +1099,12 @@
         </div>
         <div class="badge-row" aria-label="刷新与排序">
           <span class="sort-basis-badge" id="sort-basis-badge" style="display:none;">排序基准: —</span>
-          <span class="badge muted" id="refresh-countdown">下次刷新: 60s</span>
+          <div class="refresh-meta">
+            <span class="badge muted" id="refresh-countdown">下次刷新: 60s</span>
+            <span id="account-asset-updated-at">账户资产更新时间 —</span>
+          </div>
           <button class="btn compact primary" id="btn-refresh" type="button">手动刷新</button>
+          <button class="btn compact" id="btn-cache-refresh" type="button">更新缓存</button>
         </div>
       </header>
 
@@ -1084,7 +1113,6 @@
         <div class="panel-header">
           <div class="panel-title">
             <h2>私有账户</h2>
-            <p class="subtitle" id="private-panel-subtitle">资产更新时间 —</p>
           </div>
           <div class="panel-actions">
             <button class="privacy-toggle" id="btn-privacy" type="button" aria-pressed="false" title="切换金额显示">
@@ -1446,7 +1474,9 @@
         dataSourceLabel: document.getElementById('data-source-label'),
         sortBasisBadge: document.getElementById('sort-basis-badge'),
         btnRefresh: document.getElementById('btn-refresh'),
+        btnCacheRefresh: document.getElementById('btn-cache-refresh'),
         refreshCountdown: document.getElementById('refresh-countdown'),
+        accountAssetUpdatedAt: document.getElementById('account-asset-updated-at'),
         filterSearch: document.getElementById('filter-search'),
         filterAsset: document.getElementById('filter-asset'),
         filterRoute: document.getElementById('filter-route'),
@@ -1458,7 +1488,6 @@
         statusArea: document.getElementById('status-area'),
         tableBody: document.getElementById('market-table-body'),
         privatePanel: document.getElementById('private-panel'),
-        privatePanelSubtitle: document.getElementById('private-panel-subtitle'),
         privatePanelBody: document.getElementById('private-panel-body'),
         btnPrivacy: document.getElementById('btn-privacy'),
         privacyLabel: document.getElementById('privacy-label'),
@@ -1638,6 +1667,170 @@
         }).formatToParts(d);
         const get = (type) => parts.find(p => p.type === type)?.value;
         return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
+      }
+
+      // Fixed five keys from private_account.source_checked_at (backend contract v0.10).
+      const SOURCE_CHECKED_AT_KEYS = [
+        'price_map', 'unified_balances', 'um_positions', 'spot_balances', 'pm_account'
+      ];
+      const SOURCE_CHECKED_AT_LABELS = {
+        price_map: '报价',
+        unified_balances: '统一账户余额',
+        um_positions: 'UM 持仓',
+        spot_balances: '现货账户余额',
+        pm_account: 'PM 账户'
+      };
+
+      function readSourceCheckedAt(container) {
+        const raw = container && container.source_checked_at;
+        if (!raw || typeof raw !== 'object') return null;
+        return raw;
+      }
+
+      function formatSourceIsoBeijing(iso) {
+        if (iso === undefined || iso === null || iso === '') return null;
+        const ms = Date.parse(String(iso));
+        if (Number.isNaN(ms)) return null;
+        return formatBeijing(ms);
+      }
+
+      // Single required source: ready time or honest not-ready (never invents a time).
+      function formatSingleSourceCheckedLine(iso) {
+        const beijing = formatSourceIsoBeijing(iso);
+        if (!beijing) {
+          return {
+            text: '资产数据未就绪（该账户源未成功读取）',
+            ready: false
+          };
+        }
+        return { text: `数据源更新时间 ${beijing}`, ready: true };
+      }
+
+      // Multi-source: earliest only when ALL required sources have non-null times;
+      // any null → not-ready naming the missing source(s), never partial earliest.
+      function formatMultiSourceCheckedLine(entries) {
+        const missing = [];
+        let earliestMs = null;
+        for (const entry of entries) {
+          const iso = entry && entry.iso;
+          if (iso === undefined || iso === null || iso === '') {
+            missing.push(entry.label || entry.key || '账户源');
+            continue;
+          }
+          const ms = Date.parse(String(iso));
+          if (Number.isNaN(ms)) {
+            missing.push(entry.label || entry.key || '账户源');
+            continue;
+          }
+          if (earliestMs === null || ms < earliestMs) earliestMs = ms;
+        }
+        if (missing.length > 0) {
+          const detail = missing.length === 1
+            ? `${missing[0]}未成功读取`
+            : `${missing.join('、')}未成功读取`;
+          return { text: `资产数据未就绪（${detail}）`, ready: false };
+        }
+        return {
+          text: `数据源更新时间 ${formatBeijing(earliestMs)}`,
+          ready: true
+        };
+      }
+
+      function sourceCheckedAtHtml(line) {
+        if (!line) return '';
+        const cls = line.ready ? 'source-checked-at' : 'source-checked-at not-ready';
+        return `<p class="${cls}">${escapeHtml(line.text)}</p>`;
+      }
+
+      // PM capability visible when the published summary shows a PM source or any
+      // core PM field / success time. Absent capability → hide the PM time row.
+      function pmCapabilityPresent(pa) {
+        if (!pa || typeof pa !== 'object') return false;
+        const sca = readSourceCheckedAt(pa);
+        if (sca && sca.pm_account) return true;
+        const pm = pa.pm_account;
+        if (!pm || typeof pm !== 'object') return false;
+        if (pm.source) return true;
+        const keys = [
+          'account_equity_usdt', 'actual_equity_usdt', 'uni_mmr', 'account_status',
+          'total_available_balance_usdt', 'account_initial_margin_usdt',
+          'account_maint_margin_usdt'
+        ];
+        return keys.some(k => pm[k] !== null && pm[k] !== undefined && pm[k] !== '');
+      }
+
+      function formatAggregateAccountAssetTime(pa) {
+        if (!pa || typeof pa !== 'object') return '账户资产更新时间 —';
+        const timeSource = pa.checked_at || (pa.valuation && pa.valuation.priced_at) || null;
+        const beijing = formatSourceIsoBeijing(timeSource);
+        return beijing ? `账户资产更新时间 ${beijing}` : '账户资产更新时间 —';
+      }
+
+      function renderAccountAssetUpdatedAt(pa) {
+        if (!els.accountAssetUpdatedAt) return;
+        els.accountAssetUpdatedAt.textContent = formatAggregateAccountAssetTime(pa);
+      }
+
+      let cacheRefreshLoading = false;
+      function setCacheRefreshLoading(loading) {
+        cacheRefreshLoading = !!loading;
+        if (!els.btnCacheRefresh) return;
+        els.btnCacheRefresh.disabled = cacheRefreshLoading;
+        els.btnCacheRefresh.textContent = cacheRefreshLoading ? '更新中…' : '更新缓存';
+      }
+
+      // POST /api/public-market/cache-refresh — local enqueue only; honest complete/
+      // partial/not_attempted/failure/202. No auto-poll, SSE, or WebSocket.
+      async function onCacheRefresh() {
+        if (cacheRefreshLoading) return;
+        setCacheRefreshLoading(true);
+        setStatus('loading', '正在更新缓存…');
+        try {
+          const res = await fetch('/api/public-market/cache-refresh', { method: 'POST' });
+          let data = null;
+          try { data = await res.json(); } catch (e) { data = null; }
+
+          if (res.status === 202) {
+            setStatus('warn', '缓存仍在后台刷新中（已排队），请稍后查看数据更新时间；页面不会自动轮询。');
+            return;
+          }
+          if (!res.ok) {
+            const detail = (data && (typeof data.detail === 'string' ? data.detail : data.error))
+              || `HTTP ${res.status}`;
+            setStatus('error', `更新缓存失败：${detail}`);
+            return;
+          }
+
+          const published = !!(data && data.published);
+          const panels = data && data.account_panels;
+          if (!published) {
+            setStatus('error', '更新缓存失败：本轮未发布快照，页面保留当前数据。');
+            return;
+          }
+
+          if (panels === 'complete') {
+            await loadApi();
+            await loadHedgePositions();
+            setStatus('success', '刷新周期已完成');
+            return;
+          }
+          if (panels === 'partial') {
+            // Re-read so source times show old/new mix; do not claim full update.
+            // price_map is not a panel title; partial notice covers valuation source.
+            await loadApi();
+            await loadHedgePositions();
+            setStatus('warn', '刷新周期已完成，但部分账户或估值源未更新，请查看数据更新时间');
+            return;
+          }
+          // not_attempted or unknown honest fallback
+          await loadApi();
+          await loadHedgePositions();
+          setStatus('warn', '账户数据未刷新（本轮未尝试更新账户源），请查看既有数据更新时间');
+        } catch (err) {
+          setStatus('error', `更新缓存失败：${err && err.message ? err.message : String(err)}`);
+        } finally {
+          setCacheRefreshLoading(false);
+        }
       }
 
       function formatBeijingShort(ms) {
@@ -2856,13 +3049,16 @@
         const hasPositions = Array.isArray(state.hedgePositions) && state.hedgePositions.length > 0;
         if (!pa && !hasPositions) {
           els.privatePanel.style.display = 'none';
+          renderAccountAssetUpdatedAt(null);
           return;
         }
         els.privatePanel.style.display = '';
+        // Right-corner aggregate time (legacy checked_at / priced_at). Not a
+        // per-source clock; separate DOM from the in-panel private unread notice.
+        renderAccountAssetUpdatedAt(pa || null);
 
         if (!pa || pa.verified !== true) {
           const errorDetail = (pa && pa.error) ? `（${escapeHtml(pa.error)}）` : '';
-          els.privatePanelSubtitle.textContent = '私有账户未读取';
           els.privatePanelBody.innerHTML = `
             <div class="empty-state">
               <strong>私有账户未读取</strong><br/>
@@ -2874,9 +3070,7 @@
           return;
         }
 
-        const timeSource = pa.checked_at || (pa.valuation && pa.valuation.priced_at) || null;
-        const updateTime = timeSource ? formatBeijing(new Date(timeSource).getTime()) : '—';
-        els.privatePanelSubtitle.textContent = `资产更新时间 ${updateTime}`;
+        const sca = readSourceCheckedAt(pa) || {};
         const total = maskAmount(pa.total_value_usdt);
         const spotValueText = maskAmount(pa.spot_value_usdt);
         const pm = (pa.pm_account && typeof pa.pm_account === 'object') ? pa.pm_account : {};
@@ -2938,7 +3132,21 @@
             `).join('')
           : '<span class="muted small">无数据</span>';
 
+        // Per-source clocks: unified/spot single source; PM only when capability
+        // present (hidden / not-ready / ready). price_map is not a panel title.
+        const unifiedTimeLine = formatSingleSourceCheckedLine(sca.unified_balances);
+        const spotTimeLine = formatSingleSourceCheckedLine(sca.spot_balances);
+        const pmTimeBlock = (() => {
+          if (!pmCapabilityPresent(pa)) return '';
+          const beijing = formatSourceIsoBeijing(sca.pm_account);
+          if (!beijing) {
+            return '<p class="source-checked-at not-ready">PM 账户数据源更新时间：资产数据未就绪（该账户源未成功读取）</p>';
+          }
+          return `<p class="source-checked-at">PM 账户数据源更新时间 ${escapeHtml(beijing)}</p>`;
+        })();
+
         els.privatePanelBody.innerHTML = `
+          ${pmTimeBlock}
           <div class="private-overview">
             <div class="overview-card">
               <div class="label">总资产估值 (USDT)</div>
@@ -2984,11 +3192,13 @@
 
           <div class="account-section">
             <h3>统一账户余额</h3>
+            ${sourceCheckedAtHtml(unifiedTimeLine)}
             <div class="balance-grid">${unifiedBalances}</div>
           </div>
 
           <div class="account-section">
             <h3>现货账户余额</h3>
+            ${sourceCheckedAtHtml(spotTimeLine)}
             <div class="balance-grid">${spotBalances}</div>
           </div>
 
@@ -4696,10 +4906,22 @@
                       </tr>
                     `;
         }).join('') : `<tr><td colspan="17"><span class="muted small">暂无开单持仓；任务成交后按币种聚合展示</span></td></tr>`;
+        // Multi-source freshness: earliest of UM + unified + spot; any null → not-ready
+        // (never invents a complete time from remaining sources). Prefer snapshot
+        // private_account.source_checked_at; fall back to positions account meta.
+        const sca = readSourceCheckedAt(state.snapshot && state.snapshot.private_account)
+          || readSourceCheckedAt(account)
+          || {};
+        const positionsTimeLine = formatMultiSourceCheckedLine([
+          { key: 'um_positions', label: 'UM 持仓', iso: sca.um_positions },
+          { key: 'unified_balances', label: '统一账户余额', iso: sca.unified_balances },
+          { key: 'spot_balances', label: '现货账户余额', iso: sca.spot_balances }
+        ]);
         // 表头恒渲染（含「仓位价值」），即使空持仓也保留列结构。
         return `
           <div class="account-section">
             <h3>对冲开单持仓 <span class="muted small">（UM 持仓为骨架）</span></h3>
+            ${sourceCheckedAtHtml(positionsTimeLine)}
             ${accountBanner}
             <div class="table-wrap">
               <table>
@@ -5470,6 +5692,9 @@
 
       function bindEvents() {
         els.btnRefresh.addEventListener('click', loadApi);
+        if (els.btnCacheRefresh) {
+          els.btnCacheRefresh.addEventListener('click', onCacheRefresh);
+        }
         if (els.sidebarToggle) {
           els.sidebarToggle.addEventListener('click', toggleSidebar);
         }
@@ -5599,6 +5824,19 @@
         getDrawerNotice: () => state.drawerNotice,
         fetchSymbolSnapshot,
         getSnapshot: () => state.snapshot,
+        // cache-refresh v1 seams (offline self-check)
+        onCacheRefresh,
+        formatSingleSourceCheckedLine,
+        formatMultiSourceCheckedLine,
+        formatAggregateAccountAssetTime,
+        formatSourceIsoBeijing,
+        pmCapabilityPresent,
+        readSourceCheckedAt,
+        SOURCE_CHECKED_AT_KEYS,
+        SOURCE_CHECKED_AT_LABELS,
+        isCacheRefreshLoading: () => cacheRefreshLoading,
+        getStatusAreaText: () => (els.statusArea && els.statusArea.innerHTML) || '',
+        getAccountAssetUpdatedAtText: () => (els.accountAssetUpdatedAt && els.accountAssetUpdatedAt.textContent) || '',
         createBorrowTask,
         submitBorrowTask,
         getBorrowTasks: () => state.borrowTasks,

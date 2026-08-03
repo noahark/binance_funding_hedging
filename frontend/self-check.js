@@ -77,6 +77,8 @@ function makeElement(id) {
     set innerHTML(v) { this._innerHTML = String(v); },
     get textContent() { return this._textContent; },
     set textContent(v) { this._textContent = String(v); },
+    get disabled() { return !!this._disabled; },
+    set disabled(v) { this._disabled = !!v; },
     get classList() {
       const self = this;
       return {
@@ -146,11 +148,12 @@ function makeElement(id) {
 const elements = {};
 const ids = [
   'app-shell', 'app-sidebar', 'sidebar-toggle',
-  'market-snapshot-meta', 'data-source-label', 'sort-basis-badge', 'btn-refresh', 'refresh-countdown',
+  'market-snapshot-meta', 'data-source-label', 'sort-basis-badge', 'btn-refresh', 'btn-cache-refresh',
+  'refresh-countdown', 'account-asset-updated-at',
   'filter-search', 'filter-asset', 'filter-route', 'filter-show-perp-only', 'filter-hide-low-daily-rate',
   'filter-hide-low-net-yield', 'filter-prefer-openable',
   'summary-row', 'status-area', 'market-table-body',
-  'private-panel', 'private-panel-subtitle', 'private-panel-body', 'btn-privacy', 'privacy-label', 'privacy-icon-path',
+  'private-panel', 'private-panel-body', 'btn-privacy', 'privacy-label', 'privacy-icon-path',
   'drawer', 'drawer-backdrop', 'drawer-title', 'drawer-body', 'drawer-close',
   'nav-market', 'nav-borrow-tasks', 'borrow-task-count', 'market-view', 'borrow-task-view', 'borrow-task-list',
   'borrow-task-filters',
@@ -348,6 +351,31 @@ if (ausdt) {
 // 为 v0.4 UI 断言使用具体数值（占位符无法被 formatFundingRate / maskAmount 有效测试）
 designFixture.rows[0].borrow_validation.classic_margin.daily_interest_account = '0.00010000';
 designFixture.rows[1].borrow_validation.classic_margin.daily_interest_vip0 = '0.00020000';
+// cache-refresh v1: inject fixed five-key source_checked_at into the design
+// fixture (backend design fixture predates the field; frontend fixture has it).
+if (!designFixture.private_account.source_checked_at) {
+  designFixture.private_account.source_checked_at = {
+    price_map: designFixture.private_account.checked_at || '2026-07-05T23:30:00Z',
+    unified_balances: designFixture.private_account.checked_at || '2026-07-05T23:30:00Z',
+    um_positions: '2026-07-05T23:20:00Z',
+    spot_balances: designFixture.private_account.checked_at || '2026-07-05T23:30:00Z',
+    pm_account: null
+  };
+}
+if (Array.isArray(designFixture._design_fixture_private_account_states)) {
+  designFixture._design_fixture_private_account_states.forEach(s => {
+    if (s && !s.source_checked_at) {
+      s.source_checked_at = {
+        price_map: null,
+        unified_balances: null,
+        um_positions: null,
+        spot_balances: null,
+        pm_account: null
+      };
+    }
+  });
+}
+
 designFixture.private_account.balances_unified.forEach(b => {
   b.value_usdt = '123.45000000';
   // v0.8: default no effective borrow -> zero liability value (not null)
@@ -464,7 +492,26 @@ let hedgeActionResponses = {};
 let hedgeSettingsGetResponse = { status: 200, body: { executor_mode: 'disabled', start_gate: false, interval_seconds: 1, version: 1 } };
 // live-hardening v1（10-design §2.3）：POST /api/hedge-open-settings/start-gate 响应槽；未设置时 503。
 let hedgeStartGatePostResponse = null;
-let hedgePositionsGetResponse = { status: 200, body: { positions: [], account: { verified: true, error: null, checked_at: null } } };
+let hedgePositionsGetResponse = {
+  status: 200,
+  body: {
+    positions: [],
+    account: {
+      verified: true,
+      error: null,
+      checked_at: null,
+      source_checked_at: {
+        price_map: null,
+        unified_balances: null,
+        um_positions: null,
+        spot_balances: null,
+        pm_account: null
+      }
+    }
+  }
+};
+// POST /api/public-market/cache-refresh mock slot (frontend-cache-refresh-v1).
+let cacheRefreshPostResponse = null;
 // real-api-v1：attempt 时间线数据源（既有 GET /api/hedge-open-logs，路由表不变，?limit=100 无 cursor）。
 let hedgeLogsGetResponse = { status: 200, body: { logs: [], next_cursor: null } };
 // 17 号兼容修正：开单日志页分页队列（?entries_limit=50[&entries_cursor=...]，响应带
@@ -683,6 +730,12 @@ global.fetch = async (url, options) => {
   if (urlStr === '/api/public-market/snapshot') {
     fetchUrl = urlStr;
     return buildFetchResponse({ status: 200, body: fixtureToFetch });
+  }
+  if (urlStr === '/api/public-market/cache-refresh' && method === 'POST') {
+    return buildFetchResponse(cacheRefreshPostResponse || {
+      status: 503,
+      body: { error: 'cache_refresh_unavailable', detail: 'mock 未设置 cache-refresh 响应' }
+    });
   }
   if (urlStr.startsWith('/api/public-market/symbol-snapshot')) {
     lastHistoryUrl = urlStr;
@@ -1407,10 +1460,11 @@ setTimeout(async () => {
     }
     console.log('[PASS] 私有面板 verified=true 状态');
 
-    // 23b. 时点合一：副标题显示资产更新时间，overview 不再出现估值时点/检查时点
-    const privateSubtitle = elements['private-panel-subtitle'].textContent;
-    if (!privateSubtitle.includes('资产更新时间')) {
-      throw new Error(`verified=true 时私有面板副标题未显示资产更新时间: ${privateSubtitle}`);
+    // 23b. 时点合一：右上角显示旧聚合「账户资产更新时间」；私有面板内不再放同名聚合时间；
+    // overview 不再出现估值时点/检查时点。
+    const accountAssetTime = elements['account-asset-updated-at'].textContent;
+    if (!accountAssetTime.includes('账户资产更新时间')) {
+      throw new Error(`verified=true 时右上角未显示账户资产更新时间: ${accountAssetTime}`);
     }
     if (privateBody.includes('估值时点') || privateBody.includes('检查时点') || privateBody.includes('估值来源')) {
       throw new Error('verified=true 时私有面板 overview 仍出现估值时点/检查时点/估值来源');
@@ -1457,20 +1511,19 @@ setTimeout(async () => {
     helpers.togglePrivacy();
     console.log('[PASS] 隐私开关点击切换');
 
-    // 26. 私有面板 verified=false disabled 占位
+    // 26. 私有面板 verified=false disabled 占位（未读提示在面板内，不在右上角聚合时间）
     const disabledFixture = JSON.parse(JSON.stringify(designFixture));
     disabledFixture.private_account = designFixture._design_fixture_private_account_states.find(s => s._state === 'verified_false_disabled');
     helpers.ingestSnapshot(disabledFixture);
     if (elements['private-panel'].style.display === 'none') {
       throw new Error('verified=false disabled 时私有面板不应隐藏');
     }
-    const disabledSubtitle = elements['private-panel-subtitle'].textContent;
-    if (!disabledSubtitle.includes('私有账户未读取')) {
-      throw new Error(`verified=false disabled 副标题错误: ${disabledSubtitle}`);
-    }
     const disabledBody = elements['private-panel-body'].innerHTML;
     if (!disabledBody.includes('私有账户未读取')) {
       throw new Error('verified=false disabled 未显示占位文案');
+    }
+    if (elements['account-asset-updated-at'].textContent.includes('私有账户未读取')) {
+      throw new Error('右上角聚合时间不应复用「私有账户未读取」文案职责');
     }
     console.log('[PASS] 私有面板 verified=false disabled 占位');
 
@@ -5493,10 +5546,281 @@ setTimeout(async () => {
       console.log('[PASS] v0.9 collateral_cap 纯展示：三态/不适用/缺键、摘要截至、方向无关、bStock asset、不驱动按钮/排序');
     }
 
+    // 75x. frontend-cache-refresh-v1：更新缓存按钮、complete/partial/not_attempted/
+    // 失败/202、右上角聚合时间、source_checked_at 北京时间/缺源/PM 三态、私有未读分离、零自动轮询
+    {
+      if (!elements['btn-cache-refresh']) {
+        throw new Error('页面须有「更新缓存」按钮 #btn-cache-refresh');
+      }
+      if (!html.includes('id="btn-cache-refresh"') || !html.includes('更新缓存')) {
+        throw new Error('HTML 须包含更新缓存按钮文案');
+      }
+      if (!html.includes('id="account-asset-updated-at"')) {
+        throw new Error('HTML 须在右上角刷新倒计时下提供账户资产更新时间元素');
+      }
+      if (html.includes('id="private-panel-subtitle"')) {
+        throw new Error('私有面板标题下不应再保留 private-panel-subtitle（已移至右上角）');
+      }
+      // 手动刷新按钮语义保持 GET loadApi，不与 POST 更新缓存混用
+      if (!elements['btn-refresh'] || !html.includes('手动刷新')) {
+        throw new Error('既有手动刷新按钮须保留');
+      }
+
+      // Helper unit: single source ready / not-ready
+      const singleReady = helpers.formatSingleSourceCheckedLine('2026-08-03T07:34:50Z');
+      const beijingReady = helpers.formatBeijing(Date.parse('2026-08-03T07:34:50Z'));
+      if (!singleReady.ready || !singleReady.text.includes(beijingReady)) {
+        throw new Error('单源 ready 须显示 Asia/Shanghai 时间: ' + singleReady.text);
+      }
+      const singleNull = helpers.formatSingleSourceCheckedLine(null);
+      if (singleNull.ready || !singleNull.text.includes('资产数据未就绪')) {
+        throw new Error('单源 null 须显示未就绪: ' + singleNull.text);
+      }
+
+      // Multi-source earliest vs missing (never invent from remaining)
+      const multiOk = helpers.formatMultiSourceCheckedLine([
+        { key: 'um_positions', label: 'UM 持仓', iso: '2026-08-03T07:20:00Z' },
+        { key: 'unified_balances', label: '统一账户余额', iso: '2026-08-03T07:34:50Z' },
+        { key: 'spot_balances', label: '现货账户余额', iso: '2026-08-03T07:30:00Z' }
+      ]);
+      const earliestBj = helpers.formatBeijing(Date.parse('2026-08-03T07:20:00Z'));
+      if (!multiOk.ready || !multiOk.text.includes(earliestBj)) {
+        throw new Error('多源全就绪须取最早时间: ' + multiOk.text);
+      }
+      const multiMissing = helpers.formatMultiSourceCheckedLine([
+        { key: 'um_positions', label: 'UM 持仓', iso: null },
+        { key: 'unified_balances', label: '统一账户余额', iso: '2026-08-03T07:34:50Z' },
+        { key: 'spot_balances', label: '现货账户余额', iso: '2026-08-03T07:30:00Z' }
+      ]);
+      if (multiMissing.ready || !multiMissing.text.includes('UM 持仓未成功读取')) {
+        throw new Error('多源缺 UM 不得用剩余源时间伪造: ' + multiMissing.text);
+      }
+      if (multiMissing.text.includes(helpers.formatBeijing(Date.parse('2026-08-03T07:30:00Z')))) {
+        throw new Error('缺源未就绪文案不得夹带其余源时间: ' + multiMissing.text);
+      }
+
+      // Fixture path: source times + aggregate in Beijing
+      const scaFx = JSON.parse(JSON.stringify(designFixture));
+      scaFx.private_account.source_checked_at = {
+        price_map: '2026-08-03T07:34:50Z',
+        unified_balances: '2026-08-03T07:34:50Z',
+        um_positions: '2026-08-03T07:20:00Z',
+        spot_balances: '2026-08-03T07:30:00Z',
+        pm_account: null
+      };
+      scaFx.private_account.checked_at = '2026-08-03T07:34:50Z';
+      delete scaFx.private_account.pm_account;
+      helpers.ingestSnapshot(scaFx);
+      const bodySca = elements['private-panel-body'].innerHTML;
+      const aggText = elements['account-asset-updated-at'].textContent;
+      const aggBj = helpers.formatBeijing(Date.parse('2026-08-03T07:34:50Z'));
+      if (!aggText.includes('账户资产更新时间') || !aggText.includes(aggBj)) {
+        throw new Error('右上角聚合时间须为北京时间: ' + aggText);
+      }
+      if (!bodySca.includes('统一账户余额') || !bodySca.includes(helpers.formatBeijing(Date.parse('2026-08-03T07:34:50Z')))) {
+        throw new Error('统一账户区须显示本源北京时间');
+      }
+      if (!bodySca.includes('现货账户余额') || !bodySca.includes(helpers.formatBeijing(Date.parse('2026-08-03T07:30:00Z')))) {
+        throw new Error('现货账户区须显示本源北京时间');
+      }
+      // 对冲持仓 earliest = UM 07:20
+      if (!bodySca.includes(helpers.formatBeijing(Date.parse('2026-08-03T07:20:00Z')))) {
+        throw new Error('对冲持仓区须显示 UM+统一+现货最早时间');
+      }
+      // price_map 不占账户区域标题
+      if (/price_map|报价源更新时间/.test(bodySca) && bodySca.includes('price_map')) {
+        throw new Error('price_map 不应作为账户区域标题文案');
+      }
+      // PM capability 不存在 → 隐藏 PM 时间行
+      if (bodySca.includes('PM 账户数据源更新时间')) {
+        throw new Error('PM capability 不存在时不得显示 PM 时间行');
+      }
+
+      // 缺源：统一账户 null → 未就绪
+      scaFx.private_account.source_checked_at.unified_balances = null;
+      helpers.ingestSnapshot(scaFx);
+      const bodyMissing = elements['private-panel-body'].innerHTML;
+      if (!bodyMissing.includes('资产数据未就绪（该账户源未成功读取）')) {
+        throw new Error('统一账户缺源须显示未就绪: ' + bodyMissing.slice(0, 400));
+      }
+      // 多源对冲持仓缺 UM
+      scaFx.private_account.source_checked_at.unified_balances = '2026-08-03T07:34:50Z';
+      scaFx.private_account.source_checked_at.um_positions = null;
+      helpers.ingestSnapshot(scaFx);
+      const bodyUmMissing = elements['private-panel-body'].innerHTML;
+      if (!bodyUmMissing.includes('UM 持仓未成功读取')) {
+        throw new Error('对冲持仓缺 UM 须诚实未就绪: ' + bodyUmMissing.slice(0, 400));
+      }
+
+      // PM capability 存在但 null → 未就绪；有时间 → 显示
+      scaFx.private_account.pm_account = {
+        source: 'papi_v1_account',
+        account_equity_usdt: null,
+        actual_equity_usdt: null,
+        total_available_balance_usdt: null,
+        account_initial_margin_usdt: null,
+        account_maint_margin_usdt: null,
+        uni_mmr: null,
+        account_status: null,
+        total_debt_usdt: null,
+        leverage_ratio: null
+      };
+      scaFx.private_account.source_checked_at.pm_account = null;
+      scaFx.private_account.source_checked_at.um_positions = '2026-08-03T07:20:00Z';
+      helpers.ingestSnapshot(scaFx);
+      const bodyPmNull = elements['private-panel-body'].innerHTML;
+      if (!bodyPmNull.includes('PM 账户数据源更新时间') || !bodyPmNull.includes('资产数据未就绪')) {
+        throw new Error('PM capability 存在但 null 须显示未就绪: ' + bodyPmNull.slice(0, 400));
+      }
+      scaFx.private_account.source_checked_at.pm_account = '2026-08-03T07:34:50Z';
+      helpers.ingestSnapshot(scaFx);
+      const bodyPmReady = elements['private-panel-body'].innerHTML;
+      if (!bodyPmReady.includes('PM 账户数据源更新时间 ' + helpers.formatBeijing(Date.parse('2026-08-03T07:34:50Z')))) {
+        throw new Error('PM 有时间须显示北京时间: ' + bodyPmReady.slice(0, 400));
+      }
+
+      // 私有账户不可读：面板内提示；右上角不复用该文案
+      const unreadFx = JSON.parse(JSON.stringify(designFixture));
+      unreadFx.private_account = designFixture._design_fixture_private_account_states.find(s => s._state === 'verified_false_disabled');
+      helpers.ingestSnapshot(unreadFx);
+      const unreadBody = elements['private-panel-body'].innerHTML;
+      if (!unreadBody.includes('私有账户未读取')) {
+        throw new Error('私有账户不可读须在面板内提示');
+      }
+      if (elements['account-asset-updated-at'].textContent.includes('私有账户未读取')) {
+        throw new Error('右上角聚合时间不得复用私有未读文案');
+      }
+
+      // ---- POST cache-refresh outcomes ----
+      const intervalCountBefore = intervalCalls.length;
+      helpers.ingestSnapshot(designFixture);
+
+      // complete
+      cacheRefreshPostResponse = {
+        status: 200,
+        body: { published: true, account_panels: 'complete' }
+      };
+      const completeCallsBefore = fetchCallLog.length;
+      await helpers.onCacheRefresh();
+      if (helpers.isCacheRefreshLoading()) {
+        throw new Error('complete 后按钮 loading 须结束');
+      }
+      if (elements['btn-cache-refresh'].disabled) {
+        throw new Error('complete 后按钮须可再点');
+      }
+      if (elements['btn-cache-refresh'].textContent !== '更新缓存') {
+        throw new Error('complete 后按钮文案须恢复: ' + elements['btn-cache-refresh'].textContent);
+      }
+      const statusComplete = helpers.getStatusAreaText();
+      if (!statusComplete.includes('刷新周期已完成') || statusComplete.includes('部分')) {
+        throw new Error('complete 只提示刷新周期已完成: ' + statusComplete);
+      }
+      const postComplete = fetchCallLog.slice(completeCallsBefore);
+      if (!postComplete.some(c => c.url === '/api/public-market/cache-refresh' && c.method === 'POST')) {
+        throw new Error('complete 路径须 POST cache-refresh');
+      }
+      if (!postComplete.some(c => c.url === '/api/public-market/snapshot' && c.method === 'GET')) {
+        throw new Error('complete 后须 loadApi GET snapshot');
+      }
+      if (!postComplete.some(c => c.url === '/api/hedge-open-positions' && c.method === 'GET')) {
+        throw new Error('complete 后须 loadHedgePositions');
+      }
+
+      // partial：不夸大为完整更新；仍重读
+      cacheRefreshPostResponse = {
+        status: 200,
+        body: { published: true, account_panels: 'partial' }
+      };
+      await helpers.onCacheRefresh();
+      const statusPartial = helpers.getStatusAreaText();
+      if (!statusPartial.includes('部分账户或估值源未更新')) {
+        throw new Error('partial 须诚实提示: ' + statusPartial);
+      }
+      if (/账户缓存已完整更新|账户已完整刷新/.test(statusPartial)) {
+        throw new Error('partial 不得夸大完整更新: ' + statusPartial);
+      }
+
+      // not_attempted
+      cacheRefreshPostResponse = {
+        status: 200,
+        body: { published: true, account_panels: 'not_attempted' }
+      };
+      await helpers.onCacheRefresh();
+      const statusNa = helpers.getStatusAreaText();
+      if (!statusNa.includes('账户数据未刷新')) {
+        throw new Error('not_attempted 须提示未刷新: ' + statusNa);
+      }
+
+      // published=false failure
+      cacheRefreshPostResponse = {
+        status: 200,
+        body: { published: false, account_panels: 'partial' }
+      };
+      await helpers.onCacheRefresh();
+      const statusFailPub = helpers.getStatusAreaText();
+      if (!statusFailPub.includes('失败') && !statusFailPub.includes('未发布')) {
+        throw new Error('published=false 须明确失败: ' + statusFailPub);
+      }
+
+      // HTTP failure
+      cacheRefreshPostResponse = {
+        status: 503,
+        body: { error: 'cache_refresh_unavailable', detail: 'worker not running' }
+      };
+      await helpers.onCacheRefresh();
+      const status503 = helpers.getStatusAreaText();
+      if (!status503.includes('失败')) {
+        throw new Error('HTTP 失败须提示: ' + status503);
+      }
+
+      // 202 queued：恢复可点，不新增自动轮询定时器
+      cacheRefreshPostResponse = {
+        status: 202,
+        body: { status: 'queued', detail: 'refresh still in progress' }
+      };
+      const intervalsBefore202 = intervalCalls.length;
+      await helpers.onCacheRefresh();
+      const status202 = helpers.getStatusAreaText();
+      if (!status202.includes('后台') && !status202.includes('排队')) {
+        throw new Error('202 须提示后台刷新: ' + status202);
+      }
+      if (elements['btn-cache-refresh'].disabled) {
+        throw new Error('202 后按钮须恢复可点');
+      }
+      // loadApi may reschedule 60s timer; no NEW poll interval dedicated to cache-refresh
+      const newIntervals = intervalCalls.slice(intervalsBefore202);
+      for (const call of newIntervals) {
+        if (call.delay !== 60000 && call.delay !== 1000 && call.delay !== 2000) {
+          throw new Error('202 后不得新增非法轮询定时器: delay=' + call.delay);
+        }
+      }
+      // No dedicated short poll (e.g. 3s/5s) for cache-refresh
+      if (newIntervals.some(c => c.delay > 0 && c.delay < 1000)) {
+        throw new Error('不得为 cache-refresh 新增亚秒轮询');
+      }
+
+      // 固定五 key 契约：helpers 导出
+      if (!Array.isArray(helpers.SOURCE_CHECKED_AT_KEYS) || helpers.SOURCE_CHECKED_AT_KEYS.length !== 5) {
+        throw new Error('SOURCE_CHECKED_AT_KEYS 须为固定五 key');
+      }
+      const expectedKeys = ['price_map', 'unified_balances', 'um_positions', 'spot_balances', 'pm_account'];
+      for (const k of expectedKeys) {
+        if (!helpers.SOURCE_CHECKED_AT_KEYS.includes(k)) {
+          throw new Error('缺少 source_checked_at key: ' + k);
+        }
+      }
+
+      // restore
+      cacheRefreshPostResponse = null;
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] frontend-cache-refresh-v1：按钮/complete·partial·not_attempted·失败·202、北京时间、缺源、PM 三态、私有未读分离、零自动轮询');
+    }
+
     // 76. 无泄漏证明：fetch 同源白名单、无 Binance/外域、无新任务定时器、localStorage 白名单
     {
       const allowedPatterns = [
         /^\/api\/public-market\/snapshot$/,
+        /^\/api\/public-market\/cache-refresh$/,
         /^\/api\/public-market\/symbol-snapshot\?/,
         /^\/api\/borrow-tasks$/,
         /^\/api\/borrow-tasks\/[^/]+\/(start|pause|delete|edit)$/,
@@ -5554,6 +5878,8 @@ setTimeout(async () => {
           if (c.method !== 'GET') throw new Error(`开单日志路由非法方法 ${c.method}`);
         } else if (c.url === '/api/borrow-logs/clear') {
           if (c.method !== 'POST') throw new Error(`清空借币日志路由非法方法 ${c.method}`);
+        } else if (c.url === '/api/public-market/cache-refresh') {
+          if (c.method !== 'POST') throw new Error(`cache-refresh 路由非法方法 ${c.method}`);
         } else if (c.method !== 'GET') {
           throw new Error(`只读路由非法方法 ${c.method}: ${c.url}`);
         }

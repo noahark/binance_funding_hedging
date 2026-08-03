@@ -534,6 +534,13 @@
       "priced_at": "2026-07-03T05:17:38Z"
     },
     "checked_at": "2026-07-03T05:17:38Z",
+    "source_checked_at": {
+      "price_map": "2026-07-03T05:17:38Z",
+      "unified_balances": "2026-07-03T05:17:38Z",
+      "um_positions": "2026-07-03T05:10:00Z",
+      "spot_balances": "2026-07-03T05:17:38Z",
+      "pm_account": null
+    },
     "error": null
   }
 }

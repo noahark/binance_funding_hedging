@@ -10,7 +10,7 @@
   "ledger_sha": "dab29be5e9ce3dfca47101615225775d8a1c7954",
   "current_task": {
     "id": "frontend-cache-refresh-v1",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-08-03-hedge-status-account-refresh-v1/frontend-cache-refresh-v1.dispatch.md"
   },
   "next": {
