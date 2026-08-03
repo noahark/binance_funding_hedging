@@ -98,3 +98,33 @@ JSON/空白自检）。未发现残留阻塞。
 
 ## Errata (append-only)
 任何更正均追加，说明日期、作者、改动原因与不改变的事实；不得改写 Source Report 或 Human Brief。
+
+## Bookkeeper Verification Record (append-only)
+
+- verification_time: 2026-08-03 17:08:00 CST
+- status_revision_observed: 2
+- source_sha256: ee41ed7c733593279b8e91162cdcaebd26ffb405a549253655a4412f6a8e6c05
+- verdict: rejected
+- state_at_rejection: reported
+- blocker: BK-003/BK-004; dispatch `24-claude-glm-handoff-contract-repair-r2.dispatch.md` is required before formal review.
+
+### Basis
+
+1. BK-003（in-range）：作者必须在把交接件纳入交付提交前创建文件，因此不能预先知道
+   `delivery_sha`；实际交接件使用 `pending`，但现行契约模板只允许 SHA 或不适用的
+   `none`，且 Bookkeeper 规则又要求声明 SHA 与 `status.json`／`git rev-parse` 匹配。未定义
+   `pending` 的合法性、适用角色与 Bookkeeper 对实际 SHA 的记录方式，首个正常实现任务无法
+   同时满足这两条规则。
+2. BK-004（in-range）：`Required Reading for the Next Task` 与 Human Brief 的 `下一步任务`
+   使用“本交接件”“返工 commit 的 `agents/roles.md`”“21-bookkeeper-verification-rework-r1.md”
+   等非完整仓库相对路径。契约要求逐条给出仓库相对路径和顺序，且 Human 要求下一模型读取的
+   文档路径与操作清楚可定位；这些简写不足以作为下一 dispatch 的确定输入。
+
+### Reproducible checks
+
+```text
+git rev-parse e7c0acb81831060369889143072787efe753e3f7
+git rev-parse 3fe5ff8626b04e99b9965ccd503ab258f9adc3dc
+git diff --check e7c0acb81831060369889143072787efe753e3f7 3fe5ff8626b04e99b9965ccd503ab258f9adc3dc
+grep -nF '<!-- BOOKKEEPER_APPEND_ONLY: all bytes before this marker are the source payload -->' reports/agent-runs/2026-08-03-harness-task-handoff-evidence-v1/evidence/harness-handoff-contract-repair-glm-r1.handoff.md
+```
