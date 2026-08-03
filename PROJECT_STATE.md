@@ -126,7 +126,8 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
   was never started because its quota was unavailable, so Human authorized the
   prepared DeepSeek replacement, which returned ACCEPT and is Bookkeeper-verified.
   Human cancelled the unstarted Anthropic Review-2 to complete frontend first;
-  the Grok frontend task is ready. Final reviews will follow frontend delivery.
+  Grok frontend delivery `e4b16b0` is Bookkeeper-verified and the independent
+  DeepSeek frontend Review-1 task is ready. Review-2 follows that review.
   This stage does not authorize deployment, Start-gate changes, credentials, or
   live operation.
 - F4 and the lifecycle Task 2 remain deliberately deferred; the Chinese task-card
