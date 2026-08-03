@@ -10,7 +10,7 @@
   "ledger_sha": "ed802bc64d5d1476a19b19aa58d773229b24bfa4",
   "current_task": {
     "id": "harness-handoff-contract-implementation-glm-v1",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-08-03-harness-task-handoff-evidence-v1/10-claude-glm-handoff-contract-implementation.dispatch.md"
   },
   "next": {

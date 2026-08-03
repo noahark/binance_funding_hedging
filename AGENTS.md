@@ -163,13 +163,24 @@ Every formal `[TASK_RESULT v2]` must contain these three Chinese handoff lines:
 These fields are informational only and never authorize dispatch. The current
 model cannot start, call, relay to, or assign the next model.
 
+### New-Stage Handoff Receipt
+
+For a stage approved after this contract takes effect, a dispatched implement,
+fix, review-1 or review-2 task ends by creating one deterministic handoff file
+in the stage evidence directory and listing that path in the existing `产物`
+field of its console receipt. `下一步任务` must use the executable form
+`读取：<一个或多个仓库相对路径，或 none>；执行：<立即动作>；关卡：<下一验证或 Human 决策>`,
+not vague routing text. The path, file structure, creation authority, Bookkeeper
+same-file verification, errata, fallback and archive rules live only in the
+Task Handoff Evidence Contract section of `agents/roles.md`.
+
 ### Final Output Marker
 
 The closing line `[/TASK_RESULT]` must be the final non-whitespace output. No session ID footer, next-model instruction, or any other text may follow it.
 
 The complete `status.json` field shape lives only in the Bookkeeper section of `agents/roles.md`; do not restate it here.
 
-An implementer may move only its own task from `dispatched` to `reported`. Bookkeeper is the only other normal `status.json` writer and alone may verify results, set `next`, or record a gate result. Reviewers are read-only; Human transfers their raw result to Bookkeeper.
+An implementer may move only its own task from `dispatched` to `reported`. Bookkeeper is the only other normal `status.json` writer and alone may verify results, set `next`, or record a gate result. Reviewers are read-only; how their result reaches Bookkeeper is defined in the Task Handoff Evidence Contract section of `agents/roles.md`.
 
 Write a verified live incident to `PROJECT_STATE.md` immediately. Never present repository history as a current runtime check.
 
