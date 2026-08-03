@@ -73,6 +73,17 @@ def collateral_cap_for_row(
 # §1.4 valuation: stablecoins priced at 1 USD (spec literal: USDT/USDC).
 _STABLE_USD_ASSETS = {"USDT", "USDC"}
 _PRIVATE_ACCOUNT_PRICE_SOURCE = "api_v3_ticker_price"
+# Stage 2026-08-03-hedge-status-account-refresh-v1 (design §3.5): the fixed
+# five-key shape of private_account.source_checked_at. assemble_private_account
+# always emits exactly these keys (default all-null); the snapshot service
+# overwrites them with the worker's per-source success times at publish time.
+_SOURCE_CHECKED_AT_KEYS = (
+    "price_map",
+    "unified_balances",
+    "um_positions",
+    "spot_balances",
+    "pm_account",
+)
 
 CONTRACT_WARNINGS = [
     "GET /sapi/v1/margin/allPairs and /sapi/v1/margin/isolated/allPairs return HTTP 400 code -2014 without an API key, so margin_public stays unverified and is not used for route classification.",
@@ -1191,6 +1202,7 @@ def assemble_private_account(
     checked_at: Optional[str],
     error: Optional[str],
     pm_account: Optional[dict] = None,
+    source_checked_at: Optional[dict] = None,
 ) -> dict:
     """Three-state ``private_account`` block (§1.4).
 
@@ -1226,7 +1238,15 @@ def assemble_private_account(
     available balance, margins, uniMMR, status, priced total debt, and a simple
     leverage ratio. Failed account fetch leaves these null without failing the
     balance block.
+
+    ``source_checked_at`` (stage 2026-08-03-hedge-status-account-refresh-v1,
+    design §3.5): the fixed five-key per-source success-time object. Defaults to
+    all-null (never-succeeded) so a direct caller still produces a schema-valid
+    block; the snapshot service overwrites it with the worker's real per-source
+    times at publish time. Always emitted (both verified and unverified blocks).
     """
+    if source_checked_at is None:
+        source_checked_at = {k: None for k in _SOURCE_CHECKED_AT_KEYS}
     warnings: List[str] = []
     if unified is None and spot is None:
         return (
@@ -1244,6 +1264,7 @@ def assemble_private_account(
                     "priced_at": None,
                 },
                 "checked_at": None,
+                "source_checked_at": dict(source_checked_at),
                 "error": error or "private_channel_disabled",
             },
             warnings,
@@ -1358,6 +1379,7 @@ def assemble_private_account(
                 "priced_at": checked_at,
             },
             "checked_at": checked_at,
+            "source_checked_at": dict(source_checked_at),
             "error": None,
         },
         warnings,

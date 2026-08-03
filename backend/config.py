@@ -82,6 +82,13 @@ class Config:
     # whose upstream I/O completes after this monotonic deadline must NOT commit
     # cache changes or publish a new PublishedState.
     symbol_refresh_timeout_seconds: float = 30.0
+    # Bounded wait for a RefreshCacheCommand (stage
+    # 2026-08-03-hedge-status-account-refresh-v1, design §5.1). Deliberately a
+    # SEPARATE constant from symbol_refresh_timeout_seconds so the manual
+    # 「更新缓存」 button's whole-cycle wait (4 account signed GETs + a public
+    # price GET + assemble/validate/publish) is decoupled from the single-symbol
+    # click deadline. Exceeding it answers 202 queued, not a failure.
+    cache_refresh_timeout_seconds: float = 20.0
     # Boundary C: the borrow executor is one of ``disabled`` (default, no-network)
     # or ``live`` (the exact-path PM borrow client, still off-by-default until an
     # explicit operator Start). Any other selection is rejected in from_env.
@@ -294,6 +301,12 @@ def from_env(environ: Mapping[str, str] | None = None) -> Config:
             "APP_SYMBOL_REFRESH_TIMEOUT_SECONDS",
             DEFAULT.symbol_refresh_timeout_seconds,
             "FUNDING_HEDGING_SYMBOL_REFRESH_TIMEOUT_SECONDS",
+        ),
+        cache_refresh_timeout_seconds=_env_float(
+            env,
+            "APP_CACHE_REFRESH_TIMEOUT_SECONDS",
+            DEFAULT.cache_refresh_timeout_seconds,
+            "FUNDING_HEDGING_CACHE_REFRESH_TIMEOUT_SECONDS",
         ),
         borrow_executor=borrow_executor,
         borrow_db_path=_env_path(

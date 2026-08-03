@@ -542,7 +542,7 @@ class PrivateClient:
         return latest.get("dailyInterestRate")
 
     # -- private_account block (10-design §1.4); 60s TTL group --
-    def fetch_unified_balances(self) -> Optional[List[dict]]:
+    def fetch_unified_balances(self, *, force: bool = False) -> Optional[List[dict]]:
         """E3 ``/papi/v1/balance`` (60s TTL) — unified-account balances.
 
         Returns the raw list or ``None`` (disabled/failed). Per §1.4 the
@@ -550,38 +550,55 @@ class PrivateClient:
         (anti-double-count). Assembly maps ``totalWalletBalance`` and the
         full-cross liability field ``crossMarginBorrowed`` (display-only;
         not re-added into ``total_value_usdt``).
+
+        ``force=True`` (manual cache-refresh / task status hook, design §3.3)
+        evicts ONLY this endpoint's single transport-cache key before the read,
+        triggering one fresh signed GET. Multi-asset scheduled-batch keys and
+        shared references are untouched. ``_cache.clear()`` is never used.
         """
         if not self.enabled:
             return None
+        if force:
+            self._evict("GET", "/papi/v1/balance")
         try:
             return self._cached_get("GET", "/papi/v1/balance", ttl=self._fast_ttl)
         except PrivateEndpointError as exc:
             self.last_error = f"papi_balance_failed:{exc.reason}"
             return None
 
-    def fetch_um_positions(self) -> Optional[List[dict]]:
+    def fetch_um_positions(self, *, force: bool = False) -> Optional[List[dict]]:
         """E4 ``/papi/v1/um/positionRisk`` (60s TTL) — UM exposure view.
 
         Returns the raw list (empty when flat) or ``None`` (disabled/failed).
         Nominal value is NEVER counted in ``total_value_usdt`` (§1.4 hard rule).
+
+        ``force=True`` evicts ONLY this endpoint's single transport-cache key
+        (design §3.3); ``_cache.clear()`` is never used.
         """
         if not self.enabled:
             return None
+        if force:
+            self._evict("GET", "/papi/v1/um/positionRisk")
         try:
             return self._cached_get("GET", "/papi/v1/um/positionRisk", ttl=self._fast_ttl)
         except PrivateEndpointError as exc:
             self.last_error = f"um_positionrisk_failed:{exc.reason}"
             return None
 
-    def fetch_pm_account(self) -> Optional[dict]:
+    def fetch_pm_account(self, *, force: bool = False) -> Optional[dict]:
         """E3b ``/papi/v1/account`` (60s TTL) — PM account equity / risk summary.
 
         Returns the raw account object or ``None`` (disabled/failed). Used for
         ``accountEquity`` / ``uniMMR`` / margin fields; independent of the
         per-asset ``/papi/v1/balance`` list. Failures do not disable balances.
+
+        ``force=True`` evicts ONLY this endpoint's single transport-cache key
+        (design §3.3); ``_cache.clear()`` is never used.
         """
         if not self.enabled:
             return None
+        if force:
+            self._evict("GET", "/papi/v1/account")
         try:
             data = self._cached_get("GET", "/papi/v1/account", ttl=self._fast_ttl)
         except PrivateEndpointError as exc:
@@ -589,14 +606,20 @@ class PrivateClient:
             return None
         return data if isinstance(data, dict) else None
 
-    def fetch_spot_balances(self) -> Optional[List[dict]]:
+    def fetch_spot_balances(self, *, force: bool = False) -> Optional[List[dict]]:
         """E6 ``/api/v3/account`` (60s TTL, omitZeroBalances=true) — spot balances.
 
         Returns the ``balances`` list ``[{asset, free, locked}]`` or ``None``
         (disabled/failed).
+
+        ``force=True`` evicts ONLY this endpoint's single transport-cache key
+        (the exact ``omitZeroBalances=true`` param key, design §3.3);
+        ``_cache.clear()`` is never used.
         """
         if not self.enabled:
             return None
+        if force:
+            self._evict("GET", "/api/v3/account", {"omitZeroBalances": "true"})
         try:
             data = self._cached_get(
                 "GET",

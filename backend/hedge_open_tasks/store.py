@@ -290,6 +290,25 @@ def _row_to_log(row: sqlite3.Row) -> dict:
     }
 
 
+def _attach_status_transition(task: dict, old_status, new_status) -> dict:
+    """Attach the committed (old_status, new_status) transition to a returned
+    task dict (stage 2026-08-03-hedge-status-account-refresh-v1, design §5.2).
+
+    The store reads the old status inside its SQL transaction, completes the
+    write, commits, and surfaces the transition ADDITIVELY on the task dict it
+    already returns — the existing task / bool return shapes are unchanged, so
+    no call site needs repacking. The service reads this key AFTER commit to
+    decide whether to fire the non-waiting cache-refresh command, and ONLY for a
+    real ``running → 非 running``. It is a private internal key:
+    :func:`service.task_to_doc` projects a fixed field set and never reads it, so
+    it cannot reach the API response. ``None`` for either status (a conditional
+    write that did not hit) yields a transition the service treats as zero-
+    trigger (old is not running, or old/new unknown).
+    """
+    task["_status_transition"] = (old_status, new_status)
+    return task
+
+
 def _num(value) -> Decimal:
     """Quantity / comparison parser only. ``None`` or an unparseable value
     becomes ``Decimal(0)`` — correct for a quantity (a not-yet-filled leg
@@ -625,6 +644,12 @@ class HedgeOpenStore:
 
     def set_task_status(self, task_id: str, status: str, now_us: int) -> dict:
         with self._lock, self._conn:
+            # Capture the pre-update status inside the transaction so the service
+            # can judge a real running → 非 running after commit (design §5.2).
+            prev = self._conn.execute(
+                "SELECT status FROM hedge_open_task WHERE id = ?", (task_id,)
+            ).fetchone()
+            old_status = prev["status"] if prev is not None else None
             # Returning to RUNNING clears the sticky pause state and the worker
             # exit reason (Review-1 r3 P1-1 / P2-2): a 429/insufficient pause and
             # a worker-exit reason are NOT sticky across a manual Start/recover —
@@ -647,7 +672,7 @@ class HedgeOpenStore:
             row = self._conn.execute(
                 "SELECT * FROM hedge_open_task WHERE id = ?", (task_id,)
             ).fetchone()
-            return _row_to_task(row)
+            return _attach_status_transition(_row_to_task(row), old_status, status)
 
     def set_failure_pause_threshold(self, task_id: str, threshold: int, now_us: int) -> dict:
         """Task-snapshotted threshold (ADR-3 / PRD §6.4). Defaults to 3 at create
@@ -914,6 +939,12 @@ class HedgeOpenStore:
                 "SELECT * FROM hedge_open_task WHERE id = ?", (task_id,)
             ).fetchone()
         )
+        # Capture the pre-update status (design §5.2) so the returned task carries
+        # the real (old, new) transition. resolve_attempt / finalize_attempt
+        # surface it to the service; settle_attempt_no_counters runs with
+        # skip_counters=True so new_status stays == old (a zero-trigger the
+        # service correctly ignores), and it discards the task anyway.
+        old_status = task["status"]
         new_accepted = task["accepted_pair_count"]
         new_success = task["success_count"]
         new_fail = task["fail_count"]
@@ -1072,7 +1103,11 @@ class HedgeOpenStore:
                     ),
                 ),
             )
-        return _row_to_task(row), pair_outcome, pause_reason
+        return (
+            _attach_status_transition(_row_to_task(row), old_status, new_status),
+            pair_outcome,
+            pause_reason,
+        )
 
     def resolve_attempt(
         self, attempt_id: int, outcome: AttemptOutcome, now_us: int,
@@ -1751,6 +1786,10 @@ class HedgeOpenStore:
         stale worker snapshot. ``None`` covers both a missing task and a
         non-stoppable state; the caller still records its visible event."""
         with self._lock, self._conn:
+            prev = self._conn.execute(
+                "SELECT status FROM hedge_open_task WHERE id = ?", (task_id,)
+            ).fetchone()
+            old_status = prev["status"] if prev is not None else None
             cur = self._conn.execute(
                 "UPDATE hedge_open_task SET status = ?, stop_reason = ?,"
                 " updated_at_us = ? WHERE id = ? AND status IN (?, ?)",
@@ -1762,7 +1801,9 @@ class HedgeOpenStore:
             row = self._conn.execute(
                 "SELECT * FROM hedge_open_task WHERE id = ?", (task_id,)
             ).fetchone()
-            return _row_to_task(row) if row is not None else None
+            return _attach_status_transition(
+                _row_to_task(row), old_status, D.STATUS_STOPPED
+            ) if row is not None else None
 
     def pause_task(
         self, task_id: str, pause_reason: str, pause_reason_zh: str, now_us: int,
@@ -1786,6 +1827,10 @@ class HedgeOpenStore:
         non-pauseable state and NO status was changed (the caller still records
         its visible event, so the closure is not lost)."""
         with self._lock, self._conn:
+            prev = self._conn.execute(
+                "SELECT status FROM hedge_open_task WHERE id = ?", (task_id,)
+            ).fetchone()
+            old_status = prev["status"] if prev is not None else None
             cur = self._conn.execute(
                 "UPDATE hedge_open_task SET status = ?, pause_reason = ?,"
                 " pause_reason_zh = ?, stop_reason = NULL, updated_at_us = ?"
@@ -1798,7 +1843,9 @@ class HedgeOpenStore:
             row = self._conn.execute(
                 "SELECT * FROM hedge_open_task WHERE id = ?", (task_id,)
             ).fetchone()
-            return _row_to_task(row), True
+            return _attach_status_transition(
+                _row_to_task(row), old_status, D.STATUS_PAUSED
+            ), True
 
     def record_task_event(
         self, task_id: str, kind: str, payload: dict, now_us: int,

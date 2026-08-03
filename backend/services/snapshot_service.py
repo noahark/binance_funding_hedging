@@ -31,7 +31,7 @@ import urllib.error
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import jsonschema
 import referencing
@@ -123,6 +123,44 @@ class RefreshSymbolCommand:
         self.published_version: Optional[int] = None
 
 
+# Stage 2026-08-03-hedge-status-account-refresh-v1 (design §3.4 / §4.1).
+# RefreshCacheCommand is the manual 「更新缓存」 button / task status hook entry:
+# it asks the worker to run ONE whole refresh cycle with the account-panel group
+# forced (bypass their source due + the four private transport TTL keys), then
+# reports a RefreshResult that separates "did a snapshot publish" from "did the
+# account/valuation panel sources actually refresh". It is NOT a second cache:
+# the result is short-lived (consumed by the HTTP handler / button), never
+# stored, and the scheduled tick does not expose it.
+@dataclass(frozen=True)
+class RefreshResult:
+    published: bool
+    account_panels: str  # "complete" | "partial" | "not_attempted"
+
+
+# Fixed in-flight key for the single live RefreshCacheCommand (design §4.2). A
+# symbol name cannot collide with it: eligible symbols match ^[A-Z0-9]{1,40}$
+# (no underscores), so "__cache_refresh__" is an unambiguous non-symbol key.
+_CACHE_INFLIGHT_KEY = "__cache_refresh__"
+
+
+class RefreshCacheCommand:
+    """One-shot whole-cycle cache-refresh command (design §4.1).
+
+    Carries its OWN ``done`` Event and ``result`` (a RefreshResult), distinct
+    from RefreshSymbolCommand's symbol-scoped fields. The worker dispatches it
+    to ``_run_refresh_cycle(force_account_panels=True)``. Coalescing: while one
+    cache command is in flight (not done), a second submit (button or status
+    hook) reuses the SAME instance — the accepted low-frequency merge window
+    (design §4.2) — rather than stacking commands.
+    """
+
+    __slots__ = ("done", "result")
+
+    def __init__(self):
+        self.done = threading.Event()
+        self.result: Optional[RefreshResult] = None
+
+
 class SnapshotService:
     def __init__(
         self,
@@ -211,8 +249,25 @@ class SnapshotService:
         # for ``assemble_private_account(checked_at=...)`` instead of stamping
         # ``now`` on every tick (the panels are read from _global_source_cache).
         self._account_checked_at: Optional[str] = None
-        self._command_queue: "queue.Queue[Optional[RefreshSymbolCommand]]" = queue.Queue()
-        self._inflight: Dict[str, RefreshSymbolCommand] = {}
+        # Stage 2026-08-03-hedge-status-account-refresh-v1 (design §3.5): per-
+        # source success-time metadata. A key advances to a UTC ISO-8601 time
+        # ONLY when that account/valuation source was successfully obtained AND
+        # written into _global_source_cache on a worker tick; a failure keeps
+        # the last-good value and its old time (FR-2); process-wide never-
+        # succeeded stays None. ``pm_account`` stays None when the PM capability
+        # is absent. This is the fixed five-key shape attached to
+        # private_account.source_checked_at at publish time; it is NOT a quote-
+        # freshness clock and does not change checked_at / valuation.priced_at
+        # (the kept-back aggregate semantics).
+        self._source_checked_at: Dict[str, Optional[str]] = {
+            "price_map": None,
+            "unified_balances": None,
+            "um_positions": None,
+            "spot_balances": None,
+            "pm_account": None,
+        }
+        self._command_queue: "queue.Queue[Optional[Union[RefreshSymbolCommand, RefreshCacheCommand]]]" = queue.Queue()
+        self._inflight: Dict[str, object] = {}
         self._inflight_lock = threading.Lock()  # guards ONLY the _inflight dict
         self._stop_event = threading.Event()
         self._worker_thread: Optional[threading.Thread] = None
@@ -553,6 +608,18 @@ class SnapshotService:
         pi = self._gather_private_inputs(
             rows, forced_overrides=forced_overrides, reuse=private_reuse
         )
+        # Stage 2026-08-03-hedge-status-account-refresh-v1 (design §3.5): attach
+        # the fixed five-key source_checked_at metadata to the private_account
+        # block at publish time. This is the single attachment chokepoint (covers
+        # offline build + scheduled tick + click command). The dict is COPIED so
+        # the click path's reused published private_account (the same object held
+        # by the prior PublishedState) is never mutated in place; only the new
+        # snapshot carries the current view.
+        pi_account = pi.get("private_account")
+        if isinstance(pi_account, dict):
+            pi_account = dict(pi_account)
+            pi_account["source_checked_at"] = self._source_checked_at_view()
+            pi["private_account"] = pi_account
         classic_ref = pi["classic_ref"]
         cost_leg = pi["cost_leg"]
         portfolio_by_asset = pi["portfolio_by_asset"]
@@ -992,9 +1059,22 @@ class SnapshotService:
                 break
             if cmd is not None:
                 try:
-                    self._handle_refresh_command(cmd)
+                    if isinstance(cmd, RefreshCacheCommand):
+                        self._handle_cache_refresh_command(cmd)
+                    else:
+                        self._handle_refresh_command(cmd)
                 except Exception as exc:  # never let one command kill the worker
-                    if not cmd.done.is_set():
+                    # Type-safe per-command failure: a cache command has no
+                    # symbol-scoped refresh_status/error fields, so its failure
+                    # is recorded on its own result; the worker continues.
+                    if isinstance(cmd, RefreshCacheCommand):
+                        if not cmd.done.is_set():
+                            cmd.result = RefreshResult(
+                                published=False, account_panels="not_attempted"
+                            )
+                            cmd.done.set()
+                        self._release_cache_inflight()
+                    elif not cmd.done.is_set():
                         cmd.refresh_status = "timeout"
                         cmd.error = f"refresh_internal_error:{exc}"
                         cmd.done.set()
@@ -1023,12 +1103,40 @@ class SnapshotService:
         cache-only: it reads _global_source_cache + the per-asset caches and
         never calls the all-row fetch_cost_leg_chain / top-50 max-borrowable
         probe (FR-3).
+
+        Stage 2026-08-03-hedge-status-account-refresh-v1: the cycle body lives
+        in the single worker-only :meth:`_run_refresh_cycle` helper, shared with
+        the manual cache-refresh button and the open-task status hook
+        (design §3.1). The scheduled tick runs it with ``force_account_panels=
+        False`` and discards the result (the scheduled path does not expose a
+        RefreshResult). """
+        self._run_refresh_cycle(force_account_panels=False)
+
+    def _run_refresh_cycle(self, *, force_account_panels: bool) -> RefreshResult:
+        """The single worker-only refresh cycle (design §3.1).
+
+        Shared by the ~60s scheduled tick (``force_account_panels=False``), the
+        manual 「更新缓存」 button and the open-task ``running → 非 running``
+        status hook (``force_account_panels=True``). The sequence is unchanged
+        from the historical scheduled tick — refresh due sources → compose base
+        → eligible rows → Group C sweep → assemble (funding-history overlay +
+        collateral-cap projection intact) → validate → publish. ``force`` ONLY
+        relaxes the account/valuation panel group's due check (and evicts the
+        four private transport keys inside the fetchers); every other source,
+        Group C, compose, assemble, validate and publish keep their existing due
+        behavior. Returns a short-lived RefreshResult separating "did a snapshot
+        publish" from the account-panel attempt outcome.
         """
         now = time.monotonic()
-        self._refresh_due_sources(now)
+        panel_outcomes = self._refresh_due_sources(
+            now, force_account_panels=force_account_panels
+        )
         base_raw = self._compose_base_raw()
         if base_raw is None:
-            return
+            # Cold start: Group A premium + Group B public not both cached yet.
+            # Nothing to publish; the account panels were not meaningfully
+            # refreshed either (design §3.4 not_attempted).
+            return RefreshResult(published=False, account_panels="not_attempted")
         # Preserve _base_raw / _base_raw_ts for the manual click path and the
         # legacy _base_raw contract (selected-symbol refresh reads _base_raw).
         self._base_raw = base_raw
@@ -1050,6 +1158,38 @@ class SnapshotService:
         # published state and _last_private_inputs untouched.
         self._validate(snapshot)
         self._publish_validated(snapshot, data_time_ms, pi)
+        return RefreshResult(
+            published=True,
+            account_panels=self._panel_result(panel_outcomes, force_account_panels),
+        )
+
+    def _panel_result(self, panel_outcomes: dict, force_account_panels: bool) -> str:
+        """Classify the account/valuation panel attempt (design §3.4).
+
+        - ``not_attempted``: the scheduled path (force False — it does not expose
+          a result), OR the panel group never ran (private channel disabled /
+          classic_reference not ready / base_raw cold).
+        - ``complete``: under force, price_map + unified_balances + um_positions
+          + spot_balances all succeeded, AND pm_account succeeded when the PM
+          capability exists (price_map is valuation data and counts toward
+          completeness).
+        - ``partial``: the group was attempted under force but at least one
+          required source did not succeed.
+        """
+        if not force_account_panels or not panel_outcomes.get("attempted"):
+            return "not_attempted"
+        required = {
+            "price_map", "unified_balances", "um_positions", "spot_balances",
+        }
+        if callable(getattr(self._private, "fetch_pm_account", None)):
+            required = required | {"pm_account"}
+        return "complete" if required <= panel_outcomes["succeeded"] else "partial"
+
+    def _source_checked_at_view(self) -> Dict[str, Optional[str]]:
+        """A fresh copy of the fixed five-key source_checked_at metadata
+        (design §3.5). Attached to private_account at publish time so the
+        published dict is never mutated in place by a later assembly."""
+        return dict(self._source_checked_at)
 
     def _source_due(self, source_id: str, now: float, ttl: int) -> bool:
         """True when ``source_id`` is missing or its successful timestamp is
@@ -1107,7 +1247,9 @@ class SnapshotService:
         checked_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         return {a for a in assets if isinstance(a, str)}, checked_at
 
-    def _refresh_due_sources(self, now: float) -> None:
+    def _refresh_due_sources(
+        self, now: float, *, force_account_panels: bool = False
+    ) -> dict:
         """Refresh due Group A/B sources into _global_source_cache (worker-only).
 
         Each source_id is independent (CC-1): one source's failure never
@@ -1116,8 +1258,27 @@ class SnapshotService:
         (FR-2). Legacy stub clients without the split public seams fall back to
         a single fetch_raw() that serves both public groups (keeps the legacy
         single-timestamp bootstrap contract for the existing endpoint tests).
+
+        Stage 2026-08-03-hedge-status-account-refresh-v1 (design §3.2/§3.3):
+        ``force_account_panels=True`` (manual cache-refresh button / task status
+        hook) relaxes ONLY the account/valuation panel group's due check — the
+        five sources ``price_map`` / ``unified_balances`` / ``um_positions`` /
+        ``spot_balances`` / ``pm_account`` are read regardless of due, and the
+        four private fetchers evict their single transport-cache key
+        (``force=True``) so the read is a fresh signed GET. Every other source
+        (public premium/group_b/book_ticker, classic_reference, account_info,
+        restricted_asset) and all of Group C keep their existing due behavior.
+        Returns a panel-outcomes record ``{"attempted": bool, "succeeded": set}``
+        describing this invocation's account/valuation panel reads (used by
+        :meth:`_run_refresh_cycle` to classify complete/partial/not_attempted).
         """
         ttl_a = self.config.cache_ttl_seconds
+        # Account/valuation panel outcomes for this invocation (design §3.4).
+        # ``attempted`` is False until the panel group actually runs (classic_ref
+        # present); ``succeeded`` records which of the five sources returned a
+        # usable value THIS call (only meaningful under force, where due is
+        # bypassed so every panel source is actually read).
+        panel_outcomes: Dict[str, Any] = {"attempted": False, "succeeded": set()}
         has_seams = hasattr(self.client, "fetch_premium_index") and hasattr(
             self.client, "fetch_exchange_info_group_b"
         )
@@ -1229,30 +1390,47 @@ class SnapshotService:
                         time.monotonic(), info,
                     )
             panels_refreshed = False
-            panel_fetchers = [
-                ("price_map", self.client.fetch_ticker_price_map),
-                ("unified_balances", self._private.fetch_unified_balances),
-                ("um_positions", self._private.fetch_um_positions),
-                ("spot_balances", self._private.fetch_spot_balances),
+            # (sid, fetcher, is_private): the four private fetchers accept
+            # ``force=True`` (evict their single transport-cache key, design
+            # §3.3); price_map is public and takes no force argument.
+            fetch_pm = getattr(self._private, "fetch_pm_account", None)
+            pm_available = callable(fetch_pm)
+            panel_fetchers: List[tuple] = [
+                ("price_map", self.client.fetch_ticker_price_map, False),
+                ("unified_balances", self._private.fetch_unified_balances, True),
+                ("um_positions", self._private.fetch_um_positions, True),
+                ("spot_balances", self._private.fetch_spot_balances, True),
             ]
             # E3b optional on test stubs that predate fetch_pm_account.
-            fetch_pm = getattr(self._private, "fetch_pm_account", None)
-            if callable(fetch_pm):
-                panel_fetchers.append(("pm_account", fetch_pm))
-            for sid, fetcher in panel_fetchers:
-                if self._source_due(sid, now, ttl_a):
-                    try:
-                        value = fetcher()
-                    except (urllib.error.URLError, OSError, ValueError):
-                        value = None
-                    if value is not None:
-                        self._global_source_cache[sid] = (time.monotonic(), value)
-                        if sid != "price_map":
-                            panels_refreshed = True
+            if pm_available:
+                panel_fetchers.append(("pm_account", fetch_pm, True))
+            panel_outcomes["attempted"] = True
+            for sid, fetcher, is_private in panel_fetchers:
+                # force_account_panels relaxes ONLY this panel group's due
+                # check; every other source above kept its own due (design §3.2).
+                if not (force_account_panels or self._source_due(sid, now, ttl_a)):
+                    continue
+                try:
+                    value = fetcher(force=True) if (force_account_panels and is_private) else fetcher()
+                except (urllib.error.URLError, OSError, ValueError):
+                    value = None
+                if value is not None:
+                    self._global_source_cache[sid] = (time.monotonic(), value)
+                    # design §3.5: advance this source's success time ONLY on a
+                    # successful cache write (FR-2); failure keeps last-good and
+                    # its old time. pm_account stays None when the capability is
+                    # absent (it is never in panel_fetchers then).
+                    self._source_checked_at[sid] = datetime.now(timezone.utc).strftime(
+                        "%Y-%m-%dT%H:%M:%SZ"
+                    )
+                    panel_outcomes["succeeded"].add(sid)
+                    if sid != "price_map":
+                        panels_refreshed = True
             if panels_refreshed:
                 self._account_checked_at = datetime.now(timezone.utc).strftime(
                     "%Y-%m-%dT%H:%M:%SZ"
                 )
+        return panel_outcomes
 
     def _compose_base_raw(self) -> Optional[dict]:
         """Rebuild the base_raw dict from cached Group A/B public sources.
@@ -1700,6 +1878,53 @@ class SnapshotService:
         with self._inflight_lock:
             if self._inflight.get(cmd.symbol) is cmd:
                 del self._inflight[cmd.symbol]
+
+    # ------------------------------------------------------------------
+    # cache-refresh command (design §4.1/§4.2) — manual button + task hook
+    # ------------------------------------------------------------------
+    def submit_cache_refresh(self) -> RefreshCacheCommand:
+        """Submit (or coalesce) a whole-cycle cache-refresh command.
+
+        Used by the ``POST /api/public-market/cache-refresh`` handler (waits)
+        and by the open-task ``running → 非 running`` status hook (no wait).
+        Coalescing (design §4.2): while one cache command is in flight (not
+        done), a second submit reuses the SAME instance — the accepted low-
+        frequency merge window — rather than stacking commands. The fixed
+        in-flight key is distinct from any symbol key (symbols match
+        ^[A-Z0-9]+$). Never blocks on upstream I/O: this only acquires the
+        inflight lock briefly and enqueues; the worker performs the read.
+        """
+        with self._inflight_lock:
+            existing = self._inflight.get(_CACHE_INFLIGHT_KEY)
+            if isinstance(existing, RefreshCacheCommand) and not existing.done.is_set():
+                return existing
+            cmd = RefreshCacheCommand()
+            self._inflight[_CACHE_INFLIGHT_KEY] = cmd
+        self._command_queue.put(cmd)
+        return cmd
+
+    def _release_cache_inflight(self) -> None:
+        with self._inflight_lock:
+            if isinstance(self._inflight.get(_CACHE_INFLIGHT_KEY), RefreshCacheCommand):
+                del self._inflight[_CACHE_INFLIGHT_KEY]
+
+    def _handle_cache_refresh_command(self, cmd: RefreshCacheCommand) -> None:
+        """Run one forced refresh cycle and record its RefreshResult.
+
+        Exception isolation (design §4.1): any failure is recorded as a
+        non-publishing result on this command; the worker keeps processing the
+        next command. ``done`` is always set and the in-flight slot always
+        released in ``finally`` so a waiting HTTP handler unblocks and a later
+        submit can create a fresh command.
+        """
+        try:
+            cmd.result = self._run_refresh_cycle(force_account_panels=True)
+        except Exception:
+            cmd.result = RefreshResult(published=False, account_panels="not_attempted")
+        finally:
+            if not cmd.done.is_set():
+                cmd.done.set()
+            self._release_cache_inflight()
 
     # ------------------------------------------------------------------
     # diagnostics

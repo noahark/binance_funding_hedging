@@ -1134,3 +1134,113 @@ existing ones; the frontend MUST test with `includes()`, never by index.
   leg fills, spot leg rejected → naked short.
 - `summary` adds no count; `warnings` adds no entry; the public endpoint shapes
   and the Start gate are unchanged; no database migration.
+
+## Cache Refresh + Source Freshness Amendment (v0.10, stage `2026-08-03-hedge-status-account-refresh-v1`)
+
+Frozen 2026-08-03. Wire `schema_version` stays `public-market-snapshot/v1`;
+every change is **additive** (the v0.1–v0.9 normalized samples still validate,
+except that `private_account.source_checked_at` is now `required` whenever a
+`private_account` block is present — the producer always emits it, so every
+live/assembled snapshot still validates; a hand-built `private_account` without
+it now correctly fails schema validation). Authority order: the approved design
+`docs/planning/hedge-status-account-refresh-v4.md` > this contract section.
+
+Three triggers share ONE worker-only refresh cycle (design §3.1): the ~60s
+scheduled tick, the manual 「更新缓存」 button (`POST /api/public-market/cache-
+refresh`), and the open-task `running → 非 running` status hook. The button and
+the status hook run the cycle with the account/valuation panel group FORCED:
+`price_map` / `unified_balances` / `um_positions` / `spot_balances` /
+`pm_account` are read regardless of their source due, and the four private
+fetchers evict their single transport-cache key (one fresh signed GET each);
+every other source and all of Group C keep their existing due behavior. The
+cycle reuses the existing compose → eligible → Group C sweep → assemble
+(funding-history overlay + collateral-cap projection intact) → validate →
+publish — there is no second cache, worker, or assemble/publish path.
+
+### New field `private_account.source_checked_at`
+
+`required` on `private_account` (the producer always emits it). A fixed-shape
+object with exactly five keys; each value is a UTC ISO-8601 `date-time` string
+or `null`:
+
+```json
+"source_checked_at": {
+  "price_map": "2026-08-03T07:34:50Z",
+  "unified_balances": "2026-08-03T07:34:50Z",
+  "um_positions": "2026-08-03T07:20:00Z",
+  "spot_balances": "2026-08-03T07:34:50Z",
+  "pm_account": "2026-08-03T07:34:50Z"
+}
+```
+
+Semantics:
+
+- Each value is the moment this service last **successfully obtained AND wrote
+  that source into its cache** — NOT a page-render time, NOT the snapshot
+  publish time, NOT the Binance data-effective time.
+- A key advances ONLY on a successful cache write; a failed read keeps the
+  last-good value and its OLD time (does not advance). Process-wide never-
+  succeeded stays `null` (cold start).
+- `pm_account` is `null` when the PM capability (`GET /papi/v1/account`) is
+  absent; the key is still present.
+- This is a source-read success clock, NOT a quote-freshness clock. It does not
+  change `private_account.checked_at` or `valuation.priced_at`, which keep their
+  existing aggregate account-snapshot semantics (the kept-back right-corner
+  overview time). `price_map`'s success time is exposed here (for completeness
+  classification and the partial-source notice), not as a per-account panel
+  title.
+
+### `POST /api/public-market/cache-refresh` (first public-market write route)
+
+```text
+POST /api/public-market/cache-refresh
+```
+
+The first WRITE route in the public-market namespace. Its ONLY side effect is
+local: enqueue (or coalesce) one `RefreshCacheCommand` and bounded-wait its
+completion (`cache_refresh_timeout_seconds`, default 20s, decoupled from the
+single-symbol click timeout). It performs NO upstream fetch and writes no cache
+directly — all Binance I/O happens inside the snapshot worker. The route takes
+no body fields; any posted body is drained and ignored.
+
+- Worker not running (offline / kill-switch off / before bootstrap): HTTP 503
+  `cache_refresh_unavailable` (honest failure — a cache command needs the
+  worker to run the cycle).
+- Command settled within the bounded wait: HTTP 200
+  `{"published": <bool>, "account_panels": "complete" | "partial" | "not_attempted"}`.
+  - `published` reports only whether a snapshot published; it NEVER alone equals
+    "account data refreshed".
+  - `account_panels`: `complete` = under force, `price_map` +
+    `unified_balances` + `um_positions` + `spot_balances` all succeeded AND
+    `pm_account` succeeded when the PM capability exists; `partial` = the panel
+    group was attempted but at least one required source did not succeed;
+    `not_attempted` = private channel disabled / classic_reference not ready /
+    cold start (base_raw not ready).
+- Still queued or running at the timeout: HTTP 202 `{"status": "queued",
+  "detail": "refresh still in progress"}`. The worker keeps refreshing in the
+  background; no auto-polling is added. The frontend cancels loading and tells
+  the operator it is still refreshing; the page's `source_checked_at` times are
+  the real read evidence afterwards.
+
+Coalescing (design §4.2): while one cache command is in flight, a second submit
+(button or status hook) reuses the SAME command rather than stacking. This is an
+accepted low-frequency merge: if an event lands in the short window after the
+command's account read finished but before the command ends, it does NOT get an
+extra post-event read — it falls back to the ~60s tick guarantee. The page shows
+the actual `source_checked_at` times; it is never reported as "read after this
+click".
+
+The actual per-source success times come from the subsequent `GET /snapshot`
+(`private_account.source_checked_at`); the frontend re-reads after the POST and
+uses those times as the real read evidence. No GET on this namespace performs
+upstream I/O — `GET /snapshot` and `GET /hedge-open-positions` stay pure reads
+of the published state.
+
+### `GET /api/hedge-open-positions` account meta
+
+The `account` meta object gains `source_checked_at` — the SAME fixed five-key
+object passed through from `private_account.source_checked_at`. When the
+snapshot / `private_account` is absent (cold start) the fixed all-null
+five-key shape is still emitted so the five keys are always present. This is a
+post-merge attachment in the composition root; `merge_positions` is unchanged.
+

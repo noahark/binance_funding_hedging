@@ -524,7 +524,8 @@
         "total_value_usdt",
         "valuation",
         "checked_at",
-        "error"
+        "error",
+        "source_checked_at"
       ],
       "properties": {
         "verified": { "type": "boolean" },
@@ -704,7 +705,30 @@
           }
         },
         "checked_at": { "type": ["string", "null"] },
-        "error": { "type": ["string", "null"] }
+        "error": { "type": ["string", "null"] },
+        "source_checked_at": {
+          "description": "Fixed five-key per-source success-time metadata (v0.10, stage 2026-08-03-hedge-status-account-refresh-v1). Always emitted (all five keys present). Each value is the UTC ISO-8601 moment this service last successfully obtained AND wrote that account/valuation source into its cache, or null when it has never succeeded (cold start / PM capability absent for pm_account). A failure keeps the last-good value and its old time (does NOT advance). This is a source-read success clock, NOT a quote-freshness clock, a page-render time, or the snapshot publish time; it does not change checked_at / valuation.priced_at (the kept-back aggregate). price_map is valuation data and is included for completeness classification and the partial-source notice, not for a per-account panel title.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "price_map",
+            "unified_balances",
+            "um_positions",
+            "spot_balances",
+            "pm_account"
+          ],
+          "properties": {
+            "price_map": { "type": ["string", "null"], "format": "date-time" },
+            "unified_balances": { "type": ["string", "null"], "format": "date-time" },
+            "um_positions": { "type": ["string", "null"], "format": "date-time" },
+            "spot_balances": { "type": ["string", "null"], "format": "date-time" },
+            "pm_account": {
+              "description": "null when the PM capability (GET /papi/v1/account) is absent; the key is still present.",
+              "type": ["string", "null"],
+              "format": "date-time"
+            }
+          }
+        }
       }
     },
     "um_position": {

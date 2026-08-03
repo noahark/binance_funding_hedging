@@ -147,6 +147,10 @@ class _Handler(BaseHTTPRequestHandler):
         self._serve_static(path)
 
     def do_POST(self):
+        path = urlparse(self.path).path
+        if path == "/api/public-market/cache-refresh":
+            self._handle_cache_refresh()
+            return
         if self._try_hedge_open("POST"):
             return
         if self._try_borrow("POST"):
@@ -249,6 +253,60 @@ class _Handler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
+
+    def _handle_cache_refresh(self):
+        # POST /api/public-market/cache-refresh (design §5.1) — the first WRITE
+        # route in the public-market namespace. Its only side effect is local:
+        # enqueue (or reuse) one RefreshCacheCommand and bounded-wait its done
+        # event. ALL Binance I/O happens inside the snapshot worker; this handler
+        # performs no upstream fetch and writes no cache. The route takes no body
+        # fields; any posted body is drained and ignored.
+        try:
+            length = int(self.headers.get("Content-Length", "") or "0")
+        except ValueError:
+            self._send_json(
+                400,
+                json.dumps(
+                    {"error": "invalid_json", "detail": "invalid Content-Length"}
+                ).encode("utf-8"),
+            )
+            return
+        if length > 0:
+            self.rfile.read(length)
+        # No live worker -> honest failure (design §4.1: a cache command needs the
+        # worker to run the cycle). Offline mode never starts the worker.
+        if not self.service._worker_running():
+            self._send_json(
+                503,
+                json.dumps(
+                    {
+                        "error": "cache_refresh_unavailable",
+                        "detail": "snapshot worker not running",
+                    }
+                ).encode("utf-8"),
+            )
+            return
+        cmd = self.service.submit_cache_refresh()
+        cmd.done.wait(timeout=self.service.config.cache_refresh_timeout_seconds)
+        if not cmd.done.is_set():
+            # Still queued / running: 202 queued. The worker keeps refreshing in
+            # the background; no auto-polling is added (design §5.1).
+            self._send_json(
+                202,
+                json.dumps(
+                    {"status": "queued", "detail": "refresh still in progress"}
+                ).encode("utf-8"),
+            )
+            return
+        result = cmd.result
+        published = bool(result and result.published)
+        account_panels = result.account_panels if result is not None else "not_attempted"
+        self._send_json(
+            200,
+            json.dumps(
+                {"published": published, "account_panels": account_panels}
+            ).encode("utf-8"),
+        )
 
     def _handle_healthz(self):
         # Liveness only: the handler running proves the process is alive. Fixed
@@ -624,6 +682,23 @@ class _Handler(BaseHTTPRequestHandler):
         if isinstance(snapshot, dict) and isinstance(snapshot.get("private_account"), dict):
             private_account = snapshot["private_account"]
         merged, account_meta = hedge_open_domain.merge_positions(positions, private_account)
+        # Stage 2026-08-03-hedge-status-account-refresh-v1 (design §3.5): pass the
+        # full fixed five-key source_checked_at object through the positions
+        # account meta, so the open-positions panel can show the same per-source
+        # success times as the snapshot. merge_positions (hedge_open domain) is
+        # not modified; this is a post-merge attachment in the composition root.
+        # When the snapshot/private_account is absent the fixed all-null shape is
+        # still emitted so the five keys are always present.
+        if isinstance(private_account, dict):
+            account_meta["source_checked_at"] = private_account.get("source_checked_at")
+        else:
+            account_meta["source_checked_at"] = {
+                "price_map": None,
+                "unified_balances": None,
+                "um_positions": None,
+                "spot_balances": None,
+                "pm_account": None,
+            }
         self._send_hedge_open(200, {"positions": merged, "account": account_meta})
 
     def _serve_static(self, path: str):
@@ -785,6 +860,17 @@ def run(config: Config = None) -> None:
     )
     borrow_service = _build_borrow_service(config)
     hedge_open_service = _build_hedge_service(config)
+    # Stage 2026-08-03-hedge-status-account-refresh-v1 (design §5.2): wire the
+    # open-task status hook to the snapshot worker's non-waiting cache-refresh
+    # submitter. A real ``running → 非 running`` task transition then enqueues
+    # (or reuses) one RefreshCacheCommand so the next published snapshot reflects
+    # the post-transition account state. The two services stay decoupled — only
+    # this callback crosses them, and it never blocks (wait=False). ``getattr``
+    # keeps ``run`` robust to a minimal SnapshotService stub that does not
+    # expose the submitter (the real service always does).
+    _cache_refresher = getattr(service, "submit_cache_refresh", None)
+    if callable(_cache_refresher):
+        hedge_open_service.configure_cache_refresh(_cache_refresher)
     # build_server keeps its original 2-arg call shape here so process-level
     # stubs of build_server keep working; the borrow authority is wired onto the
     # handler class separately (build_server defaults it to None first).

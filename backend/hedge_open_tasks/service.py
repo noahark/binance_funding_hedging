@@ -458,6 +458,7 @@ class HedgeOpenTaskService:
         credentials_present: bool = False,
         mono_us: Callable[[], int] | None = None,
         wall_us: Callable[[], int] | None = None,
+        cache_refresh_submitter: Callable[[], None] | None = None,
     ):
         self._mono_us = mono_us or _real_mono_us
         self._wall_us = wall_us or _real_wall_us
@@ -480,6 +481,16 @@ class HedgeOpenTaskService:
         # value is a boolean only — never a credential value (Boundary C).
         self._credentials_present = bool(credentials_present)
         self._last_tick_mono: int | None = None
+        # Stage 2026-08-03-hedge-status-account-refresh-v1 (design §5.2): an
+        # injected non-waiting cache-refresh submitter (SnapshotService's
+        # submit_cache_refresh). The service fires it ONLY on a real
+        # ``running → 非 running`` task transition, AFTER the status write
+        # committed, swallowing any exception so a cache enqueue failure never
+        # rolls back the already-committed task status. ``None`` (tests / unwired)
+        # -> the hook is a no-op. The server wires it via
+        # :meth:`configure_cache_refresh` so the two services stay decoupled
+        # (SnapshotService is never imported here).
+        self._submit_cache_refresh: Callable[[], None] | None = cache_refresh_submitter
         # Amendment 21 task-local workers: each RUNNING task owns at most ONE
         # bounded-lifetime worker thread (no global guardian/scanner). ``_workers``
         # maps task_id -> live worker thread; ``_stop_events`` carries the per-task
@@ -565,6 +576,40 @@ class HedgeOpenTaskService:
     @property
     def credentials_present(self) -> bool:
         return self._credentials_present
+
+    def configure_cache_refresh(self, submitter: Callable[[], None] | None) -> None:
+        """Wire the non-waiting cache-refresh submitter (design §5.2).
+
+        The server calls this after both services are built so SnapshotService
+        stays uninjected here (the two services are decoupled; only this callback
+        crosses them). ``submitter`` should enqueue-or-coalesce and return
+        immediately (``wait=False``); the status hook never blocks on a refresh.
+        Passing ``None`` disables the hook (the no-op default)."""
+        self._submit_cache_refresh = submitter
+
+    def _notify_cache_refresh(self, task: dict | None) -> None:
+        """Fire the cache-refresh hook when ``task`` carries a real
+        ``running → 非 running`` transition (design §5.2).
+
+        Reads the additive ``_status_transition`` the store attached AFTER its
+        commit. Only ``old == running && new != running`` submits a non-waiting
+        cache command; every other transition (same status, restore-to-running,
+        a conditional-write miss, or a settle with skip_counters) is zero-
+        trigger. The submitter's exceptions are swallowed: a cache-enqueue
+        failure must NEVER roll back the already-committed task status.
+        """
+        cb = self._submit_cache_refresh
+        if cb is None or not isinstance(task, dict):
+            return
+        transition = task.get("_status_transition")
+        if not transition:
+            return
+        old_status, new_status = transition
+        if old_status == D.STATUS_RUNNING and new_status != D.STATUS_RUNNING:
+            try:
+                cb()
+            except Exception:
+                pass
 
     def is_start_gate_on(self) -> bool:
         return bool(self._store.get_settings()["start_gate"])
@@ -691,6 +736,7 @@ class HedgeOpenTaskService:
         # and settling the pair, then exits on the status check (opens no new
         # pair while paused).
         updated = self._store.set_task_status(task_id, D.STATUS_PAUSED, self._wall_us())
+        self._notify_cache_refresh(updated)
         return 200, self._doc(updated)
 
     def post_delete(self, task_id: str) -> tuple[int, dict]:
@@ -702,6 +748,7 @@ class HedgeOpenTaskService:
         # and settling the pair, then exits on the status check (opens no new
         # pair once deleted).
         updated = self._store.set_task_status(task_id, D.STATUS_DELETED, self._wall_us())
+        self._notify_cache_refresh(updated)
         return 200, self._doc(updated)
 
     def post_fill_once(self, task_id: str) -> tuple[int, dict]:
@@ -1427,7 +1474,8 @@ class HedgeOpenTaskService:
                     # failure counter; the in-flight guard still clears.
                     self._store.settle_attempt_no_counters(attempt_id, now_us)
                 else:
-                    self._store.finalize_attempt(attempt_id, now_us)
+                    updated = self._store.finalize_attempt(attempt_id, now_us)
+                    self._notify_cache_refresh(updated)
             except Exception as exc:
                 # F2 (review-2): stop discarding. A settlement exception left
                 # pair_outcome NULL, silently stalling the task on prepare's
@@ -1466,7 +1514,8 @@ class HedgeOpenTaskService:
                 ):
                     self._store.settle_attempt_no_counters(attempt["id"], now_us)
                 else:
-                    self._store.finalize_attempt(attempt["id"], now_us)
+                    updated = self._store.finalize_attempt(attempt["id"], now_us)
+                    self._notify_cache_refresh(updated)
             except Exception as exc:
                 # F2 (review-2): the same discarding defect on the crash-gap
                 # recovery loop — the mechanism meant to unstick this exact
@@ -1606,6 +1655,7 @@ class HedgeOpenTaskService:
         updated, applied = self._store.pause_task(
             task["id"], pause_reason, reason_zh, now_us,
         )
+        self._notify_cache_refresh(updated)
         payload = {
             "reason": pause_reason,
             "reason_zh": reason_zh,
@@ -1853,6 +1903,7 @@ class HedgeOpenTaskService:
         audit event with the safe Chinese cause."""
         stop_reason = fresh.stop_reason or D.STOP_REASON_EXCHANGE_FATAL
         updated = self._store.stop_task_fatal(task["id"], stop_reason, now_us)
+        self._notify_cache_refresh(updated)
         self._store.record_task_event(
             task["id"],
             "task_stopped",
@@ -1983,7 +2034,8 @@ class HedgeOpenTaskService:
         except Exception as exc:
             outcome = self._failed_outcome(ctx, f"executor_exception:{type(exc).__name__}")
         try:
-            self._store.resolve_attempt(attempt["id"], outcome, now_us)
+            updated = self._store.resolve_attempt(attempt["id"], outcome, now_us)
+            self._notify_cache_refresh(updated)
         except Exception:
             # containment: a resolve failure must not kill dispatch.
             pass
@@ -2109,9 +2161,10 @@ class HedgeOpenTaskService:
                 attempt["attempt_uuid"], spot, perp, dispatch.record_payload, now_us
             )
             try:
-                self._store.resolve_attempt(
+                updated = self._store.resolve_attempt(
                     attempt["id"], outcome, now_us, suppress_done=True,
                 )
+                self._notify_cache_refresh(updated)
             except Exception as exc:
                 # S3 (task1d): orders already sent and both legs terminal; a
                 # discarded resolve_attempt leaves pair_outcome NULL and the
@@ -2138,9 +2191,10 @@ class HedgeOpenTaskService:
             perp.leg: self._leg_terminal(perp),
         }
         try:
-            self._store.resolve_attempt(
+            updated = self._store.resolve_attempt(
                 attempt["id"], outcome, now_us, leg_terminal=leg_terminal
             )
+            self._notify_cache_refresh(updated)
         except Exception as exc:
             # S4 (task1d): the main path — a real order placed and its conclusion
             # never persisted. Record the failure (R1); keep catching (R2). Any
