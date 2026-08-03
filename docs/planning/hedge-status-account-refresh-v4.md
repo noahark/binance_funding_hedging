@@ -286,3 +286,55 @@ API 一律传 UTC `Z` 时间，前端固定转换为北京时间（`Asia/Shangha
 7. Store transition 是否提交后判断、保留现有返回形状，并穷尽所有状态写调用方？
 8. POST route、契约、schema 与前端按钮是否一致，同时 GET 仍 pure-read？
 9. 文稿是否诚实保留 F4（last-good 与冷启动的区别）、凭证前提、低频合并取舍和“无自动前端刷新”的边界？
+
+---
+
+## 9. 页面验收后的展示增补（v4.1，2026-08-03）
+
+Human 已验收本轮缓存按钮与新鲜度展示的实际效果，并明确要求下列三个展示调整。本节只扩展页面与只读持仓投影；它取代 §5.3 中“聚合时间位于右上角、PM 时间位于概览区上方”的**位置**约定。§1–§8 的 refresh cycle、source 时间语义、GET pure-read、无自动前端刷新和所有资金/闸门边界保持不变。
+
+### 9.1 市场表的抵押额度标签
+
+- 既有 `抵押额度已满` / `抵押额度未知` 徽标仍由同一个 `collateral_cap` + `ui_flags` 判定，颜色、title、排序/过滤/按钮零影响的语义不变。
+- 它从币种单元格移到同一行既有「借贷状态 / 资产」单元格；不新增第二个徽标，不改变资产标签或负费率状态。
+
+### 9.2 对冲开单持仓的双账户余额
+
+`GET /api/hedge-open-positions` 的每个 merged position row 增加四个 nullable、十进制字符串字段。它们是**展示字段**，没有订单、借贷、风险判断或缓存写入作用：
+
+| 字段 | 真源 | 语义 |
+| --- | --- | --- |
+| `spot_balance`（既有） | `balances_spot[asset].free + locked` | 普通现货余额。 |
+| `spot_balance_value_usdt`（新增） | 同一普通现货 balance row 的 `value_usdt` | 普通现货余额的既有估值；不由前端重算。 |
+| `unified_balance`（新增） | `balances_unified[asset].total_balance` | 统一账户全仓（杠杆）余额，**不是** `cross_margin_borrowed`。 |
+| `unified_balance_value_usdt`（新增） | 同一统一账户 balance row 的 `value_usdt` | 统一账户余额的既有估值；不由前端重算。 |
+
+后端只在已有纯函数 `merge_positions` 中从同一份已发布 `private_account` 投影这些值；不加读取、不改 snapshot cache、不改变 `/hedge-open-positions` 的 zero-upstream GET 性质。`private_account.verified=false` 或未就绪时，四个账户派生字段均为 `null`。账户已就绪而其中一种账户未包含该 asset 时，该侧 amount/value 均为 `null`；有效的真 `0` 仍保留为十进制字符串，绝不把未知伪造成 0。`cross_margin_borrowed` 继续只在既有「全仓借款」列展示。
+
+前端将既有「现货余额」列改成两行：
+
+```text
+现货: <spot_balance> ≈ <spot_balance_value_usdt, 2 位> U
+杠杆: <unified_balance> ≈ <unified_balance_value_usdt, 2 位> U
+```
+
+每侧独立降级：缺 amount 时该侧显示 `—`，不从另一账户补值；amount 已知但估值缺失时显示 amount + `≈ — U`；隐私模式继续遮蔽 amount 和估值。两侧数据随同一个 positions GET 返回，前端不得从 snapshot 再拼一次，避免接口时序依赖。
+
+### 9.3 时间文字的位置
+
+- 保持唯一的 `#account-asset-updated-at` 和既有 `checked_at` → `valuation.priced_at` 回退逻辑，但把它移到标题下，替换固定副标题「行情公开 · 账户需 key 私有只读」。右侧只保留倒计时、手动刷新和更新缓存，避免按钮被时间挤压。
+- PM capability 可用时，把现有「PM 账户数据源更新时间」移到「私有账户」标题正下方（此前旧聚合时间所在的位置）。capability 不存在时隐藏该行；存在但 `pm_account` source time 为 null 时仍显示未就绪；有时间时继续显示北京时间。它不再出现在概览统计卡片区上方。
+
+### 9.4 契约、测试与非目标
+
+- `docs/api/public-market-contract.md` 追加 positions projection 的字段与 null/真零语义；snapshot JSON schema 不变（上述字段只属于 hedge positions endpoint）。
+- 后端单测必须覆盖正常同币的四字段值、某侧缺失、账户未就绪全 null、真零不变成 null，以及 HTTP positions exact key set。前端 self-check 必须覆盖双行、两侧独立缺失、估值 `—`、隐私遮蔽、徽标位置、两处时间 DOM 和 PM 三态回归。
+- 不做聚合多账户余额、不变更已接受的 1000x asset 不自动对齐规则、不新增 API、轮询、SSE、WebSocket、上游 I/O、订单、借贷、划转、Start gate 或风险限制。
+
+### 9.5 本增补的验收标准
+
+1. 抵押额度徽标只出现在「借贷状态 / 资产」列，原币种单元格不再包含它。
+2. 每个 positions row 有上述四个账户字段；后端和值/空值语义可独立测试且该 GET 仍纯读。
+3. UI 的「现货余额」列按两行展示普通现货与统一账户余额及各自既有估值；缺失绝不画 0，真零仍是 0。
+4. 聚合账户时间位于标题副标题位置；PM 时间位于私有账户标题下；右侧按钮排列不再受账户时间影响。
+5. 离线 pytest 与 `node frontend/self-check.js` 均通过；无真实 key、网络、服务或实盘操作。
