@@ -5,17 +5,17 @@ check.
 
 ## Live Risks
 
-- `[OPEN][RUNTIME-VERIFIED 2026-08-03]` **The Start gate IS live.** No close
-  function exists. No agent may create orders, touch credentials, control the
-  service, or write the live task DB; an authorized read-only check must precede
-  any live action. Upgraded from `RUNTIME-UNVERIFIED` on 2026-08-03: a
-  Human-ordered service restart printed
+- `[BY-DESIGN]` **Standing operating premise: the Start gate is kept ON and the
+  system runs live.** Human decided 2026-08-03 to leave it open permanently, so
+  this is the intended steady state, not an open risk — do not file it as one
+  again. Verified at the 2026-08-03 restart:
   `hedge_open_execution_mode mode=live start_gate=true` and
-  `borrow_execution_mode mode=live execution_owner=true
-  live_authorized_task_count=26 recovered_orphan_blocker_count=1` at startup, so
-  the gate and both live execution modes are now observed facts, not
-  assumptions, and they survive a restart unchanged. The orphan blocker recovered
-  on that boot has not been investigated.
+  `borrow_execution_mode mode=live execution_owner=true`, unchanged across
+  restarts. **What follows from it, and still holds:** a task moved to `running`
+  can send real orders immediately, and **no close function exists** — the system
+  opens positions but cannot close them for you. No agent may create orders,
+  touch credentials, control the service, or write the live task DB; an
+  authorized read-only check must precede any live action.
 - `[OPEN][OPERATIONS][2026-08-03]` **The launchd service is broken and has been
   failing in a tight loop.** `com.aoke.funding-hedging.server` reports
   `last exit code = 126` (not executable) with `runs = 78048` and
@@ -125,6 +125,11 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
 
 ## Open Follow-ups
 
+- `[OPEN][FOLLOW-UP]` **One orphan borrow blocker recovered at the 2026-08-03
+  restart** (`recovered_orphan_blocker_count=1` in the `borrow_execution_mode`
+  startup line, alongside `live_authorized_task_count=26`). Never investigated;
+  noted here so it is not lost now that the startup state itself is recorded as
+  a by-design premise rather than a risk.
 - `[OPEN][FOLLOW-UP]` **O-1 — per-asset balances repeat per row, with no
   anti-sum treatment.** The 「现货 / 杠杆」 lines are account-level per-asset
   figures rendered in a table keyed by (coin, direction), so a coin held both
