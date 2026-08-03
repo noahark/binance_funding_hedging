@@ -124,7 +124,8 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
 - **Active stage:** `2026-08-03-hedge-status-account-refresh-v1`. Backend/API/
   schema/status-hook delivery `8b624f7` is Bookkeeper-verified; Kimi Review-1
   was never started because its quota was unavailable, so Human authorized the
-  prepared DeepSeek replacement. Frontend waits for the committed, reviewed contract.
+  prepared DeepSeek replacement, which returned ACCEPT and is Bookkeeper-verified.
+  Anthropic Review-2 is ready; frontend waits for its outcome.
   This stage does not authorize deployment, Start-gate changes, credentials, or
   live operation.
 - F4 and the lifecycle Task 2 remain deliberately deferred; the Chinese task-card
