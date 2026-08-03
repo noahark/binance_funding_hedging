@@ -76,3 +76,13 @@
 ```
 
 <!-- BOOKKEEPER_APPEND_ONLY: all bytes before this marker are the source payload -->
+
+## Bookkeeper Verification (Bookkeeper append-only)
+
+- verified_at: `2026-08-03 19:49:02 CST`
+- source_sha256: `65084d8c20f47dd85c536b8bcbd52eaee21978b424c84b097ede2bfc179b6339`（唯一完整 `BOOKKEEPER_APPEND_ONLY` marker 之前的原始 8161 bytes）
+- status_revision_checked: `5`；task/state: `frontend-cache-refresh-v1` / `reported`。
+- SHA and scope: handoff `base_sha=dab29be5e9ce3dfca47101615225775d8a1c7954` 与派发前 HEAD 一致，作者 `pending` 已解析为唯一 delivery commit `e4b16b01a2d06339920de3893383cc1d62da1425`；两者均经 `git rev-parse` 核验，且 base 是 delivery 的祖先。delivery commit 仅改 dispatch 允许的 `frontend/index.html`、`frontend/self-check.js`、fixture、task handoff/self-check 输出及本任务 `status.json` 的 `dispatched→reported`；未改后端、契约、状态钩子或刷新调度。
+- behavior and evidence: 对照 v4 §5.1/§5.3、已交付后端的 `{published, account_panels}` 契约与实际前端代码，按钮只 POST `/api/public-market/cache-refresh`；complete/partial/not_attempted 的读取行为和 202/失败的无轮询行为与文案语义一致。右上角旧聚合时间、单源/多源 source 时间、缺源与 PM 三态均有代码与 fixture/self-check 覆盖。`node frontend/self-check.js | diff -u evidence/frontend-cache-refresh-v1.self-check.txt -` 无差异；记录与复跑均为 `133` 个 PASS，离线、无服务/网络/凭证。
+- receipt closure: Human Brief 的 `TASK_RESULT v2` 字段、8 项以内带 `pass` 的检查结果、三条中文交接行和闭合标记均完整；引用的 dispatch、planning、evidence 路径可读且 Required Reading 与下一步一致。
+- next state: frontend task verified；准备由 Human 启动 DeepSeek（provider `deepseek`）进行独立 Review-1，provider 不同于 Grok/xAI 实现者；固定范围为 `dab29be5e9ce3dfca47101615225775d8a1c7954..e4b16b01a2d06339920de3893383cc1d62da1425`，旧的后端 Review-1 ACCEPT 作为接口上下文，不重复审查其已接受范围。
