@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 8,
+  "revision": 9,
   "stage_id": "2026-08-03-hedge-status-account-refresh-v1",
   "bookkeeper": "codex",
-  "phase": "plan-review",
-  "checkpoint": "Human accepted UI and requested v4.1 display adjustment; DeepSeek plan-review packet prepared",
-  "base_sha": "990570b7b44b1d4a045627aecd8f9cca0f1c8f5b",
+  "phase": "backend-implementation",
+  "checkpoint": "DeepSeek v4.1 plan-review ACCEPT verified; backend projection packet prepared",
+  "base_sha": "89103303bd29a64ac5915b56639f8a4a885a56b7",
   "delivery_sha": null,
-  "ledger_sha": "990570b7b44b1d4a045627aecd8f9cca0f1c8f5b",
+  "ledger_sha": "89103303bd29a64ac5915b56639f8a4a885a56b7",
   "current_task": {
-    "id": "plan-review-position-balance-display-v1-deepseek",
+    "id": "backend-position-balance-display-v1",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-03-hedge-status-account-refresh-v1/plan-review-position-balance-display-v1-deepseek.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-03-hedge-status-account-refresh-v1/backend-position-balance-display-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-review"
+    "action": "start-prepared-task"
   },
   "rework_count": 0,
   "blockers": []
