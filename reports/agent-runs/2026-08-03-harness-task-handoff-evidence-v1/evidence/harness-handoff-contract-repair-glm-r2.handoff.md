@@ -113,3 +113,27 @@ Required Reading 与 下一步任务 全部为完整仓库相对路径（自引�
 
 ## Errata (append-only)
 任何更正均追加，说明日期、作者、改动原因与不改变的事实；不得改写 Source Report 或 Human Brief。
+
+## Bookkeeper Verification Record (append-only)
+
+- verification_time: 2026-08-03 17:22:18 CST
+- status_revision_observed: 3
+- source_sha256: 07875460b203b919b02ccb81d4e415080486d60463d49b3025cd3332c73cef83
+- base_sha_verified: 3fe5ff8626b04e99b9965ccd503ab258f9adc3dc
+- delivery_sha_resolved: 14e4592839c40ab499d8e4cdef7861492368aaff
+- verdict: verified
+- basis: All five checks in dispatch 24 passed. The pre-commit `delivery_sha: pending`
+  form is now explicitly valid for this Implementer repair; the source payload was
+  not rewritten, and every required next-reader path is concrete and readable.
+- next_state: review-1 dispatched for a cross-provider Kimi review of the complete
+  delivery range `ed802bc64d5d1476a19b19aa58d773229b24bfa4..14e4592839c40ab499d8e4cdef7861492368aaff`.
+
+### Reproducible checks
+
+```text
+git rev-parse 3fe5ff8626b04e99b9965ccd503ab258f9adc3dc
+git rev-parse 14e4592839c40ab499d8e4cdef7861492368aaff
+git diff --check 3fe5ff8626b04e99b9965ccd503ab258f9adc3dc 14e4592839c40ab499d8e4cdef7861492368aaff
+git diff --check ed802bc64d5d1476a19b19aa58d773229b24bfa4 14e4592839c40ab499d8e4cdef7861492368aaff
+python3 -m json.tool reports/agent-runs/2026-08-03-harness-task-handoff-evidence-v1/status.json
+```

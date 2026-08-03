@@ -1,24 +1,22 @@
 {
   "schema_version": "2",
-  "revision": 3,
+  "revision": 4,
   "stage_id": "2026-08-03-harness-task-handoff-evidence-v1",
   "bookkeeper": "codex",
-  "phase": "repair",
-  "checkpoint": "Bookkeeper rejected 3fe5ff8 for BK-003/BK-004; same claude_glm implementer repairs the bounded delivery-SHA and exact-path contract gaps.",
-  "base_sha": "3fe5ff8626b04e99b9965ccd503ab258f9adc3dc",
-  "delivery_sha": "3fe5ff8626b04e99b9965ccd503ab258f9adc3dc",
-  "ledger_sha": "3fe5ff8626b04e99b9965ccd503ab258f9adc3dc",
+  "phase": "review-1",
+  "checkpoint": "Bookkeeper verified the complete handoff-contract delivery through 14e4592; Kimi review-1 is prepared over the original delivery range ed802bc..14e4592.",
+  "base_sha": "ed802bc64d5d1476a19b19aa58d773229b24bfa4",
+  "delivery_sha": "14e4592839c40ab499d8e4cdef7861492368aaff",
+  "ledger_sha": "14e4592839c40ab499d8e4cdef7861492368aaff",
   "current_task": {
-    "id": "harness-handoff-contract-repair-glm-r2",
-    "state": "reported",
-    "dispatch": "reports/agent-runs/2026-08-03-harness-task-handoff-evidence-v1/24-claude-glm-handoff-contract-repair-r2.dispatch.md"
+    "id": "harness-handoff-contract-review-1-kimi-v1",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-03-harness-task-handoff-evidence-v1/30-kimi-handoff-contract-review-1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
     "action": "start-prepared-task"
   },
   "rework_count": 2,
-  "blockers": [
-    "BK-003/BK-004: 3fe5ff8 rejected; the contract does not define the pre-commit delivery_sha pending state and the handoff's next-task reads are not exact repository-relative paths. See evidence/harness-handoff-contract-repair-glm-r1.handoff.md."
-  ]
+  "blockers": []
 }
