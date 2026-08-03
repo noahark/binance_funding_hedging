@@ -219,12 +219,14 @@
       align-items: flex-end;
       gap: 2px;
     }
-    .refresh-meta #account-asset-updated-at {
-      font-size: 11px;
+    #account-asset-updated-at {
+      font-size: 13px;
       font-weight: 500;
       color: var(--muted);
-      white-space: nowrap;
       line-height: 1.3;
+    }
+    #private-pm-source-time {
+      margin: 2px 0 0;
     }
     .source-checked-at {
       margin: 2px 0 6px;
@@ -234,6 +236,14 @@
     }
     .source-checked-at.not-ready {
       color: var(--warn);
+    }
+    .dual-balance-cell {
+      white-space: nowrap;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .dual-balance-cell .side-line {
+      display: block;
     }
     .badge {
       display: inline-flex;
@@ -1095,13 +1105,12 @@
       <header class="topbar">
         <div class="title-block">
           <h1>资金费率对冲工作台</h1>
-          <p class="subtitle">行情公开 · 账户需 key 私有只读</p>
+          <p class="subtitle" id="account-asset-updated-at">账户资产更新时间 —</p>
         </div>
         <div class="badge-row" aria-label="刷新与排序">
           <span class="sort-basis-badge" id="sort-basis-badge" style="display:none;">排序基准: —</span>
           <div class="refresh-meta">
             <span class="badge muted" id="refresh-countdown">下次刷新: 60s</span>
-            <span id="account-asset-updated-at">账户资产更新时间 —</span>
           </div>
           <button class="btn compact primary" id="btn-refresh" type="button">手动刷新</button>
           <button class="btn compact" id="btn-cache-refresh" type="button">更新缓存</button>
@@ -1113,6 +1122,7 @@
         <div class="panel-header">
           <div class="panel-title">
             <h2>私有账户</h2>
+            <p class="subtitle source-checked-at" id="private-pm-source-time" style="display:none;"></p>
           </div>
           <div class="panel-actions">
             <button class="privacy-toggle" id="btn-privacy" type="button" aria-pressed="false" title="切换金额显示">
@@ -1488,6 +1498,7 @@
         statusArea: document.getElementById('status-area'),
         tableBody: document.getElementById('market-table-body'),
         privatePanel: document.getElementById('private-panel'),
+        privatePmSourceTime: document.getElementById('private-pm-source-time'),
         privatePanelBody: document.getElementById('private-panel-body'),
         btnPrivacy: document.getElementById('btn-privacy'),
         privacyLabel: document.getElementById('privacy-label'),
@@ -1769,6 +1780,64 @@
       function renderAccountAssetUpdatedAt(pa) {
         if (!els.accountAssetUpdatedAt) return;
         els.accountAssetUpdatedAt.textContent = formatAggregateAccountAssetTime(pa);
+      }
+
+      // PM source clock under 「私有账户」title (v4.1 §9.3). Hidden when capability
+      // is absent; not-ready / Beijing time when present. Never in overview body.
+      function renderPrivatePmSourceTime(pa) {
+        if (!els.privatePmSourceTime) return;
+        if (!pa || !pmCapabilityPresent(pa)) {
+          els.privatePmSourceTime.style.display = 'none';
+          els.privatePmSourceTime.textContent = '';
+          els.privatePmSourceTime.className = 'subtitle source-checked-at';
+          return;
+        }
+        const sca = readSourceCheckedAt(pa) || {};
+        const beijing = formatSourceIsoBeijing(sca.pm_account);
+        els.privatePmSourceTime.style.display = '';
+        if (!beijing) {
+          els.privatePmSourceTime.className = 'subtitle source-checked-at not-ready';
+          els.privatePmSourceTime.textContent =
+            'PM 账户数据源更新时间：资产数据未就绪（该账户源未成功读取）';
+          return;
+        }
+        els.privatePmSourceTime.className = 'subtitle source-checked-at';
+        els.privatePmSourceTime.textContent = `PM 账户数据源更新时间 ${beijing}`;
+      }
+
+      // Positions「现货余额」one side: amount missing → —; amount present + value
+      // missing → amount ≈ — U; true 0 kept; privacy masks both (v4.1 §9.2).
+      function formatPositionAccountSideLine(label, amount, valueUsdt) {
+        if (amount === null || amount === undefined || amount === '') {
+          return `${label}: —`;
+        }
+        let amtPart;
+        if (state.privacyHidden) {
+          amtPart = '****';
+        } else {
+          const f = formatHedgeDecimal(amount);
+          amtPart = f === '—' ? String(amount) : f;
+        }
+        let valPart;
+        if (state.privacyHidden) {
+          valPart = '≈ **** U';
+        } else if (valueUsdt === null || valueUsdt === undefined || valueUsdt === '') {
+          valPart = '≈ — U';
+        } else {
+          const v = formatUsdt2(valueUsdt);
+          valPart = v === null ? '≈ — U' : `≈ ${v} U`;
+        }
+        return `${label}: ${amtPart} ${valPart}`;
+      }
+
+      function renderPositionDualBalanceCell(p) {
+        const spotLine = formatPositionAccountSideLine(
+          '现货', p && p.spot_balance, p && p.spot_balance_value_usdt
+        );
+        const uniLine = formatPositionAccountSideLine(
+          '杠杆', p && p.unified_balance, p && p.unified_balance_value_usdt
+        );
+        return `<td class="mono dual-balance-cell"><span class="side-line">${escapeHtml(spotLine)}</span><span class="side-line">${escapeHtml(uniLine)}</span></td>`;
       }
 
       let cacheRefreshLoading = false;
@@ -2630,11 +2699,12 @@
         }
         const maxBorrowLine = maxBorrowableSubline(row);
         const dirBadge = directionBadgeForSymbol(row.symbol, umPositions);
-        // Pure display: highlight on the symbol cell only; never the 借贷状态 / 资产 column.
+        // v4.1 §9.1: collateral-cap badge lives on the same-row「借贷状态 / 资产」
+        // cell only (not the symbol cell). Still one badge; zero sort/filter/button impact.
         const capBadge = renderCollateralCapBadge(row);
         return `
           <tr class="${isBstock ? 'bstock' : ''} selectable" data-symbol="${escapeHtml(row.symbol)}" tabindex="0" role="button" aria-label="查看 ${escapeHtml(row.symbol)} 的年化与已结算历史">
-            <td class="mono">${escapeHtml(row.symbol)}${dirBadge}${capBadge}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span></td>
+            <td class="mono">${escapeHtml(row.symbol)}${dirBadge}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span></td>
             ${renderOpeningQuotesCell(row, 'forward')}
             ${renderOpeningQuotesCell(row, 'reverse')}
             <td class="${rateClass}" title="${escapeHtml(rateTitle)}">${rateText}</td>
@@ -2645,7 +2715,7 @@
             <td class="${ann7Class}" title="${escapeHtml(ann7Title)}">${ann7Text}</td>
             <td class="${ann30Class}" title="${escapeHtml(ann30Title)}">${ann30Text}</td>
             <td class="net-yield ${netClass}">${netText}${netSource}${borrowSubline}</td>
-            <td>${badgeForNegativeFundingStatus(row)}${maxBorrowLine}<br/>${badgeForAssetTag(row.asset_tag)}</td>
+            <td>${badgeForNegativeFundingStatus(row)}${capBadge}${maxBorrowLine}<br/>${badgeForAssetTag(row.asset_tag)}</td>
             ${renderBorrowOpCell(row)}
             ${renderHedgeOpCell(row, 'forward')}
             ${renderHedgeOpCell(row, 'reverse')}
@@ -3050,12 +3120,15 @@
         if (!pa && !hasPositions) {
           els.privatePanel.style.display = 'none';
           renderAccountAssetUpdatedAt(null);
+          renderPrivatePmSourceTime(null);
           return;
         }
         els.privatePanel.style.display = '';
-        // Right-corner aggregate time (legacy checked_at / priced_at). Not a
+        // Title-area aggregate time (legacy checked_at / priced_at). Not a
         // per-source clock; separate DOM from the in-panel private unread notice.
         renderAccountAssetUpdatedAt(pa || null);
+        // PM source time sits under 「私有账户」title (v4.1 §9.3), not overview.
+        renderPrivatePmSourceTime(pa || null);
 
         if (!pa || pa.verified !== true) {
           const errorDetail = (pa && pa.error) ? `（${escapeHtml(pa.error)}）` : '';
@@ -3132,21 +3205,12 @@
             `).join('')
           : '<span class="muted small">无数据</span>';
 
-        // Per-source clocks: unified/spot single source; PM only when capability
-        // present (hidden / not-ready / ready). price_map is not a panel title.
+        // Per-source clocks on account sections; PM clock is under the panel
+        // title (renderPrivatePmSourceTime). price_map is not a panel title.
         const unifiedTimeLine = formatSingleSourceCheckedLine(sca.unified_balances);
         const spotTimeLine = formatSingleSourceCheckedLine(sca.spot_balances);
-        const pmTimeBlock = (() => {
-          if (!pmCapabilityPresent(pa)) return '';
-          const beijing = formatSourceIsoBeijing(sca.pm_account);
-          if (!beijing) {
-            return '<p class="source-checked-at not-ready">PM 账户数据源更新时间：资产数据未就绪（该账户源未成功读取）</p>';
-          }
-          return `<p class="source-checked-at">PM 账户数据源更新时间 ${escapeHtml(beijing)}</p>`;
-        })();
 
         els.privatePanelBody.innerHTML = `
-          ${pmTimeBlock}
           <div class="private-overview">
             <div class="overview-card">
               <div class="label">总资产估值 (USDT)</div>
@@ -4894,7 +4958,7 @@
                         <td class="mono">${umCell(p.um_mark_price)}</td>
                         <td class="mono">${umCell(p.um_liquidation_price)}</td>
                         <td class="mono ${pnlCls}">${pnlText}</td>
-                        <td class="mono">${umCell(p.spot_balance)}</td>
+                        ${renderPositionDualBalanceCell(p)}
                         <td class="mono">${borrowCell}</td>
                         <td class="mono"${spotAvgTitle}>${formatHedgeAvgPrice(p.spot_avg)}</td>
                         <td class="mono"${perpAvgTitle}>${formatHedgeAvgPrice(p.perp_avg)}</td>
@@ -5832,11 +5896,16 @@
         formatSourceIsoBeijing,
         pmCapabilityPresent,
         readSourceCheckedAt,
+        formatPositionAccountSideLine,
+        renderPositionDualBalanceCell,
+        renderPrivatePmSourceTime,
         SOURCE_CHECKED_AT_KEYS,
         SOURCE_CHECKED_AT_LABELS,
         isCacheRefreshLoading: () => cacheRefreshLoading,
         getStatusAreaText: () => (els.statusArea && els.statusArea.innerHTML) || '',
         getAccountAssetUpdatedAtText: () => (els.accountAssetUpdatedAt && els.accountAssetUpdatedAt.textContent) || '',
+        getPrivatePmSourceTimeText: () => (els.privatePmSourceTime && els.privatePmSourceTime.textContent) || '',
+        isPrivatePmSourceTimeVisible: () => !!(els.privatePmSourceTime && els.privatePmSourceTime.style.display !== 'none'),
         createBorrowTask,
         submitBorrowTask,
         getBorrowTasks: () => state.borrowTasks,

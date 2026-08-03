@@ -153,7 +153,7 @@ const ids = [
   'filter-search', 'filter-asset', 'filter-route', 'filter-show-perp-only', 'filter-hide-low-daily-rate',
   'filter-hide-low-net-yield', 'filter-prefer-openable',
   'summary-row', 'status-area', 'market-table-body',
-  'private-panel', 'private-panel-body', 'btn-privacy', 'privacy-label', 'privacy-icon-path',
+  'private-panel', 'private-pm-source-time', 'private-panel-body', 'btn-privacy', 'privacy-label', 'privacy-icon-path',
   'drawer', 'drawer-backdrop', 'drawer-title', 'drawer-body', 'drawer-close',
   'nav-market', 'nav-borrow-tasks', 'borrow-task-count', 'market-view', 'borrow-task-view', 'borrow-task-list',
   'borrow-task-filters',
@@ -2381,8 +2381,13 @@ setTimeout(async () => {
     if (!metalCell.includes('METAL(金属)')) {
       throw new Error('METAL 行未渲染 METAL(金属) 徽章: ' + metalCell);
     }
-    if (metalCell.includes('danger') || metalCell.includes('accent')) {
-      throw new Error('METAL 徽章不应使用 danger/accent 样式（应为中性徽章）: ' + metalCell);
+    // 只断言 METAL 资产徽章本身中性；同格可另有抵押额度 danger 徽标（v4.1 §9.1）。
+    const metalBadgeMatch = metalCell.match(/<span class="badge[^"]*"[^>]*>METAL\(金属\)<\/span>/);
+    if (!metalBadgeMatch) {
+      throw new Error('未解析到 METAL 资产徽章: ' + metalCell);
+    }
+    if (metalBadgeMatch[0].includes('danger') || metalBadgeMatch[0].includes('accent')) {
+      throw new Error('METAL 徽章不应使用 danger/accent 样式（应为中性徽章）: ' + metalBadgeMatch[0]);
     }
     helpers.ingestSnapshot(designFixture);
     console.log('[PASS] METAL 资产标签徽章与下拉选项');
@@ -5332,8 +5337,8 @@ setTimeout(async () => {
       console.log('[PASS] 假数据·预览：默认关闭 + 开关可切 + 51169 冻结文案逐字渲染 + 打开零网络请求');
     }
 
-    // 99. v0.9 collateral_cap 纯展示：标的列徽标三态 + 不适用 + 缺键；摘要截至时间；
-    //     不进 REQUIRED；不驱动排序/过滤/按钮；借贷状态列零文案；bStock 用 cap.asset。
+    // 99. v0.9 / v4.1 §9.1 collateral_cap 纯展示：徽标仅在「借贷状态 / 资产」列三态 +
+    //     不适用 + 缺键；摘要截至时间；不进 REQUIRED；不驱动排序/过滤/按钮；标的列零徽标；bStock 用 cap.asset。
     {
       // Ensure baseline designFixture is active (filters already open for all 6 rows).
       helpers.ingestSnapshot(designFixture);
@@ -5345,41 +5350,48 @@ setTimeout(async () => {
       (elements['filter-prefer-openable'].listeners.change || []).forEach(h => h());
 
       const capTbody = elements['market-table-body'].innerHTML;
+      // cell 0 = 标的；cell 11 = 借贷状态 / 资产
       const ausdtSym = getRowCell(capTbody, 'AUSDT', 0);
       const busdtSym = getRowCell(capTbody, 'BUSDT', 0);
       const cusdtSym = getRowCell(capTbody, 'CUSDT', 0);
       const dusdtSym = getRowCell(capTbody, 'DUSDT', 0);
       const eusdtSym = getRowCell(capTbody, 'EUSDT', 0);
       const fusdtSym = getRowCell(capTbody, 'FUSDT', 0);
+      const ausdtBorrow = getRowCell(capTbody, 'AUSDT', 11);
+      const busdtBorrow = getRowCell(capTbody, 'BUSDT', 11);
+      const cusdtBorrow = getRowCell(capTbody, 'CUSDT', 11);
+      const dusdtBorrow = getRowCell(capTbody, 'DUSDT', 11);
+      const eusdtBorrow = getRowCell(capTbody, 'EUSDT', 11);
+      const fusdtBorrow = getRowCell(capTbody, 'FUSDT', 11);
 
-      if (!ausdtSym.includes('抵押额度已满')) {
-        throw new Error('AUSDT（已满）标的列应含「抵押额度已满」: ' + ausdtSym);
+      if (!ausdtBorrow.includes('抵押额度已满')) {
+        throw new Error('AUSDT（已满）借贷状态列应含「抵押额度已满」: ' + ausdtBorrow);
       }
-      if (!cusdtSym.includes('抵押额度已满')) {
-        throw new Error('CUSDT（正费率已满）标的列应含「抵押额度已满」: ' + cusdtSym);
+      if (!cusdtBorrow.includes('抵押额度已满')) {
+        throw new Error('CUSDT（正费率已满）借贷状态列应含「抵押额度已满」: ' + cusdtBorrow);
       }
-      if (!dusdtSym.includes('>抵押额度未知<') && !dusdtSym.includes('抵押额度未知</span>')) {
-        throw new Error('DUSDT（未知）标的列应含可见文案「抵押额度未知」: ' + dusdtSym);
+      if (!dusdtBorrow.includes('>抵押额度未知<') && !dusdtBorrow.includes('抵押额度未知</span>')) {
+        throw new Error('DUSDT（未知）借贷状态列应含可见文案「抵押额度未知」: ' + dusdtBorrow);
       }
       // 未知绝不可呈现为未满/正常/充足/可用（可见徽标与非 title 文案）。
       // title 允许接口要求的否定说明「不代表未满」——从检查中剔除 title 属性。
-      const dusdtVisible = dusdtSym.replace(/\stitle="[^"]*"/g, '');
+      const dusdtVisible = dusdtBorrow.replace(/\stitle="[^"]*"/g, '');
       for (const bad of ['未满', '正常', '充足', '可用']) {
         if (dusdtVisible.includes(bad)) {
           throw new Error(`DUSDT 未知行可见 DOM 不得含「${bad}」: ${dusdtVisible}`);
         }
       }
-      if (!dusdtSym.includes('不代表未满') && !dusdtSym.includes('读取失败')) {
-        throw new Error('未知徽标 title 应说明读取失败/不代表未满: ' + dusdtSym);
+      if (!dusdtBorrow.includes('不代表未满') && !dusdtBorrow.includes('读取失败')) {
+        throw new Error('未知徽标 title 应说明读取失败/不代表未满: ' + dusdtBorrow);
       }
-      if (busdtSym.includes('抵押额度已满') || busdtSym.includes('抵押额度未知')) {
-        throw new Error('BUSDT（未满）标的列不应有抵押额度徽标: ' + busdtSym);
+      if (busdtBorrow.includes('抵押额度已满') || busdtBorrow.includes('抵押额度未知')) {
+        throw new Error('BUSDT（未满）借贷状态列不应有抵押额度徽标: ' + busdtBorrow);
       }
-      if (eusdtSym.includes('抵押额度已满') || eusdtSym.includes('抵押额度未知')) {
-        throw new Error('EUSDT（不适用）标的列不应有抵押额度徽标: ' + eusdtSym);
+      if (eusdtBorrow.includes('抵押额度已满') || eusdtBorrow.includes('抵押额度未知')) {
+        throw new Error('EUSDT（不适用）借贷状态列不应有抵押额度徽标: ' + eusdtBorrow);
       }
-      if (fusdtSym.includes('抵押额度已满') || fusdtSym.includes('抵押额度未知')) {
-        throw new Error('FUSDT（缺键）标的列不应有抵押额度徽标: ' + fusdtSym);
+      if (fusdtBorrow.includes('抵押额度已满') || fusdtBorrow.includes('抵押额度未知')) {
+        throw new Error('FUSDT（缺键）借贷状态列不应有抵押额度徽标: ' + fusdtBorrow);
       }
 
       // 正费率行 + 负费率行均高亮（不按方向过滤）
@@ -5388,11 +5400,13 @@ setTimeout(async () => {
         throw new Error('夹具费率方向被改：期望 AUSDT 负 / CUSDT 正以覆盖双向高亮');
       }
 
-      // 借贷状态 / 资产 列（index 11）不得含任何抵押额度文案
-      for (const sym of ['AUSDT', 'BUSDT', 'CUSDT', 'DUSDT', 'EUSDT', 'FUSDT']) {
-        const borrowCell = getRowCell(capTbody, sym, 11);
-        if (borrowCell.includes('抵押额度')) {
-          throw new Error(`${sym} 借贷状态列不得含抵押额度文案: ${borrowCell}`);
+      // 标的列（index 0）不得含任何抵押额度文案（v4.1 §9.1 迁移后）
+      for (const [sym, cell] of [
+        ['AUSDT', ausdtSym], ['BUSDT', busdtSym], ['CUSDT', cusdtSym],
+        ['DUSDT', dusdtSym], ['EUSDT', eusdtSym], ['FUSDT', fusdtSym]
+      ]) {
+        if (cell.includes('抵押额度')) {
+          throw new Error(`${sym} 标的列不得含抵押额度文案: ${cell}`);
         }
       }
 
@@ -5405,9 +5419,9 @@ setTimeout(async () => {
       if (!summaryHtml.includes(expectedAsOf)) {
         throw new Error(`摘要截至时间期望 ${expectedAsOf}，实际: ${summaryHtml}`);
       }
-      // 徽标 title 也带该时间
-      if (!ausdtSym.includes(expectedAsOf)) {
-        throw new Error('已满徽标 title 应含截至北京时间: ' + ausdtSym);
+      // 徽标 title 也带该时间（现在在借贷状态列）
+      if (!ausdtBorrow.includes(expectedAsOf)) {
+        throw new Error('已满徽标 title 应含截至北京时间: ' + ausdtBorrow);
       }
 
       // checked_at 全 null → 摘要显示「未知」
@@ -5505,16 +5519,22 @@ setTimeout(async () => {
       elements['filter-hide-low-net-yield'].checked = false;
       (elements['filter-hide-low-net-yield'].listeners.change || []).forEach(h => h());
       const bstockTbody = elements['market-table-body'].innerHTML;
-      const tslaCell = getRowCell(bstockTbody, 'TSLAUSDT', 0);
-      if (!tslaCell.includes('抵押额度已满')) {
-        throw new Error('bStock 命中行应显示已满徽标: ' + tslaCell);
+      const tslaSym = getRowCell(bstockTbody, 'TSLAUSDT', 0);
+      const tslaBorrow = getRowCell(bstockTbody, 'TSLAUSDT', 11);
+      if (!tslaBorrow.includes('抵押额度已满')) {
+        throw new Error('bStock 命中行借贷状态列应显示已满徽标: ' + tslaBorrow);
       }
-      if (!tslaCell.includes('TSLAB')) {
-        throw new Error('bStock 徽标 title 应含判定资产 TSLAB: ' + tslaCell);
+      if (tslaSym.includes('抵押额度')) {
+        throw new Error('bStock 标的列不得含抵押额度徽标: ' + tslaSym);
+      }
+      if (!tslaBorrow.includes('TSLAB')) {
+        throw new Error('bStock 徽标 title 应含判定资产 TSLAB: ' + tslaBorrow);
       }
       // title 中判定资产不得写成合约 base；允许单元格 muted 行显示 TSLA/USDT
-      const titleMatch = tslaCell.match(/title="([^"]*)"/);
-      if (!titleMatch) throw new Error('bStock 徽标缺少 title: ' + tslaCell);
+      // 同格还有借贷状态 title，须锚定 collateral-cap-badge。
+      const titleMatch = tslaBorrow.match(/collateral-cap-badge" title="([^"]*)"/)
+        || tslaBorrow.match(/title="([^"]*TSLAB[^"]*)"/);
+      if (!titleMatch) throw new Error('bStock 抵押额度徽标缺少 title: ' + tslaBorrow);
       const title = titleMatch[1];
       if (!title.includes('TSLAB')) {
         throw new Error('title 须含 TSLAB: ' + title);
@@ -5556,10 +5576,24 @@ setTimeout(async () => {
         throw new Error('HTML 须包含更新缓存按钮文案');
       }
       if (!html.includes('id="account-asset-updated-at"')) {
-        throw new Error('HTML 须在右上角刷新倒计时下提供账户资产更新时间元素');
+        throw new Error('HTML 须提供账户资产更新时间元素 #account-asset-updated-at');
+      }
+      // v4.1 §9.3: aggregate time is under title-block, not inside refresh-meta
+      const titleBlockIdx = html.indexOf('class="title-block"');
+      const accountAtIdx = html.indexOf('id="account-asset-updated-at"');
+      const refreshMetaIdx = html.indexOf('class="refresh-meta"');
+      if (titleBlockIdx === -1 || accountAtIdx === -1 || accountAtIdx < titleBlockIdx) {
+        throw new Error('账户资产更新时间须在标题区 title-block 内');
+      }
+      if (refreshMetaIdx !== -1 && accountAtIdx > refreshMetaIdx &&
+          html.slice(refreshMetaIdx, refreshMetaIdx + 400).includes('id="account-asset-updated-at"')) {
+        throw new Error('账户资产更新时间不得再放在 refresh-meta 内');
       }
       if (html.includes('id="private-panel-subtitle"')) {
-        throw new Error('私有面板标题下不应再保留 private-panel-subtitle（已移至右上角）');
+        throw new Error('私有面板标题下不应再保留 private-panel-subtitle');
+      }
+      if (!html.includes('id="private-pm-source-time"')) {
+        throw new Error('须有 #private-pm-source-time 挂在私有账户标题下');
       }
       // 手动刷新按钮语义保持 GET loadApi，不与 POST 更新缓存混用
       if (!elements['btn-refresh'] || !html.includes('手动刷新')) {
@@ -5615,7 +5649,7 @@ setTimeout(async () => {
       const aggText = elements['account-asset-updated-at'].textContent;
       const aggBj = helpers.formatBeijing(Date.parse('2026-08-03T07:34:50Z'));
       if (!aggText.includes('账户资产更新时间') || !aggText.includes(aggBj)) {
-        throw new Error('右上角聚合时间须为北京时间: ' + aggText);
+        throw new Error('标题区聚合时间须为北京时间: ' + aggText);
       }
       if (!bodySca.includes('统一账户余额') || !bodySca.includes(helpers.formatBeijing(Date.parse('2026-08-03T07:34:50Z')))) {
         throw new Error('统一账户区须显示本源北京时间');
@@ -5631,8 +5665,8 @@ setTimeout(async () => {
       if (/price_map|报价源更新时间/.test(bodySca) && bodySca.includes('price_map')) {
         throw new Error('price_map 不应作为账户区域标题文案');
       }
-      // PM capability 不存在 → 隐藏 PM 时间行
-      if (bodySca.includes('PM 账户数据源更新时间')) {
+      // PM capability 不存在 → 标题下与概览区均隐藏 PM 时间行
+      if (helpers.isPrivatePmSourceTimeVisible() || bodySca.includes('PM 账户数据源更新时间')) {
         throw new Error('PM capability 不存在时不得显示 PM 时间行');
       }
 
@@ -5652,7 +5686,7 @@ setTimeout(async () => {
         throw new Error('对冲持仓缺 UM 须诚实未就绪: ' + bodyUmMissing.slice(0, 400));
       }
 
-      // PM capability 存在但 null → 未就绪；有时间 → 显示
+      // PM capability 存在但 null → 标题下未就绪；有时间 → 标题下北京时间；概览区无重复
       scaFx.private_account.pm_account = {
         source: 'papi_v1_account',
         account_equity_usdt: null,
@@ -5668,18 +5702,25 @@ setTimeout(async () => {
       scaFx.private_account.source_checked_at.pm_account = null;
       scaFx.private_account.source_checked_at.um_positions = '2026-08-03T07:20:00Z';
       helpers.ingestSnapshot(scaFx);
-      const bodyPmNull = elements['private-panel-body'].innerHTML;
-      if (!bodyPmNull.includes('PM 账户数据源更新时间') || !bodyPmNull.includes('资产数据未就绪')) {
-        throw new Error('PM capability 存在但 null 须显示未就绪: ' + bodyPmNull.slice(0, 400));
+      const pmNullText = helpers.getPrivatePmSourceTimeText();
+      if (!helpers.isPrivatePmSourceTimeVisible() || !pmNullText.includes('PM 账户数据源更新时间') || !pmNullText.includes('资产数据未就绪')) {
+        throw new Error('PM capability 存在但 null 须在标题下显示未就绪: ' + pmNullText);
+      }
+      if (elements['private-panel-body'].innerHTML.includes('PM 账户数据源更新时间')) {
+        throw new Error('PM 时间不得再出现在概览/面板 body');
       }
       scaFx.private_account.source_checked_at.pm_account = '2026-08-03T07:34:50Z';
       helpers.ingestSnapshot(scaFx);
-      const bodyPmReady = elements['private-panel-body'].innerHTML;
-      if (!bodyPmReady.includes('PM 账户数据源更新时间 ' + helpers.formatBeijing(Date.parse('2026-08-03T07:34:50Z')))) {
-        throw new Error('PM 有时间须显示北京时间: ' + bodyPmReady.slice(0, 400));
+      const pmReadyText = helpers.getPrivatePmSourceTimeText();
+      const pmBj = helpers.formatBeijing(Date.parse('2026-08-03T07:34:50Z'));
+      if (!pmReadyText.includes('PM 账户数据源更新时间 ' + pmBj)) {
+        throw new Error('PM 有时间须在标题下显示北京时间: ' + pmReadyText);
+      }
+      if (elements['private-panel-body'].innerHTML.includes('PM 账户数据源更新时间')) {
+        throw new Error('PM 有时间时也不得重复出现在概览区');
       }
 
-      // 私有账户不可读：面板内提示；右上角不复用该文案
+      // 私有账户不可读：面板内提示；标题区聚合时间不复用该文案
       const unreadFx = JSON.parse(JSON.stringify(designFixture));
       unreadFx.private_account = designFixture._design_fixture_private_account_states.find(s => s._state === 'verified_false_disabled');
       helpers.ingestSnapshot(unreadFx);
@@ -5688,7 +5729,7 @@ setTimeout(async () => {
         throw new Error('私有账户不可读须在面板内提示');
       }
       if (elements['account-asset-updated-at'].textContent.includes('私有账户未读取')) {
-        throw new Error('右上角聚合时间不得复用私有未读文案');
+        throw new Error('标题区聚合时间不得复用私有未读文案');
       }
 
       // ---- POST cache-refresh outcomes ----
@@ -5814,6 +5855,226 @@ setTimeout(async () => {
       cacheRefreshPostResponse = null;
       helpers.ingestSnapshot(designFixture);
       console.log('[PASS] frontend-cache-refresh-v1：按钮/complete·partial·not_attempted·失败·202、北京时间、缺源、PM 三态、私有未读分离、零自动轮询');
+    }
+
+    // 75y. frontend-position-balance-display-v1（v4.1 §9）：双行现货/杠杆、独立缺失、真零、
+    // 隐私遮蔽、徽标仅在借贷状态列、标题区聚合时间、PM 仅在私有账户标题下
+    {
+      if (typeof helpers.formatPositionAccountSideLine !== 'function') {
+        throw new Error('须导出 formatPositionAccountSideLine');
+      }
+      // 双侧完整
+      const both = helpers.formatPositionAccountSideLine('现货', '0.5', '30.125');
+      if (!both.includes('现货: 0.5') || !both.includes('≈ 30.13 U')) {
+        throw new Error('双侧完整行格式错误: ' + both);
+      }
+      const uniBoth = helpers.formatPositionAccountSideLine('杠杆', '1.2', '72');
+      if (!uniBoth.includes('杠杆: 1.2') || !uniBoth.includes('≈ 72.00 U')) {
+        throw new Error('杠杆完整行格式错误: ' + uniBoth);
+      }
+      // amount 缺失 → 整侧 —
+      if (helpers.formatPositionAccountSideLine('现货', null, '10') !== '现货: —') {
+        throw new Error('amount 缺失须整侧 —');
+      }
+      if (helpers.formatPositionAccountSideLine('杠杆', undefined, '10') !== '杠杆: —') {
+        throw new Error('amount undefined 须整侧 —');
+      }
+      // amount 有、value 缺失 → ≈ — U
+      const noVal = helpers.formatPositionAccountSideLine('现货', '1', null);
+      if (!noVal.includes('现货: 1') || !noVal.includes('≈ — U')) {
+        throw new Error('value 缺失须 ≈ — U: ' + noVal);
+      }
+      // 真零
+      const zero = helpers.formatPositionAccountSideLine('现货', '0', '0.00000000');
+      if (!zero.includes('现货: 0') || !zero.includes('≈ 0.00 U')) {
+        throw new Error('真零须显示 0: ' + zero);
+      }
+
+      // 渲染：双侧完整 + 借款列不变
+      helpers.ingestSnapshot(designFixture);
+      if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
+      hedgePositionsGetResponse = {
+        status: 200,
+        body: {
+          positions: [{
+            coin: 'BTCUSDT', direction: 'forward', match_status: 'normal',
+            um_position_amt: '-0.01', um_notional_usdt: '600', um_entry_price: '60000',
+            um_mark_price: '61000', um_liquidation_price: '50000',
+            unrealized_profit: '10', price_pnl: '10',
+            spot_balance: '0.5', spot_balance_value_usdt: '30500.50',
+            unified_balance: '0.07', unified_balance_value_usdt: '4270.12',
+            cross_margin_borrowed: '0.01',
+            spot_avg: '60000', perp_avg: '60100',
+            spot_avg_price_incomplete: false, perp_avg_price_incomplete: false,
+            includes_deleted_task: false, single_leg_exposure: false, drift: false
+          }],
+          account: {
+            verified: true, error: null, checked_at: '2026-08-03T07:34:50Z',
+            source_checked_at: {
+              price_map: null, unified_balances: '2026-08-03T07:34:50Z',
+              um_positions: '2026-08-03T07:34:50Z', spot_balances: '2026-08-03T07:34:50Z',
+              pm_account: null
+            }
+          }
+        }
+      };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      let posBody = elements['private-panel-body'].innerHTML;
+      const balCell = getRowCell(posBody, 'BTCUSDT', 8);
+      if (!balCell.includes('现货: 0.5') || !balCell.includes('≈ 30500.50 U')) {
+        throw new Error('现货行须含 amount 与 2 位估值: ' + balCell);
+      }
+      if (!balCell.includes('杠杆: 0.07') || !balCell.includes('≈ 4270.12 U')) {
+        throw new Error('杠杆行须含 amount 与 2 位估值: ' + balCell);
+      }
+      const borrowCell = getRowCell(posBody, 'BTCUSDT', 9);
+      if (!borrowCell.includes('0.01')) {
+        throw new Error('全仓借款列须仍显示 cross_margin_borrowed: ' + borrowCell);
+      }
+      // 不从 snapshot 余额拼：故意改 snapshot 统一/现货余额后重渲染 positions 不变
+      const snapOnly = JSON.parse(JSON.stringify(designFixture));
+      snapOnly.private_account.balances_spot = [{ asset: 'BTC', free: '9', locked: '0', value_usdt: '999' }];
+      snapOnly.private_account.balances_unified = [{ asset: 'BTC', total_balance: '9', value_usdt: '999', cross_margin_borrowed: null }];
+      helpers.ingestSnapshot(snapOnly);
+      // loadHedgePositions 后 state 仍是上一轮 positions（未再 mock 新值）
+      helpers.renderPrivatePanel();
+      posBody = elements['private-panel-body'].innerHTML;
+      const balCell2 = getRowCell(posBody, 'BTCUSDT', 8);
+      if (balCell2.includes('现货: 9') || balCell2.includes('杠杆: 9')) {
+        throw new Error('不得从 snapshot 拼接余额覆盖 positions 行字段: ' + balCell2);
+      }
+      if (!balCell2.includes('现货: 0.5') || !balCell2.includes('杠杆: 0.07')) {
+        throw new Error('重渲染仍须用 positions 行字段: ' + balCell2);
+      }
+
+      // 任一侧 amount 缺失
+      hedgePositionsGetResponse = {
+        status: 200,
+        body: {
+          positions: [{
+            coin: 'ETHUSDT', direction: 'forward', match_status: 'normal',
+            um_position_amt: '1', spot_balance: null, spot_balance_value_usdt: null,
+            unified_balance: '2', unified_balance_value_usdt: '6400.00',
+            cross_margin_borrowed: null, single_leg_exposure: false, drift: false
+          }],
+          account: { verified: true, error: null, checked_at: null }
+        }
+      };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      let sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'ETHUSDT', 8);
+      if (!sideCell.includes('现货: —') || !sideCell.includes('杠杆: 2')) {
+        throw new Error('现货缺失时该侧 — 且杠杆独立: ' + sideCell);
+      }
+
+      // amount 有 value 无
+      hedgePositionsGetResponse = {
+        status: 200,
+        body: {
+          positions: [{
+            coin: 'SOLUSDT', direction: 'forward', match_status: 'normal',
+            um_position_amt: '1', spot_balance: '3', spot_balance_value_usdt: null,
+            unified_balance: '4', unified_balance_value_usdt: null,
+            cross_margin_borrowed: null, single_leg_exposure: false, drift: false
+          }],
+          account: { verified: true, error: null, checked_at: null }
+        }
+      };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'SOLUSDT', 8);
+      if (!sideCell.includes('现货: 3 ≈ — U') || !sideCell.includes('杠杆: 4 ≈ — U')) {
+        throw new Error('有 amount 无 value 须 ≈ — U: ' + sideCell);
+      }
+
+      // 两侧真零
+      hedgePositionsGetResponse = {
+        status: 200,
+        body: {
+          positions: [{
+            coin: 'ZEROUSDT', direction: 'forward', match_status: 'normal',
+            um_position_amt: '0', spot_balance: '0', spot_balance_value_usdt: '0.00000000',
+            unified_balance: '0', unified_balance_value_usdt: '0',
+            cross_margin_borrowed: null, single_leg_exposure: false, drift: false
+          }],
+          account: { verified: true, error: null, checked_at: null }
+        }
+      };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'ZEROUSDT', 8);
+      if (!sideCell.includes('现货: 0') || !sideCell.includes('杠杆: 0')) {
+        throw new Error('真零须显示 0 而非 —: ' + sideCell);
+      }
+      if (sideCell.includes('现货: —') || sideCell.includes('杠杆: —')) {
+        throw new Error('真零不得退化成 —: ' + sideCell);
+      }
+
+      // 账户未就绪：四字段 null
+      hedgePositionsGetResponse = {
+        status: 200,
+        body: {
+          positions: [{
+            coin: 'NRUSDT', direction: 'forward', match_status: 'no_um',
+            um_position_amt: null, spot_balance: null, spot_balance_value_usdt: null,
+            unified_balance: null, unified_balance_value_usdt: null,
+            cross_margin_borrowed: null, spot_avg: '1', perp_avg: '1',
+            single_leg_exposure: false, drift: false
+          }],
+          account: { verified: false, error: 'snapshot_not_ready', checked_at: null }
+        }
+      };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'NRUSDT', 8);
+      if (!sideCell.includes('现货: —') || !sideCell.includes('杠杆: —')) {
+        throw new Error('未就绪两侧均 —: ' + sideCell);
+      }
+
+      // 隐私遮蔽 amount 与估值
+      if (!helpers.getPrivacyHidden()) helpers.togglePrivacy();
+      hedgePositionsGetResponse = {
+        status: 200,
+        body: {
+          positions: [{
+            coin: 'PRIVUSDT', direction: 'forward', match_status: 'normal',
+            um_position_amt: '1', spot_balance: '1.5', spot_balance_value_usdt: '100.00',
+            unified_balance: '2.5', unified_balance_value_usdt: '200.00',
+            cross_margin_borrowed: '0.1', single_leg_exposure: false, drift: false
+          }],
+          account: { verified: true, error: null, checked_at: null }
+        }
+      };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'PRIVUSDT', 8);
+      if (!sideCell.includes('****') || sideCell.includes('1.5') || sideCell.includes('2.5') || sideCell.includes('100.00')) {
+        throw new Error('隐私模式须遮蔽 amount 与估值: ' + sideCell);
+      }
+      // 恢复显示态
+      helpers.togglePrivacy();
+
+      // 固定副标题不得再出现；右侧 refresh-meta 无 account-asset
+      if (html.includes('行情公开 · 账户需 key 私有只读')) {
+        throw new Error('固定副标题「行情公开 · 账户需 key 私有只读」须已被账户时间替换');
+      }
+
+      hedgePositionsGetResponse = {
+        status: 200,
+        body: {
+          positions: [],
+          account: {
+            verified: true, error: null, checked_at: null,
+            source_checked_at: {
+              price_map: null, unified_balances: null, um_positions: null,
+              spot_balances: null, pm_account: null
+            }
+          }
+        }
+      };
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] frontend-position-balance-display-v1：双行现货/杠杆、缺失/真零/隐私、徽标列、标题区时间与 PM 位置');
     }
 
     // 76. 无泄漏证明：fetch 同源白名单、无 Binance/外域、无新任务定时器、localStorage 白名单
