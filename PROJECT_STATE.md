@@ -108,20 +108,30 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
 - `[OPEN][HARNESS]` ~41 completed stage dirs in `reports/agent-runs/`, vs §9.5.
   v2 findings: batch A merged; batch B + R3/R4 wait for a real problem, G1/G14
   OPEN by decision (Human 2026-07-31). Detail: archive `22-`.
+- `[OPEN][HARNESS-FOLLOW-UP]` **O-A — handoff source SHA-256 boundary.** The
+  accepted handoff contract needs one mechanical clarification: the source ends
+  at the first line exactly equal to the complete `BOOKKEEPER_APPEND_ONLY`
+  marker, and the source payload must not contain that exact marker line. Add a
+  reference verification command in a separate Harness task; this does not
+  invalidate archive `archive/2026-08-03-harness-task-handoff-evidence-v1`.
+- `[OPEN][HARNESS-FOLLOW-UP]` **O-C — superseded unstarted dispatch.** Define a
+  minimal record for a task packet that is prepared but never started and then
+  replaced (for example, a provider quota change). The current Kimi-to-DeepSeek
+  replacement is traceable and did not execute, so this is not a merge blocker.
 
 ## Next Priority
 
-- **No active stage.** `2026-08-02-spot-order-routing-cap-display-v1` delivered
-  `e99974a` and passed both HIGH_RISK reviews. Its evidence is archived; merge
+- **No active stage.** `2026-08-03-harness-task-handoff-evidence-v1` delivered
+  `14e4592` and passed both HIGH_RISK reviews. Its evidence is archived; merge
   does not authorize deployment, Start-gate changes, or live operation.
 - F4 and the lifecycle Task 2 remain deliberately deferred; the Chinese task-card
   gap remains a separate low-scope follow-up.
 
 ## Last Completed
 
-- stage: `2026-08-02-spot-order-routing-cap-display-v1`
-- archive_ref: `archive/2026-08-02-spot-order-routing-cap-display-v1`
-  (`1216706`; delivery `e99974a`, review-1 and review-2 ACCEPT)
+- stage: `2026-08-03-harness-task-handoff-evidence-v1`
+- archive_ref: `archive/2026-08-03-harness-task-handoff-evidence-v1`
+  (`0a0b952`; delivery `14e4592`, review-1 and review-2 ACCEPT)
 - recorded_completed_at: `2026-08-03`
 
 ## Update Rule
