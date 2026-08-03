@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 2,
+  "revision": 3,
   "stage_id": "2026-08-03-hedge-status-account-refresh-v1",
   "bookkeeper": "codex",
   "phase": "review-1",
-  "checkpoint": "backend-cache-refresh-v1 verified; cross-provider review-1 packet prepared",
+  "checkpoint": "Kimi review-1 packet superseded unstarted for quota; DeepSeek review-1 packet prepared",
   "base_sha": "6f1901ee7eb552102645f41f1e124fd7cf6e3ff7",
   "delivery_sha": "8b624f733362e3a523d7f06613534af4f2451ad2",
-  "ledger_sha": "8b624f733362e3a523d7f06613534af4f2451ad2",
+  "ledger_sha": "f807ac4933975f49d903aafd199a07877f10868f",
   "current_task": {
-    "id": "review-1-backend-cache-refresh-v1",
+    "id": "review-1-backend-cache-refresh-v1-deepseek",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-03-hedge-status-account-refresh-v1/review-1-backend-cache-refresh-v1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-03-hedge-status-account-refresh-v1/review-1-backend-cache-refresh-v1-deepseek.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
