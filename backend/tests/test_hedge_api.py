@@ -61,6 +61,7 @@ _POSITION_KEYS = {
     # drift markers. Null when no UM position or account not verified (N2).
     "um_position_side", "um_position_amt", "um_notional_usdt", "um_entry_price",
     "um_mark_price", "um_liquidation_price", "unrealized_profit", "spot_balance",
+    "spot_balance_value_usdt", "unified_balance", "unified_balance_value_usdt",
     "cross_margin_borrowed", "single_leg_exposure", "drift",
     # G1 (fix-merged-positions-mismatch-labels-v1): explicit UM-vs-task match
     # status so the UI never infers 'no task' / 'no UM' from all-zero fields.

@@ -1625,9 +1625,23 @@ def _merge_empty_bucket_row(coin, direction):
     }
 
 
-def _merge_build_row(coin, direction, bucket, um, spot_by_asset, borrowed_by_asset):
-    """Build one merged row: bucket fields + matched UM position + spot/borrow +
-    unrealized PnL + the single-leg / drift markers."""
+def _merge_build_row(coin, direction, bucket, um, spot_by_asset,
+                     spot_value_by_asset, unified_row_by_asset):
+    """Build one merged row: bucket fields + matched UM position + the four
+    account-derived balance fields (v4.1 §9.2) + unrealized PnL + the
+    single-leg / drift markers.
+
+    The four account fields are pure projections of the SAME published
+    ``private_account`` rows, looked up by the row's base asset (the existing
+    ``_merge_base_asset`` rule — 1000x assets do NOT auto-align, by design):
+    ``spot_balance`` (free+locked), ``spot_balance_value_usdt`` (that spot row's
+    existing ``value_usdt``), ``unified_balance`` (the unified row's
+    ``total_balance`` — the full-cross leveraged balance, NOT the borrow), and
+    ``unified_balance_value_usdt`` (that unified row's existing ``value_usdt``).
+    ``cross_margin_borrowed`` stays borrow-only. No price is recomputed and the
+    source snapshot is never mutated; null vs a real decimal-string zero is
+    preserved on both sides independently (a missing asset on one side leaves
+    only that side's amount/value null)."""
     row = dict(bucket) if bucket else _merge_empty_bucket_row(coin, direction)
     if coin is not None:
         row["coin"] = coin
@@ -1662,8 +1676,18 @@ def _merge_build_row(coin, direction, bucket, um, spot_by_asset, borrowed_by_ass
     base_asset = _merge_base_asset(row.get("coin"))
     real_spot = spot_by_asset.get(base_asset) if base_asset else None
     row["spot_balance"] = fmt_decimal(real_spot) if real_spot is not None else None
+    row["spot_balance_value_usdt"] = (
+        spot_value_by_asset.get(base_asset) if base_asset else None
+    )
+    unified_row = unified_row_by_asset.get(base_asset) if base_asset else None
+    row["unified_balance"] = (
+        unified_row.get("total_balance") if unified_row else None
+    )
+    row["unified_balance_value_usdt"] = (
+        unified_row.get("value_usdt") if unified_row else None
+    )
     row["cross_margin_borrowed"] = (
-        borrowed_by_asset.get(base_asset) if base_asset else None
+        unified_row.get("cross_margin_borrowed") if unified_row else None
     )
 
     # single_leg_exposure: the task filled its spot leg but not its perp leg
@@ -1714,12 +1738,14 @@ def merge_positions(positions, private_account):
     Returns ``(merged_rows, account_meta)``. The UM positions are the skeleton
     (one row per real exchange position); task buckets with no matching UM
     position are appended as 'no_um' rows so their cost basis stays visible (D15).
-    Each row keeps the bucket fields and adds the matched UM position, spot
-    balance, cross-margin borrow, unrealized PnL, and the ``single_leg_exposure``
-    / ``drift`` markers. ``account_meta`` reports availability so the caller never
-    has to 503 on a cold account (N2): when ``private_account`` is ``None`` or
-    ``verified`` is false the local bookkeeping rows are still returned with the
-    account-derived fields nulled.
+    Each row keeps the bucket fields and adds the matched UM position, the four
+    account-derived balance fields (v4.1 §9.2: ``spot_balance`` /
+    ``spot_balance_value_usdt`` / ``unified_balance`` /
+    ``unified_balance_value_usdt``), cross-margin borrow, unrealized PnL, and the
+    ``single_leg_exposure`` / ``drift`` markers. ``account_meta`` reports
+    availability so the caller never has to 503 on a cold account (N2): when
+    ``private_account`` is ``None`` or ``verified`` is false the local
+    bookkeeping rows are still returned with the account-derived fields nulled.
 
     Pure: takes plain dicts, returns plain dicts, holds no service reference and
     performs no I/O — directly unit-testable.
@@ -1736,15 +1762,23 @@ def merge_positions(positions, private_account):
     }
 
     spot_by_asset = {}
+    spot_value_by_asset = {}
     for row in spot or []:
         if isinstance(row, dict) and row.get("asset"):
             free = _merge_num(row.get("free")) or Decimal(0)
             locked = _merge_num(row.get("locked")) or Decimal(0)
             spot_by_asset[row["asset"]] = free + locked
-    borrowed_by_asset = {}
+            # v4.1 §9.2: the same spot balance row's existing value_usdt, passed
+            # through verbatim (null vs a real "0.00000000" preserved — no
+            # recompute, no coercion).
+            spot_value_by_asset[row["asset"]] = row.get("value_usdt")
+    # v4.1 §9.2: keep the whole unified balance row per asset so one lookup
+    # yields total_balance (the full-cross leveraged balance, NOT the borrow),
+    # its value_usdt, and cross_margin_borrowed (which stays borrow-only).
+    unified_row_by_asset = {}
     for row in unified or []:
         if isinstance(row, dict) and row.get("asset"):
-            borrowed_by_asset[row["asset"]] = row.get("cross_margin_borrowed")
+            unified_row_by_asset[row["asset"]] = row
 
     bucket_by_key = {}
     for p in positions or []:
@@ -1766,7 +1800,10 @@ def merge_positions(positions, private_account):
             if bucket is not None:
                 matched_buckets.add(key)
         merged.append(
-            _merge_build_row(symbol, direction, bucket, u, spot_by_asset, borrowed_by_asset)
+            _merge_build_row(
+                symbol, direction, bucket, u, spot_by_asset,
+                spot_value_by_asset, unified_row_by_asset,
+            )
         )
 
     # 2. Task buckets whose symbol has no matching UM position ('no_um': the
@@ -1778,7 +1815,8 @@ def merge_positions(positions, private_account):
             continue
         merged.append(
             _merge_build_row(
-                p.get("coin"), p.get("direction"), p, None, spot_by_asset, borrowed_by_asset
+                p.get("coin"), p.get("direction"), p, None, spot_by_asset,
+                spot_value_by_asset, unified_row_by_asset,
             )
         )
 

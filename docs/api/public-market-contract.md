@@ -1244,3 +1244,59 @@ snapshot / `private_account` is absent (cold start) the fixed all-null
 five-key shape is still emitted so the five keys are always present. This is a
 post-merge attachment in the composition root; `merge_positions` is unchanged.
 
+## Positions Dual-Account Balance Amendment (v0.11, stage `2026-08-03-hedge-status-account-refresh-v1`)
+
+Frozen 2026-08-03. Wire `schema_version` stays `public-market-snapshot/v1`;
+every change is **additive** and belongs ONLY to the `GET /api/hedge-open-
+positions` response — the snapshot JSON schema is NOT modified (these fields
+are not on `private_account` or any `rows[]` element). Authority order: the
+approved design `docs/planning/hedge-status-account-refresh-v4.md` §9.2 > this
+contract section.
+
+### New per-position account-derived balance fields
+
+Each merged position row of `GET /api/hedge-open-positions` gains four
+nullable decimal-string account-derived fields. They are **display-only**: they
+drive no order, borrow, risk, routing, or cache-write decision. They are a pure
+projection, inside the existing pure function `merge_positions`, of the SAME
+already-published `private_account` rows — no extra read, no snapshot-cache
+change, and the endpoint stays zero-upstream.
+
+| field | source | semantics |
+| --- | --- | --- |
+| `spot_balance` (existing) | `balances_spot[asset].free + locked` | spot (regular) account balance. |
+| `spot_balance_value_usdt` (new) | the SAME `balances_spot` row's existing `value_usdt` | spot balance's existing valuation; never recomputed by the consumer. |
+| `unified_balance` (new) | `balances_unified[asset].total_balance` | unified-account full-cross (leveraged) balance — NOT `cross_margin_borrowed`. |
+| `unified_balance_value_usdt` (new) | the SAME `balances_unified` row's existing `value_usdt` | unified balance's existing valuation; never recomputed. |
+
+`asset` is the row's resolved base asset via the existing `_merge_base_asset`
+rule (strip the `USDT` suffix; the 1000x multiplier prefix is NOT stripped, so
+`1000PEPEUSDT` does NOT auto-align to the spot/unified asset `PEPE` — the
+honest "no automatic alignment" outcome is unchanged).
+
+### null / true-zero semantics
+
+- `private_account.verified = false` or the account not ready: all four account
+  fields are `null` on every row (the local bookkeeping rows are still
+  returned).
+- Account ready but the asset is absent from ONE side (spot or unified): only
+  THAT side's amount and value are `null`; the other side keeps its figures.
+- A valid real zero stays a decimal string and is never degraded to `null`:
+  `total_balance = "0"` -> `unified_balance = "0"`; `value_usdt = "0.00000000"`
+  -> the `*_value_usdt` field is `"0.00000000"`. `null` is reserved for
+  "unknown / not present", exactly as on the source `private_account` rows.
+- `cross_margin_borrowed` keeps its existing meaning (full-cross borrow) and is
+  shown in its own column; it is never folded into `unified_balance`.
+- The source `private_account` is never mutated by the projection.
+
+### What does not change
+
+- The snapshot JSON schema (`snapshot.schema.json`) is unchanged; these four
+  fields exist only on the hedge-open positions endpoint.
+- The ~60s scheduled refresh, the cache-refresh POST/command, the source success
+  times (`source_checked_at`), and the zero-upstream GET contract are unchanged.
+- No new API, polling, SSE, WebSocket, or upstream I/O; no order, borrow,
+  transfer, Start-gate, or risk-limit change; no aggregation of multiple
+  accounts; the 1000x non-alignment rule is preserved.
+
+

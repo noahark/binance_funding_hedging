@@ -239,3 +239,122 @@ def test_merge_rows_are_json_serializable():
     merged, meta = D.merge_positions(positions, pa)
     # must not raise
     json.dumps({"positions": merged, "account": meta})
+
+
+# ---------------------------------------------------------------------------
+# v4.1 §9.2 — four account-derived balance fields on every merged row
+# (spot_balance / spot_balance_value_usdt / unified_balance /
+#  unified_balance_value_usdt). Pure projection of the same published
+# private_account rows; no price recompute; cross_margin_borrowed stays
+# borrow-only; null vs a real decimal-string zero preserved per side.
+
+
+def test_merge_four_account_fields_normal_same_coin_mapped():
+    # Normal: BTCUSDT forward (perp SHORT). Spot + unified both carry BTC with
+    # their existing amount and value_usdt — projected verbatim, no recompute.
+    positions = [_bucket("BTCUSDT", D.DIR_FORWARD, spot_qty="0.5", perp_qty="0.5")]
+    pa = _pa(
+        ums=[_um("BTCUSDT", "SHORT", "-0.5")],
+        spots=[{"asset": "BTC", "free": "0.5", "locked": "0",
+                "value_usdt": "30000.00000000"}],
+        unifieds=[{"asset": "BTC", "total_balance": "100",
+                   "cross_margin_borrowed": "10",
+                   "value_usdt": "60000.00000000"}],
+    )
+    r = D.merge_positions(positions, pa)[0][0]
+    assert r["spot_balance"] == "0.5"
+    assert r["spot_balance_value_usdt"] == "30000.00000000"
+    assert r["unified_balance"] == "100"
+    assert r["unified_balance_value_usdt"] == "60000.00000000"
+    # cross_margin_borrowed stays the borrow, NOT the unified balance.
+    assert r["cross_margin_borrowed"] == "10"
+
+
+def test_merge_four_account_fields_unified_missing_side_is_null():
+    # Spot has BTC but the unified account has no BTC row: only the unified side
+    # is null; the spot side keeps its amount/value.
+    positions = [_bucket("BTCUSDT", D.DIR_FORWARD, spot_qty="0.5", perp_qty="0.5")]
+    pa = _pa(
+        ums=[_um("BTCUSDT", "SHORT", "-0.5")],
+        spots=[{"asset": "BTC", "free": "0.5", "locked": "0",
+                "value_usdt": "30000.00000000"}],
+        unifieds=[{"asset": "ETH", "total_balance": "2", "value_usdt": "6000"}],
+    )
+    r = D.merge_positions(positions, pa)[0][0]
+    assert r["spot_balance"] == "0.5" and r["spot_balance_value_usdt"] == "30000.00000000"
+    assert r["unified_balance"] is None and r["unified_balance_value_usdt"] is None
+
+
+def test_merge_four_account_fields_spot_missing_side_is_null():
+    # Unified has BTC but spot has no BTC row: only the spot side is null.
+    positions = [_bucket("BTCUSDT", D.DIR_FORWARD, spot_qty="0.5", perp_qty="0.5")]
+    pa = _pa(
+        ums=[_um("BTCUSDT", "SHORT", "-0.5")],
+        spots=[{"asset": "ETH", "free": "1", "locked": "0", "value_usdt": "3000"}],
+        unifieds=[{"asset": "BTC", "total_balance": "100",
+                   "value_usdt": "60000.00000000"}],
+    )
+    r = D.merge_positions(positions, pa)[0][0]
+    assert r["unified_balance"] == "100" and r["unified_balance_value_usdt"] == "60000.00000000"
+    assert r["spot_balance"] is None and r["spot_balance_value_usdt"] is None
+
+
+def test_merge_four_account_fields_all_null_when_not_verified():
+    # private_account verified=false -> all four account fields null on every row
+    # (the local bookkeeping row is still returned).
+    positions = [_bucket("BTCUSDT", D.DIR_FORWARD, spot_qty="0.5", perp_qty="0.5")]
+    pa = _pa(
+        verified=False, error="private_channel_disabled",
+        spots=[{"asset": "BTC", "free": "0.5", "locked": "0", "value_usdt": "30000"}],
+        unifieds=[{"asset": "BTC", "total_balance": "100", "value_usdt": "60000"}],
+    )
+    r = D.merge_positions(positions, pa)[0][0]
+    assert r["spot_balance"] is None
+    assert r["spot_balance_value_usdt"] is None
+    assert r["unified_balance"] is None
+    assert r["unified_balance_value_usdt"] is None
+
+
+def test_merge_four_account_fields_true_zero_stays_string_not_null():
+    # A valid zero amount/value stays a decimal string, never degraded to null.
+    positions = [_bucket("BTCUSDT", D.DIR_FORWARD, spot_qty="0", perp_qty="0")]
+    pa = _pa(
+        spots=[{"asset": "BTC", "free": "0", "locked": "0", "value_usdt": "0.00000000"}],
+        unifieds=[{"asset": "BTC", "total_balance": "0",
+                   "value_usdt": "0.00000000"}],
+    )
+    r = D.merge_positions(positions, pa)[0][0]
+    assert r["spot_balance"] == "0"
+    assert r["spot_balance_value_usdt"] == "0.00000000"
+    assert r["unified_balance"] == "0"
+    assert r["unified_balance_value_usdt"] == "0.00000000"
+
+
+def test_merge_four_account_fields_1000x_not_auto_aligned():
+    # 1000PEPEUSDT does NOT align to the PEPE spot/unified asset (non-goal #5):
+    # all four account fields are null for the 1000x row.
+    pa = _pa(
+        ums=[_um("1000PEPEUSDT", "LONG", "1000")],
+        spots=[{"asset": "PEPE", "free": "100", "locked": "0", "value_usdt": "1"}],
+        unifieds=[{"asset": "PEPE", "total_balance": "100", "value_usdt": "1"}],
+    )
+    r = D.merge_positions([], pa)[0][0]
+    assert r["spot_balance"] is None
+    assert r["spot_balance_value_usdt"] is None
+    assert r["unified_balance"] is None
+    assert r["unified_balance_value_usdt"] is None
+
+
+def test_merge_does_not_mutate_source_private_account():
+    # The projection must not alter the input private_account rows.
+    positions = [_bucket("BTCUSDT", D.DIR_FORWARD, spot_qty="0.5", perp_qty="0.5")]
+    spot_row = {"asset": "BTC", "free": "0.5", "locked": "0", "value_usdt": "30000"}
+    unified_row = {"asset": "BTC", "total_balance": "100",
+                   "cross_margin_borrowed": "10", "value_usdt": "60000"}
+    pa = _pa(ums=[_um("BTCUSDT", "SHORT", "-0.5")],
+             spots=[spot_row], unifieds=[unified_row])
+    D.merge_positions(positions, pa)
+    assert spot_row == {"asset": "BTC", "free": "0.5", "locked": "0", "value_usdt": "30000"}
+    assert unified_row == {"asset": "BTC", "total_balance": "100",
+                           "cross_margin_borrowed": "10", "value_usdt": "60000"}
+

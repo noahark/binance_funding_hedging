@@ -10,7 +10,7 @@
   "ledger_sha": "89103303bd29a64ac5915b56639f8a4a885a56b7",
   "current_task": {
     "id": "backend-position-balance-display-v1",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-08-03-hedge-status-account-refresh-v1/backend-position-balance-display-v1.dispatch.md"
   },
   "next": {
