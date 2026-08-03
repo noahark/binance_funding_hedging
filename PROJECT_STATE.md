@@ -9,22 +9,27 @@ check.
   function exists. No agent may create orders, touch credentials, control the
   service, or write the live task DB; an authorized read-only check must precede
   any live action.
-- `[OPEN][UNREVIEWED-LIVE-PATH]` The bStock spot-alias fix (`3dc6756`, merged
-  2026-08-01) changes **which instrument a real spot order is placed on**.
-  `HIGH_RISK` by §8, passed **no review of any kind**; merged on explicit Human
-  authorisation. Ordinary symbols unaffected and no bStock task exists today —
-  **the first bStock task created will exercise unreviewed live order behaviour.**
-- `[CLOSED][VERIFIED-INCIDENT]` **BK-T3-002 — the live task DB was written during
-  development** (2026-08-01 23:45:48). Root cause: Task 3's interval backfill
-  rewrote a row on every store construction, outside the opt-in guard in
-  DEC-2026-07-30-003; this was missed by the packet, reviews, and Bookkeeper.
-  **Fixed 2026-08-02 (`9c6b3b2`, DEC-2026-08-02-002)**: the migration is deleted,
-  cadence comes from the code constant, and a byte-level no-write regression
-  covers store construction. Before service start verify
-  `interval_us=500000 version=4` against the pre-merge snapshot; development
-  and verification never use the real `data/` path. Evidence: archives `27-`,
-  `39-` §1.2.
-
+- `[OPEN][ACCEPTED-CONFIGURATION-RISK]` Regular-spot routing intentionally does
+  not perform a runtime API-key trading-permission check. Human states that the
+  production API key, IP allowlist, and account permissions are fixed. If any
+  of those configuration facts changes, a regular-spot leg can be rejected while
+  its concurrently submitted PAPI UM leg has filled (unhedged exposure). This is
+  an accepted design limitation only for the unchanged environment; re-review
+  before rotating the key, changing IP allowlists/permissions, or enabling the
+  regular-spot route. **Observation / temporary operating rule:** a broken
+  premise presents as `/api/v3/order` `-2015` -> auth-class
+  `LEG_UNKNOWN_QUERYING` -> the order query repeats the same `-2015` until its
+  10-try budget ends -> task pauses as `order_state_unknown`, while the concurrent
+  PAPI UM SELL may already be filled. The UI does not name this as a permission
+  problem; when this pause appears, Human must verify the Binance order and UM
+  position before any recovery. Durable behavior authority:
+  `docs/api/public-market-contract.md` v0.9; full evidence:
+  `archive/2026-08-02-spot-order-routing-cap-display-v1`.
+  **Display-side operating premise:** the snapshot service uses the same hedge
+  API key to read the platform collateral-cap list on its existing refresh
+  cadence. A missing, revoked, or IP-rejected key makes the page show
+  「抵押额度未知」; its cache never feeds the order preflight. This stage was
+  formally reviewed, and Human separately confirmed the bStock order integration.
 ## Merged Position Table — Accepted Limitations (Task 1, merged 2026-08-01)
 
 All three are the same class: **the display asserting something it does not
@@ -106,29 +111,18 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
 
 ## Next Priority
 
-- **No active stage.** `2026-07-31-hedge-task-lifecycle-v1` closed 2026-08-02:
-  Task 1 (`ef53a02`) and Task 3 (`d2ac353`) merged and pushed, Task 2 designed but
-  deliberately not built (DEC-2026-08-02-003).
-- F4 is fully specified and plan-reviewed, but **deliberately not implemented**;
-  restart from this stage's archive closure record and the Opus5 report §9.
-  It remains an accepted release/runtime limitation. Other queued work includes
-  the task-card Chinese gap and the deferred lifecycle rework.
-- Idle, not closed: `2026-07-hedge-fast-fix-v1` (`awaiting_findings`).
-- Main line: live testing of the immediate-hedge scenario — still **no runtime
-  verification** of the hedge-open path.
+- **No active stage.** `2026-08-02-spot-order-routing-cap-display-v1` delivered
+  `e99974a` and passed both HIGH_RISK reviews. Its evidence is archived; merge
+  does not authorize deployment, Start-gate changes, or live operation.
+- F4 and the lifecycle Task 2 remain deliberately deferred; the Chinese task-card
+  gap remains a separate low-scope follow-up.
 
 ## Last Completed
 
-- stage: `2026-07-31-hedge-task-lifecycle-v1`
-- archive_ref: `archive/2026-07-31-hedge-task-lifecycle-v1` (Task 1 `ef53a02`,
-  Task 3 `d2ac353`; Task 2 designed but not built, see
-  `docs/planning/deferred-hedge-task-lifecycle.md`)
-- recorded_completed_at: `2026-08-02`
-
-- stage: `2026-08-02-hedge-f4-account-availability-v1`
-- archive_ref: `archive/2026-08-02-hedge-f4-account-availability-v1`
-  (closed before planner execution; F4 deliberately deferred; see `70-stage-closure.md`)
-- recorded_completed_at: `2026-08-02`
+- stage: `2026-08-02-spot-order-routing-cap-display-v1`
+- archive_ref: `archive/2026-08-02-spot-order-routing-cap-display-v1`
+  (`1216706`; delivery `e99974a`, review-1 and review-2 ACCEPT)
+- recorded_completed_at: `2026-08-03`
 
 ## Update Rule
 
