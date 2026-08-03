@@ -1,8 +1,18 @@
-# Harness 任务交接件与证据落档设计（提案）
+# Harness 任务交接件与证据落档设计（已实现，历史提案稿）
 
-状态：**修订四，待独立计划复评；非现行权威，不改变任何运行规则。**
+状态：**已落地。修订四经 DeepSeek 独立计划复评 `评审结论: ACCEPT`，已实现、已通过
+review-1（DeepSeek）与 review-2（Fable5）双 ACCEPT，并随 stage
+`2026-08-03-harness-task-handoff-evidence-v1` 归档
+（tag `archive/2026-08-03-harness-task-handoff-evidence-v1`，`0a0b952`；交付
+`14e4592`）。**
 
-日期：2026-08-03
+**本文不再是权威，仅作设计历史留档。** 现行权威是 `AGENTS.md` §7（回执与新阶段交接
+路径要求）与 `agents/roles.md` 的 Task Handoff Evidence Contract（路径、文件结构、
+创建权限、Bookkeeper 同文件核验、SHA-256 边界、勘误与归档、`SOURCE_REPORT_MISSING`
+降级的唯一详细权威）。两者与本文有出入时以两者为准。已知的后续澄清项 O-A（源区块
+SHA-256 边界的机械化表述）记录在 `PROJECT_STATE.md`。
+
+日期：2026-08-03（状态行更新于 2026-08-03 stage 收口）
 提出背景：现行评审模型为只读终端，输出原始 `TASK_RESULT` 后由 Human
 操作者转交给 Bookkeeper；下一模型不能稳定地从仓库读取该次终端的结论。
 
