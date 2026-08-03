@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 4,
+  "revision": 5,
   "stage_id": "2026-08-03-harness-task-handoff-evidence-v1",
   "bookkeeper": "codex",
   "phase": "review-1",
-  "checkpoint": "Bookkeeper verified the complete handoff-contract delivery through 14e4592; Kimi review-1 is prepared over the original delivery range ed802bc..14e4592.",
+  "checkpoint": "Bookkeeper verified the complete handoff-contract delivery through 14e4592; Human selected DeepSeek for review-1 after Kimi quota was unavailable, and Fable5 for review-2 after review-1 ACCEPT.",
   "base_sha": "ed802bc64d5d1476a19b19aa58d773229b24bfa4",
   "delivery_sha": "14e4592839c40ab499d8e4cdef7861492368aaff",
-  "ledger_sha": "14e4592839c40ab499d8e4cdef7861492368aaff",
+  "ledger_sha": "2006050dc89bc37151418572d9d61c1a396fd0fb",
   "current_task": {
-    "id": "harness-handoff-contract-review-1-kimi-v1",
+    "id": "harness-handoff-contract-review-1-deepseek-v1",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-03-harness-task-handoff-evidence-v1/30-kimi-handoff-contract-review-1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-03-harness-task-handoff-evidence-v1/31-deepseek-handoff-contract-review-1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
