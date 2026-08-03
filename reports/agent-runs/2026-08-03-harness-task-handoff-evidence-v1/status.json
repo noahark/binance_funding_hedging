@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 6,
+  "revision": 7,
   "stage_id": "2026-08-03-harness-task-handoff-evidence-v1",
   "bookkeeper": "codex",
-  "phase": "review-2",
-  "checkpoint": "Bookkeeper verified DeepSeek review-1 ACCEPT over ed802bc..14e4592; Human-selected Fable5 review-2 is prepared over the same fixed delivery range.",
+  "phase": "human-final-acceptance",
+  "checkpoint": "Bookkeeper verified Fable5 review-2 ACCEPT over ed802bc..14e4592. O-A (SHA marker-boundary wording) and O-C (unstarted superseded dispatch convention) are non-blocking follow-up recommendations; Human final acceptance and merge decision are required.",
   "base_sha": "ed802bc64d5d1476a19b19aa58d773229b24bfa4",
   "delivery_sha": "14e4592839c40ab499d8e4cdef7861492368aaff",
-  "ledger_sha": "f48a759518e75427b2486702d3c0e20e7394887f",
+  "ledger_sha": "91dca875c5b01c05fcb6c8b540fdf6cb30c0869b",
   "current_task": {
     "id": "harness-handoff-contract-review-2-fable5-v1",
-    "state": "dispatched",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-08-03-harness-task-handoff-evidence-v1/40-fable5-handoff-contract-review-2.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-task"
+    "action": "final-acceptance-and-merge-decision"
   },
   "rework_count": 2,
   "blockers": []
