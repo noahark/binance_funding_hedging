@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 10,
+  "revision": 11,
   "stage_id": "2026-08-03-hedge-status-account-refresh-v1",
   "bookkeeper": "codex",
-  "phase": "frontend-implementation",
-  "checkpoint": "Backend position-balance projection delivery 65bdd8176d7e9757f97886a902932e999919a441 Bookkeeper-verified; Grok frontend display packet prepared",
-  "base_sha": "65bdd8176d7e9757f97886a902932e999919a441",
-  "delivery_sha": null,
-  "ledger_sha": "65bdd8176d7e9757f97886a902932e999919a441",
+  "phase": "review-1",
+  "checkpoint": "v4.1 backend 65bdd8176d7e9757f97886a902932e999919a441 and frontend 7f965f8282c989625a80dfde0be96b0e008cafab deliveries Bookkeeper-verified; DeepSeek Review-1 packet prepared",
+  "base_sha": "89103303bd29a64ac5915b56639f8a4a885a56b7",
+  "delivery_sha": "7f965f8282c989625a80dfde0be96b0e008cafab",
+  "ledger_sha": "7f965f8282c989625a80dfde0be96b0e008cafab",
   "current_task": {
-    "id": "frontend-position-balance-display-v1",
-    "state": "reported",
-    "dispatch": "reports/agent-runs/2026-08-03-hedge-status-account-refresh-v1/frontend-position-balance-display-v1.dispatch.md"
+    "id": "review-1-position-balance-display-v1-deepseek",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-03-hedge-status-account-refresh-v1/review-1-position-balance-display-v1-deepseek.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-task"
+    "action": "start-prepared-review"
   },
   "rework_count": 0,
   "blockers": []

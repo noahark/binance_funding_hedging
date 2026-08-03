@@ -75,3 +75,14 @@
 ```
 
 <!-- BOOKKEEPER_APPEND_ONLY: all bytes before this marker are the source payload -->
+
+## Bookkeeper Verification (Bookkeeper append-only)
+
+- verified_at: `2026-08-03 21:06:23 CST`
+- source_sha256: `c7b443a3b8701a540851be95c3a5b02e0ea258afe0de8774c694fbcb1e1f0b9f` (`7948` bytes before the sole marker)
+- status_revision_checked: `10`; source task was `reported` and only its permitted `dispatched` → `reported` transition occurred.
+- base_sha verified: `65bdd8176d7e9757f97886a902932e999919a441`; delivery_sha resolved: `7f965f8282c989625a80dfde0be96b0e008cafab`; the base is an ancestor of delivery.
+- scope verified: delivery changes exactly `frontend/index.html`, `frontend/self-check.js`, this task's handoff/self-check evidence, and its permitted `status.json` transition. No backend, API contract, fixture, refresh path, order, credential, deployment, or live-operation file changed.
+- implementation verified: the collateral-cap badge moved once into the existing borrow-status/asset cell; the positions balance cell consumes only the four delivered row fields and leaves `cross_margin_borrowed` in its own column; aggregate and PM source times occupy their approved unique DOM locations while their existing time semantics remain intact.
+- evidence verified: `node frontend/self-check.js` was independently rerun; it ended `全部自检通过`, and `node frontend/self-check.js | diff -u reports/agent-runs/2026-08-03-hedge-status-account-refresh-v1/evidence/frontend-position-balance-display-v1.self-check.txt -` returned exact equality. The check is offline and made no network, credential, service, or live-operation call.
+- result: verified. Backend and frontend v4.1 deliveries are both verified; a single provider-isolated Review-1 packet now covers their complete fixed product range before Review-2.

@@ -132,8 +132,10 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
   label/time placement); DeepSeek plan review ACCEPT is verified and the
   `claude_glm` backend projection delivery `65bdd8176d7e9757f97886a902932e999919a441`
   is Bookkeeper-verified (57-item offline rerun). The Human-authorized Grok
-  frontend display task is prepared next; no Review-1/Review-2 packet is
-  prepared until both v4.1 deliveries are verified.
+  frontend display delivery `7f965f8282c989625a80dfde0be96b0e008cafab` is also
+  Bookkeeper-verified (offline self-check evidence reproduced exactly). A single
+  DeepSeek Review-1 packet covers the complete v4.1 product range; Review-2 is
+  not prepared until it returns ACCEPT.
   This stage does not authorize deployment, Start-gate changes, credentials, or
   live operation.
 - F4 and the lifecycle Task 2 remain deliberately deferred; the Chinese task-card
