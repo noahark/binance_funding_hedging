@@ -109,18 +109,27 @@ rewrite the reviewed code, prior reviews, or `status.json`.
 ### Bookkeeper Same-File Verification
 
 Bookkeeper is the only normal `status.json` writer. Before dispatch it preflights
-`test ! -e <path>` for the planned handoff and records the result, command and
-deterministic path in the dispatch Allowed Files. After the raw result returns it
+`test ! -e <path>` for the planned handoff and records the result, command,
+deterministic path and create-only authority in the dispatch Allowed Files, and
+names this Task Handoff Evidence Contract in the dispatch `Inputs` so every
+contract-bound task is routed to the detailed rules before execution. After the
+raw result returns it
 confirms the path exists and was newly created by this task, and that task_id,
 role, stage_id and the declared SHAs match `status.json` and `git rev-parse`. It
 verifies the Human Brief's `TASK_RESULT v2` structure, review-closure fields when
 present, cited evidence paths and commands, and that `下一步任务` carries explicit
 read paths, immediate action and next gate consistent with `Required Reading for
 the Next Task`; multiple paths are read in written order and, for `REWORK`, cover
-the paths cited by `修复要求`. It then computes SHA-256 over the bytes before the
-`BOOKKEEPER_APPEND_ONLY` marker and appends only the `## Bookkeeper Verification`
-block to the same file. This append is Bookkeeper's sole verification record; it
-creates no parallel record, edits no author block, and never alters
+the paths cited by `修复要求`. When the `BOOKKEEPER_APPEND_ONLY` marker is
+present it computes SHA-256 over the bytes before that marker and appends only
+the `## Bookkeeper Verification` block to the same file. If the file exists but
+the marker is missing or the source payload is malformed, Bookkeeper edits no
+author byte: it appends only a marked rejection `Bookkeeper Verification` block
+at EOF with `source_sha256: unavailable`, the malformed precondition, a
+reproducible check, and the `reported`/blocker state. A normal source SHA-256 is
+calculated only when the marker exists; a fully missing file remains the only
+`SOURCE_REPORT_MISSING` case. This append is Bookkeeper's sole verification
+record; it creates no parallel record, edits no author block, and never alters
 `delivery_sha`.
 
 ### Errata And Archive
@@ -198,6 +207,8 @@ implementation or fix authors.
 - exactly one task skill:
   - `agents/skills/senior-developer.md` for implementation;
   - `agents/skills/minimal-change-engineer.md` for a bounded review finding.
+- For a new approved stage, also read the Task Handoff Evidence Contract section
+  of this file before creating the task handoff.
 
 Do not load both implementation and repair skills for one task.
 
