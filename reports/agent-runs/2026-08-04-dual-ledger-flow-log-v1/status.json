@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 22,
+  "revision": 23,
   "stage_id": "2026-08-04-dual-ledger-flow-log-v1",
   "bookkeeper": "bookkeeper1",
-  "phase": "review-2",
-  "checkpoint": "review-1 复审（deepseek）ACCEPT 已核验封存（rework_count 维持 1）；review-2 已路由（sonnet5/anthropic，Human 决定，受审 dc4cc6d..0c9c4de 全量交付）；review-2 ACCEPT 后进入 Human 最终决策与前后端联调（真实 POST refresh 须 Human 授权）",
+  "phase": "awaiting-human-decision",
+  "checkpoint": "review-2（sonnet5）ACCEPT 已核验封存：六维度全过、独立重跑证据闭环、F-R2-1/F-R2-2 观察级不阻塞；rework_count 维持 1；等待 Human 最终决策——(1) 前后端联调授权（真实 POST /refresh 连币安，联调重点 truncated/gaps/unparsed_row_count，review-2 建议合并前完成）(2) 合并/发布决策",
   "base_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "delivery_sha": "0c9c4de77253d4716242867b8c1e8fe42906d790",
   "ledger_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "current_task": {
     "id": "review-2-dual-ledger-flow-log-v1",
-    "state": "dispatched",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/review-2-dual-ledger-flow-log-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-task"
+    "action": "integration-authorization-and-merge-decision"
   },
   "rework_count": 1,
   "blockers": []

@@ -123,6 +123,7 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
   `kind=task_paused` with text saying "task paused… resume manually" — it was
   neither paused nor is it resumable. Mild form of the family above.
 
+- `[OPEN][2026-08-04]` **review-1 + review-2 全部 ACCEPT，等待 Human 最终决策**。统一 review-1（deepseek，REWORK→修复→复审 ACCEPT）+ review-2（sonnet5，ACCEPT，六维度全过、独立重跑证据闭环）。F-R2-1（meta 微调任务无独立交接件，流程观察）+ F-R2-2（fetcher→落库端到端未活体验证，联调核对重点）不阻塞。`rework_count` 1/3。待 Human：(1) 前后端联调授权（真实 `POST /refresh` 连币安，review-2 建议合并前完成）；(2) 合并/发布决策。
 - `[OPEN][2026-08-04]` **统一 review-1 REWORK，`rework_count` 0→1（F1/F2，修复轮进行中）**。F1（阻塞）：任务 B `server.py:954` 新增 `service.private_client` 依赖未同步 `test_service_health.py::_RunStubService`，破坏 5 个既有测试（实测全量 `1336 passed, 5 failed`；B 交接「194 回归全绿」未覆盖该文件，声明不实）；修复 = 补桩 `private_client=None` + 全量回归。F2（建议）：`scheduler.py` 无单测，新增 `test_ledger_flow_scheduler.py`（decide/catchup 全分支）。修复任务 `fix-review1-dual-ledger-flow-log-v1`（claude_glm）已路由；修复后 review-1 复审（deepseek）→ review-2（sonnet5）。
 ## Open Follow-ups
 
