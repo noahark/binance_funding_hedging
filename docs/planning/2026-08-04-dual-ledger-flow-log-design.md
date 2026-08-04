@@ -1,7 +1,7 @@
 # 双栏流水日志设计（借币利息 × 合约资金流水）
 
 > **［定稿标记 · 2026-08-04 · Planner opus5 · stage `2026-08-04-dual-ledger-flow-log-v1`］**
-> 本文件为 **定稿 v1.1**。§1–§10 为 2026-08-04 草案原文，**未作任何改写**；§11 起为定稿追加内容。
+> 本文件为 **定稿 v1.2**（计划评审 REWORK 后按 F1–F6 修订；带 `〔v1.2 / …〕` 标注的条目为本轮修订点）。§1–§10 为 2026-08-04 草案原文，**未作任何改写**；§11 起为定稿追加内容。
 > 需求 1（按钮调整）见 **§11**；§7 的六个开放问题由 **§12** 逐条关闭；冻结的接口契约见 **§13**；
 > 本地账本与数据库见 **§14**；定时刷新与增量统计见 **§15**；实现任务拆分见 **§16**；
 > 风险与流程见 **§17**；Human 已拍板的全部产品决策汇总在 **§18**。
@@ -275,6 +275,7 @@
 |---|---|
 | 2026-08-04 | 初稿：双栏流水日志设计，基于同日利息与 income 实盘 recon 与 Human 确认方向 |
 | 2026-08-04 | **定稿 v1.0**（Planner opus5）：追加顶部定稿标记与 §11–§16（需求 1、开放问题决议、冻结接口契约、任务拆分、风险与流程、Human 决策点）。§1–§10 原文未改写。 |
+| 2026-08-04 | **定稿 v1.2**（Planner opus5，计划评审 REWORK 后修订，F1–F6）：F1 事务模型改为「run 记录必定落库 + 明细按栏各自事务 + 失败栏零明细零推进」（§14 规则 5、§13.5）；F2 `consecutive_failure_count` 改为按 run 表实时计数、不加列（§13.2 规则 10）；F3 统一「成功 run」定义为 `scheduled/startup_catchup/backfill` 且两栏均 `ok`，并同步 `delta.complete`（§15.4、§13.2 规则 11、A 验收 4）；F4 coverage 改为**分源记账 + `gaps` 空洞列表**，`complete` 判定重写，杜绝空洞内查询被读成「无流水」（§13.2 规则 7、§15.2、§13.7）；F5 冻结空态形状与前端三态判定表，新增 `scheduler_enabled` 字段（§13.2 规则 13/14）；F6 写死 manual run 同样推进 coverage、截断栏「提交已拉行 + coverage 只推进到已证明连续处」（§15.2、§15.3，其中截断处理对评审推荐有一处具名偏离，须重评审确认）。另落实观察项 O1/O2/O3/O4/O5/O6/O8。草案 §1–§10 原文仍未改写；C（前端）packet 未改动，其 F4 文案缺口移交 Bookkeeper 在路由前修正。 |
 | 2026-08-04 | **定稿 v1.1**（Planner opus5，Human 需求细化后重出）：Q5 由「不落盘」**改为本地 SQLite 去重持久化**；Q2 加回自定义时间窗且不受 30 天限制；新增每小时整点后 1 分钟的定时刷新与「距上次刷新新增」增量统计（§15）与本地账本 schema（§14）；接口契约升为 `private-ledger/v2`（读本地库 + `POST refresh`，§13）；实现任务由两份改为三份（§16）。§1–§10 原文仍未改写；v1.0 追加章节整体重出，未提交过，故无勘误痕迹。 |
 
 ---
@@ -323,7 +324,7 @@
 | 1 | 右栏默认筛选是否维持「资金费+手续费」、盈亏/划转默认关？ | **维持**：`FUNDING_FEE` + `COMMISSION` 默认开；`REALIZED_PNL` / `TRANSFER` / 其他默认关、可勾选。**筛选纯前端**，切换不发请求。 | 明细来自本地库，一次读出全类型；按类型分别查询只会把简单的读放大成多次查询。 |
 | 2 | 时间默认 7 天还是 30 天？ | **默认近 7 天**；另给 `近30天` 与 **`自定义`**（起止日期）。自定义窗**不再受 30 天限制**——上限只由本地已回补范围决定（见 §13.2 `coverage`）。 | 7 天首屏最快。30 天上限是**币安单次查询**的限制，只卡「回补」不卡「查询」；本地存了历史之后，自定义窗反而是低成本能力。 |
 | 3 | 左栏是否在栏顶展示 `crossMarginInterest` 未结？ | **v1 不展示**。左栏顶只给「区间已计息累计（按币种）」，并固定附一行文案：**「这是所选区间的已计息累计，不等于当前未结利息；曾还息后两者必然分叉」**。 | `crossMarginInterest` **尚未进入已发布快照的 `private_account`**（仅 `crossMarginBorrowed` 在），展示它须改快照装配与契约，属另一交付范围。 |
-| 4 | 是否需要按持仓 `symbol` / 借币任务过滤？ | **不做过滤器**。但「本次新增」的资金费**按合约分组展示**（§17.4），这是展示不是过滤。 | 任务归因需另绑借还与开平仓时段记录，属未被证明的需求；而按合约看资金费增量是对冲操作的实际视角。 |
+| 4 | 是否需要按持仓 `symbol` / 借币任务过滤？ | **不做过滤器**。但「本次新增」的资金费**按合约分组展示**（§15.4），这是展示不是过滤。 | 任务归因需另绑借还与开平仓时段记录，属未被证明的需求；而按合约看资金费增量是对冲操作的实际视角。 |
 | 5 | 是否落本地 DB？ | **落本地 SQLite 并按幂等键去重**（Human 2026-08-04 决定，**推翻本文件早先「不落盘」的推荐**）。库文件 `data/ledger-flow.sqlite3`，幂等键：利息 `txId`、合约流水 `(incomeType, tranId)`。 | 定时增量刷新与「距上次新增多少」的统计**只有存本地才算得出来**；页面读本地库从数秒降到毫秒；自定义窗不再受 30 天限制。 |
 | 6 | 是否需要导出 CSV？ | **v1 不做**。 | 未被要求的能力；页面已可读。 |
 
@@ -352,7 +353,8 @@
 | `POST /api/private-ledger/refresh` | 手动触发一次 `kind="manual"` 拉取 run | 有（只读签名 GET） |
 
 - 均为同源、仅 `127.0.0.1`；`GET` 只在 `do_GET` 注册、`POST` 只在 `do_POST` 注册，其余方法落既有 404。
-- `POST` 无请求体字段（任何 body 读完即丢弃），不接受时间窗参数——窗口由服务端按 §17.2 计算。
+- `POST` 无请求体字段（任何 body 读完即丢弃），不接受时间窗参数——窗口由服务端按 §15.2 计算。
+- 两条路由的 200 响应都必须带 `Cache-Control: no-store`（与既有 `/api/public-market/snapshot`、`symbol-snapshot` 一致；账户数据不进任何中间缓存）。〔v1.2 / O5〕
 
 ### 13.2 `GET flow-log` 的 200 响应（冻结）
 
@@ -360,8 +362,17 @@
 {
   "schema_version": "private-ledger/v2",
   "served_at_ms": 1785798060000,
+  "scheduler_enabled": true,
   "window": { "start_ms": 1785193260000, "end_ms": 1785798060000 },
-  "coverage": { "start_ms": 1783206000000, "end_ms": 1785798000000, "complete": true },
+  "coverage": {
+    "start_ms": 1783206000000, "end_ms": 1785798000000, "complete": true,
+    "pending_tail_ms": 60000,
+    "by_source": {
+      "interest": { "start_ms": 1783206000000, "end_ms": 1785798000000 },
+      "income":   { "start_ms": 1783206000000, "end_ms": 1785798000000 }
+    },
+    "gaps": []
+  },
   "last_run": {
     "run_id": 128, "kind": "scheduled", "finished_at_ms": 1785798060000,
     "interest_status": "ok", "interest_error": null,
@@ -418,15 +429,57 @@
 
 1. **所有 ID 一律字符串**。`txId` / `tranId` 是 19 位长整型（`2328408217636413776 > 2^53`），以 JSON number 下发会被浏览器 `JSON.parse` 静默改值，而它们是幂等键。入库也存 `TEXT`。
 2. **金额与利率原样透传**币安返回的字符串：不 round、不 quantize、不转 float、不补零。**入库存 `TEXT`。**
-3. **禁止用 SQL 的 `SUM()` / `AVG()` 聚合金额列**——SQLite 会把 TEXT 隐式转成浮点，静默丢精度。汇总一律把窗口内的行取到 Python 里用 `Decimal` 精确求和，输出 `format(total, 'f')`。
+3. **禁止用 SQL 的 `SUM()` / `AVG()` 聚合金额列**——SQLite 会把 TEXT 隐式转成浮点，静默丢精度。汇总一律把窗口内的行取到 Python 里用 `Decimal` 精确求和，输出 `format(total, 'f')`；求和须在显式 `decimal.localcontext()`（`prec` 至少 40）内完成，不依赖进程默认精度。〔v1.2 / O4〕
 4. **缺失即 `null`**，绝不造 `0` / `""` / `—`。空串 `symbol`（`TRANSFER` 行）与空串 `trade_id` 归一化为 `null`。
 5. **任一分组内出现无法解析的金额 → 该分组 `*_total` 为 `null` 且 `unparsed_row_count > 0`**；绝不用部分和冒充完整合计。此规则同样适用于 `delta` 与 `today`。
 6. **排序即最终展示序**（时间倒序）：左栏 `ORDER BY accrued_at_ms DESC, tx_id DESC`；右栏 `ORDER BY time_ms DESC, income_type DESC, tran_id DESC`。前端不排序。
-7. **`coverage` 是诚实性护栏，不是可选装饰**：`coverage.start_ms` 为本地已回补到的最早时刻；当 `window.start_ms < coverage.start_ms` 时 `coverage.complete` 必须为 `false`，前端**必须**显示「本地数据只到 <日期>」。**空结果绝不允许被呈现为「这段时间没有流水」。**
+7. **`coverage` 是诚实性护栏，不是可选装饰**〔v1.2 / F4 重写〕。覆盖范围**按数据源分别记账**（两栏可以独立失败，见 §15.2），响应同时给出聚合值与分源值：
+   - `coverage.by_source.interest` / `.income`：各自已连续覆盖的 `[start_ms, end_ms]`（从未成功过则两者为 `null`）。
+   - `coverage.start_ms` = 两源 `start_ms` 的**较晚者**；`coverage.end_ms` = 两源 `end_ms` 的**较早者**——即「两栏都确实覆盖到」的保守区间。任一源为 `null` 时聚合值为 `null`。
+   - `coverage.gaps`：与本次查询窗口**相交**的已知空洞列表 `[{source, start_ms, end_ms}]`（空洞由 §15.2 的超长停机截断或分页截断产生并显式记录），最多返回 20 条、按 `start_ms` 升序；无空洞则为 `[]`。
+   - **`coverage.complete` 的唯一判定**：当且仅当「`window.start_ms >= coverage.start_ms`」**且**「与窗口相交的 `gaps` 为空」时为 `true`；否则为 `false`。**窗口完全落在空洞内部**因此必然得到 `false`——这正是 v1.1 的漏洞（那时只按 `window.start < coverage.start` 判定，空洞内查询会返回空结果并被读成「这段时间没有流水」）。
+   - `coverage.pending_tail_ms` = `max(0, window.end_ms - coverage.end_ms)`：窗口尾部**尚未被任何 run 覆盖**的毫秒数。**它不参与 `complete` 判定**——查询窗口的终点通常是「此刻」，而 coverage 只到上一次刷新，正常运行时这段尾巴恒为 0–60 分钟；若把它算进 `complete`，页面会永远显示「数据不完整」，护栏就退化成噪音、从而失去意义。前端把它单独渲染为「最近 X 分钟的流水尚未刷新」（调度器停摆时这个数字会自然变大，正好是需要被看见的信号）。
+   - **空结果绝不允许被呈现为「这段时间没有流水」**，除非 `coverage.complete == true` 且 `pending_tail_ms` 已在状态条中如实标注。
 8. **`row_limit_applied`**：明细每栏最多返回 **500 行**（时间倒序取最新）；`row_count` 始终是窗口内**全量**条数，`summary` 也始终按**全量**计算，与截断无关。
 9. `last_run.*_status` 三值：`ok` / `error`（`*_error` 为稳定短码）/ `disabled`（私有通道未启用）。短码集合：`interest_history_failed`、`um_income_failed`、`rate_limited`、`private_channel_disabled`。**不得**携带币安原始报文或 URL。
-10. `delta.complete` 为 `false` 表示尚不足两次成功定时刷新、基准不可靠（首次启动的一小时内），此时前端显示「统计基准建立中」，**不显示可能误导的增量数字**。
-11. `today.day_start_ms` 为**北京时间**当日 00:00；`today` 按流水**发生时间**归属，`delta` 按**入库时间**归属，两者口径不同、不得混用。
+10. **`last_run.consecutive_failure_count` 由 service 从 run 表实时计算，不新增数据库列**〔v1.2 / F2〕：从最近一条已完成 run 起向前数，连续满足「任一栏 `status == "error"`」的 run 条数，遇到第一条两栏都不是 `error` 的 run 即停止；`disabled` 不计为失败；无 run 记录时为 `0`。
+11. `delta.complete` 为 `false` 表示尚不足两次**成功 run**、基准不可靠，此时前端显示「统计基准建立中」，**不显示可能误导的增量数字**；`delta.baseline_ms` 同时为 `null`。「成功 run」的唯一定义见 §15.4〔v1.2 / F3〕。
+12. `today.day_start_ms` 为**北京时间**当日 00:00；`today` 按流水**发生时间**归属，`delta` 按**入库时间**归属，两者口径不同、不得混用。
+13. **空态契约（冻结）**〔v1.2 / F5〕。首次启动、私有通道未启用、或从未有过任何 run 时，`GET flow-log` 仍返回 `200`，形状固定为：
+
+    ```json
+    {
+      "schema_version": "private-ledger/v2",
+      "served_at_ms": 1785798060000,
+      "scheduler_enabled": false,
+      "window": { "start_ms": 1785193260000, "end_ms": 1785798060000 },
+      "coverage": {
+        "start_ms": null, "end_ms": null, "complete": false, "pending_tail_ms": null,
+        "by_source": { "interest": null, "income": null },
+        "gaps": []
+      },
+      "last_run": null,
+      "delta": {
+        "baseline_ms": null, "complete": false,
+        "interest_by_asset": [], "income_by_type_asset": [], "funding_by_symbol": [],
+        "interest_new_row_count": 0, "income_new_row_count": 0
+      },
+      "today": { "day_start_ms": 1785772800000, "interest_by_asset": [], "income_by_type_asset": [] },
+      "interest": { "rows": [], "summary_by_asset": [], "row_count": 0, "row_limit_applied": false },
+      "um_income": { "rows": [], "summary_by_type_asset": [], "row_count": 0, "row_limit_applied": false }
+    }
+    ```
+
+    `last_run` 为 `null` 表示**从未有过 run 记录**；它不是错误，也不是「无流水」。`scheduler_enabled` 反映定时线程是否已启动（私有通道未启用或离线模式为 `false`，见 §15.3），是前端区分「没数据是因为没开通道」与「没数据是因为真没流水」的唯一确定性依据。
+14. **前端三态判定表（冻结，按顺序取第一个命中）**〔v1.2 / F5〕：
+
+    | 序 | 条件 | 展示 |
+    |---|---|---|
+    | 1 | `scheduler_enabled == false` | 「私有通道未启用，不会自动刷新」（若本地仍有历史数据，照常展示历史，二者并存） |
+    | 2 | `last_run == null` | 「尚未刷新过，等待首次自动刷新」 |
+    | 3 | `last_run.interest_status == "error"` 或 `last_run.income_status == "error"` | 「上次刷新失败：<短码中文>（连续失败 N 次）」——失败栏单独标注，另一栏正常展示 |
+    | 4 | `coverage.complete == false` | 「本地数据不完整」＋按 §13.7 的两种文案（起点截断／区间空洞） |
+    | 5 | 以上都不成立且该栏 `row_count == 0` | 「该时间窗无记录」 |
 
 ### 13.3 `GET flow-log` 的非 200
 
@@ -446,7 +499,7 @@
 | 私有通道未启用 / 离线 | `409` | `{"error":"private_channel_disabled","detail":"私有只读通道未启用"}` |
 | 服务未装配 | `503` | `{"error":"flow_log_unavailable","detail":"…"}` |
 
-**手动刷新写入数据，但不移动 `delta.baseline_ms`**（§17.4）——它带进来的新行会计入下一次定时刷新的增量，不会被吞掉。
+**手动刷新写入数据，但不移动 `delta.baseline_ms`**（§15.4）；它同样推进分源 coverage（§15.3 / F6(a)）——它带进来的新行会计入下一次定时刷新的增量，不会被吞掉。
 
 ### 13.5 上游拉取（仅 §17 的 run 使用）
 
@@ -456,8 +509,10 @@
 | 右 | `GET /papi/v1/um/income`（`https://papi.binance.com`） | `startTime`/`endTime`/`limit=1000`/`page=1..` | 本页行数 < `limit`，或本页为空 | **10 页** |
 
 - 右栏**不传** `incomeType`、**不传** `symbol`（要全类型）。
-- 任一页失败 → **该栏本次 run 记为 `error` 且该栏本次不写库**（半截账比没有账更危险）；另一栏不受影响。
-- 达到页数上限仍未拉完 → run 记 `truncated=true`，页面必须显示覆盖可能不完整。
+- 两栏各自**独立的时间窗**（因为两栏可以独立失败，见 §15.2），不共用一个 `window_start`。
+- **原生返回顺序不同，截断的缺口方向因此相反**（recon 实测）：左栏 `interestHistory` **降序**（新→旧），截断缺的是窗口的**旧端**；右栏 `um/income` **升序**（旧→新），截断缺的是窗口的**新端**。§15.2 的 coverage 推进规则必须按这个方向差异分别处理。
+- **任一页失败 → 该栏本次 run 记为 `error`、该栏零明细写入、该栏 coverage 不推进**（半截账比没有账更危险）；另一栏不受影响，其明细与 coverage 照常提交。事务边界见 §14 规则 5〔v1.2 / F1〕。
+- 达到页数上限仍未拉完 → run 记 `truncated=true`，页面必须显示覆盖可能不完整；**已拉到的行照常写入，但该栏 coverage 只推进到「已证明连续覆盖」的位置**，并按 §15.2 记录空洞。
 - 权重实测：sapi ≈ 1/次、papi ≈ 30/次。日常增量每小时约 1 次 papi + 1–2 次 sapi ≈ 32 权重/小时；30 天回补一次性约 17 sapi + 1 papi。
 
 ### 13.6 白名单新增（deny-by-default 不变）
@@ -477,7 +532,8 @@
 |---|---|
 | 容器 | `#flow-log-panel`，位于 `#private-panel` 之后、市场表面板之前，**仍在 `#market-view` 内**，默认 `display:none` |
 | 打开方式 | 点 `#btn-flow-log` 展开/收起（同步 `aria-expanded`）；首次展开自动 `GET` 一次（近 7 天） |
-| 常驻状态条 | 「本地数据：<coverage.start> 起 · 上次刷新：<last_run 时间>（成功/失败短码中文）· 每小时整点后 1 分钟自动刷新」；`coverage.complete=false` 时追加「本地数据只到 <日期>，更早的没有」 |
+| 常驻状态条 | 「本地数据：<coverage.start> 起 · 上次刷新：<last_run 时间>（成功/失败短码中文）· 每小时整点后 1 分钟自动刷新」，并在 `coverage.pending_tail_ms > 0` 时常驻附注「最近 X 分钟的流水尚未刷新」。三态与优先级按 §13.2 规则 14 的判定表 |
+| 覆盖不完整文案〔v1.2 / F4〕 | `coverage.complete=false` 时**必须**提示，且分两种：**(a) 起点截断**（`window.start_ms < coverage.start_ms` 且 `gaps` 为空）→「本地数据只到 <coverage.start 日期>，更早的没有」；**(b) 区间空洞**（`gaps` 非空）→「<gap.start>–<gap.end> 这段没有拉到（<源名>），下面的列表在这段时间内不代表交易所没有流水」，多条空洞逐条列出（最多 20 条）。**任何情况下都不得在 `complete=false` 时显示「该时间窗无记录」** |
 | 增量区块 | 「自 <baseline 时刻> 以来新增」：左栏按币种的新增利息；右栏按（类型，币种）的新增资金费/手续费；再加**按合约的资金费新增排行**。`delta.complete=false` 时改显「统计基准建立中」 |
 | 参照区块 | 「今日累计」（北京时间当日，按发生时间）与当前窗口的区间累计（`summary_*`） |
 | 时间窗 | `近7天` / `近30天` / `自定义`（起止日期）；自定义无 30 天上限 |
@@ -505,6 +561,8 @@ flow-log-income-status, flow-log-income-summary, flow-log-income-body
 ```
 
 `type` / `incomeType` 中文文案沿用 §3.1 与 §3.2 两张对照表；资金费 `income > 0` 文案「收取」、`< 0`「支付」。
+
+> **［待 Bookkeeper 在路由 C 之前处理 · v1.2 新增］** 本次修订按 `plan-revise` dispatch 的纪律**未改动 C（`frontend-dual-ledger-flow-log-v1`）packet**。但 F4 使 C 的 Goal 第 1 条出现措辞缺口：它只写了「`coverage.complete=false` 时追加『本地数据只到 <日期>，更早的没有』」，而该文案只适用于上表的 **(a) 起点截断**；**(b) 区间空洞**需要另一句。C packet 的 Inputs 已包含本设计 §13.7，实现者按本表执行即可正确，但 packet 正文与设计并列时会读成两套要求。建议 Bookkeeper 在路由 C 前做一次 pre-dispatch packet correction：把 C 的 Goal 第 1 条与验收 2 改为「按设计 §13.7『覆盖不完整文案』两种情形分别渲染」，并把 §13.2 规则 13/14 的空态与三态判定表列入其验收。此项**不改变** C 的文件边界与交付范围。
 
 ---
 
@@ -568,8 +626,14 @@ CREATE TABLE IF NOT EXISTS ledger_meta (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
--- 约定 key：schema_version、coverage_start_ms、coverage_end_ms
+-- 约定 key（v1.2 起按数据源分开记账，见 §13.2 规则 7）：
+--   schema_version
+--   interest_coverage_start_ms / interest_coverage_end_ms
+--   income_coverage_start_ms   / income_coverage_end_ms
+--   coverage_gaps  -- JSON 文本：[{"source":"interest|income","start_ms":…,"end_ms":…}]
 ```
+
+**表结构在 v1.2 未变**（`consecutive_failure_count` 按 §13.2 规则 10 实时算，不加列；分源 coverage 与空洞都落在既有的 `ledger_meta` 键值表里）。
 
 硬规则：
 
@@ -577,7 +641,13 @@ CREATE TABLE IF NOT EXISTS ledger_meta (
 2. **幂等写入**：利息 `INSERT ... ON CONFLICT(tx_id) DO NOTHING`；合约流水 `ON CONFLICT(income_type, tran_id) DO NOTHING`。**已存在的行绝不覆盖**——`first_seen_run_id` / `first_seen_at_ms` 必须保持首次入库时的值，否则增量统计会把旧行重复计入。
 3. `first_seen_at_ms` 由服务端在写入事务内取一次统一时钟值，同一次 run 写入的所有行共用同一个值。
 4. **永久保留，不做自动清理**（Human 2026-08-04 决定 N4）。体量估算：每小时几十行、一年约几十 MB。
-5. 一次 run 的所有写入（明细 + run 记录 + `ledger_meta`）在**同一个事务**内提交；失败则整体回滚，只留 run 记录里的 `error`。
+5. **事务模型（v1.2 / F1 重写；此前「整栏失败即整体回滚」与「另一栏不受影响」自相矛盾）**：
+   - **run 记录必定落库**。每次 run 结束都写一条 `flow_refresh_runs`（两栏各自的 `status` / `error` / 计数 / `truncated`），该写入**不因任一栏失败而回滚**——否则失败就没有任何痕迹，页面也无从显示「上次刷新失败」。
+   - **明细按栏各自一个事务**：某栏拉取成功 → 「该栏明细 + 该栏 `*_coverage_*` 元数据（必要时 + `coverage_gaps`）」在**同一个事务**内提交；该栏失败 → 该栏零明细、该栏 coverage 不推进，事务不开或整体回滚。
+   - 两栏的事务互不影响：一栏失败不回滚另一栏已提交的明细。
+   - 允许把 run 记录与最后一个成功栏的事务合并提交，但**必须保证两栏处理完毕后 run 记录一定存在**。
+6. **`Decimal` 求和须在显式 `decimal.localcontext()`（`prec` ≥ 40）内进行**，不依赖进程默认精度〔v1.2 / O4〕。
+7. **store 必须为 service（任务 B）提供的查询面**（否则 B 无法实现 §13.2 与 §15.4）：窗口内明细（时间倒序、可限条数）与窗口内全量行（供 `Decimal` 汇总）、按 `first_seen_at_ms > baseline` 的增量行、分源 coverage 与 `coverage_gaps` 的读写、run 记录写入、**按 `finished_at_ms` 倒序的最近 N 条 run 记录**（供 §13.2 规则 10 的连续失败计数与 §15.4 的基准查找）。这些函数的**确切签名由任务 A 在其交接件中列明**〔v1.2 / O3〕。
 
 ---
 
@@ -592,34 +662,45 @@ CREATE TABLE IF NOT EXISTS ledger_meta (
 
 ### 15.2 拉取窗口
 
+**窗口按数据源分别计算**〔v1.2 / F1 连带修订〕——两栏可以独立失败，共用一个窗口起点会让「利息成功、资金费连续失败 3 小时以上」的情形把 `coverage_end` 推过资金费从未拉到的时段，制造静默空洞：
+
 ```text
-window_end   = now
-window_start = max( coverage_end_ms - 3h , now - 30d )
-首次（空库） = kind "backfill"，window_start = now - 30d
+window_end(src)   = now
+window_start(src) = max( <src>_coverage_end_ms - 3h , now - 30d )
+首次（空库）      = kind "backfill"，两源 window_start 均为 now - 30d
 ```
 
 - **必须回拉 3 小时重叠窗口**：资金费会分批到账、也会晚到（原型脚本 `币安套费率策略，逐仓杠杆.js` 因此在发现新资金费后 `Sleep 10s` 再拉一次）。靠幂等键去重，重叠不会产生重复行。
-- 若停机较久导致缺口 > 30 天，窗口截断为最近 30 天，并把 `coverage` 标为不连续（`coverage_start_ms` 不变、页面提示可能有缺口）。**不得**静默留下空洞。
+- **coverage 推进规则（成功栏）**：`<src>_coverage_end_ms = window_end`；`<src>_coverage_start_ms = min(原值, window_start)`（首次为 `window_start`）。
+- **coverage 推进规则（截断栏，`truncated=true`）**〔v1.2 / F6(b)〕：**已拉到的行照常写入**，但 coverage 只推进到**已证明连续覆盖**的位置，且按返回顺序方向不同分别处理：
+  - **左栏（降序，缺口在旧端）**：已拉到的行连续覆盖 `[oldest_fetched_ms, window_end]` → `interest_coverage_end_ms = window_end`；`interest_coverage_start_ms` **不得**前移到 `window_start`，并向 `coverage_gaps` 追加 `{"source":"interest","start_ms":window_start,"end_ms":oldest_fetched_ms}`。
+  - **右栏（升序，缺口在新端）**：已拉到的行连续覆盖 `[window_start, newest_fetched_ms]` → `income_coverage_end_ms = newest_fetched_ms`（**不是** `window_end`）；`income_coverage_start_ms = min(原值, window_start)`；**不记空洞**——下一次 run 从 `newest_fetched_ms - 3h` 继续，逐轮自动追平。
+  - **对评审建议的偏离（须在重评审中确认）**：计划评审 F6(b) 推荐「截断时该栏整栏回滚、不提交明细」。本设计采纳其**意图**（coverage 绝不越过未拉到的数据），但**不采纳整栏丢弃**：丢弃会让同一窗口每轮都截断、每轮都丢弃，数据永远无法落库，形成**不可自愈的永久停滞**；而「提交已拉行 + coverage 只推进到已证明连续处 + 记录空洞」同样杜绝静默空洞，且右栏能逐轮自愈。
+- 若停机较久导致缺口 > 30 天，窗口截断为最近 30 天：`<src>_coverage_start_ms` 保持不变，并向 `coverage_gaps` 追加该源的 `{start_ms: 原 coverage_end_ms, end_ms: now - 30d}`。**不得**静默留下空洞——这正是 §13.2 规则 7 中 `gaps` 存在的原因（v1.1 只有 `start/end/complete` 三字段，无法表达内部空洞）。
 
 ### 15.3 失败与重试
 
 - 某次 run 失败（任一栏 `error`）→ **5 分钟后重试，本小时最多重试 2 次**（共 3 次尝试）；仍失败则等下一个整点。
-- 每次尝试都写一条 `flow_refresh_runs` 记录（含 `error` 短码），页面显示最近一次的状态与连续失败次数。
+- 每次尝试都写一条 `flow_refresh_runs` 记录（含 `error` 短码），页面显示最近一次的状态与连续失败次数；**该计数不落列，由 service 按 §13.2 规则 10 从 run 表实时算**〔v1.2 / F2〕。
 - 进程启动时：若「上次成功 run」距今超过 1 小时（或库为空），立即执行一次 `kind="startup_catchup"`（或 `backfill`）。
+- **`kind="manual"` 的 run 与定时 run 在数据面上完全等价**〔v1.2 / F6(a)〕：同样按 §15.2 计算窗口、同样写明细、**同样推进分源 coverage**（`kind` 如实记为 `manual`）。它与定时 run 的唯一区别是**不参与 §15.4 的基准计算**。
 - **单飞**：`scheduled` / `manual` / `backfill` / `startup_catchup` 共用一把进程级锁，同一时刻只允许一个 run；`POST refresh` 抢不到锁即 `429`。
-- 私有通道未启用或离线模式：**调度器不启动**；`GET flow-log` 仍可读本地历史，`last_run` 反映最后一次真实 run；库为空且从未成功 → 页面显示「私有通道未启用，本地无数据」。
+- 私有通道未启用或离线模式：**调度器不启动**，响应的 `scheduler_enabled` 为 `false`；`GET flow-log` 仍可读本地历史，`last_run` 反映最后一次真实 run（从未有过则为 `null`，见 §13.2 规则 13）；前端按 §13.2 规则 14 的三态判定表渲染。
 
 ### 15.4 「本次新增」的定义（Human 决策 N1 = 方案 c）
 
 ```text
-baseline_ms = 倒数第二次成功 scheduled/startup_catchup run 的 finished_at_ms
+成功 run    = kind ∈ {scheduled, startup_catchup, backfill}
+              且 interest_status == "ok" 且 income_status == "ok"
+baseline_ms = 倒数第二次「成功 run」的 finished_at_ms
 本次新增    = 所有 first_seen_at_ms > baseline_ms 的行
 ```
 
+- **「成功 run」的定义是冻结的**〔v1.2 / F3 + O7〕：`kind` 必须包含 `startup_catchup` 与 `backfill`（否则重启或首次建库后基准要等两个整点才建立，且 A 的 store 查询语义与本节不符）；`manual` **永不**参与基准（Human 决策 N6）。两栏都必须是 `ok`——`disabled` 与任一栏 `error` 都不算成功，因为基准的语义是「上一次我们完整地知道了世界」，部分成功不构成完整知情。
 - 口径是**入库时间**，不是发生时间：这正是「距上一次整点刷新以来，我们新知道了什么」。
 - **手动刷新不移动 `baseline_ms`**（Human 决策 N6 = 方案 c）：手点带进来的行仍落在当前增量窗口内，下一次整点刷新才把基准前移。这样「我现在就要看最新的」不会把统计清零。
-- 页面**必须把基准时刻写在标题上**（「自 10:01 以来新增」），否则这个数字无法自解释。
-- 不足两次成功 scheduled run 时 `delta.complete=false`，前端显示「统计基准建立中」而**不显示数字**。
+- 页面**必须把基准时刻写在标题上**（「自 10:01 以来新增」），否则这个数字无法自解释。若因连续失败导致基准长时间不前移，标题里的时刻会如实变旧——这是正确行为，不是缺陷。
+- **不足两次「成功 run」时 `delta.complete=false` 且 `delta.baseline_ms=null`**，前端显示「统计基准建立中」而**不显示数字**（与 §13.2 规则 11 同一判定，不得出现第二套口径）。
 - 增量分组：利息按 `asset`；合约流水按 `(income_type, asset)`；**再加**资金费按 `symbol` 的分组（Human 决策 N2），且 `symbol` 分组内仍按 `asset` 分列，**永远不跨币种相加**。
 - 稳定参照（N1 方案 c 的另一半）：同时展示「今日累计」（北京时间当日、按**发生时间**归属）与当前时间窗的区间累计。三个数字口径不同，页面必须各自标注清楚。
 
@@ -640,7 +721,8 @@ baseline_ms = 倒数第二次成功 scheduled/startup_catchup run 的 finished_a
 | B | `backend-ledger-schedule-api-v1` | Implementer / `claude_glm`（`zhipu_glm`） | `backend/ledger_flow/service.py`（新）、`backend/ledger_flow/scheduler.py`（新）、`backend/app/server.py`、`backend/services/snapshot_service.py`（仅加只读访问器）、`backend/tests/test_ledger_flow_service.py`（新）、`backend/tests/test_ledger_flow_api.py`（新）、`docs/api/public-market-contract.md` |
 | C | `frontend-dual-ledger-flow-log-v1` | Implementer / `kimi`（`moonshot`） | `frontend/index.html`、`frontend/self-check.js` |
 
-- **零重叠**：三份 Allowed Files 两两不相交。`backend/ledger_flow/__init__.py` 由 A 创建后**只放包 docstring**，B 与 C 都不得再改它；B 一律用子模块路径导入（`from ..ledger_flow import service as ledger_service`）。
+- **零重叠**（指**产品与证据文件**）：三份 Allowed Files 在业务代码、测试、契约文档、交接件与测试输出上两两不相交。`backend/ledger_flow/__init__.py` 由 A 创建后**只放包 docstring**，B 与 C 都不得再改它；B 一律用子模块路径导入（`from ..ledger_flow import service as ledger_service`）。
+- **唯一的共享文件是 `status.json`，属语义例外**〔v1.2 / O2〕：三份 packet 都列了它，但每份只被授权把**自己那一条** `current_task.state` 从 `dispatched` 改成 `reported`，且三个任务串行执行、同一时刻只有一个任务处于 `dispatched`。因此它不构成并发写冲突，也不影响「文件边界可安全分离」的判断。
 - **串行**：A → B → C。B 依赖 A 的 store/domain 接口，C 依赖 B 交付的 HTTP 形状；C 的 self-check 用自带 fetch mock 复刻 §13.2 的形状，**不需要共享 fixture 文件**。
 - 分层理由：`domain.py` 纯函数（归一化/去重/排序/汇总/窗口校验/增量计算），零 I/O、可离线全覆盖；`store.py` 只管 SQLite 与幂等写入；`service.py` 只管拉取编排、run 记录、重试与单飞；`scheduler.py` 只管节拍。`PrivateClient` 只加两个**单页** fetcher，分页循环不进客户端。
 
@@ -683,7 +765,11 @@ node frontend/self-check.js
 - **要求**：fresh 只读会话；模型须与计划作者（`opus5` / `anthropic`）**以及**两个实现 provider（`zhipu_glm`、`moonshot`）全部跨 provider。
 - **推荐模型**：`deepseek`（2026-08-03 同类计划评审有先例）；备选 `codex`（`openai`）或 `grok`（`xai`）。
 - verdict 返回 Planner，**不触碰 `rework_count`**。
-- 必须回答的问题：
+- **第一轮（2026-08-04，deepseek）结论为 `REWORK`**，F1–F6 已在 v1.2 逐条修订（见 §10 修订记录）。重出评审时**必须额外确认三件事**：
+  1. **F6(b) 的偏离**：§15.2 未采纳「截断即整栏丢弃」，改为「提交已拉行 + coverage 只推进到已证明连续处 + 左栏记空洞」，理由是整栏丢弃会造成不可自愈的永久停滞。此偏离是否成立？
+  2. **v1.2 新引入的分源 coverage**（§13.2 规则 7 / §15.2）是否真的消除了「一栏连续失败 >3 小时而另一栏照常推进 coverage」的静默空洞？聚合口径取「两源交集」是否会在正常运行时产生过度告警？
+  3. **空态与三态判定表**（§13.2 规则 13/14）加上新字段 `scheduler_enabled` 后，前端三态是否已确定性可判、无歧义分支？
+- 必须回答的问题（第一轮已全部回答，重出时按 v1.2 复核）：
   1. 「本次新增」按入库时间、且手动刷新不移动基准——这个口径在资金费**分批/延迟到账**下会不会给出误导数字？3 小时重叠窗口够不够？
   2. `coverage` 护栏是否足以防止「本地没拉到」被读成「交易所没发生」？
   3. 幂等键（`txId` / `(incomeType, tranId)`）与「已存在的行绝不覆盖」是否足以保证增量不重复计数？
@@ -699,6 +785,10 @@ node frontend/self-check.js
 - 若同时跑起两个服务进程，两者都会调度（幂等写入不会产生脏数据，但会重复消耗权重，并可能把同一小时的增量拆开）。既有借币服务用 sidecar owner 锁解决同类问题；本轮**不做**该机制，仅在此记录。
 - `REALIZED_PNL` / `TRANSFER` 默认关闭，打开后仅为明细，**不进任何汇总与增量**。
 - 本地库是**账本**不是**权威**：它只反映我们成功拉到的部分。任何对账争议以币安为准。
+- **「尽力而为」的捕获边界**〔v1.2 / O1〕：3 小时重叠窗口只能兜住「可见延迟 ≤ 3 小时」的晚到记录。若某条流水的可见延迟超过 3 小时**且**其发生时间早于当时的 `coverage_end - 3h`，它将**永久不会被拉到，且系统检测不到**（`coverage` 仍显示连续）。实测证据支持 3 小时足够（资金费 4h/8h 结算、原型脚本仅需 `Sleep 10s`），但这条边界是真实存在的，不要把本页当成审计级完备账本。
+- **时钟回拨**〔v1.2 / O6〕：`first_seen_at_ms` 与基准比较用的是墙钟。系统时钟若被回拨，可能出现 `first_seen_at_ms ≤ baseline_ms` 而漏计入「本次新增」（数据仍在库里，只是那一轮的增量数字偏小）。NTP 环境下罕见，本轮不做补偿。
+- **左栏 40 页上限的余量**〔v1.2 / O8〕：40 页 = 4000 行，而 recon 实测 30 天为 1647 行（17 页），余量约 2.3 倍。借款资产数量显著增长后，30 天回补可能触顶并触发 `truncated` 与空洞记录；护栏会如实显示，但届时需要调高上限或分段回补。
+- **C（前端）packet 尚未按 F4 补齐覆盖文案**：见 §13.7 末尾的待办框，需 Bookkeeper 在路由 C 前做一次 pre-dispatch packet correction。
 
 ---
 

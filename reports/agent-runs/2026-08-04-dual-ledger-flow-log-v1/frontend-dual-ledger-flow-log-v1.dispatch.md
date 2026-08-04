@@ -3,7 +3,7 @@ Identity:
 - target_role: `Implementer`
 - target_model: `kimi`
 - provider: `moonshot`
-- status_revision: `3`
+- status_revision: `4`
 - required_skill: `agents/skills/senior-developer.md`
 
 Goal
@@ -16,7 +16,7 @@ Goal
 
 以下为最易出错、必须逐条对照的展示硬规则：
 
-1. **`coverage` 是诚实性护栏，不是装饰**：常驻状态条须显示「本地数据：<coverage.start> 起 · 上次刷新：<last_run 时间>（成功／失败短码中文）· 每小时整点后 1 分钟自动刷新」；`coverage.complete=false` 时追加「本地数据只到 <日期>，更早的没有」。**空结果绝不允许被呈现为「这段时间没有流水」。**
+1. **`coverage` 是诚实性护栏，不是装饰**：常驻状态条须显示「本地数据：<coverage.start> 起 · 上次刷新：<last_run 时间>（成功／失败短码中文）· 每小时整点后 1 分钟自动刷新」；`coverage.pending_tail_ms > 0` 时常驻附注「最近 X 分钟的流水尚未刷新」。「覆盖不完整」按设计 §13.7 分**三种情形**渲染：(a) 起点截断（`window.start < coverage.start`，或 `gaps` 含起点侧空洞）→「本地数据只到 <日期>，更早的没有」；(b) 区间空洞（`coverage.gaps` 与查询窗口相交）→「<区间> 的流水存在未覆盖空洞，未拉取的数据不会被计入」；(c) `coverage.complete=false` 且以上均无 → 按空态判定。空态（没数据是因为没开通道／真没流水）按设计 §13.2 规则 14 的五行判定表（含 `scheduler_enabled`）渲染；`scheduler_enabled=false` 时显示「私有通道未启用，不会自动刷新」（本地有历史数据则照常展示历史）。**空结果绝不允许被呈现为「这段时间没有流水」。** 〔Bookkeeper pre-dispatch correction 2026-08-04：按设计 §13.7 待办框补齐 F4 覆盖文案分情形渲染，不改变本 packet 文件边界与交付范围〕
 2. **增量区块必须自解释**：标题写死基准时刻（「自 <baseline 时刻> 以来新增」）。左栏显示按币种的新增利息；右栏显示按（类型，币种）的新增资金费/手续费，**再加**资金费按合约的排行。`delta.complete=false` 时改显「统计基准建立中」并**不显示数字**。
 3. **三个数字口径不同，必须各自标注**：「本次新增」按**入库时间**、「今日累计」按**发生时间**（北京时间当日）、「区间累计」按当前时间窗；不得混用或相加。
 4. **不排序、不重算汇总、不做二次截断**：后端返回顺序即展示顺序；汇总用后端的 `summary_*` / `delta` / `today`；`row_limit_applied=true` 时显示「共 N 条，显示最近 500 条」（`row_count` 是全量条数）。
@@ -57,7 +57,7 @@ Inputs
 Acceptance Checks
 
 1. 需求 1 落位正确：`#btn-privacy` 位于 `.panel-title` 内标题右侧同一行，`#btn-flow-log` 位于原 `.panel-actions`；`#btn-privacy` 的 id/`aria-pressed`/label/icon/点击行为/localStorage 键与 `#private-pm-source-time` 位置全部未变；既有隐私开关相关 self-check 断言不因移动失效。
-2. 常驻状态条与覆盖提示：显示本地数据起点、上次刷新时间与成功/失败中文；`coverage.complete=false` 时显式提示本地数据边界；空列表与「没拉到」在文案上可区分。
+2. 常驻状态条与覆盖提示：显示本地数据起点、上次刷新时间与成功/失败中文；「覆盖不完整」按 §13.7 分起点截断 / 区间空洞 / pending_tail 三种情形渲染（引用 §13.2 规则 7 与 §13.7 文案行）；空态按 §13.2 规则 14 判定表（含 `scheduler_enabled`）区分「私有通道未启用」与「真无流水」；空列表与「没拉到」在文案上可区分。
 3. 增量区块：标题含基准时刻；左栏按币种、右栏按（类型，币种）、并有资金费按合约的排行；`delta.complete=false` 时显示「统计基准建立中」且无数字；「本次新增 / 今日累计 / 区间累计」三者各自标注口径。
 4. 展示纪律：前端不排序、不重算汇总、不二次截断；`row_limit_applied=true` 时提示全量条数；两栏渲染互不影响。
 5. 交互边界：首次展开发一次 `GET` 且窗口差值为 7 天；切 `近30天` / 应用自定义 / 点刷新各自只发应发的请求（刷新是先 `POST` 后 `GET`）；**类型筛选切换零请求**；加载中按钮禁用且不清空上次成功数据；`429` 有专门文案。
