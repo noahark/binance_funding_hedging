@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 17,
+  "revision": 18,
   "stage_id": "2026-08-04-dual-ledger-flow-log-v1",
   "bookkeeper": "bookkeeper1",
-  "phase": "frontend-meta-layout",
-  "checkpoint": "tab-layout v2 已获 Human 目视验收通过；追加微调：本次新增与今日累计卡片由上下排改左右排（窄屏堆叠）；微调任务 frontend-flow-log-meta-layout-v1 已路由（grok，status_revision=17）；微调确认后提交 v2+微调交付 → 设计 v1.4 → 前后端联调（真实 POST refresh 须授权）→ 统一 review-1+review-2",
+  "phase": "plan-v14-prep",
+  "checkpoint": "前端最终交付已提交 5613c4e（tab-layout v2 + 元数据卡片微调，Human 验收通过，self-check 全绿）；设计 v1.4 任务 plan-v14-layout-final-v1 已路由（opus5，status_revision=18）：把 panel-actions 双按钮 tab、侧栏三项、market-view 内第二看板、卡片左右排落进设计；v1.4 后统一 review-1+review-2（A+B+C，provider 隔离已裁定）",
   "base_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
-  "delivery_sha": "f23368b4f52602c3585453aaf4ff34e665ca8467",
+  "delivery_sha": "5613c4e4d1d3668c04ae5f05e264edb8c0575213",
   "ledger_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "current_task": {
-    "id": "frontend-flow-log-meta-layout-v1",
+    "id": "plan-v14-layout-final-v1",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/frontend-flow-log-meta-layout-v1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/plan-v14-layout-final-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
