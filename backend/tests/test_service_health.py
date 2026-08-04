@@ -260,6 +260,12 @@ class _RunStubService:
         self.start_calls = 0
         self.stop_calls = 0
         self.start_exc = None
+        # Stage 2026-08-04-dual-ledger-flow-log-v1 task B: run() now builds the
+        # LedgerFlowService from ``service.private_client``; expose it so the
+        # stub satisfies that assembly. None -> LedgerFlowService.is_usable() is
+        # False -> the cadence thread does not start (§15.3), which is the
+        # intended path for these run()-lifecycle stubs.
+        self.private_client = None
 
     def start_worker(self):
         self.start_calls += 1
