@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 3,
+  "revision": 4,
   "stage_id": "2026-08-04-dual-ledger-flow-log-v1",
   "bookkeeper": "bookkeeper1",
-  "phase": "plan-review",
-  "checkpoint": "Planner 任务已核验封存（verified）：设计定稿 v1.1（§11–§18）、§7 六问+N1–N7 全部拍板、三份实现 dispatch 就绪（A→B→C 串行）、HIGH_RISK 判定成立；计划评审 packet 已备，等待 Human 启动 deepseek 只读评审",
+  "phase": "plan-rework",
+  "checkpoint": "计划评审已核验封存（verified，verdict=REWORK）：F1–F6 全部 in-range 且附可执行修改要求，不触 rework_count（仍为 0）；REWORK verdict 返回 Planner，修订任务 plan-revise-dual-ledger-flow-log-v1（opus5）已备，修订后按 §17.3 重出计划评审，ACCEPT 后方可路由 backend-ledger-store-fetch-v1",
   "base_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "delivery_sha": null,
   "ledger_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "current_task": {
-    "id": "plan-review-dual-ledger-flow-log-v1",
+    "id": "plan-revise-dual-ledger-flow-log-v1",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/plan-review-dual-ledger-flow-log-v1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/plan-revise-dual-ledger-flow-log-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
