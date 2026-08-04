@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 8,
+  "revision": 9,
   "stage_id": "2026-08-04-dual-ledger-flow-log-v1",
   "bookkeeper": "bookkeeper1",
-  "phase": "frontend-fake-prototype-v2",
-  "checkpoint": "前端 fake v1（grok）已核验封存（verified，self-check 全绿，嵌入版）；Human 查看后提出两点：流水日志改为独立展示页（侧栏导航切换，同借币/开单任务模式）、两栏默认展示最新 20 条；v2 修订任务 frontend-fake-flow-log-v2 已路由（grok，status_revision=8，LOW_RISK 理由已记录）；v2 完成后组织 Human 目视，确认后恢复 A→B→C",
+  "phase": "implementation",
+  "checkpoint": "fake 原型阶段闭环：v2 独立页已核验封存且 Human 目视验收通过（提交 d46523d）；后端任务 A backend-ledger-store-fetch-v1 恢复路由（glm，从 dispatch 重做，status_revision=9）；设计定稿 v1.3（§13.7 独立页布局+默认20条+修订记录）由 Planner 在 C 路由前落定；A→B→C 串行，每份交付后按 HIGH_RISK 走 review-1+review-2",
   "base_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "delivery_sha": null,
   "ledger_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "current_task": {
-    "id": "frontend-fake-flow-log-v2",
-    "state": "reported",
-    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/frontend-fake-flow-log-v2.dispatch.md"
+    "id": "backend-ledger-store-fetch-v1",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/backend-ledger-store-fetch-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
