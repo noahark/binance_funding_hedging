@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 14,
+  "revision": 15,
   "stage_id": "2026-08-04-dual-ledger-flow-log-v1",
   "bookkeeper": "bookkeeper1",
-  "phase": "frontend-tab-layout",
-  "checkpoint": "任务 C 已核验封存（verified，delivery=f23368b，真实 API 接入 + self-check 全绿）；Human 布局反馈：流水日志改为费率行情页内右上角「费率行情|流水日志」双看板 tab 同页切换（功能已认可）；布局修订任务 frontend-flow-log-tab-layout-v1 已路由（grok，status_revision=14）；修订确认后设计落 v1.4 → 前后端联调（真实 POST refresh 须授权）→ 统一 review-1+review-2",
+  "phase": "frontend-tab-layout-v2",
+  "checkpoint": "tab-layout v1（grok）被 Human 验收不合格（按钮误放 .badge-row、侧栏未移除），已回退至任务 C 交付（f23368b），根因为 packet 表述缺陷不触 rework_count；按 Human 重述意图重新设计 v2：费率行情按钮放私有账户 .panel-actions 与 #btn-flow-log 紧邻、移除侧栏 nav-flow-log、流水日志为 market-view 内第二看板；frontend-flow-log-tab-layout-v2 已路由（grok，status_revision=15）；确认后设计 v1.4→联调→统一评审",
   "base_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "delivery_sha": "f23368b4f52602c3585453aaf4ff34e665ca8467",
   "ledger_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "current_task": {
-    "id": "frontend-flow-log-tab-layout-v1",
+    "id": "frontend-flow-log-tab-layout-v2",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/frontend-flow-log-tab-layout-v1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/frontend-flow-log-tab-layout-v2.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
