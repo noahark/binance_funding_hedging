@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 20,
+  "revision": 21,
   "stage_id": "2026-08-04-dual-ledger-flow-log-v1",
   "bookkeeper": "bookkeeper1",
-  "phase": "fix-review1",
-  "checkpoint": "统一 review-1（deepseek）REWORK 已核验封存：F1（server.py 新装配依赖未同步测试桩，破坏 5 个既有测试，全量 1336+5failed）+ F2（scheduler 无单测）；其余九项 pass，new_row_count 已知项确认非缺陷；rework_count 0→1（根因按 F1 命名）；修复任务 fix-review1-dual-ledger-flow-log-v1 已路由（claude_glm，minimal-change-engineer）；修复+全量复测 → review-1 复审 → review-2（sonnet5）",
+  "phase": "review-1-r2",
+  "checkpoint": "修复交付已核验封存（verified，delivery=0c9c4de，全量回归 1351 passed 0 failed，F1 桩修复+F2 单测 10 个，行为零改动）；review-1 复审已路由（deepseek，受审 8c67c59..0c9c4de）；复审 ACCEPT 后走 review-2（sonnet5）；rework_count=1",
   "base_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
-  "delivery_sha": "5613c4e4d1d3668c04ae5f05e264edb8c0575213",
+  "delivery_sha": "0c9c4de77253d4716242867b8c1e8fe42906d790",
   "ledger_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "current_task": {
-    "id": "fix-review1-dual-ledger-flow-log-v1",
-    "state": "reported",
-    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/fix-review1-dual-ledger-flow-log-v1.dispatch.md"
+    "id": "review-1-r2-dual-ledger-flow-log-v1",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/review-1-r2-dual-ledger-flow-log-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
