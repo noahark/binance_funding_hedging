@@ -1,9 +1,9 @@
 Identity:
 - task_id: `plan-dual-ledger-flow-log-v1`
 - target_role: `Planner`
-- target_model: `codex`
-- provider: `openai`
-- status_revision: `1`
+- target_model: `opus5`
+- provider: `anthropic`
+- status_revision: `2`
 - required_skill: `agents/skills/task-planner.md`
 
 Goal
