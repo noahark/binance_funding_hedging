@@ -3,7 +3,7 @@ Identity:
 - target_role: `Implementer`
 - target_model: `claude_glm`
 - provider: `zhipu_glm`
-- status_revision: `4`
+- status_revision: `6`
 - required_skill: `agents/skills/senior-developer.md`
 
 Goal

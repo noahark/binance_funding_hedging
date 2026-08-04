@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 5,
+  "revision": 6,
   "stage_id": "2026-08-04-dual-ledger-flow-log-v1",
   "bookkeeper": "bookkeeper1",
-  "phase": "plan-review-r2",
-  "checkpoint": "修订任务已核验封存（verified）：设计定稿 v1.2（F1–F6 + O1–O8 + 两处具名偏离）、A/B packet 对齐、C packet 未动；重评审 packet plan-review-r2（deepseek，对象=修订增量，含 §17.3 新增三问）已备；三份实现 packet 的 status_revision 已补为 4，C packet 的 F4 覆盖文案 correction 已执行；等待 Human 启动重评审终端",
+  "phase": "implementation",
+  "checkpoint": "重评审已核验封存（verified，verdict=ACCEPT）：两处具名偏离获确认、F1–F6 闭环、N1–N10 观察级不阻塞；实现任务 A backend-ledger-store-fetch-v1 已路由（claude_glm，status_revision=6），A → B → C 串行，每份交付后按 HIGH_RISK 走 review-1 + review-2；等待 Human 启动 A 实现终端",
   "base_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "delivery_sha": null,
   "ledger_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "current_task": {
-    "id": "plan-review-r2-dual-ledger-flow-log-v1",
+    "id": "backend-ledger-store-fetch-v1",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/plan-review-r2-dual-ledger-flow-log-v1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/backend-ledger-store-fetch-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
