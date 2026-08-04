@@ -126,6 +126,7 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
 ## Open Follow-ups
 
 - `[OPEN][DIRECTION-CHANGE][2026-08-04]` **Human 决定暂停后端任务 A，前端先行（fake 原型确认制）**。`backend-ledger-store-fetch-v1`（glm）启动后被 Human 叫停：白名单 + 两个单页 fetcher + 8 个测试的初步改动**未验证、未提交、未建 `ledger_flow/` 包**，已按纪律还原（恢复 A 时从 dispatch 重做，改动要点见 A packet 与设计 §13.6）。改由 `frontend-fake-flow-log-v1`（grok/xai）先行：需求 1 按钮真实调整 + 流水日志面板 fake 假数据原型（形状按设计 §13.2 冻结契约），Human 目视确认后再恢复 A → B → C 真实开发。fake 原型为 LOW_RISK（纯 UI 探针、假数据无资金语义）。后续项：glm 终端若仍在运行需手动停止（Bookkeeper 不控制其他终端）。
+- `[OPEN][HUMAN-DECISION][2026-08-04]` **fake v1 已交付，Human 两点新要求（原型迭代，不触 rework_count）**：(1) 流水日志**改为独立展示页**——不再嵌入费率行情页内「持仓下方」，改为侧栏导航新增「流水日志」入口、切换到干净独立视图（同借币任务/开单任务模式），与费率行情来回切换；(2) 两栏明细**默认展示最新 20 条**。`frontend-fake-flow-log-v2`（grok）按此修订；设计 §13.7 的「嵌入布局」描述待 Human 确认 v2 后由 Planner 统一落 v1.3（当前以 PROJECT_STATE 与本 dispatch 为准）。v2 完成后组织 Human 目视。
 - `[OPEN][FOLLOW-UP][2026-08-04]` **Borrow-interest cumulative accounting is still
   unimplemented; live API recon is done.** Signed GET recon on the private
   read-only key confirmed: ledger source =
