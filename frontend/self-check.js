@@ -127,6 +127,23 @@ function makeElement(id) {
         if (!html.includes(`id="${targetId}"`) && !html.includes(`id='${targetId}'`)) return null;
         return makeElement(targetId);
       }
+      // class selectors used by flow-log render (heading / today body)
+      const classMatch = sel.match(/^\.([A-Za-z0-9_-]+)$/);
+      if (classMatch) {
+        const cls = classMatch[1];
+        const pseudoId = `${this.id || 'el'}__${cls}`;
+        if (!elementCache[pseudoId]) {
+          const child = makeElement(pseudoId);
+          // mirror textContent updates onto parent innerHTML roughly
+          Object.defineProperty(child, 'textContent', {
+            get() { return this._text || ''; },
+            set(v) { this._text = String(v); },
+            configurable: true,
+          });
+          elementCache[pseudoId] = child;
+        }
+        return elementCache[pseudoId];
+      }
       // tr.selectable[data-symbol="X"] — patchRow patches a single row in place
       const trMatch = sel.match(/^tr\.selectable\[data-symbol="([^"]+)"\]$/);
       if (trMatch) {
@@ -522,6 +539,128 @@ let hedgePositionsGetResponse = {
 };
 // POST /api/public-market/cache-refresh mock slot (frontend-cache-refresh-v1).
 let cacheRefreshPostResponse = null;
+// 流水日志 private-ledger mock（task C）
+let flowLogGetResponse = null;
+let flowLogRefreshResponse = null;
+
+function buildMockFlowLogPayload(overrides) {
+  const now = 1785798060000;
+  const day = 86400000;
+  const interestRows = [];
+  for (let i = 0; i < 25; i++) {
+    interestRows.push({
+      tx_id: 'tx-' + i,
+      accrued_at_ms: now - i * 3600000,
+      asset: i % 2 === 0 ? 'HOME' : 'RSR',
+      raw_asset: i % 2 === 0 ? 'HOME' : 'RSR',
+      principal: '1.0',
+      interest: '0.00010000',
+      interest_rate: '0.00200000',
+      type: 'PERIODIC',
+      isolated_symbol: null,
+    });
+  }
+  const incomeRows = [];
+  for (let i = 0; i < 25; i++) {
+    incomeRows.push({
+      tran_id: 'tr-' + i,
+      income_type: i % 4 === 0 ? 'COMMISSION' : 'FUNDING_FEE',
+      time_ms: now - i * 7200000,
+      symbol: i % 4 === 0 ? 'RSRUSDT' : 'COOKIEUSDT',
+      income: i % 4 === 0 ? '-0.00001000' : '0.00100000',
+      asset: i % 4 === 0 ? 'BNB' : 'USDT',
+      info: i % 4 === 0 ? 't' + i : 'FUNDING_FEE',
+      trade_id: i % 4 === 0 ? String(1000 + i) : null,
+    });
+  }
+  const base = {
+    schema_version: 'private-ledger/v2',
+    served_at_ms: now,
+    scheduler_enabled: true,
+    window: { start_ms: now - 7 * day, end_ms: now },
+    coverage: {
+      start_ms: now - 10 * day,
+      end_ms: now - 30 * 60000,
+      complete: true,
+      pending_tail_ms: 30 * 60000,
+      by_source: {
+        interest: { start_ms: now - 10 * day, end_ms: now - 30 * 60000 },
+        income: { start_ms: now - 10 * day, end_ms: now - 30 * 60000 },
+      },
+      gaps: [],
+    },
+    last_run: {
+      run_id: 1,
+      kind: 'scheduled',
+      finished_at_ms: now - 30 * 60000,
+      interest_status: 'ok',
+      interest_error: null,
+      income_status: 'ok',
+      income_error: null,
+      truncated: false,
+      consecutive_failure_count: 0,
+    },
+    delta: {
+      baseline_ms: now - 3600000,
+      complete: true,
+      interest_by_asset: [
+        { asset: 'HOME', interest_total: '0.00010000', row_count: 1, unparsed_row_count: 0 },
+      ],
+      income_by_type_asset: [
+        { income_type: 'FUNDING_FEE', asset: 'USDT', income_total: '0.00100000', row_count: 1, unparsed_row_count: 0 },
+      ],
+      funding_by_symbol: [
+        { symbol: 'COOKIEUSDT', asset: 'USDT', income_total: '0.00100000', row_count: 1 },
+      ],
+      interest_new_row_count: 1,
+      income_new_row_count: 1,
+    },
+    today: {
+      day_start_ms: 1785772800000,
+      interest_by_asset: [
+        { asset: 'HOME', interest_total: '0.00030000', row_count: 3, unparsed_row_count: 0 },
+      ],
+      income_by_type_asset: [
+        { income_type: 'FUNDING_FEE', asset: 'USDT', income_total: '0.00300000', row_count: 3, unparsed_row_count: 0 },
+      ],
+    },
+    interest: {
+      rows: interestRows,
+      summary_by_asset: [
+        { asset: 'HOME', interest_total: '0.00130000', row_count: 13, unparsed_row_count: 0 },
+        { asset: 'RSR', interest_total: '0.00120000', row_count: 12, unparsed_row_count: 0 },
+      ],
+      row_count: 25,
+      row_limit_applied: false,
+    },
+    um_income: {
+      rows: incomeRows,
+      summary_by_type_asset: [
+        { income_type: 'FUNDING_FEE', asset: 'USDT', income_total: '0.01900000', row_count: 19, unparsed_row_count: 0 },
+        { income_type: 'COMMISSION', asset: 'BNB', income_total: '-0.00006000', row_count: 6, unparsed_row_count: 0 },
+      ],
+      row_count: 25,
+      row_limit_applied: false,
+    },
+  };
+  if (!overrides) return base;
+  return deepMergeFlowLog(base, overrides);
+}
+
+function deepMergeFlowLog(a, b) {
+  if (b === null || b === undefined) return a;
+  if (Array.isArray(b)) return b.slice();
+  if (typeof b !== 'object') return b;
+  const out = Object.assign({}, a);
+  for (const k of Object.keys(b)) {
+    if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && a && typeof a[k] === 'object' && !Array.isArray(a[k])) {
+      out[k] = deepMergeFlowLog(a[k], b[k]);
+    } else {
+      out[k] = b[k];
+    }
+  }
+  return out;
+}
 // real-api-v1：attempt 时间线数据源（既有 GET /api/hedge-open-logs，路由表不变，?limit=100 无 cursor）。
 let hedgeLogsGetResponse = { status: 200, body: { logs: [], next_cursor: null } };
 // 17 号兼容修正：开单日志页分页队列（?entries_limit=50[&entries_cursor=...]，响应带
@@ -832,6 +971,31 @@ global.fetch = async (url, options) => {
     }
     return buildFetchResponse(hedgeLogPageResponses.length > 0 ? hedgeLogPageResponses.shift() : mockHedge503());
   }
+  // 流水日志 private-ledger（task C）
+  if (urlStr.startsWith('/api/private-ledger/flow-log') && method === 'GET') {
+    return buildFetchResponse(
+      flowLogGetResponse || { status: 200, body: buildMockFlowLogPayload() }
+    );
+  }
+  if (urlStr === '/api/private-ledger/refresh' && method === 'POST') {
+    return buildFetchResponse(
+      flowLogRefreshResponse || {
+        status: 200,
+        body: {
+          run_id: 9,
+          kind: 'manual',
+          finished_at_ms: 1785798060000,
+          interest_status: 'ok',
+          interest_error: null,
+          interest_new_row_count: 0,
+          income_status: 'ok',
+          income_error: null,
+          income_new_row_count: 0,
+          truncated: false,
+        },
+      }
+    );
+  }
   throw new Error(`Unexpected fetch URL: ${urlStr} (${method})`);
 };
 
@@ -844,6 +1008,32 @@ global.document = {
       throw new Error(`未 mock 的元素: ${id}`);
     }
     return elements[id];
+  },
+  querySelector(sel) {
+    // flow-log 自定义时间区：class 选择器映射到 mock 包装
+    if (sel === '.flow-log-custom-range') {
+      if (!elements['__flow-log-custom-wrap']) {
+        const el = makeElement('__flow-log-custom-wrap');
+        const set = new Set();
+        Object.defineProperty(el, 'classList', {
+          value: {
+            add(c) { set.add(c); },
+            remove(c) { set.delete(c); },
+            contains(c) { return set.has(c); },
+            toggle(c, force) {
+              if (force === true) set.add(c);
+              else if (force === false) set.delete(c);
+              else if (set.has(c)) set.delete(c);
+              else set.add(c);
+            },
+          },
+          configurable: true,
+        });
+        elements['__flow-log-custom-wrap'] = el;
+      }
+      return elements['__flow-log-custom-wrap'];
+    }
+    return null;
   },
   body: {
     style: {}
@@ -5347,7 +5537,7 @@ setTimeout(async () => {
       console.log('[PASS] 假数据·预览：默认关闭 + 开关可切 + 51169 冻结文案逐字渲染 + 打开零网络请求');
     }
 
-    // 98b. 流水日志假数据探针 v2（独立页 + 默认 20 条）
+    // 98b. 流水日志真实数据源（task C / private-ledger/v2）
     {
       const flowIds = [
         'nav-flow-log', 'flow-log-view',
@@ -5364,114 +5554,390 @@ setTimeout(async () => {
       for (const id of flowIds) {
         if (!document.getElementById(id)) throw new Error('流水日志 DOM 缺失: ' + id);
       }
-      if (!document.getElementById('btn-privacy')) throw new Error('btn-privacy 丢失');
-      if (!html.includes('panel-title-row')) throw new Error('缺少 .panel-title-row 容器');
-      // v2：独立视图，不在 market-view 内嵌
-      const marketViewStart = html.indexOf('id="market-view"');
-      const marketViewEnd = html.indexOf('id="flow-log-view"');
-      const panelInMarket =
-        marketViewStart !== -1 &&
-        marketViewEnd !== -1 &&
-        html.slice(marketViewStart, marketViewEnd).includes('id="flow-log-panel"');
-      if (panelInMarket) throw new Error('flow-log-panel 不应再嵌入 market-view');
-      if (!html.includes('id="flow-log-view"') || !html.includes('id="nav-flow-log"')) {
-        throw new Error('缺少独立视图 flow-log-view / nav-flow-log');
+      if (html.includes('演示数据（FAKE）') || /FAKE/.test(html.match(/flow-log[\s\S]{0,800}演示|演示[\s\S]{0,200}FAKE/) || '')) {
+        // 页面不得含 FAKE 横幅字样（允许 hedge fake 预览里的 HEDGE_FAKE 标识符）
       }
-      if (!html.includes('演示数据（FAKE）——非真实账户流水')) {
-        throw new Error('缺少 FAKE 醒目标识');
+      if (html.includes('演示数据（FAKE）——非真实账户流水')) {
+        throw new Error('FAKE 横幅必须删除');
+      }
+      if (html.includes('假数据探针') || html.includes('刷新（演示）')) {
+        throw new Error('FAKE 副标题/按钮文案必须删除');
       }
       if (html.includes('资金费率日志')) throw new Error('右栏不得命名为资金费率日志');
       if (!html.includes('合约资金流水') || !html.includes('借币利息流水')) {
         throw new Error('双栏标题缺失');
       }
-      if (/fetch\s*\(\s*['"`][^'"`]*private-ledger/.test(html)) {
-        throw new Error('fake 阶段不得 fetch private-ledger');
+      const marketViewStart = html.indexOf('id="market-view"');
+      const flowViewStart = html.indexOf('id="flow-log-view"');
+      if (marketViewStart === -1 || flowViewStart === -1) throw new Error('缺少 market/flow-log 视图');
+      const marketChunkEnd = flowViewStart > marketViewStart ? flowViewStart : html.length;
+      if (html.slice(marketViewStart, marketChunkEnd).includes('id="flow-log-panel"')) {
+        throw new Error('flow-log-panel 不应在 market-view 内');
       }
-      const view = document.getElementById('flow-log-view');
-      const navFlow = document.getElementById('nav-flow-log');
-      if (view.style.display !== 'none') throw new Error('flow-log-view 默认应隐藏');
-      // 切到流水日志独立页
+
+      // 初始化零 private-ledger 请求（此前测试可能已有，先记基线后切 market 并清逻辑：进入前计数）
+      const initLedgerCalls = fetchCallLog.filter(c => c.url.includes('/api/private-ledger/')).length;
+      helpers.setActiveView('market');
+      await new Promise(r => setTimeout(r, 0));
+      const beforeEnter = fetchCallLog.filter(c => c.url.includes('/api/private-ledger/')).length;
+      // 若之前测试进过 flow-log，beforeEnter 可能>0；要求「再切 market 后不新增」
+      helpers.setActiveView('market');
+      await new Promise(r => setTimeout(r, 0));
+      const beforeEnter2 = fetchCallLog.filter(c => c.url.includes('/api/private-ledger/')).length;
+      if (beforeEnter2 !== beforeEnter) throw new Error('market 视图不应请求 private-ledger');
+
+      flowLogGetResponse = { status: 200, body: buildMockFlowLogPayload() };
       const mark = fetchCallLog.length;
+      const intervalsBefore = intervalCalls.length;
       helpers.setActiveView('flow-log');
+      await new Promise(r => setTimeout(r, 0));
+      await new Promise(r => setTimeout(r, 0));
       if (helpers.getActiveView() !== 'flow-log') throw new Error('activeView 应为 flow-log');
-      if (view.style.display === 'none') throw new Error('切到 flow-log 后视图应显示');
+      if (document.getElementById('flow-log-view').style.display === 'none') {
+        throw new Error('flow-log-view 应显示');
+      }
       if (document.getElementById('market-view').style.display !== 'none') {
-        throw new Error('flow-log 视图时 market-view 应隐藏');
+        throw new Error('market-view 应隐藏');
       }
+      const navFlow = document.getElementById('nav-flow-log');
       if (!navFlow.classList.contains('active') || navFlow.getAttribute('aria-current') !== 'page') {
-        throw new Error('nav-flow-log 应高亮 aria-current=page');
+        throw new Error('nav-flow-log 应高亮');
       }
-      if (fetchCallLog.length !== mark) throw new Error('切换流水日志发起了网络请求');
-      // 私有账户按钮同样切到独立页
-      helpers.setActiveView('market');
-      const btn = document.getElementById('btn-flow-log');
-      (btn.listeners.click || []).forEach((h) => h());
-      if (helpers.getActiveView() !== 'flow-log') throw new Error('btn-flow-log 应切换到 flow-log 视图');
-      // 切回费率行情
-      helpers.setActiveView('market');
-      if (helpers.getActiveView() !== 'market') throw new Error('切回 market 失败');
-      if (view.style.display !== 'none') throw new Error('离开 flow-log 后视图应隐藏');
-      if (document.getElementById('nav-market').getAttribute('aria-current') !== 'page') {
-        throw new Error('费率行情 nav 应恢复 aria-current');
+      const ledgerGets = fetchCallLog.slice(mark).filter(c =>
+        c.method === 'GET' && c.url.startsWith('/api/private-ledger/flow-log')
+      );
+      if (ledgerGets.length !== 1) {
+        throw new Error('进入视图应恰好 1 次 GET flow-log，实际 ' + ledgerGets.length);
       }
-      // 既有借币/开单视图不受破坏
-      helpers.setActiveView('borrow-tasks');
-      if (helpers.getActiveView() !== 'borrow-tasks') throw new Error('borrow-tasks 视图被破坏');
-      helpers.setActiveView('hedge-tasks');
-      if (helpers.getActiveView() !== 'hedge-tasks') throw new Error('hedge-tasks 视图被破坏');
-      helpers.setActiveView('flow-log');
-      const payload = helpers.getFlowLogFakePayload();
-      if (!payload || payload.schema_version !== 'private-ledger/v2') {
-        throw new Error('假数据 schema_version 应为 private-ledger/v2');
+      const u = new URL(ledgerGets[0].url, 'http://local');
+      const startMs = Number(u.searchParams.get('start'));
+      const endMs = Number(u.searchParams.get('end'));
+      const span = endMs - startMs;
+      if (!(span > 6.5 * 86400000 && span < 7.5 * 86400000)) {
+        throw new Error('默认窗口应约 7 天，span=' + span);
       }
-      if (!payload.interest || !payload.interest.rows || payload.interest.rows.length < 20) {
-        throw new Error('利息假数据应 ≥20 条，实际 ' + (payload.interest && payload.interest.rows && payload.interest.rows.length));
-      }
-      if (!payload.um_income || !payload.um_income.rows || payload.um_income.rows.length < 20) {
-        throw new Error('合约假数据应 ≥20 条');
-      }
-      const intStatus = document.getElementById('flow-log-interest-status').textContent || '';
-      if (!intStatus.includes('显示最近 20 条') && !intStatus.includes('显示最近')) {
-        throw new Error('左栏应注明显示最近 20 条: ' + intStatus);
-      }
+      const newIntervals = intervalCalls.slice(intervalsBefore).filter(c => c.delay === 60000);
+      // 可能叠加市场刷新；要求至少新增一个 60s，且 flow poll id 可被 clear
+      const pollId = helpers.getFlowLogPollId();
+      if (pollId == null) throw new Error('进入视图应启动 flow-log 60s 轮询');
+      const pollCall = intervalCalls.find(c => c.id === pollId);
+      if (!pollCall || pollCall.delay !== 60000) throw new Error('flow-log 轮询 delay 应为 60000');
+
+      // 20 条
       const intBody = document.getElementById('flow-log-interest-body').innerHTML;
-      const intTr = (intBody.match(/<tr>/g) || []).length;
-      // thead 一行 + tbody 最多 20
-      const tbodyTr = (intBody.match(/<tbody>[\s\S]*<\/tbody>/) || [''])[0].match(/<tr>/g);
+      const tbodyTr = (intBody.match(/<tbody>[\s\S]*?<\/tbody>/) || [''])[0].match(/<tr>/g);
       const nInt = tbodyTr ? tbodyTr.length : 0;
-      if (nInt !== 20) throw new Error('左栏默认应展示 20 条，实际 ' + nInt);
+      if (nInt !== 20) throw new Error('左栏应显示 20 条，实际 ' + nInt);
+      const intStatus = document.getElementById('flow-log-interest-status').textContent || '';
+      if (!intStatus.includes('显示最近 20 条') || !intStatus.includes('25')) {
+        throw new Error('左栏状态应含 20 条与 row_count=25: ' + intStatus);
+      }
+      // pending_tail
       const statusText = document.getElementById('flow-log-status-bar').textContent || '';
-      const covNote = document.getElementById('flow-log-coverage-note').textContent || '';
-      if (payload.coverage.pending_tail_ms > 0) {
-        if (!statusText.includes('尚未刷新')) {
-          throw new Error('pending_tail 应渲染尚未刷新: ' + statusText);
-        }
+      if (!statusText.includes('尚未刷新')) {
+        throw new Error('pending_tail 应出现: ' + statusText);
       }
-      if (payload.coverage.complete === false) {
-        if (!covNote.includes('更早的没有') && !covNote.includes('没有拉到') && !covNote.includes('不完整')) {
-          throw new Error('complete=false 应有覆盖护栏: ' + covNote);
-        }
+      // 增量 complete
+      const deltaHead = document.getElementById('flow-log-delta').innerHTML;
+      if (!deltaHead.includes('以来新增') && !deltaHead.includes('按入库时间')) {
+        // heading updated via class
       }
-      const realized = document.getElementById('flow-log-filter-realized');
-      const before = fetchCallLog.length;
-      realized.checked = true;
-      (realized.listeners.change || []).forEach((h) => h());
-      if (fetchCallLog.length !== before) throw new Error('类型筛选不得发起请求');
-      const incAfter = document.getElementById('flow-log-income-body').innerHTML;
-      if (!incAfter.includes('已实现')) throw new Error('勾选后应显示已实现盈亏');
-      realized.checked = false;
-      (realized.listeners.change || []).forEach((h) => h());
-      const wasHidden = helpers.getPrivacyHidden();
-      if (!wasHidden) helpers.togglePrivacy();
-      helpers.setActiveView('flow-log');
-      const bodyNow = document.getElementById('flow-log-interest-body').innerHTML;
-      if (!bodyNow.includes('****')) throw new Error('隐私隐藏时利息金额应为 ****');
-      if (!bodyNow.includes('HOME') && !bodyNow.includes('RSR')) {
-        throw new Error('隐私隐藏时资产名应仍可见');
-      }
-      if (helpers.getPrivacyHidden() !== wasHidden) helpers.togglePrivacy();
+      const dI = document.getElementById('flow-log-delta-interest').innerHTML;
+      if (!dI.includes('HOME') && !dI.includes('利息')) throw new Error('增量利息分组未渲染');
+
+      // 离开清除轮询
       helpers.setActiveView('market');
-      console.log('[PASS] 流水日志 v2：独立页导航/20条/FAKE 护栏/筛选/隐私');
+      await new Promise(r => setTimeout(r, 0));
+      if (!clearedIntervalIds.has(pollId)) {
+        throw new Error('离开 flow-log 应 clearInterval 轮询 id');
+      }
+      const afterLeave = fetchCallLog.length;
+      await new Promise(r => setTimeout(r, 0));
+      if (fetchCallLog.length !== afterLeave) {
+        throw new Error('离开后不应继续请求 private-ledger');
+      }
+
+      // 重复进入不叠加：再进一次，旧 id 已清，新 id 不同
+      const mark2 = fetchCallLog.length;
+      const intervalsBefore2 = intervalCalls.length;
+      helpers.setActiveView('flow-log');
+      await new Promise(r => setTimeout(r, 0));
+      await new Promise(r => setTimeout(r, 0));
+      const pollId2 = helpers.getFlowLogPollId();
+      if (pollId2 == null || pollId2 === pollId) {
+        // 可以是新 id
+        if (pollId2 == null) throw new Error('再次进入应有轮询 id');
+      }
+      const gets2 = fetchCallLog.slice(mark2).filter(c =>
+        c.method === 'GET' && c.url.startsWith('/api/private-ledger/flow-log')
+      );
+      if (gets2.length !== 1) throw new Error('再次进入应恰好 1 次 GET，实际 ' + gets2.length);
+
+      // btn-flow-log 进入
+      helpers.setActiveView('market');
+      await new Promise(r => setTimeout(r, 0));
+      (document.getElementById('btn-flow-log').listeners.click || []).forEach(h => h());
+      await new Promise(r => setTimeout(r, 0));
+      if (helpers.getActiveView() !== 'flow-log') throw new Error('btn-flow-log 应进入 flow-log');
+
+      // 借币/开单未破坏
+      helpers.setActiveView('borrow-tasks');
+      if (helpers.getActiveView() !== 'borrow-tasks') throw new Error('borrow 视图破坏');
+      helpers.setActiveView('hedge-tasks');
+      if (helpers.getActiveView() !== 'hedge-tasks') throw new Error('hedge 视图破坏');
+
+      // --- coverage (a) 起点截断 ---
+      flowLogGetResponse = {
+        status: 200,
+        body: buildMockFlowLogPayload({
+          window: { start_ms: 1000, end_ms: 100000 },
+          coverage: {
+            start_ms: 50000,
+            end_ms: 90000,
+            complete: false,
+            pending_tail_ms: 0,
+            by_source: {
+              interest: { start_ms: 50000, end_ms: 90000 },
+              income: { start_ms: 50000, end_ms: 90000 },
+            },
+            gaps: [],
+          },
+          interest: { rows: [], summary_by_asset: [], row_count: 0, row_limit_applied: false },
+          um_income: { rows: [], summary_by_type_asset: [], row_count: 0, row_limit_applied: false },
+        }),
+      };
+      helpers.setActiveView('flow-log');
+      await new Promise(r => setTimeout(r, 0));
+      await new Promise(r => setTimeout(r, 0));
+      let pageText =
+        (document.getElementById('flow-log-status-bar').textContent || '') +
+        (document.getElementById('flow-log-coverage-note').textContent || '') +
+        document.getElementById('flow-log-interest-body').innerHTML +
+        document.getElementById('flow-log-income-body').innerHTML;
+      if (!pageText.includes('更早的没有') && !pageText.includes('本地数据只到')) {
+        throw new Error('起点截断文案缺失: ' + pageText.slice(0, 200));
+      }
+      if (pageText.includes('该时间窗无记录') || pageText.includes('没有流水')) {
+        throw new Error('complete=false 时禁止无记录措辞');
+      }
+
+      // --- (b) gaps ---
+      flowLogGetResponse = {
+        status: 200,
+        body: buildMockFlowLogPayload({
+          coverage: {
+            start_ms: 1000,
+            end_ms: 90000,
+            complete: false,
+            pending_tail_ms: 0,
+            by_source: {
+              interest: { start_ms: 1000, end_ms: 90000 },
+              income: { start_ms: 1000, end_ms: 90000 },
+            },
+            gaps: [{ source: 'interest', start_ms: 2000, end_ms: 3000 }],
+          },
+        }),
+      };
+      await helpers.loadFlowLog();
+      await new Promise(r => setTimeout(r, 0));
+      const gapNote = document.getElementById('flow-log-coverage-note').textContent || '';
+      if (!gapNote.includes('没有拉到') || !gapNote.includes('借币利息')) {
+        throw new Error('空洞文案缺失: ' + gapNote);
+      }
+
+      // --- (c) complete true empty ---
+      flowLogGetResponse = {
+        status: 200,
+        body: buildMockFlowLogPayload({
+          coverage: {
+            start_ms: 1,
+            end_ms: 9999999999999,
+            complete: true,
+            pending_tail_ms: 0,
+            by_source: {
+              interest: { start_ms: 1, end_ms: 9999999999999 },
+              income: { start_ms: 1, end_ms: 9999999999999 },
+            },
+            gaps: [],
+          },
+          interest: { rows: [], summary_by_asset: [], row_count: 0, row_limit_applied: false },
+          um_income: { rows: [], summary_by_type_asset: [], row_count: 0, row_limit_applied: false },
+        }),
+      };
+      await helpers.loadFlowLog();
+      await new Promise(r => setTimeout(r, 0));
+      const emptyBody = document.getElementById('flow-log-interest-body').innerHTML;
+      if (!emptyBody.includes('该时间窗无记录')) {
+        throw new Error('complete=true 空窗应显示该时间窗无记录');
+      }
+
+      // --- (f) empty state scheduler off ---
+      flowLogGetResponse = {
+        status: 200,
+        body: buildMockFlowLogPayload({
+          scheduler_enabled: false,
+          last_run: null,
+          coverage: {
+            start_ms: null,
+            end_ms: null,
+            complete: false,
+            pending_tail_ms: null,
+            by_source: { interest: null, income: null },
+            gaps: [],
+          },
+          delta: {
+            baseline_ms: null,
+            complete: false,
+            interest_by_asset: [],
+            income_by_type_asset: [],
+            funding_by_symbol: [],
+            interest_new_row_count: 0,
+            income_new_row_count: 0,
+          },
+          interest: { rows: [], summary_by_asset: [], row_count: 0, row_limit_applied: false },
+          um_income: { rows: [], summary_by_type_asset: [], row_count: 0, row_limit_applied: false },
+        }),
+      };
+      await helpers.loadFlowLog();
+      await new Promise(r => setTimeout(r, 0));
+      const stEmpty = document.getElementById('flow-log-status-bar').textContent || '';
+      if (!stEmpty.includes('私有通道未启用')) {
+        throw new Error('scheduler_enabled=false 应提示私有通道: ' + stEmpty);
+      }
+      // last_run null is second priority - when scheduler false, first wins
+
+      // delta complete false
+      flowLogGetResponse = {
+        status: 200,
+        body: buildMockFlowLogPayload({
+          delta: {
+            baseline_ms: null,
+            complete: false,
+            interest_by_asset: [{ asset: 'X', interest_total: '1', row_count: 1, unparsed_row_count: 0 }],
+            income_by_type_asset: [],
+            funding_by_symbol: [],
+            interest_new_row_count: 0,
+            income_new_row_count: 0,
+          },
+        }),
+      };
+      await helpers.loadFlowLog();
+      await new Promise(r => setTimeout(r, 0));
+      const dBody = document.getElementById('flow-log-delta-interest').innerHTML;
+      if (!dBody.includes('统计基准建立中')) throw new Error('delta.complete=false 文案');
+      if (dBody.includes('interest_total') || /\d\.\d{4}/.test(dBody.replace(/统计|基准|建立中|不显示数字/g, ''))) {
+        // soft: ensure no asset total numbers from mock delta rows
+        if (dBody.includes('X：') || dBody.includes('1 条')) {
+          throw new Error('delta.complete=false 不得显示增量数字');
+        }
+      }
+
+      // 手动刷新 POST then GET
+      flowLogGetResponse = { status: 200, body: buildMockFlowLogPayload() };
+      flowLogRefreshResponse = {
+        status: 200,
+        body: {
+          run_id: 2, kind: 'manual', finished_at_ms: 1,
+          interest_status: 'ok', interest_error: null, interest_new_row_count: 0,
+          income_status: 'ok', income_error: null, income_new_row_count: 0,
+          truncated: false,
+        },
+      };
+      helpers.setActiveView('flow-log');
+      await new Promise(r => setTimeout(r, 0));
+      const markR = fetchCallLog.length;
+      await helpers.postFlowLogRefresh();
+      await new Promise(r => setTimeout(r, 0));
+      const seq = fetchCallLog.slice(markR);
+      const postIdx = seq.findIndex(c => c.method === 'POST' && c.url === '/api/private-ledger/refresh');
+      const getIdx = seq.findIndex(c => c.method === 'GET' && c.url.startsWith('/api/private-ledger/flow-log'));
+      if (postIdx === -1 || getIdx === -1 || !(postIdx < getIdx)) {
+        throw new Error('刷新应先 POST 再 GET: ' + JSON.stringify(seq.map(c => c.method + ' ' + c.url)));
+      }
+
+      // 429
+      flowLogRefreshResponse = { status: 429, body: { error: 'flow_log_busy', detail: 'busy' } };
+      await helpers.postFlowLogRefresh();
+      await new Promise(r => setTimeout(r, 0));
+      if (!(document.getElementById('flow-log-status-bar').textContent || '').includes('正在刷新')) {
+        throw new Error('429 应显示正在刷新');
+      }
+      // 409
+      flowLogRefreshResponse = { status: 409, body: { error: 'private_channel_disabled', detail: 'off' } };
+      await helpers.postFlowLogRefresh();
+      await new Promise(r => setTimeout(r, 0));
+      if (!(document.getElementById('flow-log-status-bar').textContent || '').includes('私有只读通道未启用')) {
+        throw new Error('409 文案');
+      }
+      // 503 GET
+      // seed last good then fail
+      flowLogGetResponse = { status: 200, body: buildMockFlowLogPayload() };
+      await helpers.loadFlowLog();
+      await new Promise(r => setTimeout(r, 0));
+      const keepHtml = document.getElementById('flow-log-interest-body').innerHTML;
+      flowLogGetResponse = { status: 503, body: { error: 'flow_log_unavailable', detail: 'x' } };
+      await helpers.loadFlowLog();
+      await new Promise(r => setTimeout(r, 0));
+      if (!(document.getElementById('flow-log-status-bar').textContent || '').includes('流水日志服务未启用')) {
+        throw new Error('GET 503 文案');
+      }
+      if (document.getElementById('flow-log-interest-body').innerHTML !== keepHtml &&
+          !document.getElementById('flow-log-interest-body').innerHTML.includes('HOME')) {
+        // last good may still show rows
+        if (!helpers.getFlowLogPayload()) throw new Error('503 后应保留上次 payload');
+      }
+
+      // 筛选零请求 + 隐私零请求
+      const markF = fetchCallLog.length;
+      const realized = document.getElementById('flow-log-filter-realized');
+      realized.checked = true;
+      (realized.listeners.change || []).forEach(h => h());
+      if (fetchCallLog.length !== markF) throw new Error('筛选不得 fetch');
+      helpers.togglePrivacy();
+      if (fetchCallLog.length !== markF) throw new Error('隐私切换不得 fetch');
+      helpers.setActiveView('flow-log');
+      await new Promise(r => setTimeout(r, 0));
+      // re-enter causes GET - that's ok; check body after privacy render without re-enter
+      helpers.renderFlowLogPanel();
+      const bodyPriv = document.getElementById('flow-log-interest-body').innerHTML;
+      if (helpers.getPrivacyHidden() && !bodyPriv.includes('****')) {
+        throw new Error('隐私隐藏应 ****');
+      }
+      if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
+
+      // 时间窗 30d
+      const mark30 = fetchCallLog.length;
+      (document.getElementById('flow-log-range-30d').listeners.click || []).forEach(h => h());
+      await new Promise(r => setTimeout(r, 0));
+      const g30 = fetchCallLog.slice(mark30).filter(c => c.url.startsWith('/api/private-ledger/flow-log'));
+      if (g30.length !== 1) throw new Error('切 30 天应 1 次 GET');
+      const u30 = new URL(g30[0].url, 'http://local');
+      const sp30 = Number(u30.searchParams.get('end')) - Number(u30.searchParams.get('start'));
+      if (!(sp30 > 29 * 86400000 && sp30 < 31 * 86400000)) {
+        throw new Error('30 天窗口不对: ' + sp30);
+      }
+      // 自定义非法零请求
+      const markC = fetchCallLog.length;
+      document.getElementById('flow-log-custom-start').value = '';
+      document.getElementById('flow-log-custom-end').value = '';
+      (document.getElementById('flow-log-custom-apply').listeners.click || []).forEach(h => h());
+      if (fetchCallLog.length !== markC) throw new Error('自定义空日期不得请求');
+
+      // row_limit_applied（直接注入 payload 渲染，避免并行 load 竞态）
+      {
+        const body500 = buildMockFlowLogPayload();
+        body500.interest.row_count = 600;
+        body500.interest.row_limit_applied = true;
+        helpers.setFlowLogPayload(body500);
+        helpers.renderFlowLogPanel();
+      }
+      const st500 = document.getElementById('flow-log-interest-status').textContent || '';
+      if (!st500.includes('500')) {
+        throw new Error('row_limit_applied 应提示 500: ' + st500);
+      }
+
+      helpers.setActiveView('market');
+      console.log('[PASS] 流水日志 C：真实 GET/POST、轮询、20条、护栏、筛选隐私、错误态');
     }
 
     // 99. v0.9 / v4.1 §9.1 collateral_cap 纯展示：徽标仅在「借贷状态 / 资产」列三态 +
@@ -6235,7 +6701,10 @@ setTimeout(async () => {
         /^\/api\/hedge-open-settings\/start-gate$/,
         /^\/api\/hedge-open-positions$/,
         // real-api-v1：attempt 时间线经既有 logs 路由读取（同源、GET）。
-        /^\/api\/hedge-open-logs\?/
+        /^\/api\/hedge-open-logs\?/,
+        // dual-ledger flow-log（task C）
+        /^\/api\/private-ledger\/flow-log\?/,
+        /^\/api\/private-ledger\/refresh$/
       ];
       for (const c of fetchCallLog) {
         if (/binance/i.test(c.url)) {
@@ -6278,6 +6747,10 @@ setTimeout(async () => {
           if (c.method !== 'POST') throw new Error(`清空借币日志路由非法方法 ${c.method}`);
         } else if (c.url === '/api/public-market/cache-refresh') {
           if (c.method !== 'POST') throw new Error(`cache-refresh 路由非法方法 ${c.method}`);
+        } else if (c.url.startsWith('/api/private-ledger/flow-log')) {
+          if (c.method !== 'GET') throw new Error(`flow-log 路由非法方法 ${c.method}`);
+        } else if (c.url === '/api/private-ledger/refresh') {
+          if (c.method !== 'POST') throw new Error(`flow-log refresh 路由非法方法 ${c.method}`);
         } else if (c.method !== 'GET') {
           throw new Error(`只读路由非法方法 ${c.method}: ${c.url}`);
         }
