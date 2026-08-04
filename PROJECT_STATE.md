@@ -123,8 +123,10 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
   `kind=task_paused` with text saying "task paused… resume manually" — it was
   neither paused nor is it resumable. Mild form of the family above.
 
-- `[OPEN][2026-08-04]` **review-1 + review-2 全部 ACCEPT，等待 Human 最终决策**。统一 review-1（deepseek，REWORK→修复→复审 ACCEPT）+ review-2（sonnet5，ACCEPT，六维度全过、独立重跑证据闭环）。F-R2-1（meta 微调任务无独立交接件，流程观察）+ F-R2-2（fetcher→落库端到端未活体验证，联调核对重点）不阻塞。`rework_count` 1/3。待 Human：(1) 前后端联调授权（真实 `POST /refresh` 连币安，review-2 建议合并前完成）；(2) 合并/发布决策。
+- `[CLOSED][2026-08-04]` **双栏流水日志 stage 交付完成，Human 决策：直接合并推送**。review-1（REWORK→修复→复审 ACCEPT）+ review-2（ACCEPT）全过，`rework_count` 1/3；Human 授权合并推送（未做前后端联调，推迟至后续 stage）。遗留后续项见下。
 - `[OPEN][2026-08-04]` **统一 review-1 REWORK，`rework_count` 0→1（F1/F2，修复轮进行中）**。F1（阻塞）：任务 B `server.py:954` 新增 `service.private_client` 依赖未同步 `test_service_health.py::_RunStubService`，破坏 5 个既有测试（实测全量 `1336 passed, 5 failed`；B 交接「194 回归全绿」未覆盖该文件，声明不实）；修复 = 补桩 `private_client=None` + 全量回归。F2（建议）：`scheduler.py` 无单测，新增 `test_ledger_flow_scheduler.py`（decide/catchup 全分支）。修复任务 `fix-review1-dual-ledger-flow-log-v1`（claude_glm）已路由；修复后 review-1 复审（deepseek）→ review-2（sonnet5）。
+- `[OPEN][FOLLOW-UP][2026-08-04]` **前后端联调未做（Human 决定先合并，推迟）**。真实 `POST /api/private-ledger/refresh` 连币安拉取从未执行过；review-2 判定联调可放在合并后，且 F-R2-2（fetcher→落库端到端路径未被活体数据验证）建议联调时重点核对 `truncated`/`gaps`/`unparsed_row_count`。Human 表示「后面看有什么问题我再单独开 stage 一并修复」——后续联调/修复 stage 待开。
+- `[OPEN][FOLLOW-UP][2026-08-04]` **微信通知、开单任务状态联动仍为后续项**（Human 2026-08-04 早先决定本轮不做）。
 ## Open Follow-ups
 
 - `[OPEN][DIRECTION-CHANGE][2026-08-04]` **Human 决定暂停后端任务 A，前端先行（fake 原型确认制）**。`backend-ledger-store-fetch-v1`（glm）启动后被 Human 叫停：白名单 + 两个单页 fetcher + 8 个测试的初步改动**未验证、未提交、未建 `ledger_flow/` 包**，已按纪律还原（恢复 A 时从 dispatch 重做，改动要点见 A packet 与设计 §13.6）。改由 `frontend-fake-flow-log-v1`（grok/xai）先行：需求 1 按钮真实调整 + 流水日志面板 fake 假数据原型（形状按设计 §13.2 冻结契约），Human 目视确认后再恢复 A → B → C 真实开发。fake 原型为 LOW_RISK（纯 UI 探针、假数据无资金语义）。后续项：glm 终端若仍在运行需手动停止（Bookkeeper 不控制其他终端）。
@@ -270,7 +272,13 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
 
 ## Last Completed
 
-- stage: `2026-08-03-hedge-status-account-refresh-v1`
+- stage: `2026-08-04-dual-ledger-flow-log-v1`
+- archive_ref: `archive/2026-08-04-dual-ledger-flow-log-v1`
+  (delivery range `dc4cc6d..0c9c4de` + 收尾提交；A/B/C+前端最终+修复；deepseek review-1 REWORK→修复→复审 ACCEPT、sonnet5 review-2 ACCEPT；`rework_count` 1)
+- recorded_completed_at: `2026-08-04`
+- scope delivered: 双栏流水日志——私有账户 panel-actions 双看板按钮（费率行情|流水日志）、侧栏三项、流水为费率行情页内第二看板（每栏默认最新 20 条、元数据卡片左右排）；后端取数（白名单 13→15 + 两单页 fetcher）+ 本地 SQLite 幂等账本 + 拉取编排/整点调度 + `GET flow-log`/`POST refresh` 路由 + 增量统计与 coverage 诚实性护栏；全量回归 1351 passed、self-check 全绿。
+- closing note: Human 2026-08-04 授权直接合并推送（未做前后端联调，推迟至后续 stage 一并修复）；联调/端到端验证、微信通知、开单任务联动列为后续项。
+- previous stage: `2026-08-03-hedge-status-account-refresh-v1`
 - archive_ref: `archive/2026-08-03-hedge-status-account-refresh-v1`
   (delivery range `89103303..7f965f82`; v4.1 backend projection `65bdd81`
   (`claude_glm`) + frontend display `7f965f82` (Grok); DeepSeek Review-1 ACCEPT
