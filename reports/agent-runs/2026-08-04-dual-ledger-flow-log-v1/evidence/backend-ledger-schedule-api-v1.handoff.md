@@ -119,3 +119,20 @@
 ## Errata (append-only)
 
 （无。）
+
+## Bookkeeper Verification
+
+- 核验时间（本地）：2026-08-04 20:15:00 CST
+- source_sha256（marker 前字节）：`7b58b9505970be3cdc3606f79e0f21aa99cb96895541c2d28beb2c402368c305`
+  （复现：读本文件，取 `<!-- BOOKKEEPER_APPEND_ONLY:` 之前全部字节，`hashlib.sha256` 十六进制）
+- 核对的 status revision：11（`current_task.id = backend-ledger-schedule-api-v1`、`state = reported`，与交接件声明一致；预检 `test ! -e` 于 2026-08-04 12:55 CST 通过，实现者 20:06 CST 复验一致）
+- task_id / role / stage_id 与 `status.json` 一致；base_sha `dc4cc6d` 存在且等于 status.json 值
+- **delivery_sha（已解析）**：`550f8b7ad51c1b0f828dc9b1713a7d800da0633f`（`git rev-parse` 直接值；父提交 `2bc2582`，与 handoff「SHA 说明」一致）。
+- 结论：**通过（verified）**。原始 pytest 输出 `31 passed in 6.05s` 已核验（另有 194 回归全过的声明，抽查未发现回归迹象）；service（分源窗口/分页/截断 F6(b)/单飞/成功 run 分类 F3/baseline/F2 连续失败计数/F4 coverage/pending_tail/§13.2 完整响应含空态）、scheduler（整点 20s 节拍+startup catchup+5min 重试预算）、两条路由（GET 纯读零上游+POST refresh 200/429/409/503+no-store）、snapshot_service 仅加只读访问器——均与设计 v1.2 §13.1–§13.5/§14/§15 及契约 v0.12 一致；未改任务 A 文件、未接前端、未越界。
+- store API 约束说明记录在案：`flow_refresh_runs._new_row_count` 恒 0（store 无 `update_run`；不影响对外语义——`last_run` 不含该字段、`delta` 用 `first_seen_at_ms`、POST refresh 的计数取自 `commit_*` 返回值）。该项交统一评审时 review-1 核验；如需存储准确计数须在 A 的 store 增 `update_run`（届时按修复流程处理）。
+- base_sha 保持 `dc4cc6d`（区间内任务 A/fake 前端/控制提交为上下文，评审范围以 B 的 Allowed Files 为准）。
+- 后续状态：本任务 → `verified`；按 Human 决定「先联调后评审」，review 统一推迟；下一步为 Planner 落设计 v1.3（§13.7 独立页 + 默认 20 条）并重写 C packet（真实数据版），随后路由 C（前端接真实数据，grok）→ 前后端联调 → 统一 review-1 + review-2（A+B+C）。
+
+## Errata (append-only)
+
+（无。）
