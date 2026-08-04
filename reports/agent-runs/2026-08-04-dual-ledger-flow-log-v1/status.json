@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 18,
+  "revision": 19,
   "stage_id": "2026-08-04-dual-ledger-flow-log-v1",
   "bookkeeper": "bookkeeper1",
-  "phase": "plan-v14-prep",
-  "checkpoint": "前端最终交付已提交 5613c4e（tab-layout v2 + 元数据卡片微调，Human 验收通过，self-check 全绿）；设计 v1.4 任务 plan-v14-layout-final-v1 已路由（opus5，status_revision=18）：把 panel-actions 双按钮 tab、侧栏三项、market-view 内第二看板、卡片左右排落进设计；v1.4 后统一 review-1+review-2（A+B+C，provider 隔离已裁定）",
+  "phase": "review-1",
+  "checkpoint": "设计 v1.4 已核验封存（verified，布局描述与实现 5613c4e 逐项一致、契约零改动）；统一评审路由：review-1 = deepseek（kimi 额度 8/7 后可用，本轮不候；与 zhipu_glm/xai 跨 provider），review-2 = sonnet5（Human 决定）；受审区间 dc4cc6d..5613c4e（A+B+C+前端最终）；评审通过后前后端联调（真实 POST refresh 须 Human 授权）",
   "base_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "delivery_sha": "5613c4e4d1d3668c04ae5f05e264edb8c0575213",
   "ledger_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "current_task": {
-    "id": "plan-v14-layout-final-v1",
-    "state": "reported",
-    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/plan-v14-layout-final-v1.dispatch.md"
+    "id": "review-1-dual-ledger-flow-log-v1",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/review-1-dual-ledger-flow-log-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
