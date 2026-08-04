@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 6,
+  "revision": 7,
   "stage_id": "2026-08-04-dual-ledger-flow-log-v1",
   "bookkeeper": "bookkeeper1",
-  "phase": "implementation",
-  "checkpoint": "重评审已核验封存（verified，verdict=ACCEPT）：两处具名偏离获确认、F1–F6 闭环、N1–N10 观察级不阻塞；实现任务 A backend-ledger-store-fetch-v1 已路由（claude_glm，status_revision=6），A → B → C 串行，每份交付后按 HIGH_RISK 走 review-1 + review-2；等待 Human 启动 A 实现终端",
+  "phase": "frontend-fake-prototype",
+  "checkpoint": "Human 2026-08-04 决定：暂停后端任务 A（glm 已启动但未完成，白名单+fetcher 初步改动未验证未提交，已还原，恢复时从 dispatch 重做），改为前端先行——按钮真实调整 + 流水日志 fake 面板（grok/xai），Human 目视确认后再恢复 A→B→C 真实开发；frontend-fake-flow-log-v1 已路由（status_revision=7），LOW_RISK 理由已记录",
   "base_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "delivery_sha": null,
   "ledger_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "current_task": {
-    "id": "backend-ledger-store-fetch-v1",
+    "id": "frontend-fake-flow-log-v1",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/backend-ledger-store-fetch-v1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/frontend-fake-flow-log-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",

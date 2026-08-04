@@ -125,6 +125,7 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
 
 ## Open Follow-ups
 
+- `[OPEN][DIRECTION-CHANGE][2026-08-04]` **Human 决定暂停后端任务 A，前端先行（fake 原型确认制）**。`backend-ledger-store-fetch-v1`（glm）启动后被 Human 叫停：白名单 + 两个单页 fetcher + 8 个测试的初步改动**未验证、未提交、未建 `ledger_flow/` 包**，已按纪律还原（恢复 A 时从 dispatch 重做，改动要点见 A packet 与设计 §13.6）。改由 `frontend-fake-flow-log-v1`（grok/xai）先行：需求 1 按钮真实调整 + 流水日志面板 fake 假数据原型（形状按设计 §13.2 冻结契约），Human 目视确认后再恢复 A → B → C 真实开发。fake 原型为 LOW_RISK（纯 UI 探针、假数据无资金语义）。后续项：glm 终端若仍在运行需手动停止（Bookkeeper 不控制其他终端）。
 - `[OPEN][FOLLOW-UP][2026-08-04]` **Borrow-interest cumulative accounting is still
   unimplemented; live API recon is done.** Signed GET recon on the private
   read-only key confirmed: ledger source =
