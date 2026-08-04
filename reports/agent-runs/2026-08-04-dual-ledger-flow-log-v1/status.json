@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 10,
+  "revision": 11,
   "stage_id": "2026-08-04-dual-ledger-flow-log-v1",
   "bookkeeper": "bookkeeper1",
-  "phase": "review-1",
-  "checkpoint": "任务 A 已核验封存（verified，delivery=aba7420，pytest 84 passed）；review-1 packet 已备（kimi/moonshot，跨 provider，受审范围=dc4cc6d..aba7420 中 A 的 Allowed Files）；review-1+review-2 通过且 Human 决策后方可路由任务 B",
+  "phase": "implementation-b",
+  "checkpoint": "Human 2026-08-04 决定：先前后端联调通过再做评审——review-1 暂缓（packet 保留，联调后统一评审 A+B+C）；任务 B backend-ledger-schedule-api-v1 已路由（glm，status_revision=11），B 交付后接 C（前端接真实数据），联调通过后再统一走 review-1+review-2",
   "base_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "delivery_sha": "aba7420c07024b0e5cc31d4ae5b166ada5314841",
   "ledger_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "current_task": {
-    "id": "review-1-backend-ledger-store-fetch-v1",
+    "id": "backend-ledger-schedule-api-v1",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/review-1-backend-ledger-store-fetch-v1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/backend-ledger-schedule-api-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
