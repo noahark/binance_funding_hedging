@@ -1,0 +1,22 @@
+{
+  "schema_version": "2",
+  "revision": 1,
+  "stage_id": "2026-08-04-dual-ledger-flow-log-v1",
+  "bookkeeper": "bookkeeper1",
+  "phase": "planning",
+  "checkpoint": "Human 已确认需求 1 按钮移动语义（移到私有账户标题文字右侧紧邻处，原 panel-actions 放流水日志按钮）；设计输入基线已提交 dc4cc6d；Planner 任务 packet 已准备",
+  "base_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
+  "delivery_sha": null,
+  "ledger_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
+  "current_task": {
+    "id": "plan-dual-ledger-flow-log-v1",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/plan-dual-ledger-flow-log-v1.dispatch.md"
+  },
+  "next": {
+    "actor": "human_operator",
+    "action": "start-prepared-task"
+  },
+  "rework_count": 0,
+  "blockers": []
+}
