@@ -123,6 +123,7 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
   `kind=task_paused` with text saying "task paused… resume manually" — it was
   neither paused nor is it resumable. Mild form of the family above.
 
+- `[OPEN][2026-08-04]` **统一 review-1 REWORK，`rework_count` 0→1（F1/F2，修复轮进行中）**。F1（阻塞）：任务 B `server.py:954` 新增 `service.private_client` 依赖未同步 `test_service_health.py::_RunStubService`，破坏 5 个既有测试（实测全量 `1336 passed, 5 failed`；B 交接「194 回归全绿」未覆盖该文件，声明不实）；修复 = 补桩 `private_client=None` + 全量回归。F2（建议）：`scheduler.py` 无单测，新增 `test_ledger_flow_scheduler.py`（decide/catchup 全分支）。修复任务 `fix-review1-dual-ledger-flow-log-v1`（claude_glm）已路由；修复后 review-1 复审（deepseek）→ review-2（sonnet5）。
 ## Open Follow-ups
 
 - `[OPEN][DIRECTION-CHANGE][2026-08-04]` **Human 决定暂停后端任务 A，前端先行（fake 原型确认制）**。`backend-ledger-store-fetch-v1`（glm）启动后被 Human 叫停：白名单 + 两个单页 fetcher + 8 个测试的初步改动**未验证、未提交、未建 `ledger_flow/` 包**，已按纪律还原（恢复 A 时从 dispatch 重做，改动要点见 A packet 与设计 §13.6）。改由 `frontend-fake-flow-log-v1`（grok/xai）先行：需求 1 按钮真实调整 + 流水日志面板 fake 假数据原型（形状按设计 §13.2 冻结契约），Human 目视确认后再恢复 A → B → C 真实开发。fake 原型为 LOW_RISK（纯 UI 探针、假数据无资金语义）。后续项：glm 终端若仍在运行需手动停止（Bookkeeper 不控制其他终端）。
