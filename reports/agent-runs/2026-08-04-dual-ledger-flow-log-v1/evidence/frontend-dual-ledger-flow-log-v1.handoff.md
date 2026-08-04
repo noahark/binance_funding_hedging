@@ -71,3 +71,19 @@ node frontend/self-check.js → 全部自检通过
 ```
 
 <!-- BOOKKEEPER_APPEND_ONLY: all bytes before this marker are the source payload -->
+
+## Bookkeeper Verification
+
+- 核验时间（本地）：2026-08-04 20:50:00 CST
+- source_sha256（marker 前字节）：`b740e753851ee30634cb45ef7d1681813295526597221b656075c59a3ba3a96f`
+  （复现：读本文件，取 `<!-- BOOKKEEPER_APPEND_ONLY:` 之前全部字节，`hashlib.sha256` 十六进制）
+- 核对的 status revision：13（`current_task.id = frontend-dual-ledger-flow-log-v1`、`state = reported`，与交接件声明一致；预检 `test ! -e` 于 2026-08-04 20:32 CST 复跑 PASS，实现者 20:43 CST 交付）
+- task_id / role / stage_id 与 `status.json` 一致；base_sha `dc4cc6d` 存在且等于 status.json 值
+- **delivery_sha（已解析）**：`f23368b`（`git rev-parse` 直接值；父提交 `3136ab3`）。
+- 结论：**通过（verified）**。真实 `GET /api/private-ledger/flow-log` + `POST /refresh` 接入（零 Binance 直连、同源白名单）、FAKE 痕迹移除、60 秒轮询随视图进出（进 GET+setInterval / 出 clearInterval）、错误/空态/护栏（规则 14 单主文案 + pending_tail 附注 + coverage (a)(b)、`complete=false` 不出「该时间窗无记录」）、20 条与右栏筛选/隐私零请求、self-check 全绿；未改后端、未启动服务、未真实 POST（遵守联调授权边界）。
+- **Human 布局反馈（2026-08-04）**：功能「大部分 ok」，但要求调整布局——流水日志**不放独立整页视图**，改为**费率行情页面内的第二个看板**：费率行情页**右上角展示「费率行情 | 流水日志」两个菜单**，同一页面内两个看板切换；侧栏「流水日志」保留为与费率行情/开单任务同级的菜单（现状已是同级）。本反馈为 UI 布局迭代（Human 需求细化，不触 `rework_count`），修订任务 `frontend-flow-log-tab-layout-v1`（grok）已备。
+- 后续状态：本任务 → `verified`；布局修订任务已路由；修订完成经 Human 目视确认后，设计落 v1.4 并进入前后端联调（真实 `POST /refresh` 须 Human 单独授权）→ 统一 review-1 + review-2（A+B+C，provider 隔离按 §16 勘误裁定）。
+
+## Errata (append-only)
+
+（无。）

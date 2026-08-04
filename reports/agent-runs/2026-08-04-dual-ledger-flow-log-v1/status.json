@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 13,
+  "revision": 14,
   "stage_id": "2026-08-04-dual-ledger-flow-log-v1",
   "bookkeeper": "bookkeeper1",
-  "phase": "implementation-c",
-  "checkpoint": "设计 v1.3 与 C packet 重写已核验封存（verified）：独立页布局+默认 20 条落定，C packet 为真实数据版（grok/xai，status_revision=13，handoff 预检 20:32 复跑 PASS）；任务 C 已路由，等待 Human 启动 grok 终端；C 交付后前后端联调（真实 POST /refresh 须 Human 单独授权），联调通过后统一 review-1+review-2（A+B+C，provider 隔离已裁定）",
+  "phase": "frontend-tab-layout",
+  "checkpoint": "任务 C 已核验封存（verified，delivery=f23368b，真实 API 接入 + self-check 全绿）；Human 布局反馈：流水日志改为费率行情页内右上角「费率行情|流水日志」双看板 tab 同页切换（功能已认可）；布局修订任务 frontend-flow-log-tab-layout-v1 已路由（grok，status_revision=14）；修订确认后设计落 v1.4 → 前后端联调（真实 POST refresh 须授权）→ 统一 review-1+review-2",
   "base_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
-  "delivery_sha": "550f8b7ad51c1b0f828dc9b1713a7d800da0633f",
+  "delivery_sha": "f23368b4f52602c3585453aaf4ff34e665ca8467",
   "ledger_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "current_task": {
-    "id": "frontend-dual-ledger-flow-log-v1",
-    "state": "reported",
-    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/frontend-dual-ledger-flow-log-v1.dispatch.md"
+    "id": "frontend-flow-log-tab-layout-v1",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/frontend-flow-log-tab-layout-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
