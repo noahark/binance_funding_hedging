@@ -1,0 +1,41 @@
+{
+  "filter": {
+    "incomeType": "FUNDING_FEE",
+    "window": "30d startTime/endTime",
+    "limit": 1000
+  },
+  "fetch": {
+    "pages": 1,
+    "rows": 134,
+    "status": 200
+  },
+  "aggregates_structure": {
+    "total_net_income_asset": "USDT",
+    "total_net_income": "<AMOUNT>",
+    "positive_rows": 105,
+    "negative_rows": 29,
+    "by_symbol": [
+      {"symbol": "MUUSDT", "net": "<AMOUNT>", "rows": 36},
+      {"symbol": "COOKIEUSDT", "net": "<AMOUNT>", "rows": 26},
+      {"symbol": "RSRUSDT", "net": "<AMOUNT>", "rows": 14},
+      {"symbol": "NOMUSDT", "net": "<AMOUNT>", "rows": 45},
+      {"symbol": "OTHERS", "net": "<AMOUNT>", "note": "see live recon for full list"}
+    ]
+  },
+  "behavior": {
+    "asset_always": "USDT",
+    "tradeId_always_empty": true,
+    "info_typical": "FUNDING_FEE",
+    "intervals_ms_seen": [14400000, 28800000, 57600000, 86400000],
+    "interval_note": "4h/8h/etc per contract funding schedule"
+  },
+  "default_vs_7d": {
+    "default_no_time_FUNDING_FEE_count": 108,
+    "explicit_7d_count": 108,
+    "tranId_sets_equal": true
+  },
+  "limit_probe": {
+    "max_valid": 1000,
+    "limit_1001": {"status": 400, "code": -1130, "msg": "Data sent for parameter 'limit' is not valid."}
+  }
+}

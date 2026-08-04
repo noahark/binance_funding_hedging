@@ -1,0 +1,33 @@
+{
+  "commission_ledger": {
+    "endpoint": "GET /papi/v1/um/income",
+    "filter": "incomeType=COMMISSION",
+    "window_30d_rows": 55,
+    "asset_observed": ["BNB"],
+    "sign": "negative = fee paid",
+    "tradeId_nonempty_ratio": "55/55",
+    "sum_income_redacted": "<AMOUNT BNB>",
+    "note": "Do not add BNB commission into USDT funding sum without FX conversion"
+  },
+  "commission_rate": {
+    "endpoint": "GET /papi/v1/um/commissionRate",
+    "params": {"symbol": "FFUSDT"},
+    "status": 200,
+    "response": {
+      "symbol": "FFUSDT",
+      "makerCommissionRate": "0.000200",
+      "takerCommissionRate": "0.000500"
+    },
+    "weight_ip_official": 20
+  },
+  "fee_burn": {
+    "endpoint": "GET /papi/v1/um/feeBurn",
+    "status": 200,
+    "response": {"feeBurn": true},
+    "implication": "UM commissions may settle in BNB when true"
+  },
+  "commission_rebate": {
+    "incomeType": "COMMISSION_REBATE",
+    "window_30d_rows": 0
+  }
+}

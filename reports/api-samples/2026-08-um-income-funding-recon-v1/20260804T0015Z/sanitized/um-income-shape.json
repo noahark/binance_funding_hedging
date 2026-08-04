@@ -1,0 +1,84 @@
+{
+  "endpoint": "GET /papi/v1/um/income",
+  "base": "https://papi.binance.com",
+  "auth": "USER_DATA signed",
+  "weight_ip_official": 30,
+  "response_shape": "array",
+  "row_keys": [
+    "symbol",
+    "incomeType",
+    "income",
+    "asset",
+    "info",
+    "time",
+    "tranId",
+    "tradeId"
+  ],
+  "query_params": {
+    "symbol": "optional",
+    "incomeType": "optional; omit = all types",
+    "startTime": "optional ms",
+    "endTime": "optional ms",
+    "page": "optional page number",
+    "limit": "optional; max 1000 observed",
+    "recvWindow": "optional",
+    "timestamp": "required",
+    "signature": "required"
+  },
+  "samples_redacted": [
+    {
+      "symbol": "MUUSDT",
+      "incomeType": "FUNDING_FEE",
+      "income": "<AMOUNT>",
+      "asset": "USDT",
+      "info": "FUNDING_FEE",
+      "time": 1783411200000,
+      "tranId": "<TRAN_ID>",
+      "tradeId": ""
+    },
+    {
+      "symbol": "MUUSDT",
+      "incomeType": "COMMISSION",
+      "income": "<AMOUNT>",
+      "asset": "BNB",
+      "info": "<TRADE_ID_TEXT>",
+      "time": 1783400682000,
+      "tranId": "<TRAN_ID>",
+      "tradeId": "<TRADE_ID>"
+    },
+    {
+      "symbol": "RSRUSDT",
+      "incomeType": "REALIZED_PNL",
+      "income": "<AMOUNT>",
+      "asset": "USDT",
+      "info": "<TRADE_ID_TEXT>",
+      "time": 1785428204000,
+      "tranId": "<TRAN_ID>",
+      "tradeId": "<TRADE_ID>"
+    },
+    {
+      "symbol": "",
+      "incomeType": "TRANSFER",
+      "income": "<AMOUNT>",
+      "asset": "USDT",
+      "info": "TRANSFER",
+      "time": 1785163055000,
+      "tranId": "<TRAN_ID>",
+      "tradeId": ""
+    }
+  ],
+  "types_observed_30d": {
+    "FUNDING_FEE": 134,
+    "COMMISSION": 55,
+    "REALIZED_PNL": 2,
+    "TRANSFER": 2
+  },
+  "types_queried_empty": [
+    "COMMISSION_REBATE",
+    "INSURANCE_CLEAR",
+    "API_REBATE",
+    "REFERRAL_KICKBACK"
+  ],
+  "sort_order": "ascending by time (oldest first)",
+  "idempotency": "(incomeType, tranId)"
+}

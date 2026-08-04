@@ -1,0 +1,17 @@
+{
+  "endpoint": "GET /papi/v1/portfolio/interest-history",
+  "base": "https://papi.binance.com",
+  "params_tried": [
+    {},
+    {"startTime": "<ms_now_minus_30d>", "endTime": "<ms_now>", "size": "100"},
+    {"asset": "<borrowed_asset>", "startTime": "<ms_now_minus_30d>", "endTime": "<ms_now>", "size": "100"}
+  ],
+  "status": 200,
+  "weight_observed": "+50 / call (X-MBX-USED-WEIGHT-1M step)",
+  "payload": [],
+  "notes": [
+    "Empty array (not {total,rows}).",
+    "Matches account with all negativeBalance=0.",
+    "Do not merge into ordinary margin borrow interest cumulative by default."
+  ]
+}

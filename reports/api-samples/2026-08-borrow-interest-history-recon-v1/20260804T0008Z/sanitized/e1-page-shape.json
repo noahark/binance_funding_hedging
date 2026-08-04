@@ -1,0 +1,79 @@
+{
+  "endpoints": [
+    "GET /papi/v1/margin/marginInterestHistory",
+    "GET /sapi/v1/margin/interestHistory"
+  ],
+  "notes": [
+    "Shape identical on both hosts for Portfolio Margin retail in this recon.",
+    "Numeric amounts redacted; structure and enums preserved.",
+    "interestAccuredTime spelling is Binance's (missing 'c' in Accrued)."
+  ],
+  "live_window_counts": {
+    "default_or_7d_total": 1006,
+    "30d_total": 1647,
+    "page_size_max": 100,
+    "page_size_default": 10
+  },
+  "response_example": {
+    "total": 1006,
+    "rows": [
+      {
+        "txId": "<TX_ID>",
+        "interestAccuredTime": 1785798000000,
+        "asset": "HOME",
+        "rawAsset": "HOME",
+        "principal": "<AMOUNT>",
+        "interest": "<AMOUNT>",
+        "interestRate": "<AMOUNT>",
+        "type": "PERIODIC"
+      },
+      {
+        "txId": "<TX_ID>",
+        "interestAccuredTime": 1785798000000,
+        "asset": "RSR",
+        "rawAsset": "RSR",
+        "principal": "<AMOUNT>",
+        "interest": "<AMOUNT>",
+        "interestRate": "<AMOUNT>",
+        "type": "PERIODIC"
+      },
+      {
+        "txId": "<TX_ID>",
+        "interestAccuredTime": 1785423600000,
+        "asset": "RSR",
+        "rawAsset": "RSR",
+        "principal": "<AMOUNT>",
+        "interest": "<AMOUNT>",
+        "interestRate": "<AMOUNT>",
+        "type": "ON_BORROW"
+      }
+    ]
+  },
+  "row_keys": [
+    "txId",
+    "interestAccuredTime",
+    "asset",
+    "rawAsset",
+    "principal",
+    "interest",
+    "interestRate",
+    "type"
+  ],
+  "type_enums_observed": ["PERIODIC", "ON_BORROW"],
+  "type_enums_documented_not_seen": [
+    "PERIODIC_CONVERTED",
+    "ON_BORROW_CONVERTED",
+    "PORTFOLIO"
+  ],
+  "query_params_effective": {
+    "asset": "optional string",
+    "startTime": "optional ms; with endTime max span 30d",
+    "endTime": "optional ms",
+    "current": "page from 1",
+    "size": "default 10, max 100",
+    "archived": "optional; true for ~6m-old archive; empty this recon",
+    "recvWindow": "optional",
+    "timestamp": "required for signed request",
+    "signature": "required for signed request"
+  }
+}

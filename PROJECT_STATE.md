@@ -125,6 +125,35 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
 
 ## Open Follow-ups
 
+- `[OPEN][FOLLOW-UP][2026-08-04]` **Borrow-interest cumulative accounting is still
+  unimplemented; live API recon is done.** Signed GET recon on the private
+  read-only key confirmed: ledger source =
+  `GET /papi/v1/margin/marginInterestHistory` ≡
+  `GET /sapi/v1/margin/interestHistory` (same `txId`/`interest`/`total`);
+  charge cadence 1h (`PERIODIC` + `ON_BORROW`); cumulative =
+  `Σ rows.interest` with `txId` idempotency; `balance.crossMarginInterest` is
+  outstanding unpaid only (not historical sum); `portfolio/interest-history`
+  empty while `negativeBalance=0`. Code still has E1/E1b whitelist-only (no
+  fetcher) and no sapi interestHistory whitelist. Evidence:
+  `reports/api-samples/2026-08-borrow-interest-history-recon-v1/20260804T0008Z/recon.md`.
+  Not a live money risk; blocks a future interest-ledger feature until scoped.
+- `[OPEN][FOLLOW-UP][2026-08-04]` **UM funding-fee / commission income ledger is
+  still unimplemented; live API recon is done.** Prototype
+  (`币安套费率策略，逐仓杠杆.js`) used `GET /fapi/v1/income`; PM path is
+  `GET /papi/v1/um/income` (this key gets fapi `-2015`). Same row shape:
+  `incomeType`/`income`/`asset`/`time`/`tranId`/`tradeId`. Live 30d mix:
+  FUNDING_FEE + COMMISSION (BNB, feeBurn=true) + REALIZED_PNL + TRANSFER.
+  Cumulative funding = `Σ income where incomeType=FUNDING_FEE`, idempotent on
+  `(incomeType, tranId)`; sort ascending; limit≤1000; weight ~30. Also probed
+  `um/commissionRate` and `um/feeBurn`. None are in `PrivateClient` whitelist.
+  Evidence:
+  `reports/api-samples/2026-08-um-income-funding-recon-v1/20260804T0015Z/recon.md`.
+  Not a live money risk; blocks a future funding-PnL feature until scoped.
+- `[OPEN][DESIGN][2026-08-04]` **Dual-column flow-log design (interest × UM
+  income) drafted for cross-model review; not implemented.** Left:
+  `sapi /margin/interestHistory`; right: `papi /um/income`; shared time range;
+  display time DESC; right defaults FUNDING_FEE+COMMISSION. Authority:
+  `docs/planning/2026-08-04-dual-ledger-flow-log-design.md`.
 - `[OPEN][FOLLOW-UP]` **One orphan borrow blocker recovered at the 2026-08-03
   restart** (`recovered_orphan_blocker_count=1` in the `borrow_execution_mode`
   startup line, alongside `live_authorized_task_count=26`). Never investigated;

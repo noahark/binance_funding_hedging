@@ -1,0 +1,32 @@
+{
+  "source_file": "币安套费率策略，逐仓杠杆.js",
+  "source_function": "getBinanceContractFundingFeeTableInfo",
+  "mapping": {
+    "prototype_call": "GET /fapi/v1/income",
+    "portfolio_margin_call": "GET /papi/v1/um/income",
+    "fields_same": [
+      "symbol",
+      "incomeType",
+      "income",
+      "asset",
+      "time",
+      "info",
+      "tranId",
+      "tradeId"
+    ],
+    "prototype_type_handling": {
+      "FUNDING_FEE": "accumulate into fundingFeeSum when time > LAST_FUNDING_TIME",
+      "COMMISSION": "display only as 手续费",
+      "COMMISSION_REBATE": "display only as 手续费返佣",
+      "TRANSFER": "display; rewrite symbol label to wallet in/out",
+      "REALIZED_PNL": "display as 平仓盈亏",
+      "other": "display raw incomeType"
+    },
+    "recommended_product_rules": {
+      "funding_cumulative": "sum income where incomeType=FUNDING_FEE",
+      "idempotency": "(incomeType, tranId)",
+      "sort": "API returns ascending by time; prototype iterates newest-first via reverse loop",
+      "host": "papi.binance.com for PM retail keys"
+    }
+  }
+}

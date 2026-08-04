@@ -1,0 +1,34 @@
+{
+  "model": "PERIODIC hourly charge ≈ principal * dailyInterestRate / 24",
+  "charge_interval_ms": 3600000,
+  "checks": [
+    {
+      "type": "PERIODIC",
+      "principal": "<AMOUNT>",
+      "interestRate_daily": "<AMOUNT>",
+      "interest_actual": "<AMOUNT>",
+      "interest_expected_hourly": "principal * interestRate / 24",
+      "ratio_actual_over_expected": "~1.00000 ± 2e-5",
+      "ok": true
+    },
+    {
+      "type": "ON_BORROW",
+      "note": "First charge on borrow; do not force-fit principal*rate/24 for equality checks",
+      "ok": false
+    }
+  ],
+  "type_counts_7d": {
+    "PERIODIC": 940,
+    "ON_BORROW": 66
+  },
+  "type_counts_30d": {
+    "PERIODIC": 1576,
+    "ON_BORROW": 71
+  },
+  "txId_uniqueness": {
+    "7d_rows": 1006,
+    "7d_unique_txId": 1006,
+    "30d_rows": 1647,
+    "30d_unique_txId": 1647
+  }
+}

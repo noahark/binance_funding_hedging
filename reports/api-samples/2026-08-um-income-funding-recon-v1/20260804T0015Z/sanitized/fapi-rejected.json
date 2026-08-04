@@ -1,0 +1,24 @@
+{
+  "note": "Classic futures endpoints rejected by the Portfolio Margin read-only key used in this recon.",
+  "calls": [
+    {
+      "endpoint": "GET /fapi/v1/income",
+      "status": 401,
+      "body": {
+        "code": -2015,
+        "msg": "Invalid API-key, IP, or permissions for action, request ip: <REDACTED>"
+      }
+    },
+    {
+      "endpoint": "GET /fapi/v1/feeBurn",
+      "status": 401,
+      "body": {"code": -2015, "msg": "Invalid API-key, IP, or permissions for action"}
+    },
+    {
+      "endpoint": "GET /fapi/v1/commissionRate",
+      "status": 401,
+      "body": {"code": -2015, "msg": "Invalid API-key, IP, or permissions for action"}
+    }
+  ],
+  "product_implication": "Use papi /papi/v1/um/* for this account; do not port the prototype's fapi host blindly."
+}

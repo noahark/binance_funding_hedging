@@ -1,0 +1,46 @@
+{
+  "endpoint": "GET /papi/v1/balance",
+  "base": "https://papi.binance.com",
+  "status": 200,
+  "item_keys": [
+    "asset",
+    "totalWalletBalance",
+    "crossMarginAsset",
+    "crossMarginBorrowed",
+    "crossMarginFree",
+    "crossMarginInterest",
+    "crossMarginLocked",
+    "umWalletBalance",
+    "umUnrealizedPNL",
+    "cmWalletBalance",
+    "cmUnrealizedPNL",
+    "updateTime",
+    "negativeBalance"
+  ],
+  "interest_relevant_fields": {
+    "crossMarginBorrowed": "current borrow principal (snapshot)",
+    "crossMarginInterest": "current outstanding unpaid interest (NOT historical cumulative)",
+    "negativeBalance": "futures-side negative balance; 0 => E1b empty"
+  },
+  "sample_row_shape": {
+    "asset": "<ASSET>",
+    "totalWalletBalance": "<AMOUNT>",
+    "crossMarginAsset": "<AMOUNT>",
+    "crossMarginBorrowed": "<AMOUNT>",
+    "crossMarginFree": "<AMOUNT>",
+    "crossMarginInterest": "<AMOUNT>",
+    "crossMarginLocked": "<AMOUNT>",
+    "umWalletBalance": "<AMOUNT>",
+    "umUnrealizedPNL": "<AMOUNT>",
+    "cmWalletBalance": "<AMOUNT>",
+    "cmUnrealizedPNL": "<AMOUNT>",
+    "updateTime": 0,
+    "negativeBalance": "0.0"
+  },
+  "live_observation": {
+    "assets_with_nonzero_borrow_and_interest": 6,
+    "assets_with_nonzero_negative_balance": 0,
+    "small_positions_hist30_equals_outstanding": true,
+    "large_position_hist_sum_gt_outstanding": true
+  }
+}

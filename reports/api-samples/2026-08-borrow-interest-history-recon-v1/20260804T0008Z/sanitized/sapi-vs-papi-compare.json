@@ -1,0 +1,30 @@
+{
+  "compare_at": "2026-08-04 live recon",
+  "params": {
+    "asset": "RSR",
+    "window": "7d startTime/endTime",
+    "size": "10",
+    "current": "1"
+  },
+  "papi": {
+    "path": "/papi/v1/margin/marginInterestHistory",
+    "status": 200,
+    "total": 171,
+    "rows": 10,
+    "weight_note": "observed ~+10 per call on X-MBX-USED-WEIGHT-1M"
+  },
+  "sapi": {
+    "path": "/sapi/v1/margin/interestHistory",
+    "status": 200,
+    "total": 171,
+    "rows": 10,
+    "weight_note": "observed +1 per call on X-SAPI-USED-IP-WEIGHT-1M"
+  },
+  "equality": {
+    "total_equal": true,
+    "txId_sequence_equal": true,
+    "interest_sequence_equal": true,
+    "principal_string_equal": true
+  },
+  "recommendation": "Prefer sapi for bulk historical backfill (lower weight); papi acceptable if whitelist policy stays papi-only."
+}
