@@ -1,0 +1,396 @@
+"""Service-layer tests for backend.ledger_flow.service (design §13 / §15).
+
+Offline: a stub client exposing the two single-page fetchers, an injectable
+millisecond clock, and a temp SQLite store. Covers run_once (backfill /
+scheduled overlap / partial failure / single-flight / truncation F6(b) /
+downtime gap), the §13.2 response assembly (populated + empty state §13.2
+rule 13), the §15.4 delta baseline (success classification, manual excluded,
+<2 success → incomplete), consecutive_failure_count, and the POST refresh
+409/429/200 branches.
+"""
+from __future__ import annotations
+
+import os
+import tempfile
+
+import pytest
+
+from backend.ledger_flow import domain
+from backend.ledger_flow.service import LedgerFlowService, _beijing_day_start_ms
+from backend.ledger_flow.store import LedgerStore
+from backend.services.private_client import PrivateEndpointError
+
+NOW = 1785798060000
+
+
+# --------------------------------------------------------------------------- #
+# stubs / helpers
+# --------------------------------------------------------------------------- #
+class StubClient:
+    """Exposes only the two flow-log fetchers; page-indexed seeding."""
+
+    def __init__(self):
+        self.enabled = True
+        self.interest_pages = []      # list of {total, rows}; page i -> index i-1
+        self.income_pages = []        # list of list-of-rows
+        self.interest_fn = None       # callable(current) -> page (overrides pages)
+        self.income_fn = None
+        self.interest_raise = None    # (page, exc)
+        self.income_raise = None
+
+    def fetch_interest_history_page(self, *, start_time, end_time, current, size):
+        if self.interest_raise and current == self.interest_raise[0]:
+            raise self.interest_raise[1]
+        if self.interest_fn is not None:
+            return self.interest_fn(current)
+        idx = current - 1
+        return self.interest_pages[idx] if idx < len(self.interest_pages) else {"total": 0, "rows": []}
+
+    def fetch_um_income_page(self, *, start_time, end_time, page, limit):
+        if self.income_raise and page == self.income_raise[0]:
+            raise self.income_raise[1]
+        if self.income_fn is not None:
+            return self.income_fn(page)
+        idx = page - 1
+        return self.income_pages[idx] if idx < len(self.income_pages) else []
+
+
+def _svc(tmp_path, client=None, now=NOW):
+    store = LedgerStore(os.path.join(tmp_path, "l.sqlite3"))
+    clock = {"now": now}
+    svc = LedgerFlowService(store, client or StubClient(), now_ms=lambda: clock["now"])
+    svc._set_now = lambda v: clock.__setitem__("now", v)
+    svc._store = store
+    return svc
+
+
+def _irow(tx, ms, asset="HOME", interest="0.1"):
+    return {"tx_id": str(tx), "accrued_at_ms": ms, "asset": asset,
+            "raw_asset": asset, "principal": "1.0", "interest": interest,
+            "interest_rate": "0.01", "type": "PERIODIC", "isolated_symbol": None}
+
+
+def _urow(tran, ms, itype="FUNDING_FEE", income="0.1", symbol="MUUSDT", asset="USDT"):
+    return {"tran_id": str(tran), "income_type": itype, "time_ms": ms,
+            "symbol": symbol, "income": income, "asset": asset,
+            "info": itype, "trade_id": None}
+
+
+def _run(store, **over):
+    base = dict(kind="scheduled", started_at_ms=NOW, finished_at_ms=NOW,
+                window_start_ms=0, window_end_ms=NOW,
+                interest_status="ok", interest_error=None,
+                interest_fetched_row_count=1, interest_new_row_count=1,
+                income_status="ok", income_error=None,
+                income_fetched_row_count=1, income_new_row_count=1,
+                truncated=False)
+    base.update(over)
+    return store.insert_run(base)
+
+
+# --------------------------------------------------------------------------- #
+# run_once: backfill / scheduled overlap / partial failure / single-flight
+# --------------------------------------------------------------------------- #
+def test_backfill_first_run_covers_30d(tmp_path):
+    client = StubClient()
+    client.interest_pages = [{"total": 1, "rows": [
+        {"txId": 1, "interestAccuredTime": NOW - 1000, "asset": "HOME", "interest": "0.1"}]}]
+    client.income_pages = [[{"symbol": "MUUSDT", "incomeType": "FUNDING_FEE",
+                             "income": "0.1", "asset": "USDT", "info": "FUNDING_FEE",
+                             "time": NOW - 1000, "tranId": 9, "tradeId": ""}]]
+    svc = _svc(tmp_path, client)
+    out = svc.run_once("backfill")
+    assert out["interest_new"] == 1 and out["income_new"] == 1
+    cov = svc._store.get_coverage()
+    # first-ever → 30-day backfill window on both sources, end = now.
+    assert cov["interest_start_ms"] == NOW - 30 * 86400 * 1000
+    assert cov["interest_end_ms"] == NOW
+    assert cov["income_start_ms"] == NOW - 30 * 86400 * 1000
+    assert cov["income_end_ms"] == NOW
+
+
+def test_scheduled_3h_overlap_is_idempotent(tmp_path):
+    client = StubClient()
+    client.interest_pages = [{"total": 1, "rows": [
+        {"txId": 1, "interestAccuredTime": NOW - 1000, "asset": "HOME", "interest": "0.1"}]}]
+    client.income_pages = [[{"symbol": "MUUSDT", "incomeType": "FUNDING_FEE",
+                             "income": "0.1", "asset": "USDT", "info": "FUNDING_FEE",
+                             "time": NOW - 1000, "tranId": 9, "tradeId": ""}]]
+    svc = _svc(tmp_path, client)
+    svc.run_once("backfill")
+    svc._set_now(NOW + 4 * 3600 * 1000)  # next hour, 3h overlap re-pulls same rows
+    out = svc.run_once("scheduled")
+    assert out["interest_new"] == 0 and out["income_new"] == 0  # idempotent, no dup
+    assert len(svc._store.query_interest_rows(0, 10 ** 14)) == 1
+
+
+def test_partial_failure_interest_error_income_ok(tmp_path):
+    client = StubClient()
+    client.interest_raise = (1, PrivateEndpointError(
+        "/sapi/v1/margin/interestHistory", 500, "HTTP 500"))
+    client.income_pages = [[{"symbol": "MUUSDT", "incomeType": "FUNDING_FEE",
+                             "income": "0.1", "asset": "USDT", "info": "FUNDING_FEE",
+                             "time": NOW - 1000, "tranId": 9, "tradeId": ""}]]
+    svc = _svc(tmp_path, client)
+    out = svc.run_once("scheduled")
+    run = out["run"]
+    assert run["interest_status"] == "error"
+    assert run["interest_error"] == "interest_history_failed"
+    assert run["income_status"] == "ok"
+    # interest zero rows + coverage not advanced; income committed + coverage advanced.
+    assert svc._store.query_interest_rows(0, 10 ** 14) == []
+    cov = svc._store.get_coverage()
+    assert cov["interest_start_ms"] is None and cov["interest_end_ms"] is None
+    assert cov["income_end_ms"] == NOW
+    assert len(svc._store.query_income_rows(0, 10 ** 14)) == 1
+
+
+def test_rate_limited_fetch_classified_as_rate_limited(tmp_path):
+    client = StubClient()
+    client.interest_raise = (1, PrivateEndpointError(
+        "/sapi/v1/margin/interestHistory", 429, "HTTP 429"))
+    client.income_pages = [[]]
+    svc = _svc(tmp_path, client)
+    out = svc.run_once("scheduled")
+    assert out["run"]["interest_error"] == "rate_limited"
+
+
+def test_run_once_single_flight_returns_none_when_busy(tmp_path):
+    client = StubClient()
+    svc = _svc(tmp_path, client)
+    svc._flight_lock.acquire()  # pretend another run is in flight
+    try:
+        assert svc.run_once("scheduled") is None
+    finally:
+        svc._flight_lock.release()
+
+
+# --------------------------------------------------------------------------- #
+# truncation F6(b): left records gap, right self-heals
+# --------------------------------------------------------------------------- #
+def test_truncation_interest_left_records_gap(tmp_path):
+    client = StubClient()
+    # always-full page -> interest loop hits the 40-page cap (truncated).
+    client.interest_fn = lambda p: {"total": 99999, "rows": [
+        {"txId": p * 1000 + i, "interestAccuredTime": NOW - p * 1000, "asset": "HOME",
+         "interest": "0.1"} for i in range(100)]}
+    client.income_pages = [[]]
+    svc = _svc(tmp_path, client)
+    out = svc.run_once("backfill")
+    assert out["run"]["truncated"] == 1
+    cov = svc._store.get_coverage()
+    ws = NOW - 30 * 86400 * 1000
+    assert cov["interest_end_ms"] == NOW            # left end advances to window_end
+    assert cov["interest_start_ms"] != ws           # start NOT moved to window_start
+    gap = [g for g in cov["gaps"] if g["source"] == "interest"]
+    assert gap and gap[0]["start_ms"] == ws and gap[0]["end_ms"] == cov["interest_start_ms"]
+
+
+def test_truncation_income_right_no_gap_end_newest(tmp_path):
+    client = StubClient()
+    # always-full page -> income loop hits the 10-page cap (truncated).
+    client.income_fn = lambda p: [{"symbol": "MUUSDT", "incomeType": "FUNDING_FEE",
+                                   "income": "0.1", "asset": "USDT", "info": "FUNDING_FEE",
+                                   "time": NOW - (10 - p) * 1000 - 60000, "tranId": p * 1000 + i,
+                                   "tradeId": ""} for i in range(1000)]
+    client.interest_pages = [{"total": 0, "rows": []}]
+    svc = _svc(tmp_path, client)
+    out = svc.run_once("backfill")
+    assert out["run"]["truncated"] == 1
+    cov = svc._store.get_coverage()
+    # right end advances only to newest_fetched, NOT window_end; no gap recorded.
+    assert cov["income_end_ms"] < NOW
+    assert all(g["source"] != "income" for g in cov["gaps"])
+
+
+def test_downtime_gap_over_30d_recorded(tmp_path):
+    client = StubClient()
+    client.interest_pages = [{"total": 0, "rows": []}]
+    client.income_pages = [[]]
+    svc = _svc(tmp_path, client)
+    # seed stale coverage end > 30d ago.
+    svc._store.commit_interest(rows=[], run_id=_run(svc._store), first_seen_at_ms=NOW,
+                               coverage_start_ms=10, coverage_end_ms=NOW - 31 * 86400 * 1000)
+    svc.run_once("scheduled")
+    cov = svc._store.get_coverage()
+    gap = [g for g in cov["gaps"] if g["source"] == "interest"]
+    assert gap  # downtime > 30d recorded, not silently left as a hole
+
+
+# --------------------------------------------------------------------------- #
+# delta baseline (§15.4 / F3) + consecutive_failure_count (§13.2 rule 10 / F2)
+# --------------------------------------------------------------------------- #
+def test_delta_baseline_second_success_and_manual_excluded(tmp_path):
+    svc = _svc(tmp_path)
+    s = svc._store
+    r1 = _run(s, finished_at_ms=1000)               # success #1 (older)
+    r2 = _run(s, finished_at_ms=2000)               # success #2 (most recent)
+    _run(s, finished_at_ms=3000, kind="manual")     # manual: excluded from baseline
+    # rows: one before baseline (excluded), one after (in delta), manual's after.
+    s.commit_interest(rows=[_irow("A", 500)], run_id=r1, first_seen_at_ms=500,
+                     coverage_start_ms=0, coverage_end_ms=1000)
+    s.commit_interest(rows=[_irow("B", 1500)], run_id=r2, first_seen_at_ms=1500,
+                     coverage_start_ms=0, coverage_end_ms=2000)
+    s.commit_interest(rows=[_irow("C", 2900)], run_id=3, first_seen_at_ms=2900,
+                     coverage_start_ms=None, coverage_end_ms=None)
+    resp = svc.get_flow_log(0, NOW)
+    assert resp["delta"]["complete"] is True
+    assert resp["delta"]["baseline_ms"] == 1000      # 2nd-most-recent SUCCESS (manual excluded)
+    assets = resp["delta"]["interest_by_asset"]
+    assert sum(g["row_count"] for g in assets) == 2  # B + C (first_seen > 1000), not A
+
+
+def test_delta_incomplete_under_two_success(tmp_path):
+    svc = _svc(tmp_path)
+    _run(svc._store, finished_at_ms=1000)            # only one success
+    resp = svc.get_flow_log(0, NOW)
+    assert resp["delta"]["complete"] is False
+    assert resp["delta"]["baseline_ms"] is None
+    assert resp["delta"]["interest_by_asset"] == []
+
+
+def test_consecutive_failure_count(tmp_path):
+    svc = _svc(tmp_path)
+    s = svc._store
+    _run(s, finished_at_ms=1000, interest_status="ok", income_status="ok")
+    _run(s, finished_at_ms=2000, interest_status="error", income_status="ok")
+    _run(s, finished_at_ms=3000, income_status="error", interest_status="ok")
+    resp = svc.get_flow_log(0, NOW)
+    # most recent two are errors, then an ok stops the run -> count 2.
+    assert resp["last_run"]["consecutive_failure_count"] == 2
+
+
+# --------------------------------------------------------------------------- #
+# coverage.complete + pending_tail (§13.2 rule 7 / F4)
+# --------------------------------------------------------------------------- #
+def test_coverage_complete_pending_tail_and_gap_in_window(tmp_path):
+    svc = _svc(tmp_path)
+    s = svc._store
+    _run(s)
+    s.commit_interest(rows=[_irow("A", 1000)], run_id=1, first_seen_at_ms=1000,
+                     coverage_start_ms=1000, coverage_end_ms=5000,
+                     new_gaps=[{"source": "interest", "start_ms": 2000, "end_ms": 3000}])
+    s.commit_income(rows=[_urow("B", 1000)], run_id=1, first_seen_at_ms=1000,
+                   coverage_start_ms=1000, coverage_end_ms=5000)
+    # window after the gap, within coverage -> complete; tail = end - cov_end.
+    resp = svc.get_flow_log(3500, 6000)
+    cov = resp["coverage"]
+    assert cov["complete"] is True
+    assert cov["pending_tail_ms"] == 1000            # 6000 - 5000
+    assert cov["by_source"]["interest"] == {"start_ms": 1000, "end_ms": 5000}
+    assert cov["gaps"] == []                         # gap [2000,3000] does not intersect
+    # window that intersects the recorded gap -> not complete.
+    resp2 = svc.get_flow_log(2500, 6000)
+    assert resp2["coverage"]["complete"] is False
+    assert any(g["source"] == "interest" for g in resp2["coverage"]["gaps"])
+
+
+def test_window_fully_inside_gap_is_not_complete(tmp_path):
+    svc = _svc(tmp_path)
+    s = svc._store
+    _run(s)
+    s.commit_interest(rows=[_irow("A", 1000)], run_id=1, first_seen_at_ms=1000,
+                     coverage_start_ms=1000, coverage_end_ms=5000,
+                     new_gaps=[{"source": "interest", "start_ms": 2000, "end_ms": 4000}])
+    s.commit_income(rows=[_urow("B", 1000)], run_id=1, first_seen_at_ms=1000,
+                   coverage_start_ms=1000, coverage_end_ms=5000)
+    resp = svc.get_flow_log(2500, 3500)              # fully inside the gap
+    assert resp["coverage"]["complete"] is False     # never "no records" inside a hole
+
+
+# --------------------------------------------------------------------------- #
+# empty state (§13.2 rule 13) + today Beijing day boundary
+# --------------------------------------------------------------------------- #
+def test_get_flow_log_empty_state_shape(tmp_path):
+    svc = _svc(tmp_path)
+    resp = svc.get_flow_log(1, NOW)
+    assert resp["schema_version"] == "private-ledger/v2"
+    assert resp["scheduler_enabled"] is False
+    assert resp["last_run"] is None
+    assert resp["coverage"] == {
+        "start_ms": None, "end_ms": None, "complete": False, "pending_tail_ms": None,
+        "by_source": {"interest": None, "income": None}, "gaps": []}
+    assert resp["delta"]["complete"] is False and resp["delta"]["baseline_ms"] is None
+    assert resp["interest"]["rows"] == [] and resp["interest"]["row_count"] == 0
+    assert resp["um_income"]["rows"] == [] and resp["um_income"]["row_count"] == 0
+    assert resp["interest"]["row_limit_applied"] is False
+
+
+def test_today_attribution_by_beijing_day(tmp_path):
+    svc = _svc(tmp_path, now=NOW)
+    s = svc._store
+    _run(s)
+    day_start = _beijing_day_start_ms(NOW)
+    # one row yesterday (Beijing), one today — distinct assets so grouping shows them.
+    s.commit_interest(rows=[_irow("Y", day_start - 1, asset="YESTERDAY")], run_id=1,
+                     first_seen_at_ms=1000, coverage_start_ms=0, coverage_end_ms=NOW)
+    s.commit_interest(rows=[_irow("T", day_start + 1, asset="TODAY")], run_id=1,
+                     first_seen_at_ms=1000, coverage_start_ms=0, coverage_end_ms=NOW)
+    resp = svc.get_flow_log(0, NOW)
+    assert resp["today"]["day_start_ms"] == day_start
+    assets = {g["asset"] for g in resp["today"]["interest_by_asset"]}
+    assert "TODAY" in assets and "YESTERDAY" not in assets     # only today's row
+
+
+def test_row_limit_applied_and_full_summary(tmp_path):
+    svc = _svc(tmp_path)
+    s = svc._store
+    _run(s)
+    rows = [_irow(i, 1000 + i) for i in range(600)]
+    s.commit_interest(rows=rows, run_id=1, first_seen_at_ms=1000,
+                     coverage_start_ms=0, coverage_end_ms=2000)
+    resp = svc.get_flow_log(0, 10 ** 14)
+    assert resp["interest"]["row_count"] == 600           # full count
+    assert resp["interest"]["row_limit_applied"] is True
+    assert len(resp["interest"]["rows"]) == 500           # display slice
+    assert resp["interest"]["summary_by_asset"][0]["row_count"] == 600  # summary on full
+
+
+# --------------------------------------------------------------------------- #
+# POST refresh (§13.4): 409 / 429 / 200
+# --------------------------------------------------------------------------- #
+def test_trigger_refresh_409_when_disabled(tmp_path):
+    client = StubClient()
+    client.enabled = False
+    svc = _svc(tmp_path, client)
+    status, payload = svc.trigger_refresh()
+    assert status == 409 and payload["error"] == "private_channel_disabled"
+
+
+def test_trigger_refresh_429_when_busy(tmp_path):
+    svc = _svc(tmp_path)
+    svc._flight_lock.acquire()
+    try:
+        status, payload = svc.trigger_refresh()
+        assert status == 429 and payload["error"] == "flow_log_busy"
+    finally:
+        svc._flight_lock.release()
+
+
+def test_trigger_refresh_200_manual_advances_coverage(tmp_path):
+    client = StubClient()
+    client.interest_pages = [{"total": 1, "rows": [
+        {"txId": 1, "interestAccuredTime": NOW - 1000, "asset": "HOME", "interest": "0.1"}]}]
+    client.income_pages = [[{"symbol": "MUUSDT", "incomeType": "FUNDING_FEE",
+                             "income": "0.1", "asset": "USDT", "info": "FUNDING_FEE",
+                             "time": NOW - 1000, "tranId": 9, "tradeId": ""}]]
+    svc = _svc(tmp_path, client)
+    status, payload = svc.trigger_refresh()
+    assert status == 200
+    assert payload["kind"] == "manual"
+    assert payload["interest_new_row_count"] == 1
+    # manual run advances coverage (F6(a): data-equivalent to scheduled).
+    assert svc._store.get_coverage()["interest_end_ms"] == NOW
+
+
+def test_trigger_refresh_error_response_has_no_binance_body(tmp_path):
+    client = StubClient()
+    client.interest_raise = (1, PrivateEndpointError(
+        "/sapi/v1/margin/interestHistory", 500, "sensitive-upstream-detail"))
+    client.income_pages = [[]]
+    svc = _svc(tmp_path, client)
+    status, payload = svc.trigger_refresh()
+    assert status == 200  # the run completes (one pane errored); refresh itself succeeded
+    blob = str(payload)
+    assert "sensitive-upstream-detail" not in blob
+    assert payload["interest_error"] == "interest_history_failed"

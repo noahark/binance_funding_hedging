@@ -272,6 +272,19 @@ class SnapshotService:
         self._stop_event = threading.Event()
         self._worker_thread: Optional[threading.Thread] = None
 
+    @property
+    def private_client(self) -> PrivateClient:
+        """Read-only access to the existing private read-only client.
+
+        Added by stage 2026-08-04-dual-ledger-flow-log-v1 task B: the dual-ledger
+        flow-log service reuses the SAME PrivateClient instance (the repo's single
+        HMAC exit) and thus the SAME credential read and the SAME
+        ``offline`` / ``private_channel_enabled`` gates — no second key read, no
+        new signing surface. This accessor changes no behavior; it only exposes
+        what ``__init__`` already constructed.
+        """
+        return self._private
+
     # ------------------------------------------------------------------
     # schema loading
     # ------------------------------------------------------------------

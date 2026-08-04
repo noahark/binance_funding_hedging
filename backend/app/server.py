@@ -33,6 +33,10 @@ from ..config import Config, DEFAULT, from_env
 from ..hedge_open_tasks import HedgeError as HedgeOpenError
 from ..hedge_open_tasks import HedgeOpenTaskService
 from ..hedge_open_tasks import domain as hedge_open_domain
+from ..ledger_flow.domain import WindowValidationError
+from ..ledger_flow.scheduler import LedgerScheduler
+from ..ledger_flow.service import LedgerFlowService
+from ..ledger_flow.store import LedgerStore
 from ..services.snapshot_service import SnapshotNotReady, SnapshotService
 
 # Borrow-task route table (breakdown §3.1). Path templates with their allowed
@@ -117,6 +121,7 @@ class _Handler(BaseHTTPRequestHandler):
     service = None  # injected via build_server
     borrow_service = None  # injected via build_server; None -> 503 on borrow routes
     hedge_open_service = None  # injected via build_server; None -> 503 on hedge routes
+    ledger_flow_service = None  # injected in run(); None -> 503 on private-ledger routes
     frontend_dir = None
     server_version = "funding-hedging-public-market/1.0"
 
@@ -144,12 +149,18 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/public-market/funding-history":
             self._handle_funding_history()
             return
+        if path == "/api/private-ledger/flow-log":
+            self._handle_flow_log()
+            return
         self._serve_static(path)
 
     def do_POST(self):
         path = urlparse(self.path).path
         if path == "/api/public-market/cache-refresh":
             self._handle_cache_refresh()
+            return
+        if path == "/api/private-ledger/refresh":
+            self._handle_flow_refresh()
             return
         if self._try_hedge_open("POST"):
             return
@@ -307,6 +318,67 @@ class _Handler(BaseHTTPRequestHandler):
                 {"published": published, "account_panels": account_panels}
             ).encode("utf-8"),
         )
+
+    # ------------------------------------------------------------ private-ledger
+    # Dual-ledger flow-log (design 2026-08-04-dual-ledger-flow-log §13.1–§13.4).
+    # GET flow-log is a PURE read of the local ledger (zero upstream I/O); POST
+    # refresh triggers one manual run. Both 200 responses carry Cache-Control:
+    # no-store. The service is wired in run(); None here -> 503.
+
+    def _handle_flow_log(self):
+        if self.ledger_flow_service is None:
+            self._send_ledger(
+                503, {"error": "flow_log_unavailable",
+                      "detail": "flow-log service not configured"})
+            return
+        query = parse_qs(urlparse(self.path).query)
+        start = query.get("start", [None])[0]
+        end = query.get("end", [None])[0]
+        if start is None or end is None:
+            self._send_ledger(
+                400, {"error": "invalid_window",
+                      "detail": "start and end query params are required"})
+            return
+        try:
+            start_ms = int(start)
+            end_ms = int(end)
+        except (ValueError, TypeError):
+            self._send_ledger(
+                400, {"error": "invalid_window",
+                      "detail": "start and end must be integer milliseconds"})
+            return
+        try:
+            payload = self.ledger_flow_service.get_flow_log(start_ms, end_ms)
+        except WindowValidationError as exc:
+            self._send_ledger(400, {"error": "invalid_window", "detail": str(exc)})
+            return
+        self._send_ledger(200, payload)
+
+    def _handle_flow_refresh(self):
+        # No request body field is read (§13.4); any posted body is drained.
+        try:
+            length = int(self.headers.get("Content-Length", "") or "0")
+        except ValueError:
+            length = 0
+        if length > 0:
+            self.rfile.read(length)
+        if self.ledger_flow_service is None:
+            self._send_ledger(
+                503, {"error": "flow_log_unavailable",
+                      "detail": "flow-log service not configured"})
+            return
+        status, payload = self.ledger_flow_service.trigger_refresh()
+        self._send_ledger(status, payload)
+
+    def _send_ledger(self, status: int, payload: dict) -> None:
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        if status == 200:
+            self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
 
     def _handle_healthz(self):
         # Liveness only: the handler running proves the process is alive. Fixed
@@ -871,12 +943,25 @@ def run(config: Config = None) -> None:
     _cache_refresher = getattr(service, "submit_cache_refresh", None)
     if callable(_cache_refresher):
         hedge_open_service.configure_cache_refresh(_cache_refresher)
+    # Dual-ledger flow-log (stage 2026-08-04-dual-ledger-flow-log-v1 task B):
+    # reuse the snapshot's PrivateClient (same credential read + offline /
+    # private_channel gates — no second key read, no new signing surface) and
+    # the shared gitignored data/ dir for the ledger DB. The cadence thread
+    # starts ONLY when the private channel is usable (§15.3); GET flow-log still
+    # reads the local ledger otherwise (last_run reflects the last real run).
+    ledger_store = LedgerStore(str(config.borrow_db_path.parent / "ledger-flow.sqlite3"))
+    ledger_flow_service = LedgerFlowService(
+        ledger_store, service.private_client, now_ms=_now_ms)
+    ledger_scheduler = LedgerScheduler(ledger_flow_service, now_ms=_now_ms)
+    if ledger_flow_service.is_usable():
+        ledger_flow_service.mark_scheduler_enabled()
     # build_server keeps its original 2-arg call shape here so process-level
     # stubs of build_server keep working; the borrow authority is wired onto the
     # handler class separately (build_server defaults it to None first).
     server = build_server(config, service)
     _Handler.borrow_service = borrow_service
     _Handler.hedge_open_service = hedge_open_service
+    _Handler.ledger_flow_service = ledger_flow_service
     _emit_lifecycle("server_start", host=config.bind_host, port=config.bind_port)
     _emit_lifecycle(
         "hedge_open_execution_mode",
@@ -930,6 +1015,8 @@ def run(config: Config = None) -> None:
         service.start_worker()
         borrow_service.start()
         hedge_open_service.start()
+        if ledger_flow_service.is_usable():
+            ledger_scheduler.start()
         server.serve_forever()
     except KeyboardInterrupt:
         pass
@@ -953,6 +1040,14 @@ def run(config: Config = None) -> None:
             service.stop_worker()
         except Exception:
             # cleanup must never mask the fatal exit or raise a secondary error
+            pass
+        try:
+            ledger_scheduler.stop()
+        except Exception:
+            pass
+        try:
+            ledger_store.close()
+        except Exception:
             pass
         server.server_close()
     if fatal:

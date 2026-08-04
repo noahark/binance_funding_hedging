@@ -1299,4 +1299,128 @@ honest "no automatic alignment" outcome is unchanged).
   transfer, Start-gate, or risk-limit change; no aggregation of multiple
   accounts; the 1000x non-alignment rule is preserved.
 
+## Dual-Ledger Flow-Log Amendment (v0.12, stage `2026-08-04-dual-ledger-flow-log-v1`)
+
+A new **read-only** sub-contract under `/api/private-ledger/*`, separate from the
+public-market snapshot. The frozen authority is
+`docs/planning/2026-08-04-dual-ledger-flow-log-design.md` §13–§15 (v1.2); this
+section restates only the wire contract. The snapshot JSON schema, the ~60s
+snapshot cadence, cache-refresh, and every existing endpoint are unchanged.
+
+### Routes
+
+| Method & path | Upstream I/O | Purpose |
+|---|---|---|
+| `GET /api/private-ledger/flow-log?start=<ms>&end=<ms>` | **none** (pure local-ledger read) | window detail + summary + coverage + last run + delta + today |
+| `POST /api/private-ledger/refresh` | one manual read-only run (signed GET only) | trigger a `kind="manual"` pull run |
+
+- Same-origin, `127.0.0.1` only. `GET` registers only in `do_GET`; `POST` only
+  in `do_POST`; other methods fall through (404). The window has **no 30-day
+  cap** (the page reads the local ledger).
+- `POST` reads **no** request-body field (any body is drained and discarded) and
+  accepts no window parameter; the service computes the window per §15.2.
+- Both routes' `200` responses carry `Cache-Control: no-store` (like
+  `/api/public-market/snapshot`).
+
+### `GET flow-log` non-200
+
+| Case | Status | Body |
+|---|---|---|
+| `start`/`end` missing, non-numeric, or `start >= end` | `400` | `{"error":"invalid_window","detail":"…"}` |
+| service not wired | `503` | `{"error":"flow_log_unavailable","detail":"flow-log service not configured"}` |
+
+### `GET flow-log` 200 response (`schema_version: "private-ledger/v2"`)
+
+Top-level: `schema_version`, `served_at_ms`, `scheduler_enabled`, `window{start_ms,end_ms}`,
+`coverage`, `last_run`, `delta`, `today`, `interest`, `um_income`.
+
+- **`scheduler_enabled`** (bool): whether the hourly cadence thread has started.
+  `false` when the private channel is off / offline (§15.3). History is still
+  served when present.
+- **`coverage`** (honesty guardrail, §13.2 rule 7): `start_ms`/`end_ms` are the
+  **aggregate** continuous range — `start_ms` = the *later* of the two sources'
+  starts, `end_ms` = the *earlier* of the two ends (either is `null` ⇒ aggregate
+  `null`). `by_source.{interest,income}` each gives that source's
+  `{start_ms,end_ms}` or `null` (never succeeded). `complete` is `true` **iff**
+  `window.start_ms >= coverage.start_ms` **and** no recorded gap intersects the
+  window — a window fully inside a gap is `false` (never "no records"). `gaps`
+  lists only gaps intersecting this window, ≤20, `start_ms` ascending.
+  `pending_tail_ms = max(0, window.end_ms - coverage.end_ms)` (or `null` when
+  coverage end is `null`) is shown separately and **never** counts toward
+  `complete` — the query end is usually "now" while coverage stops at the last
+  refresh.
+- **`last_run`** (§13.2 rule 9–10): the most recent finished run or `null` (no
+  run ever). Fields: `run_id, kind, finished_at_ms, interest_status,
+  interest_error, income_status, income_error, truncated,
+  consecutive_failure_count`. `*_status ∈ {ok,error,disabled}`; `*_error` is a
+  stable short code, never a Binance body/URL.
+- **`delta`** (§15.4 / F3): `baseline_ms` = the `finished_at_ms` of the
+  **second-most-recent** "success run" (`kind ∈ {scheduled,startup_catchup,
+  backfill}` **and** both panes `ok`; `manual` never counts). `complete` is
+  `false` and `baseline_ms` `null` when fewer than two success runs exist — no
+  potentially-misleading numbers are sent. `interest_by_asset`,
+  `income_by_type_asset`, `funding_by_symbol`, and the `*_new_row_count` fields
+  cover rows with `first_seen_at_ms > baseline_ms` (ingress-time attribution).
+  A manual refresh does **not** move the baseline; its rows stay in the current
+  delta window.
+- **`today`** (§15.4): cumulative by **occurred** time within the Beijing
+  calendar day (`day_start_ms` = Beijing 00:00). Different attribution from
+  `delta` (ingress); the two are never mixed.
+- **`interest` / `um_income`**: `rows` (≤500, time-desc), `summary_*` (always
+  computed on the **full** window set), `row_count` (full count), and
+  `row_limit_applied` (`row_count > 500`).
+
+### Empty state (§13.2 rule 13, frozen)
+
+Never-run / channel-off / empty ledger still returns **200** with `last_run:
+null`, `coverage {start_ms:null, end_ms:null, complete:false, pending_tail_ms:null,
+by_source:{interest:null,income:null}, gaps:[]}`, `delta {complete:false,
+baseline_ms:null, …empty lists, 0 counts}`, and both panes `rows:[]`,
+`row_count:0`, `row_limit_applied:false`. Never 503, never a missing field.
+
+### Hard rules (carried from §13.2 / §14)
+
+- **All IDs are strings** (`tx_id`, `tran_id` are 19-digit longs `> 2^53`; a
+  JSON number would be silently mutated by a browser `JSON.parse`).
+- **Amounts/rates pass through verbatim** as strings — no round/quantize/float/
+  zero-pad; missing ⇒ `null` (empty `symbol`/`trade_id`/`isolated_symbol` ⇒
+  `null`). Never fabricate `"0"`/`""`.
+- **No SQL aggregation on amount columns.** Summaries are Python `Decimal`
+  sums under an explicit `localcontext(prec ≥ 40)`, emitted via
+  `format(total, "f")`. A group with any unparseable amount ⇒ `*_total` is
+  `null` and `unparsed_row_count > 0` (never a partial sum).
+- **Sort keys** (final display order): interest `(accrued_at_ms, tx_id) DESC`;
+  income `(time_ms, income_type, tran_id) DESC`. Dedup keys: `tx_id`;
+  `(income_type, tran_id)`.
+
+### Upstream pull (§13.5 / §15; only the run uses it)
+
+Left `GET /sapi/v1/margin/interestHistory` (`size≤100`, `current` from 1, ≤40
+pages; response `{total, rows[]}`, **descending**); right `GET /papi/v1/um/income`
+(`limit≤1000`, `page` from 1, ≤10 pages, no `incomeType`/`symbol`; response is an
+array, **ascending**). Per-source window: `window_end = now`,
+`window_start = max(<src>_coverage_end_ms - 3h, now - 30d)` (first-ever ⇒ 30-day
+backfill). A page failure ⇒ that pane is `error`, zero rows, coverage unchanged;
+the other pane is unaffected. On truncation (`truncated=true`): rows are still
+written, but coverage advances only to the proven-continuous point — left pane
+keeps `coverage_end = window_end`, does **not** move `start` to `window_start`,
+and records a gap `[window_start, oldest_fetched]`; right pane sets
+`coverage_end = newest_fetched` (not `window_end`) and records no gap (self-heals
+next run). Error short codes: `interest_history_failed`, `um_income_failed`,
+`rate_limited`, `private_channel_disabled`.
+
+### `POST refresh` response (§13.4)
+
+| Case | Status | Body |
+|---|---|---|
+| done (panes may differ) | `200` | `{run_id, kind:"manual", finished_at_ms, interest_status, interest_error, interest_new_row_count, income_status, income_error, income_new_row_count, truncated}` |
+| a run is in flight | `429` | `{"error":"flow_log_busy","detail":"另一次流水拉取正在进行"}` |
+| private channel off | `409` | `{"error":"private_channel_disabled","detail":"私有只读通道未启用"}` |
+| service not wired | `503` | `{"error":"flow_log_unavailable","detail":"…"}` |
+
+`consecutive_failure_count` (§13.2 rule 10) is computed live from the run table:
+count consecutive most-recent runs where either pane is `error`, stopping at the
+first run with neither pane in error; `disabled` is not a failure; no runs ⇒ `0`.
+It is not a stored column.
+
 
