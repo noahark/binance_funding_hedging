@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 2,
+  "revision": 3,
   "stage_id": "2026-08-04-dual-ledger-flow-log-v1",
   "bookkeeper": "bookkeeper1",
-  "phase": "planning",
-  "checkpoint": "Human 已确认需求 1 按钮移动语义；设计输入基线已提交 dc4cc6d；Human 决定 Planner 任务由 opus5（anthropic）执行（原 codex 路由已替换，任务未启动）",
+  "phase": "plan-review",
+  "checkpoint": "Planner 任务已核验封存（verified）：设计定稿 v1.1（§11–§18）、§7 六问+N1–N7 全部拍板、三份实现 dispatch 就绪（A→B→C 串行）、HIGH_RISK 判定成立；计划评审 packet 已备，等待 Human 启动 deepseek 只读评审",
   "base_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "delivery_sha": null,
   "ledger_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "current_task": {
-    "id": "plan-dual-ledger-flow-log-v1",
+    "id": "plan-review-dual-ledger-flow-log-v1",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/plan-dual-ledger-flow-log-v1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/plan-review-dual-ledger-flow-log-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",

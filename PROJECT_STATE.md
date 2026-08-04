@@ -149,11 +149,24 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
   Evidence:
   `reports/api-samples/2026-08-um-income-funding-recon-v1/20260804T0015Z/recon.md`.
   Not a live money risk; blocks a future funding-PnL feature until scoped.
-- `[OPEN][DESIGN][2026-08-04]` **Dual-column flow-log design (interest × UM
-  income) drafted for cross-model review; not implemented.** Left:
-  `sapi /margin/interestHistory`; right: `papi /um/income`; shared time range;
-  display time DESC; right defaults FUNDING_FEE+COMMISSION. Authority:
-  `docs/planning/2026-08-04-dual-ledger-flow-log-design.md`.
+- `[OPEN][IN-PROGRESS][2026-08-04]` **Dual-column flow-log stage
+  `2026-08-04-dual-ledger-flow-log-v1` is open; design finalized v1.1, three
+  implementation packets ready, plan review pending.** Human answered all
+  §7 questions plus seven follow-ups (N1–N7): local SQLite dedup ledger,
+  hourly HH:01 refresh, "since last refresh" increment with honest-coverage
+  guardrails, contract `private-ledger/v2` (GET reads local DB only + POST
+  refresh), three serial packets A→B→C (store-fetch / schedule-api / frontend).
+  Plan review packet `plan-review-dual-ledger-flow-log-v1` (deepseek, read-only)
+  is prepared but not started. Authority:
+  `docs/planning/2026-08-04-dual-ledger-flow-log-design.md` (§11–§18);
+  packets under `reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/`.
+- `[OPEN][FOLLOW-UP][2026-08-04]` **WeChat notification for new funding-fee
+  increments was explicitly deferred by Human** (not part of this stage); the
+  hourly refresh + increment stats land on-page only. Revisit as a separate
+  task if still wanted.
+- `[OPEN][FOLLOW-UP][2026-08-04]` **Hedge-task status linkage with the flow log
+  was explicitly deferred by Human** ("开单任务状态联动放到后面做"); not part of
+  this stage.
 - `[OPEN][FOLLOW-UP]` **One orphan borrow blocker recovered at the 2026-08-03
   restart** (`recovered_orphan_blocker_count=1` in the `borrow_execution_mode`
   startup line, alongside `live_authorized_task_count=26`). Never investigated;
