@@ -154,3 +154,7 @@ Human 于 2026-08-04 提出两个需求：(1) 费率行情页把 `#btn-privacy` 
 - 勘误 1 核验：起因是 Human 需求细化（本地持久化、定时刷新、增量统计）而非评审发现/Bookkeeper 拒收，按 `AGENTS.md` §8 不递增 `rework_count` —— **判定成立**，`rework_count` 保持 0；勘误为追加式、未改写 Source Report/Human Brief 原文，符合 Shared Rules 勘误判据。
 - 交接件路径差异确认：本 handoff 位于 dispatch 指定的 `reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/plan-dual-ledger-flow-log-v1.handoff.md`（无 `evidence/`），与 Task Handoff Evidence Contract 默认路径 `<stage>/evidence/<task-id>.handoff.md` 不一致——**属 packet 侧笔误**（Bookkeeper 起草 plan dispatch 时写错路径），Planner 遵守 dispatch 文件边界执行，无错；后续三份实现 dispatch 均已改用合同默认 `evidence/` 路径。
 - 后续状态：Planner 任务 → `verified`；计划评审 packet `plan-review-dual-ledger-flow-log-v1.dispatch.md` 已备（status revision 3）；三份实现 dispatch 的 `status_revision` 占位符将在各自路由时替换为当时的实际 revision（路由前须执行对应 handoff 路径 `test ! -e` 预检并记录）。
+
+### Bookkeeper 补充记录 —— 2026-08-04 12:55 CST（Human 指示提前补齐）
+
+按 Human 要求对照本任务「下一步任务」逐项补齐：三份实现 packet 的 `status_revision` 占位符已替换为当时实际 revision `3`（路由前若 status.json revision 再变，须同步更新对应 packet）；三份实现 handoff 路径预检已执行并记录：`evidence/backend-ledger-store-fetch-v1.handoff.md`、`evidence/backend-ledger-schedule-api-v1.handoff.md`、`evidence/frontend-dual-ledger-flow-log-v1.handoff.md` 均为 PASS(absent)。

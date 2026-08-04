@@ -3,7 +3,7 @@ Identity:
 - target_role: `Implementer`
 - target_model: `claude_glm`
 - provider: `zhipu_glm`
-- status_revision: `<由 Bookkeeper 在路由本 packet 时写入当时的实际 revision；本 packet 由 Planner 起草时 status.json revision 为 2>`
+- status_revision: `3`
 - required_skill: `agents/skills/senior-developer.md`
 
 Goal
@@ -40,7 +40,7 @@ Allowed Files
 - `backend/tests/test_ledger_flow_domain.py`（新建）
 - `backend/tests/test_ledger_flow_store.py`（新建）
 - `backend/tests/test_private_client.py`
-- `reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/evidence/backend-ledger-store-fetch-v1.handoff.md`（create-only；Bookkeeper 须在路由前执行 `test ! -e` 并把结果记在本节；按 `agents/roles.md` 的 Task Handoff Evidence Contract 创建唯一交接件）
+- `reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/evidence/backend-ledger-store-fetch-v1.handoff.md`（create-only；Bookkeeper 已执行 `test ! -e`（2026-08-04 12:55 CST）：PASS(absent)；按 `agents/roles.md` 的 Task Handoff Evidence Contract 创建唯一交接件）
 - `reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/evidence/backend-ledger-store-fetch-v1.pytest.txt`（测试原始输出）
 - `reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/status.json`（仅可将本任务 `current_task.state` 从 `dispatched` 改为 `reported`；不得改动任何其他字段）
 
