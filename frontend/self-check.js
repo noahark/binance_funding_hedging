@@ -171,8 +171,8 @@ const ids = [
   'filter-hide-low-net-yield', 'filter-prefer-openable',
   'summary-row', 'status-area', 'market-table-body',
   'private-panel', 'private-pm-source-time', 'private-panel-body', 'btn-privacy', 'privacy-label', 'privacy-icon-path',
-  // 流水日志假数据探针（2026-08-04-dual-ledger-flow-log-v1）— 设计 §13.7 冻结 id 集合
-  'btn-flow-log', 'flow-log-panel', 'flow-log-status-bar', 'flow-log-coverage-note',
+  // 流水日志（task C + tab-layout-v2）：§13.7 冻结 id + 页内双看板
+  'btn-market-board', 'btn-flow-log', 'market-board', 'flow-log-panel', 'flow-log-status-bar', 'flow-log-coverage-note',
   'flow-log-range-7d', 'flow-log-range-30d', 'flow-log-range-custom',
   'flow-log-custom-start', 'flow-log-custom-end', 'flow-log-custom-apply',
   'flow-log-refresh', 'flow-log-delta', 'flow-log-delta-interest', 'flow-log-delta-income',
@@ -182,7 +182,7 @@ const ids = [
   'flow-log-interest-status', 'flow-log-interest-summary', 'flow-log-interest-body',
   'flow-log-income-status', 'flow-log-income-summary', 'flow-log-income-body',
   'drawer', 'drawer-backdrop', 'drawer-title', 'drawer-body', 'drawer-close',
-  'nav-market', 'nav-borrow-tasks', 'nav-flow-log', 'borrow-task-count', 'market-view', 'flow-log-view', 'borrow-task-view', 'borrow-task-list',
+  'nav-market', 'nav-borrow-tasks', 'borrow-task-count', 'market-view', 'flow-log-view', 'borrow-task-view', 'borrow-task-list',
   'borrow-task-filters',
   'borrow-tab-tasks', 'borrow-tab-logs', 'borrow-tasks-panel', 'borrow-logs-panel',
   'borrow-interval-input', 'borrow-interval-confirm', 'borrow-interval-error', 'borrow-interval-note',
@@ -1767,7 +1767,8 @@ setTimeout(async () => {
     helpers.ingestSnapshot(designFixture);
     console.log('[PASS] 行联动方向标（不带数量）');
 
-    // 29. 优雅降级：新字段全缺失（旧后端）不白屏，日费率 —，净收益 —，私有面板不渲染
+    // 29. 优雅降级：新字段全缺失（旧后端）不白屏，日费率 —，净收益 —；
+    // tab-layout-v2：费率行情页保留私有面板 header（双看板按钮所在），body 可空
     if (!helpers.ingestSnapshot) {
       throw new Error('ingestSnapshot 未暴露，无法测试优雅降级');
     }
@@ -1811,8 +1812,12 @@ setTimeout(async () => {
     if (degradedTbody.includes('>8h<') || degradedTbody.includes('>4h<')) {
       throw new Error('优雅降级后仍渲染结算间隔徽标');
     }
-    if (elements['private-panel'].style.display !== 'none') {
-      throw new Error('优雅降级后无 private_account 块时不应渲染私有面板');
+    // 费率行情页双看板按钮依赖私有面板 header，无 private_account 时仍显示面板
+    if (helpers.getActiveView() === 'market' && elements['private-panel'].style.display === 'none') {
+      throw new Error('费率行情页无 private_account 时仍应显示私有面板 header（双看板按钮）');
+    }
+    if (elements['private-panel-body'].innerHTML.includes('总资产估值')) {
+      throw new Error('无 private_account 时 body 不应渲染账户估值');
     }
     if (elements['sort-basis-badge'].style.display !== 'none') {
       throw new Error('优雅降级后无 sort_basis 时不应显示排序基准标注');
@@ -5537,11 +5542,11 @@ setTimeout(async () => {
       console.log('[PASS] 假数据·预览：默认关闭 + 开关可切 + 51169 冻结文案逐字渲染 + 打开零网络请求');
     }
 
-    // 98b. 流水日志真实数据源（task C / private-ledger/v2）
+    // 98b. 流水日志真实数据源（task C）+ 页内双看板布局（tab-layout-v2）
     {
       const flowIds = [
-        'nav-flow-log', 'flow-log-view',
-        'btn-flow-log', 'flow-log-panel', 'flow-log-status-bar', 'flow-log-coverage-note',
+        'btn-market-board', 'btn-flow-log', 'market-board', 'flow-log-view',
+        'flow-log-panel', 'flow-log-status-bar', 'flow-log-coverage-note',
         'flow-log-range-7d', 'flow-log-range-30d', 'flow-log-range-custom',
         'flow-log-custom-start', 'flow-log-custom-end', 'flow-log-custom-apply',
         'flow-log-refresh', 'flow-log-delta', 'flow-log-delta-interest', 'flow-log-delta-income',
@@ -5554,8 +5559,33 @@ setTimeout(async () => {
       for (const id of flowIds) {
         if (!document.getElementById(id)) throw new Error('流水日志 DOM 缺失: ' + id);
       }
-      if (html.includes('演示数据（FAKE）') || /FAKE/.test(html.match(/flow-log[\s\S]{0,800}演示|演示[\s\S]{0,200}FAKE/) || '')) {
-        // 页面不得含 FAKE 横幅字样（允许 hedge fake 预览里的 HEDGE_FAKE 标识符）
+      // 侧栏不得再有流水日志主菜单
+      if (html.includes('id="nav-flow-log"')) {
+        throw new Error('侧栏 #nav-flow-log 必须移除');
+      }
+      if (Object.prototype.hasOwnProperty.call(elements, 'nav-flow-log')) {
+        throw new Error('mock 中不应注册 nav-flow-log');
+      }
+      // 双看板按钮在私有账户 .panel-actions，不在 .badge-row
+      const privatePanelIdx = html.indexOf('id="private-panel"');
+      const privatePanelEnd = html.indexOf('</section>', privatePanelIdx);
+      const privateChunk = privatePanelIdx >= 0 && privatePanelEnd > privatePanelIdx
+        ? html.slice(privatePanelIdx, privatePanelEnd)
+        : '';
+      if (!privateChunk.includes('id="btn-market-board"') || !privateChunk.includes('id="btn-flow-log"')) {
+        throw new Error('费率行情/流水日志按钮须在私有账户面板内');
+      }
+      if (!privateChunk.includes('panel-actions') || !privateChunk.includes('aria-label="费率行情页双看板"')) {
+        throw new Error('双看板按钮须在 .panel-actions（role=tablist）内');
+      }
+      const badgeRowIdx = html.indexOf('class="badge-row"');
+      const badgeRowEnd = html.indexOf('</div>', badgeRowIdx + 1);
+      // badge-row 可能有嵌套 div；取到手动刷新按钮附近即可
+      const badgeSlice = badgeRowIdx >= 0 ? html.slice(badgeRowIdx, badgeRowIdx + 800) : '';
+      if (badgeSlice.includes('id="btn-market-board"') || badgeSlice.includes('id="btn-flow-log"') ||
+          badgeSlice.includes('id="tab-market-board"') || badgeSlice.includes('id="tab-flow-log-board"') ||
+          badgeSlice.includes('id="market-board-tabs"')) {
+        throw new Error('双看板按钮不得放在 .badge-row');
       }
       if (html.includes('演示数据（FAKE）——非真实账户流水')) {
         throw new Error('FAKE 横幅必须删除');
@@ -5567,47 +5597,74 @@ setTimeout(async () => {
       if (!html.includes('合约资金流水') || !html.includes('借币利息流水')) {
         throw new Error('双栏标题缺失');
       }
+      // 同页双看板：flow-log 内容在 market-view 内
       const marketViewStart = html.indexOf('id="market-view"');
-      const flowViewStart = html.indexOf('id="flow-log-view"');
-      if (marketViewStart === -1 || flowViewStart === -1) throw new Error('缺少 market/flow-log 视图');
-      const marketChunkEnd = flowViewStart > marketViewStart ? flowViewStart : html.length;
-      if (html.slice(marketViewStart, marketChunkEnd).includes('id="flow-log-panel"')) {
-        throw new Error('flow-log-panel 不应在 market-view 内');
+      const marketViewClose = html.indexOf('<!-- #market-view -->');
+      const marketChunkEnd = marketViewClose > marketViewStart ? marketViewClose : html.length;
+      if (marketViewStart === -1) throw new Error('缺少 market-view');
+      const marketInner = html.slice(marketViewStart, marketChunkEnd);
+      if (!marketInner.includes('id="flow-log-view"') || !marketInner.includes('id="flow-log-panel"')) {
+        throw new Error('flow-log 看板须在 market-view 内');
+      }
+      if (!marketInner.includes('id="market-board"')) {
+        throw new Error('market-board 须在 market-view 内');
       }
 
-      // 初始化零 private-ledger 请求（此前测试可能已有，先记基线后切 market 并清逻辑：进入前计数）
-      const initLedgerCalls = fetchCallLog.filter(c => c.url.includes('/api/private-ledger/')).length;
+      // 默认费率行情看板：零 private-ledger 请求
       helpers.setActiveView('market');
       await new Promise(r => setTimeout(r, 0));
+      if (helpers.getMarketBoard && helpers.getMarketBoard() !== 'market') {
+        throw new Error('默认 marketBoard 应为 market');
+      }
       const beforeEnter = fetchCallLog.filter(c => c.url.includes('/api/private-ledger/')).length;
-      // 若之前测试进过 flow-log，beforeEnter 可能>0；要求「再切 market 后不新增」
       helpers.setActiveView('market');
       await new Promise(r => setTimeout(r, 0));
       const beforeEnter2 = fetchCallLog.filter(c => c.url.includes('/api/private-ledger/')).length;
-      if (beforeEnter2 !== beforeEnter) throw new Error('market 视图不应请求 private-ledger');
+      if (beforeEnter2 !== beforeEnter) throw new Error('费率行情看板不应请求 private-ledger');
+      // 默认按钮高亮
+      const btnM = document.getElementById('btn-market-board');
+      const btnF = document.getElementById('btn-flow-log');
+      if (!btnM.classList.contains('primary') || btnM.getAttribute('aria-selected') !== 'true') {
+        throw new Error('默认应高亮费率行情按钮');
+      }
+      if (btnF.classList.contains('primary') || btnF.getAttribute('aria-selected') === 'true') {
+        throw new Error('默认不应高亮流水日志按钮');
+      }
 
       flowLogGetResponse = { status: 200, body: buildMockFlowLogPayload() };
       const mark = fetchCallLog.length;
       const intervalsBefore = intervalCalls.length;
-      helpers.setActiveView('flow-log');
+      // 点「流水日志」看板（同页，不隐藏 market-view）
+      helpers.setMarketBoard('flow-log');
       await new Promise(r => setTimeout(r, 0));
       await new Promise(r => setTimeout(r, 0));
-      if (helpers.getActiveView() !== 'flow-log') throw new Error('activeView 应为 flow-log');
+      if (helpers.getActiveView() !== 'market') throw new Error('activeView 应保持 market');
+      if (helpers.getMarketBoard() !== 'flow-log') throw new Error('marketBoard 应为 flow-log');
       if (document.getElementById('flow-log-view').style.display === 'none') {
         throw new Error('flow-log-view 应显示');
       }
-      if (document.getElementById('market-view').style.display !== 'none') {
-        throw new Error('market-view 应隐藏');
+      if (document.getElementById('market-view').style.display === 'none') {
+        throw new Error('market-view 在流水看板时仍应可见');
       }
-      const navFlow = document.getElementById('nav-flow-log');
-      if (!navFlow.classList.contains('active') || navFlow.getAttribute('aria-current') !== 'page') {
-        throw new Error('nav-flow-log 应高亮');
+      if (document.getElementById('market-board').style.display !== 'none') {
+        throw new Error('market-board 在流水看板时应隐藏');
+      }
+      // 侧栏仍高亮费率行情
+      const navM = document.getElementById('nav-market');
+      if (!navM.classList.contains('active') || navM.getAttribute('aria-current') !== 'page') {
+        throw new Error('看板切换后 nav-market 应保持高亮');
+      }
+      if (!btnF.classList.contains('primary') || btnF.getAttribute('aria-selected') !== 'true') {
+        throw new Error('流水看板应高亮 btn-flow-log');
+      }
+      if (btnM.classList.contains('primary')) {
+        throw new Error('流水看板不应高亮 btn-market-board');
       }
       const ledgerGets = fetchCallLog.slice(mark).filter(c =>
         c.method === 'GET' && c.url.startsWith('/api/private-ledger/flow-log')
       );
       if (ledgerGets.length !== 1) {
-        throw new Error('进入视图应恰好 1 次 GET flow-log，实际 ' + ledgerGets.length);
+        throw new Error('进入流水看板应恰好 1 次 GET flow-log，实际 ' + ledgerGets.length);
       }
       const u = new URL(ledgerGets[0].url, 'http://local');
       const startMs = Number(u.searchParams.get('start'));
@@ -5616,10 +5673,8 @@ setTimeout(async () => {
       if (!(span > 6.5 * 86400000 && span < 7.5 * 86400000)) {
         throw new Error('默认窗口应约 7 天，span=' + span);
       }
-      const newIntervals = intervalCalls.slice(intervalsBefore).filter(c => c.delay === 60000);
-      // 可能叠加市场刷新；要求至少新增一个 60s，且 flow poll id 可被 clear
       const pollId = helpers.getFlowLogPollId();
-      if (pollId == null) throw new Error('进入视图应启动 flow-log 60s 轮询');
+      if (pollId == null) throw new Error('进入流水看板应启动 flow-log 60s 轮询');
       const pollCall = intervalCalls.find(c => c.id === pollId);
       if (!pollCall || pollCall.delay !== 60000) throw new Error('flow-log 轮询 delay 应为 60000');
 
@@ -5637,54 +5692,75 @@ setTimeout(async () => {
       if (!statusText.includes('尚未刷新')) {
         throw new Error('pending_tail 应出现: ' + statusText);
       }
-      // 增量 complete
-      const deltaHead = document.getElementById('flow-log-delta').innerHTML;
-      if (!deltaHead.includes('以来新增') && !deltaHead.includes('按入库时间')) {
-        // heading updated via class
-      }
       const dI = document.getElementById('flow-log-delta-interest').innerHTML;
       if (!dI.includes('HOME') && !dI.includes('利息')) throw new Error('增量利息分组未渲染');
 
-      // 离开清除轮询
-      helpers.setActiveView('market');
+      // 切回费率行情看板：清轮询
+      helpers.setMarketBoard('market');
       await new Promise(r => setTimeout(r, 0));
       if (!clearedIntervalIds.has(pollId)) {
-        throw new Error('离开 flow-log 应 clearInterval 轮询 id');
+        throw new Error('切回费率行情应 clearInterval 轮询 id');
+      }
+      if (helpers.getMarketBoard() !== 'market') throw new Error('切回后 marketBoard 应为 market');
+      if (document.getElementById('flow-log-view').style.display !== 'none') {
+        throw new Error('切回后 flow-log-view 应隐藏');
+      }
+      if (document.getElementById('market-board').style.display === 'none') {
+        throw new Error('切回后 market-board 应显示');
       }
       const afterLeave = fetchCallLog.length;
       await new Promise(r => setTimeout(r, 0));
       if (fetchCallLog.length !== afterLeave) {
-        throw new Error('离开后不应继续请求 private-ledger');
+        throw new Error('切回费率行情后不应继续请求 private-ledger');
       }
 
-      // 重复进入不叠加：再进一次，旧 id 已清，新 id 不同
+      // 重复进入不叠加
       const mark2 = fetchCallLog.length;
-      const intervalsBefore2 = intervalCalls.length;
-      helpers.setActiveView('flow-log');
+      helpers.setMarketBoard('flow-log');
       await new Promise(r => setTimeout(r, 0));
       await new Promise(r => setTimeout(r, 0));
       const pollId2 = helpers.getFlowLogPollId();
-      if (pollId2 == null || pollId2 === pollId) {
-        // 可以是新 id
-        if (pollId2 == null) throw new Error('再次进入应有轮询 id');
-      }
+      if (pollId2 == null) throw new Error('再次进入应有轮询 id');
       const gets2 = fetchCallLog.slice(mark2).filter(c =>
         c.method === 'GET' && c.url.startsWith('/api/private-ledger/flow-log')
       );
       if (gets2.length !== 1) throw new Error('再次进入应恰好 1 次 GET，实际 ' + gets2.length);
 
-      // btn-flow-log 进入
-      helpers.setActiveView('market');
+      // btn-flow-log / btn-market-board 点击
+      helpers.setMarketBoard('market');
       await new Promise(r => setTimeout(r, 0));
+      const markBtn = fetchCallLog.length;
       (document.getElementById('btn-flow-log').listeners.click || []).forEach(h => h());
       await new Promise(r => setTimeout(r, 0));
-      if (helpers.getActiveView() !== 'flow-log') throw new Error('btn-flow-log 应进入 flow-log');
+      await new Promise(r => setTimeout(r, 0));
+      if (helpers.getMarketBoard() !== 'flow-log') throw new Error('btn-flow-log 应切到流水看板');
+      if (helpers.getActiveView() !== 'market') throw new Error('btn-flow-log 后 activeView 仍为 market');
+      const getsBtn = fetchCallLog.slice(markBtn).filter(c =>
+        c.method === 'GET' && c.url.startsWith('/api/private-ledger/flow-log')
+      );
+      if (getsBtn.length !== 1) throw new Error('点流水日志应恰好 1 次 GET，实际 ' + getsBtn.length);
+      const pollBtn = helpers.getFlowLogPollId();
+      (document.getElementById('btn-market-board').listeners.click || []).forEach(h => h());
+      await new Promise(r => setTimeout(r, 0));
+      if (helpers.getMarketBoard() !== 'market') throw new Error('btn-market-board 应切回费率行情');
+      if (pollBtn != null && !clearedIntervalIds.has(pollBtn)) {
+        throw new Error('点费率行情应清理轮询');
+      }
 
-      // 借币/开单未破坏
+      // 离开费率行情页（借币/开单）清轮询；导航未破坏
+      helpers.setMarketBoard('flow-log');
+      await new Promise(r => setTimeout(r, 0));
+      const pollLeave = helpers.getFlowLogPollId();
       helpers.setActiveView('borrow-tasks');
       if (helpers.getActiveView() !== 'borrow-tasks') throw new Error('borrow 视图破坏');
+      if (pollLeave != null && !clearedIntervalIds.has(pollLeave)) {
+        throw new Error('离开费率行情页应 clearInterval 轮询');
+      }
       helpers.setActiveView('hedge-tasks');
       if (helpers.getActiveView() !== 'hedge-tasks') throw new Error('hedge 视图破坏');
+      helpers.setActiveView('market');
+      await new Promise(r => setTimeout(r, 0));
+      if (helpers.getMarketBoard() !== 'market') throw new Error('从侧栏回费率行情默认市场看板');
 
       // --- coverage (a) 起点截断 ---
       flowLogGetResponse = {
@@ -5706,7 +5782,7 @@ setTimeout(async () => {
           um_income: { rows: [], summary_by_type_asset: [], row_count: 0, row_limit_applied: false },
         }),
       };
-      helpers.setActiveView('flow-log');
+      helpers.setMarketBoard('flow-log');
       await new Promise(r => setTimeout(r, 0));
       await new Promise(r => setTimeout(r, 0));
       let pageText =
@@ -5804,7 +5880,6 @@ setTimeout(async () => {
       if (!stEmpty.includes('私有通道未启用')) {
         throw new Error('scheduler_enabled=false 应提示私有通道: ' + stEmpty);
       }
-      // last_run null is second priority - when scheduler false, first wins
 
       // delta complete false
       flowLogGetResponse = {
@@ -5826,7 +5901,6 @@ setTimeout(async () => {
       const dBody = document.getElementById('flow-log-delta-interest').innerHTML;
       if (!dBody.includes('统计基准建立中')) throw new Error('delta.complete=false 文案');
       if (dBody.includes('interest_total') || /\d\.\d{4}/.test(dBody.replace(/统计|基准|建立中|不显示数字/g, ''))) {
-        // soft: ensure no asset total numbers from mock delta rows
         if (dBody.includes('X：') || dBody.includes('1 条')) {
           throw new Error('delta.complete=false 不得显示增量数字');
         }
@@ -5843,7 +5917,7 @@ setTimeout(async () => {
           truncated: false,
         },
       };
-      helpers.setActiveView('flow-log');
+      helpers.setMarketBoard('flow-log');
       await new Promise(r => setTimeout(r, 0));
       const markR = fetchCallLog.length;
       await helpers.postFlowLogRefresh();
@@ -5870,7 +5944,6 @@ setTimeout(async () => {
         throw new Error('409 文案');
       }
       // 503 GET
-      // seed last good then fail
       flowLogGetResponse = { status: 200, body: buildMockFlowLogPayload() };
       await helpers.loadFlowLog();
       await new Promise(r => setTimeout(r, 0));
@@ -5883,7 +5956,6 @@ setTimeout(async () => {
       }
       if (document.getElementById('flow-log-interest-body').innerHTML !== keepHtml &&
           !document.getElementById('flow-log-interest-body').innerHTML.includes('HOME')) {
-        // last good may still show rows
         if (!helpers.getFlowLogPayload()) throw new Error('503 后应保留上次 payload');
       }
 
@@ -5895,9 +5967,8 @@ setTimeout(async () => {
       if (fetchCallLog.length !== markF) throw new Error('筛选不得 fetch');
       helpers.togglePrivacy();
       if (fetchCallLog.length !== markF) throw new Error('隐私切换不得 fetch');
-      helpers.setActiveView('flow-log');
+      helpers.setMarketBoard('flow-log');
       await new Promise(r => setTimeout(r, 0));
-      // re-enter causes GET - that's ok; check body after privacy render without re-enter
       helpers.renderFlowLogPanel();
       const bodyPriv = document.getElementById('flow-log-interest-body').innerHTML;
       if (helpers.getPrivacyHidden() && !bodyPriv.includes('****')) {
@@ -5936,8 +6007,9 @@ setTimeout(async () => {
         throw new Error('row_limit_applied 应提示 500: ' + st500);
       }
 
+      helpers.setMarketBoard('market');
       helpers.setActiveView('market');
-      console.log('[PASS] 流水日志 C：真实 GET/POST、轮询、20条、护栏、筛选隐私、错误态');
+      console.log('[PASS] 流水日志 C+v2：panel-actions 双看板、侧栏移除、同页切换、GET/POST/轮询/护栏');
     }
 
     // 99. v0.9 / v4.1 §9.1 collateral_cap 纯展示：徽标仅在「借贷状态 / 资产」列三态 +

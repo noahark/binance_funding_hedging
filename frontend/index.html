@@ -330,11 +330,19 @@
       line-height: 1.45;
     }
     .flow-log-coverage-note.is-warn { color: #8a3b10; }
+    .flow-log-meta-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-3);
+      margin-bottom: var(--space-3);
+      align-items: start;
+    }
     .flow-log-meta-block {
       border: 1px solid var(--line);
       border-radius: var(--radius);
       padding: var(--space-3);
-      margin-bottom: var(--space-3);
+      margin-bottom: 0;
+      min-width: 0;
       background: var(--surface-2, #fafbfc);
     }
     .flow-log-meta-block h3 {
@@ -413,6 +421,7 @@
       margin: 0 0 var(--space-2);
     }
     @media (max-width: 900px) {
+      .flow-log-meta-row { grid-template-columns: 1fr; }
       .flow-log-columns { grid-template-columns: 1fr; }
     }
 
@@ -1210,12 +1219,6 @@
           开单任务
           <span class="badge compact nav-count" id="hedge-task-count">0</span>
         </button>
-        <button class="nav-button" id="nav-flow-log">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M6 6h12M6 12h12M6 18h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          流水日志
-        </button>
       </nav>
 
     </aside>
@@ -1261,13 +1264,15 @@
             </div>
             <p class="subtitle source-checked-at" id="private-pm-source-time" style="display:none;"></p>
           </div>
-          <div class="panel-actions">
-            <button class="btn compact" id="btn-flow-log" type="button" aria-controls="flow-log-view" title="打开流水日志独立页">流水日志</button>
+          <div class="panel-actions" role="tablist" aria-label="费率行情页双看板">
+            <button class="btn compact primary" id="btn-market-board" type="button" role="tab" aria-selected="true" aria-controls="market-board" title="费率行情看板">费率行情</button>
+            <button class="btn compact" id="btn-flow-log" type="button" role="tab" aria-selected="false" aria-controls="flow-log-view" title="流水日志看板">流水日志</button>
           </div>
         </div>
         <div class="panel-body" id="private-panel-body"></div>
       </section>
 
+      <div id="market-board">
       <section class="panel">
         <div class="panel-header">
           <div class="panel-title">
@@ -1357,10 +1362,9 @@
           </div>
         </div>
       </section>
+      </div><!-- #market-board -->
 
-      </div>
-
-      <div id="flow-log-view" style="display:none;" aria-label="流水日志视图">
+      <div id="flow-log-view" style="display:none;" aria-label="流水日志看板">
       <section class="panel flow-log-panel" id="flow-log-panel" aria-label="流水日志">
         <div class="panel-header">
           <div class="panel-title">
@@ -1386,17 +1390,19 @@
           </div>
           <p class="flow-log-status-bar" id="flow-log-status-bar"></p>
           <p class="flow-log-coverage-note" id="flow-log-coverage-note"></p>
-          <div class="flow-log-meta-block" id="flow-log-delta">
-            <h3 class="flow-log-delta-heading">本次新增</h3>
-            <p class="meta-note">口径：按入库时间（本次新增）· 与「今日累计 / 区间累计」不得混加</p>
-            <div id="flow-log-delta-interest"></div>
-            <div id="flow-log-delta-income"></div>
-            <div id="flow-log-delta-symbols"></div>
-          </div>
-          <div class="flow-log-meta-block" id="flow-log-today">
-            <h3>今日累计</h3>
-            <p class="meta-note">口径：按发生时间归属北京时间当日 · 非入库时间</p>
-            <div class="flow-log-today-body"></div>
+          <div class="flow-log-meta-row" aria-label="本次新增与今日累计">
+            <div class="flow-log-meta-block" id="flow-log-delta">
+              <h3 class="flow-log-delta-heading">本次新增</h3>
+              <p class="meta-note">口径：按入库时间（本次新增）· 与「今日累计 / 区间累计」不得混加</p>
+              <div id="flow-log-delta-interest"></div>
+              <div id="flow-log-delta-income"></div>
+              <div id="flow-log-delta-symbols"></div>
+            </div>
+            <div class="flow-log-meta-block" id="flow-log-today">
+              <h3>今日累计</h3>
+              <p class="meta-note">口径：按发生时间归属北京时间当日 · 非入库时间</p>
+              <div class="flow-log-today-body"></div>
+            </div>
           </div>
           <div class="flow-log-filters" id="flow-log-filters" role="group" aria-label="合约流水类型筛选">
             <span>右栏类型：</span>
@@ -1426,7 +1432,9 @@
           </div>
         </div>
       </section>
-      </div>
+      </div><!-- #flow-log-view -->
+
+      </div><!-- #market-view -->
 
       <section class="panel" id="borrow-task-view" style="display:none;">
         <div class="panel-header">
@@ -1666,7 +1674,8 @@
         // hedgeFakePreviewScenario 为合并持仓表当前所选场景（normal/no_task/no_um/single_leg/missing/empty）。
         hedgeFakePreviewOpen: false,
         hedgeFakePreviewScenario: 'normal',
-        // 流水日志真实数据（private-ledger/v2）；默认 market 视图不请求。
+        // 流水日志真实数据（private-ledger/v2）；页内看板 marketBoard: 'market'|'flow-log'
+        marketBoard: 'market',
         flowLogOpen: false,
         flowLogRange: '7d', // '7d' | '30d' | 'custom'
         flowLogPayload: null,
@@ -1751,9 +1760,10 @@
         drawerClose: document.getElementById('drawer-close'),
         navMarket: document.getElementById('nav-market'),
         navBorrowTasks: document.getElementById('nav-borrow-tasks'),
-        navFlowLog: document.getElementById('nav-flow-log'),
         borrowTaskCount: document.getElementById('borrow-task-count'),
         marketView: document.getElementById('market-view'),
+        marketBoardEl: document.getElementById('market-board'),
+        btnMarketBoard: document.getElementById('btn-market-board'),
         flowLogView: document.getElementById('flow-log-view'),
         borrowTaskView: document.getElementById('borrow-task-view'),
         borrowTaskList: document.getElementById('borrow-task-list'),
@@ -3360,8 +3370,17 @@
         // not verified. Hide the panel only when there is nothing to show at all
         // (no account block AND no local positions); the merged table + a not-ready
         // notice cover the degraded cases below.
+        // 双看板：费率行情页内 .panel-actions 的「费率行情|流水日志」必须可点，
+        // 故在 market 页始终展示私有账户面板 header（无账户数据时 body 可空）。
         const hasPositions = Array.isArray(state.hedgePositions) && state.hedgePositions.length > 0;
         if (!pa && !hasPositions) {
+          if (state.activeView === 'market') {
+            els.privatePanel.style.display = '';
+            els.privatePanelBody.innerHTML = '';
+            renderAccountAssetUpdatedAt(null);
+            renderPrivatePmSourceTime(null);
+            return;
+          }
           els.privatePanel.style.display = 'none';
           renderAccountAssetUpdatedAt(null);
           renderPrivatePmSourceTime(null);
@@ -5852,23 +5871,73 @@
         }
       }
 
+      function setMarketBoard(board, opts) {
+        // 页内双看板：'market' | 'flow-log'（不改 activeView / 不隐藏侧栏）
+        const next = board === 'flow-log' ? 'flow-log' : 'market';
+        const prevBoard = state.marketBoard;
+        state.marketBoard = next;
+        state.flowLogOpen = next === 'flow-log';
+        // 市场表看板
+        if (els.marketBoardEl) els.marketBoardEl.style.display = next === 'flow-log' ? 'none' : '';
+        // 私有账户 body：流水看板时隐藏内容，保留 header 上的双按钮
+        if (els.privatePanelBody) {
+          els.privatePanelBody.style.display = next === 'flow-log' ? 'none' : '';
+        }
+        // 私有账户面板：费率行情页内始终可显示 header（按钮所在）
+        if (els.privatePanel && state.activeView === 'market') {
+          els.privatePanel.style.display = '';
+        }
+        if (els.flowLogView) els.flowLogView.style.display = next === 'flow-log' ? '' : 'none';
+        // 按钮互斥高亮
+        if (els.btnMarketBoard) {
+          const on = next === 'market';
+          els.btnMarketBoard.classList.toggle('primary', on);
+          els.btnMarketBoard.setAttribute('aria-selected', String(on));
+          if (on) els.btnMarketBoard.setAttribute('aria-current', 'page');
+          else els.btnMarketBoard.removeAttribute('aria-current');
+        }
+        if (els.btnFlowLog) {
+          const on = next === 'flow-log';
+          els.btnFlowLog.classList.toggle('primary', on);
+          els.btnFlowLog.setAttribute('aria-selected', String(on));
+          if (on) els.btnFlowLog.setAttribute('aria-current', 'page');
+          else els.btnFlowLog.removeAttribute('aria-current');
+        }
+        // 轮询
+        if (prevBoard === 'flow-log' && next !== 'flow-log') stopFlowLogPoll();
+        if (next === 'flow-log' && state.activeView === 'market') {
+          if (state.flowLogPayload) renderFlowLogPanel();
+          if (!(opts && opts.skipLoad)) loadFlowLog();
+          startFlowLogPoll();
+        }
+      }
+
       function setActiveView(view) {
         const prev = state.activeView;
-        const allowed = { 'borrow-tasks': 1, 'hedge-tasks': 1, 'flow-log': 1, market: 1 };
-        state.activeView = allowed[view] ? view : 'market';
+        // flow-log 不再是整页：映射为 market + 流水看板
+        let target = view;
+        let boardHint = null;
+        if (view === 'flow-log') {
+          target = 'market';
+          boardHint = 'flow-log';
+        } else if (view === 'market') {
+          target = 'market';
+          boardHint = 'market';
+        }
+        const allowed = { 'borrow-tasks': 1, 'hedge-tasks': 1, market: 1 };
+        state.activeView = allowed[target] ? target : 'market';
         const isBorrow = state.activeView === 'borrow-tasks';
         const isHedge = state.activeView === 'hedge-tasks';
-        const isFlow = state.activeView === 'flow-log';
-        els.marketView.style.display = (isBorrow || isHedge || isFlow) ? 'none' : '';
+        const isMarket = state.activeView === 'market';
+        // market 页始终可见（含双看板）；仅借币/开单隐藏
+        els.marketView.style.display = (isBorrow || isHedge) ? 'none' : '';
         els.borrowTaskView.style.display = isBorrow ? '' : 'none';
         els.hedgeTaskView.style.display = isHedge ? '' : 'none';
-        if (els.flowLogView) els.flowLogView.style.display = isFlow ? '' : 'none';
-        // 导航入口互斥高亮，exactly one view visible at a time。
+        // 侧栏仅三个入口；#nav-market 不随看板切换改变激活态
         const navEntries = [
           ['market', els.navMarket],
           ['borrow-tasks', els.navBorrowTasks],
-          ['hedge-tasks', els.navHedgeTasks],
-          ['flow-log', els.navFlowLog]
+          ['hedge-tasks', els.navHedgeTasks]
         ];
         for (const [name, btn] of navEntries) {
           if (!btn) continue;
@@ -5880,19 +5949,10 @@
             btn.removeAttribute('aria-current');
           }
         }
-        if (els.btnFlowLog) {
-          if (isFlow) els.btnFlowLog.setAttribute('aria-current', 'page');
-          else els.btnFlowLog.removeAttribute('aria-current');
-        }
-        state.flowLogOpen = isFlow;
-        // 流水日志：进入立即 GET + 60s 轮询；离开 clearInterval（§13.7）
-        if (prev === 'flow-log' && !isFlow) {
-          stopFlowLogPoll();
-        }
-        if (isFlow) {
-          if (state.flowLogPayload) renderFlowLogPanel();
-          loadFlowLog();
-          startFlowLogPoll();
+        if (prev === 'market' && !isMarket) stopFlowLogPoll();
+        if (isMarket) {
+          const board = boardHint || state.marketBoard || 'market';
+          setMarketBoard(board);
         }
         if (isBorrow) {
           // 进入借币任务：默认选中「借币中」（不是「全部」）。
@@ -6139,18 +6199,27 @@
       function startFlowLogPoll() {
         stopFlowLogPoll();
         flowLogPollId = setInterval(() => {
-          if (state.activeView === 'flow-log') loadFlowLog();
+          if (state.activeView === 'market' && state.marketBoard === 'flow-log') loadFlowLog();
         }, FLOW_LOG_POLL_MS);
       }
 
       function setFlowLogOpen(open) {
-        if (open) setActiveView('flow-log');
-        else if (state.activeView === 'flow-log') setActiveView('market');
+        // 页内看板：不改 activeView 为独立页；必要时先回到费率行情页
+        if (open) {
+          if (state.activeView !== 'market') setActiveView('market');
+          setMarketBoard('flow-log');
+        } else if (state.activeView === 'market') {
+          setMarketBoard('market');
+        }
       }
 
       function toggleFlowLogPanel() {
-        if (state.activeView === 'flow-log') setActiveView('market');
-        else setActiveView('flow-log');
+        if (state.activeView === 'market' && state.marketBoard === 'flow-log') {
+          setMarketBoard('market');
+        } else {
+          if (state.activeView !== 'market') setActiveView('market');
+          setMarketBoard('flow-log');
+        }
       }
 
       function applyFlowLogRangeMode(mode) {
@@ -6164,7 +6233,7 @@
         if (els.flowLogRange30d) els.flowLogRange30d.setAttribute('aria-pressed', String(mode === '30d'));
         if (els.flowLogRangeCustom) els.flowLogRangeCustom.setAttribute('aria-pressed', String(mode === 'custom'));
         if (mode === 'custom') return; // 等应用
-        if (state.activeView === 'flow-log') loadFlowLog();
+        if (state.activeView === 'market' && state.marketBoard === 'flow-log') loadFlowLog();
       }
 
       function applyFlowLogCustomRange() {
@@ -6176,7 +6245,7 @@
         if (wrap) wrap.classList.add('is-open');
         const win = computeFlowLogWindowMs();
         if (!win) return; // 非法窗：零请求
-        if (state.activeView === 'flow-log') loadFlowLog();
+        if (state.activeView === 'market' && state.marketBoard === 'flow-log') loadFlowLog();
       }
 
       function mapFlowLogGetError(status, body) {
@@ -6705,7 +6774,17 @@
 
       function initFlowLogPanel() {
         if (!els.btnFlowLog || !els.flowLogPanel) return;
-        els.btnFlowLog.addEventListener('click', () => setActiveView('flow-log'));
+        // 私有账户 .panel-actions 双看板按钮
+        if (els.btnMarketBoard) {
+          els.btnMarketBoard.addEventListener('click', () => {
+            if (state.activeView !== 'market') setActiveView('market');
+            else setMarketBoard('market');
+          });
+        }
+        els.btnFlowLog.addEventListener('click', () => {
+          if (state.activeView !== 'market') setActiveView('market');
+          setMarketBoard('flow-log');
+        });
         if (els.flowLogRange7d) {
           els.flowLogRange7d.addEventListener('click', () => applyFlowLogRangeMode('7d'));
         }
@@ -6720,14 +6799,18 @@
         }
         if (els.flowLogRefresh) {
           els.flowLogRefresh.addEventListener('click', () => {
-            if (state.activeView === 'flow-log') postFlowLogRefresh();
+            if (state.activeView === 'market' && state.marketBoard === 'flow-log') {
+              postFlowLogRefresh();
+            }
           });
         }
+        const isFlowBoard = () =>
+          state.activeView === 'market' && state.marketBoard === 'flow-log';
         const bindFilter = (el, key) => {
           if (!el) return;
           el.addEventListener('change', () => {
             state.flowLogFilters[key] = !!el.checked;
-            if (state.activeView === 'flow-log') renderFlowLogIncomeCol(state.flowLogPayload);
+            if (isFlowBoard()) renderFlowLogIncomeCol(state.flowLogPayload);
           });
         };
         bindFilter(els.flowLogFilterFunding, 'FUNDING_FEE');
@@ -6748,7 +6831,6 @@
         els.navMarket.addEventListener('click', () => setActiveView('market'));
         els.navBorrowTasks.addEventListener('click', () => setActiveView('borrow-tasks'));
         els.navHedgeTasks.addEventListener('click', () => setActiveView('hedge-tasks'));
-        if (els.navFlowLog) els.navFlowLog.addEventListener('click', () => setActiveView('flow-log'));
         els.hedgeModalClose.addEventListener('click', closeHedgeModal);
         els.hedgeModalBackdrop.addEventListener('click', closeHedgeModal);
         if (els.hedgeModalConfirm) els.hedgeModalConfirm.addEventListener('click', () => { onHedgeModalConfirm(); });
@@ -6864,13 +6946,15 @@
         ingestSnapshot,
         togglePrivacy,
         getPrivacyHidden: () => state.privacyHidden,
-        // flow-log real seams (task C)
+        // flow-log real seams (task C + panel-actions dual board)
         toggleFlowLogPanel,
         setFlowLogOpen,
+        setMarketBoard,
         renderFlowLogPanel,
         loadFlowLog,
         postFlowLogRefresh,
         getFlowLogOpen: () => state.flowLogOpen,
+        getMarketBoard: () => state.marketBoard,
         getFlowLogPayload: () => state.flowLogPayload,
         setFlowLogPayload: (p) => { state.flowLogPayload = p; state.flowLogError = null; },
         getFlowLogError: () => state.flowLogError,
