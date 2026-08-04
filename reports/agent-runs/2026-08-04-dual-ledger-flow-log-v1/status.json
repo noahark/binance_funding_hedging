@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 12,
+  "revision": 13,
   "stage_id": "2026-08-04-dual-ledger-flow-log-v1",
   "bookkeeper": "bookkeeper1",
-  "phase": "plan-v13-prep",
-  "checkpoint": "任务 B 已核验封存（verified，delivery=550f8b7，pytest 31 passed + 回归 194 passed，契约 v0.12）；按 Human 决定先联调后评审；C 路由前准备：Planner 任务 plan-v13-c-packet-v1（opus5）落设计 v1.3（独立页+20 条）并重写 C packet 为真实数据版，随后路由 C（grok）接真实数据并前后端联调，联调通过后统一 review-1+review-2（A+B+C）",
+  "phase": "implementation-c",
+  "checkpoint": "设计 v1.3 与 C packet 重写已核验封存（verified）：独立页布局+默认 20 条落定，C packet 为真实数据版（grok/xai，status_revision=13，handoff 预检 20:32 复跑 PASS）；任务 C 已路由，等待 Human 启动 grok 终端；C 交付后前后端联调（真实 POST /refresh 须 Human 单独授权），联调通过后统一 review-1+review-2（A+B+C，provider 隔离已裁定）",
   "base_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "delivery_sha": "550f8b7ad51c1b0f828dc9b1713a7d800da0633f",
   "ledger_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "current_task": {
-    "id": "plan-v13-c-packet-v1",
+    "id": "frontend-dual-ledger-flow-log-v1",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/plan-v13-c-packet-v1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/frontend-dual-ledger-flow-log-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",

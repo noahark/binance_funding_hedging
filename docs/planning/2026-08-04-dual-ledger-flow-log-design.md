@@ -1,7 +1,8 @@
 # 双栏流水日志设计（借币利息 × 合约资金流水）
 
 > **［定稿标记 · 2026-08-04 · Planner opus5 · stage `2026-08-04-dual-ledger-flow-log-v1`］**
-> 本文件为 **定稿 v1.2**（计划评审 REWORK 后按 F1–F6 修订；带 `〔v1.2 / …〕` 标注的条目为本轮修订点）。§1–§10 为 2026-08-04 草案原文，**未作任何改写**；§11 起为定稿追加内容。
+> 本文件为 **定稿 v1.3**（在 v1.2 基础上，按 Human 2026-08-04 两项决策修订 UI 布局：**流水日志改为独立展示页**、**两栏各默认展示最新 20 条**；带 `〔v1.3 / …〕` 标注的条目为本轮修订点，`〔v1.2 / …〕` 标注保留为上一轮痕迹）。§1–§10 为 2026-08-04 草案原文，**未作任何改写**（§10 修订记录仅按惯例追加一行）；§11 起为定稿追加内容。
+> **v1.3 只改 UI 布局与展示条数，不改任何接口契约、数据语义或后端行为**——§13.1–§13.6、§14、§15.1–§15.4 的冻结内容一字未动，任务 A、B 已交付的实现不受影响。
 > 需求 1（按钮调整）见 **§11**；§7 的六个开放问题由 **§12** 逐条关闭；冻结的接口契约见 **§13**；
 > 本地账本与数据库见 **§14**；定时刷新与增量统计见 **§15**；实现任务拆分见 **§16**；
 > 风险与流程见 **§17**；Human 已拍板的全部产品决策汇总在 **§18**。
@@ -277,6 +278,7 @@
 | 2026-08-04 | **定稿 v1.0**（Planner opus5）：追加顶部定稿标记与 §11–§16（需求 1、开放问题决议、冻结接口契约、任务拆分、风险与流程、Human 决策点）。§1–§10 原文未改写。 |
 | 2026-08-04 | **定稿 v1.2**（Planner opus5，计划评审 REWORK 后修订，F1–F6）：F1 事务模型改为「run 记录必定落库 + 明细按栏各自事务 + 失败栏零明细零推进」（§14 规则 5、§13.5）；F2 `consecutive_failure_count` 改为按 run 表实时计数、不加列（§13.2 规则 10）；F3 统一「成功 run」定义为 `scheduled/startup_catchup/backfill` 且两栏均 `ok`，并同步 `delta.complete`（§15.4、§13.2 规则 11、A 验收 4）；F4 coverage 改为**分源记账 + `gaps` 空洞列表**，`complete` 判定重写，杜绝空洞内查询被读成「无流水」（§13.2 规则 7、§15.2、§13.7）；F5 冻结空态形状与前端三态判定表，新增 `scheduler_enabled` 字段（§13.2 规则 13/14）；F6 写死 manual run 同样推进 coverage、截断栏「提交已拉行 + coverage 只推进到已证明连续处」（§15.2、§15.3，其中截断处理对评审推荐有一处具名偏离，须重评审确认）。另落实观察项 O1/O2/O3/O4/O5/O6/O8。草案 §1–§10 原文仍未改写；C（前端）packet 未改动，其 F4 文案缺口移交 Bookkeeper 在路由前修正。 |
 | 2026-08-04 | **定稿 v1.1**（Planner opus5，Human 需求细化后重出）：Q5 由「不落盘」**改为本地 SQLite 去重持久化**；Q2 加回自定义时间窗且不受 30 天限制；新增每小时整点后 1 分钟的定时刷新与「距上次刷新新增」增量统计（§15）与本地账本 schema（§14）；接口契约升为 `private-ledger/v2`（读本地库 + `POST refresh`，§13）；实现任务由两份改为三份（§16）。§1–§10 原文仍未改写；v1.0 追加章节整体重出，未提交过，故无勘误痕迹。 |
+| 2026-08-04 | **定稿 v1.3**（Planner opus5，Human 2026-08-04 两项 UI 决策落定，且经 fake 原型 v2 目视验收）：**(1) 流水日志由「嵌入 `#market-view` 内 `#private-panel` 之后、点按钮就地展开/收起」改为独立展示页**——侧栏新增 `#nav-flow-log` 入口，`#flow-log-view` 与费率行情/借币任务/开单任务经既有 `setActiveView` 互斥切换，`#btn-flow-log` 改为切页而非展开（§11.1/§11.2/§13.7）；**(2) 两栏明细各默认展示最新 20 条**，`row_count` 与 `summary_*` 仍为全量、`row_limit_applied` 语义不变（§13.2 规则 8、§13.7）；(3) 轮询语义随之改为「独立页视图激活期间恰好一个 60 秒 `GET` 轮询、切走 `clearInterval`」，并在 §15.1 加一行指针说明前端轮询不是后端节拍；(4) §13.7 末尾 v1.2 的「C packet F4 文案缺口」待办框标记为已落实（本轮重写 C packet 时并入）。**本轮不改任何接口契约、数据语义与后端行为**；草案 §1–§10 原文仍未改写。 |
 
 ---
 
@@ -287,7 +289,8 @@
 | 元素 | 现状 | 定稿后 |
 |---|---|---|
 | `#btn-privacy`（显示金额/隐藏金额） | 私有账户面板 `.panel-header > .panel-actions`（`frontend/index.html:1127-1133`） | 移入 `.panel-title` 内，紧邻 `<h2>私有账户</h2>` 右侧同一行 |
-| 新 `#btn-flow-log`（流水日志） | 不存在 | 占据原 `.panel-actions` 位置，点击展开/收起双栏流水日志 |
+| 新 `#btn-flow-log`（流水日志） | 不存在 | 占据原 `.panel-actions` 位置，点击**切换到流水日志独立页**（`setActiveView('flow-log')`），不是就地展开/收起〔v1.3〕 |
+| 新 `#nav-flow-log`（侧栏「流水日志」入口） | 不存在 | 侧栏导航第四入口，与费率行情/借币任务/开单任务**互斥切换**；布局与渲染细节见 §13.7〔v1.3〕 |
 
 ### 11.2 DOM 落点（冻结）
 
@@ -302,11 +305,13 @@
   <p class="subtitle source-checked-at" id="private-pm-source-time" style="display:none;"></p>
 </div>
 <div class="panel-actions">
-  <button class="btn compact" id="btn-flow-log" type="button" aria-expanded="false" aria-controls="flow-log-panel">流水日志</button>
+  <button class="btn compact" id="btn-flow-log" type="button" aria-controls="flow-log-view" title="打开流水日志独立页">流水日志</button>
 </div>
 ```
 
 新增样式仅一条、且只服务此处：`.panel-title-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }`。
+
+**按钮的 ARIA 语义〔v1.3〕**：独立页下没有「就地展开的内容」，因此 `#btn-flow-log` **不用** `aria-expanded`，`aria-controls` 指向 `flow-log-view`；流水日志视图激活时置 `aria-current="page"`、离开时移除（与侧栏 `#nav-flow-log` 的高亮语义一致）。
 
 ### 11.3 不变量
 
@@ -441,6 +446,7 @@
    - `coverage.pending_tail_ms` = `max(0, window.end_ms - coverage.end_ms)`：窗口尾部**尚未被任何 run 覆盖**的毫秒数。**它不参与 `complete` 判定**——查询窗口的终点通常是「此刻」，而 coverage 只到上一次刷新，正常运行时这段尾巴恒为 0–60 分钟；若把它算进 `complete`，页面会永远显示「数据不完整」，护栏就退化成噪音、从而失去意义。前端把它单独渲染为「最近 X 分钟的流水尚未刷新」（调度器停摆时这个数字会自然变大，正好是需要被看见的信号）。
    - **空结果绝不允许被呈现为「这段时间没有流水」**，除非 `coverage.complete == true` 且 `pending_tail_ms` 已在状态条中如实标注。
 8. **`row_limit_applied`**：明细每栏最多返回 **500 行**（时间倒序取最新）；`row_count` 始终是窗口内**全量**条数，`summary` 也始终按**全量**计算，与截断无关。
+   **前端默认只渲染最新 20 条**〔v1.3〕：这是纯展示层的「取前 N」，**不改变本字段的任何语义**——`row_count` 仍是全量、`summary_*` 仍按全量、`row_limit_applied` 仍只描述后端的 500 行截断。三个数字（前端展示 20 / 后端上限 500 / 全量 `row_count`）必须在同一行状态文案里可区分，文案与右栏筛选的交互见 §13.7「明细展示条数」。
 9. `last_run.*_status` 三值：`ok` / `error`（`*_error` 为稳定短码）/ `disabled`（私有通道未启用）。短码集合：`interest_history_failed`、`um_income_failed`、`rate_limited`、`private_channel_disabled`。**不得**携带币安原始报文或 URL。
 10. **`last_run.consecutive_failure_count` 由 service 从 run 表实时计算，不新增数据库列**〔v1.2 / F2〕：从最近一条已完成 run 起向前数，连续满足「任一栏 `status == "error"`」的 run 条数，遇到第一条两栏都不是 `error` 的 run 即停止；`disabled` 不计为失败；无 run 记录时为 `0`。
 11. `delta.complete` 为 `false` 表示尚不足两次**成功 run**、基准不可靠，此时前端显示「统计基准建立中」，**不显示可能误导的增量数字**；`delta.baseline_ms` 同时为 `null`。「成功 run」的唯一定义见 §15.4〔v1.2 / F3〕。
@@ -528,27 +534,32 @@
 
 ### 13.7 前端渲染契约
 
+**布局形态〔v1.3 / Human 2026-08-04 决策〕**：流水日志是一个**独立展示页**，不再嵌在费率行情页里就地展开。理由是它有自己的工具条、两个元数据区块、筛选器与双栏表格，塞进市场页会把首屏推得很长；而独立页复用既有 `setActiveView` 互斥切换机制，不引入第二套视图状态机。此形态已由 fake 原型 v2 实现并经 Human 目视验收。
+
 | 项 | 约定 |
 |---|---|
-| 容器 | `#flow-log-panel`，位于 `#private-panel` 之后、市场表面板之前，**仍在 `#market-view` 内**，默认 `display:none` |
-| 打开方式 | 点 `#btn-flow-log` 展开/收起（同步 `aria-expanded`）；首次展开自动 `GET` 一次（近 7 天） |
+| 容器 | `#flow-log-view`（独立视图容器，与 `#market-view` / `#borrow-task-view` / `#hedge-task-view` **平级**，默认 `display:none`），其内是 `#flow-log-panel`。**不得**再嵌在 `#market-view` 内〔v1.3〕 |
+| 导航入口 | 侧栏 `#nav-flow-log`（文案「流水日志」）；私有账户面板的 `#btn-flow-log`。两者点击**都**只做 `setActiveView('flow-log')`〔v1.3〕 |
+| 视图切换 | 复用既有 `setActiveView`，与 `market` / `borrow-tasks` / `hedge-tasks` **互斥**：同一时刻恰好一个视图可见，当前入口 `.active` + `aria-current="page"`，其余移除。**不得新增第二套视图状态机**，也不得改动既有三个视图的行为〔v1.3〕 |
+| 进入视图 | `setActiveView('flow-log')` 时立即 `GET` 一次（默认近 7 天窗口）并启动轮询；离开视图停轮询（见「轮询」行）。首帧允许先用上一次成功数据渲染，再用新响应覆盖〔v1.3〕 |
 | 常驻状态条 | 「本地数据：<coverage.start> 起 · 上次刷新：<last_run 时间>（成功/失败短码中文）· 每小时整点后 1 分钟自动刷新」，并在 `coverage.pending_tail_ms > 0` 时常驻附注「最近 X 分钟的流水尚未刷新」。三态与优先级按 §13.2 规则 14 的判定表 |
 | 覆盖不完整文案〔v1.2 / F4〕 | `coverage.complete=false` 时**必须**提示，且分两种：**(a) 起点截断**（`window.start_ms < coverage.start_ms` 且 `gaps` 为空）→「本地数据只到 <coverage.start 日期>，更早的没有」；**(b) 区间空洞**（`gaps` 非空）→「<gap.start>–<gap.end> 这段没有拉到（<源名>），下面的列表在这段时间内不代表交易所没有流水」，多条空洞逐条列出（最多 20 条）。**任何情况下都不得在 `complete=false` 时显示「该时间窗无记录」** |
 | 增量区块 | 「自 <baseline 时刻> 以来新增」：左栏按币种的新增利息；右栏按（类型，币种）的新增资金费/手续费；再加**按合约的资金费新增排行**。`delta.complete=false` 时改显「统计基准建立中」 |
 | 参照区块 | 「今日累计」（北京时间当日，按发生时间）与当前窗口的区间累计（`summary_*`） |
-| 时间窗 | `近7天` / `近30天` / `自定义`（起止日期）；自定义无 30 天上限 |
+| 时间窗 | `近7天` / `近30天` / `自定义`（起止日期）；自定义无 30 天上限。切换预设或点「应用」各触发**一次** `GET`〔v1.3〕：预设 `end = Date.now()`、`start = end − 7d/30d`；自定义按**北京日界**取 `起 T00:00:00+08:00` 到 `止 T23:59:59+08:00`，`start >= end` 或日期为空则不发请求 |
 | 手动刷新 | `#flow-log-refresh` → `POST /api/private-ledger/refresh`，完成后重新 `GET`；进行中禁用按钮；`429` 显示「正在刷新，请稍候」 |
-| 轮询 | 面板展开期间**允许且仅允许一个**流水日志专用 60 秒轮询定时器（纯本地读），**收起时必须 `clearInterval`**；除此之外不得新增任何定时器 |
+| 轮询〔v1.3 改为按视图〕 | 流水日志**视图激活期间**允许且仅允许**一个**流水日志专用 60 秒轮询定时器（纯本地读 `GET`），**离开视图必须 `clearInterval`**；除此之外不得新增任何定时器。启动前必须先清掉自己上一个 id（重复进入视图不得叠加定时器）；已有的市场 60 秒自动刷新、1 秒倒计时、执行状态轮询等既有定时器一律不动 |
 | 加载中 | 栏内 skeleton；**保留上一次成功数据**不清空 |
 | 三态 | 「该时间窗无记录」/ 「上次刷新失败：<中文>」/ 「私有通道未启用」必须可区分；一栏失败不影响另一栏 |
-| 明细上限 | 后端最多返回 500 行/栏；`row_limit_applied=true` 时显示「共 N 条，显示最近 500 条」。前端**不做二次截断**、不重算汇总 |
+| 明细展示条数〔v1.3〕 | 两栏**各默认只渲染最新 20 条**（后端已按时间倒序返回，前端取前 20，**不排序、不重算汇总**）。状态行必须同时讲清三个数字：「显示最近 20 条（共 `row_count` 条）」；`row_limit_applied=true` 时再追加「后端最多返回 500 条」。右栏因类型筛选是纯前端，取前 20 **发生在筛选之后**，故右栏文案为「显示最近 20 条（筛选后共 X 条 / 全量 `row_count` 条）」。v1 **不做**「加载更多」，要看更早的用时间窗控件 |
 | 金额遮蔽 | 复用 `state.privacyHidden`：隐藏态下利息、本金、`income`、所有汇总与增量一律 `****`；时间、类型、币种、`symbol` 不遮蔽 |
 | 时间 | 一律 `formatBeijing(ms)` |
 | 窄屏 | ≤900px 双栏改上下堆叠单列 |
 
-**冻结的新 DOM id 集合**（self-check 须逐个注册）：
+**冻结的新 DOM id 集合**（self-check 须逐个注册；前两个为 v1.3 独立页新增）：
 
 ```text
+nav-flow-log, flow-log-view,
 btn-flow-log, flow-log-panel, flow-log-status-bar, flow-log-coverage-note,
 flow-log-range-7d, flow-log-range-30d, flow-log-range-custom,
 flow-log-custom-start, flow-log-custom-end, flow-log-custom-apply,
@@ -562,7 +573,7 @@ flow-log-income-status, flow-log-income-summary, flow-log-income-body
 
 `type` / `incomeType` 中文文案沿用 §3.1 与 §3.2 两张对照表；资金费 `income > 0` 文案「收取」、`< 0`「支付」。
 
-> **［待 Bookkeeper 在路由 C 之前处理 · v1.2 新增］** 本次修订按 `plan-revise` dispatch 的纪律**未改动 C（`frontend-dual-ledger-flow-log-v1`）packet**。但 F4 使 C 的 Goal 第 1 条出现措辞缺口：它只写了「`coverage.complete=false` 时追加『本地数据只到 <日期>，更早的没有』」，而该文案只适用于上表的 **(a) 起点截断**；**(b) 区间空洞**需要另一句。C packet 的 Inputs 已包含本设计 §13.7，实现者按本表执行即可正确，但 packet 正文与设计并列时会读成两套要求。建议 Bookkeeper 在路由 C 前做一次 pre-dispatch packet correction：把 C 的 Goal 第 1 条与验收 2 改为「按设计 §13.7『覆盖不完整文案』两种情形分别渲染」，并把 §13.2 规则 13/14 的空态与三态判定表列入其验收。此项**不改变** C 的文件边界与交付范围。
+> **［已落实 · v1.3 · 2026-08-04］** v1.2 在此处留了一个待办：C（`frontend-dual-ledger-flow-log-v1`）packet 的覆盖文案只写了 (a) 起点截断、缺 (b) 区间空洞，需在路由前做一次 pre-dispatch packet correction。**该待办已闭合**：C packet 已于本轮（v1.3）整份重写为真实数据版，覆盖文案按本表两种情形分别渲染、§13.2 规则 13/14 的空态与三态判定表已列入其验收；Bookkeeper 之前给出的这条 correction 意图已并入新 packet 正文。C 的文件边界与交付范围未因此改变（仍为 `frontend/index.html` + `frontend/self-check.js` + evidence）。
 
 ---
 
@@ -659,6 +670,7 @@ CREATE TABLE IF NOT EXISTS ledger_meta (
 - 实现方式：守护线程每 **20 秒**醒一次，判断「当前分钟 ≥ 1」且「当前自然小时还没有成功的 scheduled run」→ 立即执行。**不用 sleep 到精确时刻**——时钟跳变、机器休眠唤醒都会让精确定时失效，而"本小时是否已成功"这个判据天然幂等，也天然覆盖了漏跑补偿。
 - 时钟：本地时钟（北京时间与 UTC 的整点对齐，差值为整小时，因此「整点后 1 分钟」两种时区含义一致）。
 - 计息节拍是每小时整点（recon 实测相邻计息时间差恒为 3,600,000 ms）；资金费按各合约 4h/8h 结算，多数小时无新资金费行——这是正常的。
+- **前端轮询不是本节的节拍**〔v1.3〕：本节只定义**后端**拉取上游的每小时节拍。前端在流水日志独立页视图激活期间的 60 秒 `GET`（纯读本地库、**零上游 I/O**）及离开视图必须 `clearInterval` 的约束，权威只在 §13.7「轮询」行。两者互不替代：页面一直开着也不会让上游拉取变快，它只是更早看到上一次 run 的结果。
 
 ### 15.2 拉取窗口
 
@@ -720,6 +732,8 @@ baseline_ms = 倒数第二次「成功 run」的 finished_at_ms
 | A | `backend-ledger-store-fetch-v1` | Implementer / `claude_glm`（`zhipu_glm`） | `backend/services/private_client.py`、`backend/ledger_flow/__init__.py`（新）、`backend/ledger_flow/domain.py`（新）、`backend/ledger_flow/store.py`（新）、`backend/tests/test_ledger_flow_domain.py`（新）、`backend/tests/test_ledger_flow_store.py`（新）、`backend/tests/test_private_client.py` |
 | B | `backend-ledger-schedule-api-v1` | Implementer / `claude_glm`（`zhipu_glm`） | `backend/ledger_flow/service.py`（新）、`backend/ledger_flow/scheduler.py`（新）、`backend/app/server.py`、`backend/services/snapshot_service.py`（仅加只读访问器）、`backend/tests/test_ledger_flow_service.py`（新）、`backend/tests/test_ledger_flow_api.py`（新）、`docs/api/public-market-contract.md` |
 | C | `frontend-dual-ledger-flow-log-v1` | Implementer / `kimi`（`moonshot`） | `frontend/index.html`、`frontend/self-check.js` |
+
+> **〔路由勘误 · Bookkeeper 2026-08-04〕** 上表 C 行的 `kimi` 为 `agents/roles.md` 的前端**默认**路由；本 stage 由 Human 显式指派 **`grok`（`xai`）** 实现前端（fake v1/v2 与 C 同一模型，满足「Grok implementation only when the human or dispatch explicitly enables it」）。C packet 的 Identity 以实际路由为准；统一评审的 provider 隔离须同时避开 `zhipu_glm`（A、B 作者）与 `xai`（C 作者）。
 
 - **零重叠**（指**产品与证据文件**）：三份 Allowed Files 在业务代码、测试、契约文档、交接件与测试输出上两两不相交。`backend/ledger_flow/__init__.py` 由 A 创建后**只放包 docstring**，B 与 C 都不得再改它；B 一律用子模块路径导入（`from ..ledger_flow import service as ledger_service`）。
 - **唯一的共享文件是 `status.json`，属语义例外**〔v1.2 / O2〕：三份 packet 都列了它，但每份只被授权把**自己那一条** `current_task.state` 从 `dispatched` 改成 `reported`，且三个任务串行执行、同一时刻只有一个任务处于 `dispatched`。因此它不构成并发写冲突，也不影响「文件边界可安全分离」的判断。
@@ -788,7 +802,7 @@ node frontend/self-check.js
 - **「尽力而为」的捕获边界**〔v1.2 / O1〕：3 小时重叠窗口只能兜住「可见延迟 ≤ 3 小时」的晚到记录。若某条流水的可见延迟超过 3 小时**且**其发生时间早于当时的 `coverage_end - 3h`，它将**永久不会被拉到，且系统检测不到**（`coverage` 仍显示连续）。实测证据支持 3 小时足够（资金费 4h/8h 结算、原型脚本仅需 `Sleep 10s`），但这条边界是真实存在的，不要把本页当成审计级完备账本。
 - **时钟回拨**〔v1.2 / O6〕：`first_seen_at_ms` 与基准比较用的是墙钟。系统时钟若被回拨，可能出现 `first_seen_at_ms ≤ baseline_ms` 而漏计入「本次新增」（数据仍在库里，只是那一轮的增量数字偏小）。NTP 环境下罕见，本轮不做补偿。
 - **左栏 40 页上限的余量**〔v1.2 / O8〕：40 页 = 4000 行，而 recon 实测 30 天为 1647 行（17 页），余量约 2.3 倍。借款资产数量显著增长后，30 天回补可能触顶并触发 `truncated` 与空洞记录；护栏会如实显示，但届时需要调高上限或分段回补。
-- **C（前端）packet 尚未按 F4 补齐覆盖文案**：见 §13.7 末尾的待办框，需 Bookkeeper 在路由 C 前做一次 pre-dispatch packet correction。
+- ~~**C（前端）packet 尚未按 F4 补齐覆盖文案**~~ —— **已闭合**〔v1.3 / 2026-08-04〕：C packet 已整份重写为真实数据版并含两种覆盖文案，见 §13.7 末尾的已落实框。
 
 ---
 
