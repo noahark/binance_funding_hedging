@@ -154,8 +154,18 @@ const ids = [
   'filter-hide-low-net-yield', 'filter-prefer-openable',
   'summary-row', 'status-area', 'market-table-body',
   'private-panel', 'private-pm-source-time', 'private-panel-body', 'btn-privacy', 'privacy-label', 'privacy-icon-path',
+  // 流水日志假数据探针（2026-08-04-dual-ledger-flow-log-v1）— 设计 §13.7 冻结 id 集合
+  'btn-flow-log', 'flow-log-panel', 'flow-log-status-bar', 'flow-log-coverage-note',
+  'flow-log-range-7d', 'flow-log-range-30d', 'flow-log-range-custom',
+  'flow-log-custom-start', 'flow-log-custom-end', 'flow-log-custom-apply',
+  'flow-log-refresh', 'flow-log-delta', 'flow-log-delta-interest', 'flow-log-delta-income',
+  'flow-log-delta-symbols', 'flow-log-today', 'flow-log-filters',
+  'flow-log-filter-funding', 'flow-log-filter-commission', 'flow-log-filter-realized',
+  'flow-log-filter-transfer', 'flow-log-filter-other',
+  'flow-log-interest-status', 'flow-log-interest-summary', 'flow-log-interest-body',
+  'flow-log-income-status', 'flow-log-income-summary', 'flow-log-income-body',
   'drawer', 'drawer-backdrop', 'drawer-title', 'drawer-body', 'drawer-close',
-  'nav-market', 'nav-borrow-tasks', 'borrow-task-count', 'market-view', 'borrow-task-view', 'borrow-task-list',
+  'nav-market', 'nav-borrow-tasks', 'nav-flow-log', 'borrow-task-count', 'market-view', 'flow-log-view', 'borrow-task-view', 'borrow-task-list',
   'borrow-task-filters',
   'borrow-tab-tasks', 'borrow-tab-logs', 'borrow-tasks-panel', 'borrow-logs-panel',
   'borrow-interval-input', 'borrow-interval-confirm', 'borrow-interval-error', 'borrow-interval-note',
@@ -5335,6 +5345,133 @@ setTimeout(async () => {
       clickHandlers[0]();
       if (panel.hidden !== true) throw new Error('再次点击开关应收起预览');
       console.log('[PASS] 假数据·预览：默认关闭 + 开关可切 + 51169 冻结文案逐字渲染 + 打开零网络请求');
+    }
+
+    // 98b. 流水日志假数据探针 v2（独立页 + 默认 20 条）
+    {
+      const flowIds = [
+        'nav-flow-log', 'flow-log-view',
+        'btn-flow-log', 'flow-log-panel', 'flow-log-status-bar', 'flow-log-coverage-note',
+        'flow-log-range-7d', 'flow-log-range-30d', 'flow-log-range-custom',
+        'flow-log-custom-start', 'flow-log-custom-end', 'flow-log-custom-apply',
+        'flow-log-refresh', 'flow-log-delta', 'flow-log-delta-interest', 'flow-log-delta-income',
+        'flow-log-delta-symbols', 'flow-log-today', 'flow-log-filters',
+        'flow-log-filter-funding', 'flow-log-filter-commission', 'flow-log-filter-realized',
+        'flow-log-filter-transfer', 'flow-log-filter-other',
+        'flow-log-interest-status', 'flow-log-interest-summary', 'flow-log-interest-body',
+        'flow-log-income-status', 'flow-log-income-summary', 'flow-log-income-body',
+      ];
+      for (const id of flowIds) {
+        if (!document.getElementById(id)) throw new Error('流水日志 DOM 缺失: ' + id);
+      }
+      if (!document.getElementById('btn-privacy')) throw new Error('btn-privacy 丢失');
+      if (!html.includes('panel-title-row')) throw new Error('缺少 .panel-title-row 容器');
+      // v2：独立视图，不在 market-view 内嵌
+      const marketViewStart = html.indexOf('id="market-view"');
+      const marketViewEnd = html.indexOf('id="flow-log-view"');
+      const panelInMarket =
+        marketViewStart !== -1 &&
+        marketViewEnd !== -1 &&
+        html.slice(marketViewStart, marketViewEnd).includes('id="flow-log-panel"');
+      if (panelInMarket) throw new Error('flow-log-panel 不应再嵌入 market-view');
+      if (!html.includes('id="flow-log-view"') || !html.includes('id="nav-flow-log"')) {
+        throw new Error('缺少独立视图 flow-log-view / nav-flow-log');
+      }
+      if (!html.includes('演示数据（FAKE）——非真实账户流水')) {
+        throw new Error('缺少 FAKE 醒目标识');
+      }
+      if (html.includes('资金费率日志')) throw new Error('右栏不得命名为资金费率日志');
+      if (!html.includes('合约资金流水') || !html.includes('借币利息流水')) {
+        throw new Error('双栏标题缺失');
+      }
+      if (/fetch\s*\(\s*['"`][^'"`]*private-ledger/.test(html)) {
+        throw new Error('fake 阶段不得 fetch private-ledger');
+      }
+      const view = document.getElementById('flow-log-view');
+      const navFlow = document.getElementById('nav-flow-log');
+      if (view.style.display !== 'none') throw new Error('flow-log-view 默认应隐藏');
+      // 切到流水日志独立页
+      const mark = fetchCallLog.length;
+      helpers.setActiveView('flow-log');
+      if (helpers.getActiveView() !== 'flow-log') throw new Error('activeView 应为 flow-log');
+      if (view.style.display === 'none') throw new Error('切到 flow-log 后视图应显示');
+      if (document.getElementById('market-view').style.display !== 'none') {
+        throw new Error('flow-log 视图时 market-view 应隐藏');
+      }
+      if (!navFlow.classList.contains('active') || navFlow.getAttribute('aria-current') !== 'page') {
+        throw new Error('nav-flow-log 应高亮 aria-current=page');
+      }
+      if (fetchCallLog.length !== mark) throw new Error('切换流水日志发起了网络请求');
+      // 私有账户按钮同样切到独立页
+      helpers.setActiveView('market');
+      const btn = document.getElementById('btn-flow-log');
+      (btn.listeners.click || []).forEach((h) => h());
+      if (helpers.getActiveView() !== 'flow-log') throw new Error('btn-flow-log 应切换到 flow-log 视图');
+      // 切回费率行情
+      helpers.setActiveView('market');
+      if (helpers.getActiveView() !== 'market') throw new Error('切回 market 失败');
+      if (view.style.display !== 'none') throw new Error('离开 flow-log 后视图应隐藏');
+      if (document.getElementById('nav-market').getAttribute('aria-current') !== 'page') {
+        throw new Error('费率行情 nav 应恢复 aria-current');
+      }
+      // 既有借币/开单视图不受破坏
+      helpers.setActiveView('borrow-tasks');
+      if (helpers.getActiveView() !== 'borrow-tasks') throw new Error('borrow-tasks 视图被破坏');
+      helpers.setActiveView('hedge-tasks');
+      if (helpers.getActiveView() !== 'hedge-tasks') throw new Error('hedge-tasks 视图被破坏');
+      helpers.setActiveView('flow-log');
+      const payload = helpers.getFlowLogFakePayload();
+      if (!payload || payload.schema_version !== 'private-ledger/v2') {
+        throw new Error('假数据 schema_version 应为 private-ledger/v2');
+      }
+      if (!payload.interest || !payload.interest.rows || payload.interest.rows.length < 20) {
+        throw new Error('利息假数据应 ≥20 条，实际 ' + (payload.interest && payload.interest.rows && payload.interest.rows.length));
+      }
+      if (!payload.um_income || !payload.um_income.rows || payload.um_income.rows.length < 20) {
+        throw new Error('合约假数据应 ≥20 条');
+      }
+      const intStatus = document.getElementById('flow-log-interest-status').textContent || '';
+      if (!intStatus.includes('显示最近 20 条') && !intStatus.includes('显示最近')) {
+        throw new Error('左栏应注明显示最近 20 条: ' + intStatus);
+      }
+      const intBody = document.getElementById('flow-log-interest-body').innerHTML;
+      const intTr = (intBody.match(/<tr>/g) || []).length;
+      // thead 一行 + tbody 最多 20
+      const tbodyTr = (intBody.match(/<tbody>[\s\S]*<\/tbody>/) || [''])[0].match(/<tr>/g);
+      const nInt = tbodyTr ? tbodyTr.length : 0;
+      if (nInt !== 20) throw new Error('左栏默认应展示 20 条，实际 ' + nInt);
+      const statusText = document.getElementById('flow-log-status-bar').textContent || '';
+      const covNote = document.getElementById('flow-log-coverage-note').textContent || '';
+      if (payload.coverage.pending_tail_ms > 0) {
+        if (!statusText.includes('尚未刷新')) {
+          throw new Error('pending_tail 应渲染尚未刷新: ' + statusText);
+        }
+      }
+      if (payload.coverage.complete === false) {
+        if (!covNote.includes('更早的没有') && !covNote.includes('没有拉到') && !covNote.includes('不完整')) {
+          throw new Error('complete=false 应有覆盖护栏: ' + covNote);
+        }
+      }
+      const realized = document.getElementById('flow-log-filter-realized');
+      const before = fetchCallLog.length;
+      realized.checked = true;
+      (realized.listeners.change || []).forEach((h) => h());
+      if (fetchCallLog.length !== before) throw new Error('类型筛选不得发起请求');
+      const incAfter = document.getElementById('flow-log-income-body').innerHTML;
+      if (!incAfter.includes('已实现')) throw new Error('勾选后应显示已实现盈亏');
+      realized.checked = false;
+      (realized.listeners.change || []).forEach((h) => h());
+      const wasHidden = helpers.getPrivacyHidden();
+      if (!wasHidden) helpers.togglePrivacy();
+      helpers.setActiveView('flow-log');
+      const bodyNow = document.getElementById('flow-log-interest-body').innerHTML;
+      if (!bodyNow.includes('****')) throw new Error('隐私隐藏时利息金额应为 ****');
+      if (!bodyNow.includes('HOME') && !bodyNow.includes('RSR')) {
+        throw new Error('隐私隐藏时资产名应仍可见');
+      }
+      if (helpers.getPrivacyHidden() !== wasHidden) helpers.togglePrivacy();
+      helpers.setActiveView('market');
+      console.log('[PASS] 流水日志 v2：独立页导航/20条/FAKE 护栏/筛选/隐私');
     }
 
     // 99. v0.9 / v4.1 §9.1 collateral_cap 纯展示：徽标仅在「借贷状态 / 资产」列三态 +
