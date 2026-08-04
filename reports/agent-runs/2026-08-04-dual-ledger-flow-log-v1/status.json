@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 9,
+  "revision": 10,
   "stage_id": "2026-08-04-dual-ledger-flow-log-v1",
   "bookkeeper": "bookkeeper1",
-  "phase": "implementation",
-  "checkpoint": "fake 原型阶段闭环：v2 独立页已核验封存且 Human 目视验收通过（提交 d46523d）；后端任务 A backend-ledger-store-fetch-v1 恢复路由（glm，从 dispatch 重做，status_revision=9）；设计定稿 v1.3（§13.7 独立页布局+默认20条+修订记录）由 Planner 在 C 路由前落定；A→B→C 串行，每份交付后按 HIGH_RISK 走 review-1+review-2",
+  "phase": "review-1",
+  "checkpoint": "任务 A 已核验封存（verified，delivery=aba7420，pytest 84 passed）；review-1 packet 已备（kimi/moonshot，跨 provider，受审范围=dc4cc6d..aba7420 中 A 的 Allowed Files）；review-1+review-2 通过且 Human 决策后方可路由任务 B",
   "base_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
-  "delivery_sha": null,
+  "delivery_sha": "aba7420c07024b0e5cc31d4ae5b166ada5314841",
   "ledger_sha": "dc4cc6d9dc629c06cff4a98f98ff7a81a533a3c8",
   "current_task": {
-    "id": "backend-ledger-store-fetch-v1",
-    "state": "reported",
-    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/backend-ledger-store-fetch-v1.dispatch.md"
+    "id": "review-1-backend-ledger-store-fetch-v1",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/review-1-backend-ledger-store-fetch-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",

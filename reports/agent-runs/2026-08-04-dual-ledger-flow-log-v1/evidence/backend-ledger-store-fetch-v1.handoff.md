@@ -145,3 +145,19 @@
 ## Errata (append-only)
 
 （无。）
+
+## Bookkeeper Verification
+
+- 核验时间（本地）：2026-08-04 17:00:00 CST
+- source_sha256（marker 前字节）：`862feebbf606a0a206459e78a7a3140af0e4ca45970d69ba937f3dbc6070dd18`
+  （复现：读本文件，取 `<!-- BOOKKEEPER_APPEND_ONLY:` 之前全部字节，`hashlib.sha256` 十六进制）
+- 核对的 status revision：9（`current_task.id = backend-ledger-store-fetch-v1`、`state = reported`，与交接件声明一致；预检 `test ! -e` 于 2026-08-04 12:55 CST 通过，实现者 16:48 CST 复验一致）
+- task_id / role / stage_id 与 `status.json` 一致；base_sha `dc4cc6d` 存在且等于 status.json 值
+- **delivery_sha（已解析）**：`aba7420c07024b0e5cc31d4ae5b166ada5314841`（`git rev-parse` 直接值；父提交 `a8dee78`，与 handoff「SHA 说明」一致）。交接件 `delivery_sha=pending` 已按合同由 Bookkeeper 解析为实际值写入本块，不改动作者源区块。
+- 结论：**通过（verified）**。原始 pytest 输出 `84 passed in 0.30s` 已核验；白名单 13→15 与 base-url 断言、两单页 fetcher（不写 `last_error`、不走 `_cached_get`、失败抛 `PrivateEndpointError`）、domain 四硬规则（ID 字符串、金额透传、`Decimal` + `localcontext(prec=40)`、unparseable→`*_total=null`+count）、store F1 事务模型（run 独立事务、单源明细+coverage 同事务、两源隔离、注入失败点验证）、金额列 TEXT 无 SQL 聚合、空库安全、store 不判成功语义——均与设计 v1.2 §13.2/§13.5/§14/§15.4 一致；公开签名全列明（任务 B 对接契约）；未越界（无路由/无线程/未改 server/snapshot/frontend）。
+- **base_sha 处置**：保持 `dc4cc6d` 不前移。`dc4cc6d..aba7420` 区间内的前端 fake 原型与 bookkeeper 提交（`84e37b0`/`8da9649`/`d46523d`/`a8dee78` 等）与本任务 Allowed Files **零重叠**，按 `AGENTS.md` §8「评审范围口径」为评审者的上下文而非受审交付；review-1 的受审范围 = 本任务 Allowed Files。
+- 后续状态：本任务 → `verified`；review-1 `review-1-backend-ledger-store-fetch-v1` 已路由（首选 kimi/moonshot，备选 deepseek，均与 zhipu_glm 跨 provider）；review-1 + review-2（HIGH_RISK）通过且 Human 决策后方可路由任务 B（`backend-ledger-schedule-api-v1`）。
+
+## Errata (append-only)
+
+（无。）
