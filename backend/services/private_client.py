@@ -67,6 +67,11 @@ WHITELIST: Dict[Tuple[str, str], str] = {
     # E1/E1b — discovery-only; registered but NOT called by snapshot assembly.
     ("GET", "/papi/v1/margin/marginInterestHistory"): "https://papi.binance.com",
     ("GET", "/papi/v1/portfolio/interest-history"): "https://papi.binance.com",
+    # Flow-log ledger sources (design 2026-08-04-dual-ledger-flow-log §13.6):
+    # two read-only GETs backing the single-page fetchers below. Pagination is
+    # the service layer's concern, not the client's.
+    ("GET", "/sapi/v1/margin/interestHistory"): "https://api.binance.com",
+    ("GET", "/papi/v1/um/income"): "https://papi.binance.com",
 }
 
 # Gate B (gate-b-endpoint-recon.md §9): next-hourly single-call `assets` hard
@@ -631,6 +636,61 @@ class PrivateClient:
             self.last_error = f"api_account_failed:{exc.reason}"
             return None
         return data.get("balances") if isinstance(data, dict) else None
+
+    # -- flow-log ledger sources (design 2026-08-04-dual-ledger-flow-log §13.5) --
+    # Two SINGLE-PAGE readers. The pagination loop lives in the service layer
+    # (task B), not here. These intentionally differ from the snapshot fetchers:
+    #   * they do NOT write ``self.last_error`` — that field is the snapshot
+    #     ``borrow_validation`` degradation signal and must not be polluted by a
+    #     flow-log failure (which would change the market page's fallback text);
+    #   * they do NOT use ``_cached_get`` — the service controls refresh
+    #     windows, and a TTL cache would hand back stale data on a manual /
+    #     scheduled refresh;
+    #   * on upstream failure they raise ``PrivateEndpointError`` (the caller
+    #     records the source's ``status="error"``).
+    def fetch_interest_history_page(
+        self, *, start_time: int, end_time: int, current: int, size: int
+    ) -> Dict[str, Any]:
+        """Single-page ``GET /sapi/v1/margin/interestHistory``.
+
+        Returns the raw ``{"total": int, "rows": [...]}`` envelope. ``size`` is
+        capped at 100 and ``current`` starts at 1 (recon §5.1); the caller
+        enforces those and the 40-page ceiling. No ``last_error`` write; no TTL
+        cache; raises ``PrivateEndpointError`` on a non-2xx response.
+        """
+        return self._signed_get(
+            "GET",
+            "/sapi/v1/margin/interestHistory",
+            {
+                "startTime": str(start_time),
+                "endTime": str(end_time),
+                "current": str(current),
+                "size": str(size),
+            },
+        )
+
+    def fetch_um_income_page(
+        self, *, start_time: int, end_time: int, page: int, limit: int
+    ) -> List[Any]:
+        """Single-page ``GET /papi/v1/um/income``.
+
+        Returns the raw array ``[...]`` (no envelope). No ``incomeType`` /
+        ``symbol`` filter is sent — the service wants all types and filters in
+        Python. ``limit`` is capped at 1000 and ``page`` starts at 1 (recon
+        §3.2); the caller enforces those and the 10-page ceiling. No
+        ``last_error`` write; no TTL cache; raises ``PrivateEndpointError`` on
+        a non-2xx response.
+        """
+        return self._signed_get(
+            "GET",
+            "/papi/v1/um/income",
+            {
+                "startTime": str(start_time),
+                "endTime": str(end_time),
+                "page": str(page),
+                "limit": str(limit),
+            },
+        )
 
 
 def _select_chain_tier(

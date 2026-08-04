@@ -131,8 +131,8 @@ def test_whitelist_rejects_delete_on_whitelisted_path():
         PrivateClient._require_whitelisted("DELETE", "/papi/v1/margin/maxBorrowable")
 
 
-def test_whitelist_accepts_exactly_thirteen_get_endpoints():
-    assert len(private_client.WHITELIST) == 13
+def test_whitelist_accepts_exactly_fifteen_get_endpoints():
+    assert len(private_client.WHITELIST) == 15
     for method, path in private_client.WHITELIST:
         assert method == "GET"
         assert PrivateClient._require_whitelisted(method, path)
@@ -161,9 +161,15 @@ def test_whitelist_base_urls_match_2A_appendix():
         "/papi/v1/account",
         "/papi/v1/margin/marginInterestHistory",
         "/papi/v1/portfolio/interest-history",
+        "/papi/v1/um/income",
     }
     assert "/api/v3/account" in api
     assert "/sapi/v1/margin/next-hourly-interest-rate" in api
+    # Flow-log ledger sources (design 2026-08-04 §13.6): sapi interest on the
+    # api host, papi um/income on the papi host.
+    assert "/sapi/v1/margin/interestHistory" in api
+    assert private_client.WHITELIST[("GET", "/sapi/v1/margin/interestHistory")] == "https://api.binance.com"
+    assert private_client.WHITELIST[("GET", "/papi/v1/um/income")] == "https://papi.binance.com"
 
 
 def test_whitelist_rejects_unknown_papi_path():
@@ -607,3 +613,76 @@ def test_inv5_completion_time_transport_le_business_and_real_get_at_1800(monkeyp
     before_ts = service._max_borrowable_cache["BTC"][0]
     service._refresh_max_borrowable("BTC")  # upstream fails -> fetch returns None
     assert service._max_borrowable_cache["BTC"][0] == before_ts  # NOT advanced
+
+
+# ---- 11. flow-log single-page fetchers (2026-08-04-dual-ledger-flow-log §13.5) ----
+def test_interest_history_page_returns_raw_envelope_single_call(monkeypatch):
+    # Single-page reader: one signed GET, raw {total, rows} envelope back.
+    # No last_error write, no TTL cache entry.
+    client = _make_client(monkeypatch, [
+        (json.dumps({"total": 1, "rows": [
+            {"txId": 2328408217636413776, "interestAccuredTime": 1785798000000,
+             "asset": "HOME", "interest": "0.00008975", "type": "PERIODIC"},
+        ]}), 200),
+    ])
+    data = client.fetch_interest_history_page(
+        start_time=1785193260000, end_time=1785798060000, current=1, size=100
+    )
+    assert data == {"total": 1, "rows": [
+        {"txId": 2328408217636413776, "interestAccuredTime": 1785798000000,
+         "asset": "HOME", "interest": "0.00008975", "type": "PERIODIC"},
+    ]}
+    # exactly one signed GET, only this endpoint
+    endpoints = [e["logical_endpoint"] for e in client.audit_log]
+    assert endpoints == ["/sapi/v1/margin/interestHistory"]
+    # fetcher must NOT touch the snapshot degradation signal or the TTL cache
+    assert client.last_error is None
+    assert client._cache == {}
+
+
+def test_um_income_page_returns_raw_array_single_call(monkeypatch):
+    client = _make_client(monkeypatch, [
+        (json.dumps([
+            {"symbol": "MUUSDT", "incomeType": "FUNDING_FEE", "income": "0.08",
+             "asset": "USDT", "info": "FUNDING_FEE", "time": 1783411200000,
+             "tranId": 222, "tradeId": ""},
+        ]), 200),
+    ])
+    data = client.fetch_um_income_page(
+        start_time=1783000000000, end_time=1785798060000, page=1, limit=1000
+    )
+    assert isinstance(data, list)
+    assert data[0]["incomeType"] == "FUNDING_FEE"
+    endpoints = [e["logical_endpoint"] for e in client.audit_log]
+    assert endpoints == ["/papi/v1/um/income"]
+    assert client.last_error is None
+    assert client._cache == {}
+
+
+def test_flow_log_fetchers_raise_on_failure_without_last_error(monkeypatch):
+    # Upstream failure raises PrivateEndpointError; last_error is NOT written
+    # (it is the snapshot borrow_validation degradation signal).
+    client = _make_client(monkeypatch, [
+        _http_error(500, "upstream"),
+        _http_error(401, '{"code":-2015}'),
+    ])
+    with pytest.raises(PrivateEndpointError):
+        client.fetch_interest_history_page(
+            start_time=1, end_time=2, current=1, size=100
+        )
+    with pytest.raises(PrivateEndpointError):
+        client.fetch_um_income_page(start_time=1, end_time=2, page=1, limit=1000)
+    assert client.last_error is None
+
+
+def test_flow_log_fetchers_bypass_ttl_cache(monkeypatch):
+    # Two consecutive calls each issue a REAL signed GET (no transport-cache
+    # hit), so a refresh never reads stale data.
+    client = _make_client(monkeypatch, [
+        (json.dumps({"total": 0, "rows": []}), 200),
+        (json.dumps({"total": 1, "rows": []}), 200),
+    ])
+    client.fetch_interest_history_page(start_time=1, end_time=2, current=1, size=100)
+    client.fetch_interest_history_page(start_time=1, end_time=2, current=1, size=100)
+    assert len(client.audit_log) == 2  # two real signed GETs, no cache reuse
+    assert client._cache == {}
