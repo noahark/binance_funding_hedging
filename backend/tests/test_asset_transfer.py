@@ -72,6 +72,22 @@ class _StubTransferClient:
         return _resp(200, {"tranId": 123456789})
 
 
+class _BlockingStubTransferClient(_StubTransferClient):
+    """外发途中阻塞，用来把并发请求钉在「首笔尚未落终态」的窗口里。"""
+
+    def __init__(self, responses=None):
+        super().__init__(responses)
+        self.entered = threading.Event()
+        self.release = threading.Event()
+
+    def universal_transfer(self, type_, asset, amount, *, timestamp_ms, recv_window_ms=None):
+        self.entered.set()
+        self.release.wait(timeout=5)
+        return super().universal_transfer(
+            type_, asset, amount, timestamp_ms=timestamp_ms, recv_window_ms=recv_window_ms,
+        )
+
+
 def _resp(status, body, *, transport_error=None):
     return HedgeHttpResponse(
         http_status=status,
@@ -185,6 +201,36 @@ def test_replay_ignores_changed_amount_and_returns_first_record(tmp_path):
     assert second["amount"] == "10.5"
 
 
+def test_concurrent_same_id_sends_only_once(tmp_path):
+    """review-1 R4：同一编号**同时**打两次，也只能有一次真实外发。
+
+    顺序重放靠 handler 分支挡住；真正的并发只能靠数据库唯一约束。桩客户端在外发
+    途中阻塞，保证第二个请求确实落在「第一次尚未 resolve」的窗口内——这正是最危险
+    的时刻：此时第一笔还没有终态，天真的实现会以为没记录过而再发一次。
+    """
+    client = _BlockingStubTransferClient([_resp(200, {"tranId": 55})])
+    with _server(tmp_path, client=client) as (host, port, _):
+        first_out = []
+
+        def fire_first():
+            first_out.append(_post(host, port, _body()))
+
+        t = threading.Thread(target=fire_first, daemon=True)
+        t.start()
+        # 等第一笔真正进入外发（尚未写入终态）
+        assert client.entered.wait(timeout=5), "第一笔请求未进入外发"
+        # 此刻第二笔同编号请求到达
+        _second_status, second = _post(host, port, _body())
+        client.release.set()
+        t.join(timeout=5)
+
+    assert len(client.calls) == 1, "并发同编号必须只外发一次，否则会真的转两次钱"
+    assert first_out[0][1]["status"] == "succeeded"
+    # 第二笔看到的是尚未完成的首笔记录，而不是一笔新划转。
+    assert second["status"] == "pending"
+    assert second["client_request_id"] == _CRID
+
+
 def test_distinct_client_request_ids_each_send(tmp_path):
     client = _StubTransferClient([_resp(200, {"tranId": 1}), _resp(200, {"tranId": 2})])
     with _server(tmp_path, client=client) as (host, port, _):
@@ -231,13 +277,53 @@ def test_http_200_without_tran_id_is_unknown(tmp_path):
 
 
 def test_business_rejection_records_failed_with_raw_code(tmp_path):
-    client = _StubTransferClient([_resp(400, {"code": -4015, "msg": "余额不足"})])
+    client = _StubTransferClient([_resp(400, {"code": -4015, "msg": "Insufficient balance"})])
     with _server(tmp_path, client=client) as (host, port, _):
         _status, doc = _post(host, port, _body())
     assert doc["status"] == "failed"
     assert doc["error_code"] == "-4015"
-    assert doc["error_message"] == "余额不足"
+    # 中文含义 + 币安原文一字不改（原文是证据，不得改写）。
+    assert doc["error_message"] == "请求被币安拒绝（HTTP 400）：Insufficient balance"
     assert doc["tran_id"] is None
+
+
+# ---------------------------------------------- review-1 R5：状态码含义与归类
+
+@pytest.mark.parametrize("http_status,expected_status,expected_message", [
+    # 限流/封禁归 unknown：failed 会在界面上引导重试，而重试换新编号就会真转两次
+    (429, "unknown", "请求过于频繁，已触发币安限流（HTTP 429）"),
+    (418, "unknown", "IP 已被币安封禁（此前触发限流未停止）（HTTP 418）"),
+    # 其余 4xx 仍是明确的业务拒绝
+    (400, "failed", "请求被币安拒绝（HTTP 400）"),
+    (401, "failed", "API 认证失败（密钥或签名无效）（HTTP 401）"),
+    (403, "failed", "无权限（WAF 拒绝或 API 权限不足）（HTTP 403）"),
+    # 5xx 结果不明
+    (500, "unknown", "币安服务端错误（HTTP 500）"),
+    (503, "unknown", "币安服务暂时不可用（HTTP 503）"),
+    # 未收录的状态码不编造含义，如实给出数字
+    (451, "failed", "HTTP 451"),
+])
+def test_http_status_meaning_is_surfaced(tmp_path, http_status, expected_status, expected_message):
+    """状态码要展示成人话，且不得凭空编造未知状态码的含义。"""
+    client = _StubTransferClient([_resp(http_status, None)])
+    with _server(tmp_path, client=client) as (host, port, _):
+        _s, doc = _post(host, port, _body())
+    assert doc["status"] == expected_status
+    assert doc["error_message"] == expected_message
+    assert len(client.calls) == 1, "任何状态码都不得重试"
+
+
+def test_rate_limit_with_binance_message_keeps_both(tmp_path):
+    client = _StubTransferClient([
+        _resp(429, {"code": -1003, "msg": "Too many requests; current limit is 1200"}),
+    ])
+    with _server(tmp_path, client=client) as (host, port, _):
+        _s, doc = _post(host, port, _body())
+    assert doc["status"] == "unknown"
+    assert doc["error_code"] == "-1003"
+    assert doc["error_message"] == (
+        "请求过于频繁，已触发币安限流（HTTP 429）：Too many requests; current limit is 1200"
+    )
 
 
 # ------------------------------------------------------------------ 请求体校验

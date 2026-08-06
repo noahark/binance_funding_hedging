@@ -156,6 +156,31 @@ _TRANSFER_REQUIRED_FIELDS = (
     "client_request_id", "from_account", "to_account", "asset", "amount", "confirm",
 )
 
+# HTTP 状态码的人话含义（review-1 R5）。币安在限流/封禁时常返回空 body 或 HTML，
+# 只回 "http 429" 用户看不懂发生了什么；有 msg 时原文一字不改地附在后面。
+_TRANSFER_HTTP_MEANING = {
+    400: "请求被币安拒绝",
+    401: "API 认证失败（密钥或签名无效）",
+    403: "无权限（WAF 拒绝或 API 权限不足）",
+    418: "IP 已被币安封禁（此前触发限流未停止）",
+    429: "请求过于频繁，已触发币安限流",
+    500: "币安服务端错误",
+    503: "币安服务暂时不可用",
+}
+# 限流/封禁归 unknown 而非 failed（review-1 R5）。理由不是钱可能已转，而是
+# 「失败」在界面上会引导重试，而重试必须换新 client_request_id 才能真正外发——
+# 万一那笔其实成功了就会转两次。限流场景本就该停下来人工核对。
+_TRANSFER_RATE_LIMIT_STATUSES = (418, 429)
+
+
+def _transfer_error_message(http_status: int, msg) -> str:
+    """把 HTTP 状态码翻成人话，并原样附上币安的原始说明（若有）。"""
+    meaning = _TRANSFER_HTTP_MEANING.get(http_status)
+    label = f"{meaning}（HTTP {http_status}）" if meaning else f"HTTP {http_status}"
+    if isinstance(msg, str) and msg.strip():
+        return f"{label}：{msg}"
+    return label
+
 
 def _parse_asset_transfer_request(data):
     """校验划转请求体，返回 ``(parsed, error)``；``error`` 为 ``(status, payload)``。
@@ -618,11 +643,16 @@ class _Handler(BaseHTTPRequestHandler):
                 return {"status": STATUS_UNKNOWN, "error_message": "http 200 但响应缺少 tranId"}
             return {"status": STATUS_SUCCEEDED, "tran_id": str(tran_id)}
         code = body.get("code")
-        msg = body.get("msg")
+        if resp.http_status in _TRANSFER_RATE_LIMIT_STATUSES:
+            status = STATUS_UNKNOWN
+        elif 400 <= resp.http_status < 500:
+            status = STATUS_FAILED
+        else:
+            status = STATUS_UNKNOWN
         return {
-            "status": STATUS_FAILED if 400 <= resp.http_status < 500 else STATUS_UNKNOWN,
+            "status": status,
             "error_code": None if code is None else str(code),
-            "error_message": msg if isinstance(msg, str) else f"http {resp.http_status}",
+            "error_message": _transfer_error_message(resp.http_status, body.get("msg")),
         }
 
     # ------------------------------------------------------------------ borrow
@@ -1326,6 +1356,22 @@ def run(config: Config = None) -> None:
         str(config.borrow_db_path.parent / "asset-transfer.sqlite3")
     )
     _Handler.asset_transfer_client = _build_asset_transfer_client(config)
+    # review-1 R1：划转端点没有独立开关（Human O-1 决定），且不受
+    # APP_HEDGE_EXECUTOR 控制。开单链路在禁用时会打醒目提示，划转此前什么都不打，
+    # 启动后无从判断这个口子是死是活——这里补上可见性（是提示，不是闸门）。
+    if _Handler.asset_transfer_client is None:
+        print(
+            "[ASSET-TRANSFER] 划转端点未启用（离线模式或缺少 API 凭证）："
+            "POST /api/asset-transfer 一律返回 503。",
+            file=sys.stderr, flush=True,
+        )
+    else:
+        print(
+            "!!! [ASSET-TRANSFER] 划转端点已启用：POST /api/asset-transfer 会向币安"
+            "发出真实划转，**不受 APP_HEDGE_EXECUTOR 控制**（该开关只管对冲开单）。"
+            "唯一门槛是请求体 confirm=true；全部划转记入 data/asset-transfer.sqlite3。",
+            file=sys.stderr, flush=True,
+        )
     # 功能三：close_log 费率/利息复用 ledger 汇总（duck-typed；结算失败不阻塞平仓）。
     hedge_open_service._ledger_flow_service = ledger_flow_service
     _emit_lifecycle("server_start", host=config.bind_host, port=config.bind_port)
