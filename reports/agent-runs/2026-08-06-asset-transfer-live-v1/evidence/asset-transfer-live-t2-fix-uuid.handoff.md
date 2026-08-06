@@ -132,4 +132,18 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -p no:cacheprovider -q backend/tests
 
 ## Bookkeeper Verification (Bookkeeper append-only)
 
+- 核验时间: `2026-08-07 01:52:00 CST`（Bookkeeper: deepseek，本阶段兼任 review-1）
+- source_sha256: `8550ad0a2b22fcf19c61a7509c21a5de05f831b1a906b414a19955a5b2db0398`（marker 前 9053 字节）
+- 核对的 status revision: `4`（核验时 `current_task.state=verified`，delivery `036fcd1`）
+- delivery_sha: `bbe81b0f840a73bdb36c4e72539b108bdc46138b`（`git rev-parse`；T2 交付物响应实盘验收缺陷的再交付）
+- 核验结论: **通过（T2 修复轮封存；T2 交付物 `rework_count` 0 → 1）**
+- 通过依据（可复现命令）:
+  - `git show bbe81b0 --name-status` → 恰含 `frontend/index.html`、`frontend/self-check.js`（后端零改动：`git diff 036fcd1 bbe81b0 -- backend/` 为空，1518 passed 结论继承上轮独立重跑）；`git show d0e809f --name-status` → 恰含本证据目录 3 文件
+  - 修复实现核验：`newTransferRequestId()` 不再调用 `crypto.randomUUID`，改由 `crypto.getRandomValues` 取 16 字节（缺失走 `Math.random` 兜底），版本位 `0x40`/variant `0x80` 与 8-4-4-4-12 分段自拼，任何环境输出均为合法 UUID v4；`__appHelpers` 导出供自检
+  - 回归防线：self-check 75y2 注入实盘坏实现（`() => 'c886-84-03-46-bc0e13'`）断言生成器不受影响；200 次严格 v4 无重复；删 `getRandomValues` 兜底仍合法；用后端同一正则反向验证。独立重跑 `node frontend/self-check.js` → **全部自检通过**
+  - 实盘证据独立核实（只读 `data/asset-transfer.sqlite3`）：handoff 所载两笔与审计表一致（`79d3fc9e-d7e2-4d2e-b9a0-a9b23f4ab21a` USDT 1 → 398029611774、`18af8ba1-cb1e-4018-8346-b127b9969395` USDT 50 → 398029775970，均 `succeeded`、error 字段空）。**另发现第三笔** `57171fc3-564e-406e-962a-be41304b2063`（USDT 50，unified→spot，`succeeded`，tran_id 398031449101，创建于 01:46:33）——晚于 live-acceptance.txt 导出时间（01:42:54），系导出后新增的真实成功划转，handoff 无遗漏；已记入 `PROJECT_STATE.md`
+  - 诊断过程（排除法）与「根因不再追查」的表述与代码事实一致；R1/R3 缺口如实保留未淡化
+- 无 dispatch 越门：本任务由 Human 直接指示（延续 ce2569e/036fcd1 两笔），`status.json` blockers 的 no-dispatch 条目已更新为覆盖三笔
+- 后续状态: `status.json` revision 5 封存 delivery `bbe81b0`，`current_task` 置 `verified`，T2 `rework_count` 0→1；Human 实盘验收事实已写入 `PROJECT_STATE.md`；`next` 指向 Human 合并授权
+
 ## Errata (append-only)

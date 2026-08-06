@@ -1,23 +1,23 @@
 {
   "schema_version": "2",
-  "revision": 4,
+  "revision": 5,
   "stage_id": "2026-08-06-asset-transfer-live-v1",
   "bookkeeper": "deepseek",
-  "phase": "human-verification",
-  "checkpoint": "两笔交付已核验封存（均无 dispatch，Human 直接指示 opus5 连续开工，越门见 blockers）：① T1 修复轮 ce2569e——R1 启动提示（纯可见性非闸门）、R4 并发测试（阻塞桩证明同 id 只外发一次）、R5 状态码人话映射且 418/429 归 unknown、未收录码不编造（451 用例）；rework_count 0→1（响应评审发现的再交付）。② T2 前端 036fcd1——空态文案改写（任务 3）、前端只认 body.status（R2 落实）、unknown 锁定表单+「我已核对」人工解锁（review-1 接受，超出 §4.6 的加强）、成功后刷快照缓存；新交付范围，rework_count 重置为 0。独立核验：全量 pytest 1518 passed（1508+10）、node self-check 全部自检通过、universal_transfer 本体零改动、O-1/O-2 零命中。review-1 两条实现判断均 ACCEPT（见 t2 handoff Verification block）。阶段 delivery 封存 base_sha bb47d02..036fcd1（含基线 8e17027 A/B 两组与控制提交，按 §8 三分类为范围外）。端点从未被真实调用；下一步 Human 实盘小额试划转验收，合并 main 另需授权",
+  "phase": "pre-merge",
+  "checkpoint": "T2 修复轮 bbe81b0 核验封存（实盘验收发现的 UUID 缺陷再交付，T2 交付物 rework_count 0→1；上一轮 T2 新交付重置为 0 后本次递增）。缺陷：浏览器 crypto.randomUUID() 返回非标准值 c886-84-03-46-bc0e13，实盘首笔被后端 400 拦下（钱未动）；修复为只取随机字节+格式自拼，任何环境均产出合法 UUID v4，self-check 注入坏实现回归。独立核验：commit 边界（frontend 2 文件+证据 3 文件、后端零改动）、self-check 全部自检通过、1518 passed 继承；实盘证据只读核对生产库：handoff 两笔（1+50 USDT succeeded）属实，另有导出后第三笔 50 USDT succeeded（01:46:33，tran_id 398031449101）已记 PROJECT_STATE。Human 实盘验收已通过（首批真实划转成功）；下一步 Human 决定是否授权合并 main。delivery 封存 bb47d02..bbe81b0（基线 A/B 与控制提交为范围外）；R1/R3 缺口保持开放",
   "base_sha": "bb47d0213cd98942dc12b91b562926ff848bfdee",
-  "delivery_sha": "036fcd143ff436a879fe884082784af7a373bcbd",
-  "ledger_sha": "036fcd143ff436a879fe884082784af7a373bcbd",
+  "delivery_sha": "bbe81b0f840a73bdb36c4e72539b108bdc46138b",
+  "ledger_sha": "bbe81b0f840a73bdb36c4e72539b108bdc46138b",
   "current_task": {
-    "id": "asset-transfer-live-t2-frontend",
+    "id": "asset-transfer-live-t2-fix-uuid",
     "state": "verified",
     "dispatch": null
   },
   "next": {
     "actor": "human_operator",
-    "action": "live-acceptance-small-transfer-then-merge-decision"
+    "action": "merge-decision-after-live-acceptance"
   },
-  "rework_count": 0,
+  "rework_count": 1,
   "blockers": [
     {
       "id": "gate-violation-1-bookkeeper-as-review1",
@@ -46,9 +46,9 @@
       "id": "no-dispatch-gate-violation-t1fix-t2",
       "type": "record-not-blocking",
       "rule": "AGENTS.md §4：无 packet 时模型应等待；§3.2：模型不得自行启动下一个任务",
-      "fact": "T1 修复轮（ce2569e）与 T2 前端（036fcd1）均由 Human 在对话中直接指示 opus5 连续开工，未经 Bookkeeper 出具 dispatch 包",
+      "fact": "T1 修复轮（ce2569e）、T2 前端（036fcd1）、T2 UUID 修复轮（bbe81b0）三笔均由 Human 在对话中直接指示 opus5 开工，未经 Bookkeeper 出具 dispatch 包",
       "human_decision": "2026-08-07 Human 决定；原因：可用模型仅剩 opus5 与 deepseek，Human 选择减少终端往返",
-      "consequence": "文件边界由作者自我约束而非 packet 硬约束；已独立核验两笔 commit 文件清单均在预期范围内（check 1），交付本身未因此拒收"
+      "consequence": "文件边界由作者自我约束而非 packet 硬约束；已独立核验每笔 commit 文件清单均在预期范围内，交付本身未因此拒收"
     },
     {
       "id": "r3-pending-stuck-open-gap",

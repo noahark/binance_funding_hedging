@@ -5,22 +5,25 @@ check.
 
 ## Current Status (2026-08-07)
 
-- **stage `2026-08-06-asset-transfer-live-v1`（HIGH_RISK 资产互转真实划转）：T1 后端 + 修复轮 + T2 前端全部交付并核验封存，前后端打通，待 Human 实盘验收**：
-  封存 `base_sha bb47d02..delivery 036fcd1`（基线 `8e17027` A/B 两组与控制提交为范围外）。
+- **stage `2026-08-06-asset-transfer-live-v1`（HIGH_RISK 资产互转真实划转）：全部交付已核验封存，Human 实盘验收已通过（首批真实划转成功），待 Human 决定合并 main**：
+  封存 `base_sha bb47d02..delivery bbe81b0`（基线 `8e17027` A/B 两组与控制提交为范围外）。
   ① T1 `1f91241`：`POST /api/asset-transfer` 复用 `universal_transfer`（本体零改动）、
   `client_request_id` 唯一索引幂等（币安该端点无幂等键，重放零外发）、超时/5xx 记
-  `unknown` 不重试、按 Human O-1/O-2 无闸门无上限。② 修复轮 `ce2569e`（review-1
-  R1/R4/R5）：R1 启动提示（纯可见性非闸门）、R4 同 id 并发测试（阻塞桩证明只外发
-  一次）、R5 状态码人话映射且 418/429 归 `unknown`、未收录码不编造（451 用例）；
-  R2 转 T2 承担、R3 按 Human 决定不修（仍开放缺口）。③ T2 `036fcd1`：前端接线
-  （UUID 幂等键前端生成、只认 `body.status`、`unknown` 锁定表单 +「我已核对」人工
-  解锁、`failed` 不锁定、成功后刷快照缓存）、空态文案改写（任务 3，徽标改「真实划转 ·
-  点击即动钱」）。review-1（deepseek 兼任）两条实现判断均 ACCEPT（划转客户端独立于
-  `APP_HEDGE_EXECUTOR` 口径与 R1 一致；`unknown` 锁定为超出 §4.6 的加强设计，接受）。
-  独立核验：全量 pytest **1518 passed**（1508+10）、node self-check 全部自检通过。
-  两笔均无 dispatch（Human 直接指示，越门记录于 status.json blockers）。**端点从未被
-  真实调用过**；下一步 Human 重启应用（启动日志应出现 `!!! [ASSET-TRANSFER] 划转端点
-  已启用`）后小额试划转（建议 1 USDT）实盘验收，合并 main 另需授权。证据：
+  `unknown` 不重试、按 Human O-1/O-2 无闸门无上限。② 修复轮 `ce2569e`：R1 启动提示
+  （纯可见性非闸门）、R4 同 id 并发测试、R5 状态码人话映射且 418/429 归 `unknown`；
+  R3 按 Human 决定不修（仍开放缺口）。③ T2 `036fcd1`：前端接线（幂等键前端生成、
+  只认 `body.status`、`unknown` 锁定表单+「我已核对」解锁、成功后刷快照缓存）、空态
+  文案改写。④ **T2 UUID 修复轮 `bbe81b0`（实盘首笔故障的返工，T2 `rework_count` 0→1）**：
+  浏览器 `crypto.randomUUID()` 返回非标准值（`c886-84-03-46-bc0e13`，16 位）致后端
+  400 拦下（钱未动）；修复为只取随机字节+版本/variant 位与分段格式自拼，任何环境
+  输出均合法 UUID v4，self-check 注入坏实现回归。**Human 实盘验收通过（2026-08-07）**：
+  首批真实划转成功——`data/asset-transfer.sqlite3` 只读核实三笔均 `succeeded` 且带
+  交易所流水号：1 USDT（tran_id 398029611774，01:38:31）、50 USDT（398029775970，
+  01:39:21）、另 50 USDT（398031449101，01:46:33，晚于验收证据导出，为后续新增）；
+  仅验证了 `unified→spot` 成功路径，`spot→unified`/`failed`/`unknown` 三路径仍只有
+  离线证据。独立核验：self-check 全部自检通过、后端零改动 1518 passed 继承。三笔
+  交付均无 dispatch（Human 直接指示，越门记录于 status.json blockers）。**下一步：
+  Human 决定是否授权合并 main**（合并后按 §9 收尾归档）。证据：
   `reports/agent-runs/2026-08-06-asset-transfer-live-v1/evidence/`。
 - **stage `2026-08-06-hedge-order-close-validation` 已归档（2026-08-06 合并 main + 手动重启）**：
   下单与平仓链路经 Human **实盘显示验收通过**；Human 授权合并 main（`f153cdc..64f0051`
@@ -52,13 +55,15 @@ check.
 
 ## Live Risks
 
-- `[OPEN][2026-08-07]` **资产互转端点已上线且前后端打通，但从未被真实调用过**。
-  交付 `036fcd1`（T2 前端）后 `POST /api/asset-transfer` + 划转按钮已接线为真实调用，
-  全部证据来自离线桩测试/self-check mock。**第一笔真实划转将由 Human 的实盘小额
-  试划转完成**：用 `scripts/run-server.sh` 重启应用（启动日志应出现
-  `!!! [ASSET-TRANSFER] 划转端点已启用`，表示该口子真的能动钱），硬刷新页面后小额
-  试划转（建议 1 USDT），核对：成功回显含交易所流水号、余额/快照刷新、`unknown`
-  锁定与「我已核对」解锁、失败码人话回显。验收通过前不得合并 main（`AGENTS.md` §9）。
+- `[RESOLVED][2026-08-07]` **资产互转端点已上线且前后端打通，并经 Human 实盘验收**。
+  交付 `036fcd1`（T2 前端）+ `bbe81b0`（UUID 修复轮）后，`POST /api/asset-transfer`
+  已完成**首次真实调用验证**：Human 实盘小额试划转成功（`data/asset-transfer.sqlite3`
+  只读核实三笔均 `succeeded` 且带交易所流水号——1 USDT tran_id 398029611774、
+  50 USDT tran_id 398029775970、另 50 USDT tran_id 398031449101）。实盘首笔曾被后端
+  400 拦下（浏览器 `crypto.randomUUID()` 返回非标准值），修复为格式自拼后通过。
+  **仍开放**：仅验证 `unified → spot` 成功路径；`spot → unified`、`failed`、`unknown`
+  三路径未经真实验证（仅离线断言）。服务重启后启动日志应出现
+  `!!! [ASSET-TRANSFER] 划转端点已启用`（表示该口子真的能动钱）。
 - `[OPEN][ACCEPTED][2026-08-07]` **划转端点默认即可真实动钱，不受 `APP_HEDGE_EXECUTOR`
   控制（review-1 R1，Human 决定接受现状）**。事实：`POST /api/asset-transfer`（T1
   `1f91241`，`server.py:1244` `_build_asset_transfer_client`）启用条件仅为
