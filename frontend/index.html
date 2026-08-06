@@ -4502,7 +4502,11 @@
           return;
         }
         const mode = doc.executor_mode === 'live' ? 'live' : 'dry-run';
+        const liveMode = doc.executor_mode === 'live';
         els.hedgeExecutionBadge.textContent = `执行：模式 ${mode} · Start ${doc.start_gate ? '已开启' : '未开启'}`;
+        // Goal 5（stage 2026-08-06）：dry-run/disabled 模式徽标警示色，与 live
+        // 一眼可区分（数据源仍是进程实时 executor_mode，未新增提示通道）。
+        els.hedgeExecutionBadge.classList.toggle('warn', !liveMode);
         if (els.hedgeExecutionDetail) {
           els.hedgeExecutionDetail.textContent = `调度间隔 ${doc.interval_seconds != null ? doc.interval_seconds : '—'} 秒（后端调度）`;
         }
@@ -4517,6 +4521,8 @@
       async function loadHedgeSettings() {
         try {
           renderHedgeExecutionStatus(await hedgeApi('/api/hedge-open-settings'));
+          // Goal 5：settings 到达后重渲染任务卡（成交按钮的演习标注依赖 executor_mode）。
+          if (typeof renderHedgeTasks === 'function') renderHedgeTasks();
         } catch (err) {
           if (els.hedgeExecutionBadge) {
             els.hedgeExecutionBadge.textContent = `执行状态：加载失败 (${err.message})`;
@@ -5061,6 +5067,9 @@
         const modeLabel = task.mode === 'smooth' ? '平滑' : '立即';
         const statusLabel = HEDGE_TASK_STATUS_LABELS[task.status] || task.status;
         const statusBadge = HEDGE_TASK_STATUS_BADGE[task.status] || 'muted';
+        // Goal 5（stage 2026-08-06）：dry-run/disabled 模式下「成交」按钮标注演习——
+        // 点击不会真实发单，只是假成交推进（数据源仍为进程实时 executor_mode）。
+        const drillMode = state.hedgeSettings && state.hedgeSettings.executor_mode !== 'live';
         // 15 号修正案：单腿敞口只是提示，任务除非后端 status 为 paused/stopped 否则继续调度；
         // 绝不再显示虚假的“任务已暂停”。
         const haltedByStatus = task.status === 'paused' || task.status === 'stopped';
@@ -5118,8 +5127,8 @@
               <button class="btn compact action-pause" type="button" data-hedge-action="pause" data-task-id="${idAttr}"${pauseDisabled}>暂停</button>
               <button class="btn compact action-start" type="button" data-hedge-action="start" data-task-id="${idAttr}"${startDisabled}>启动</button>
               <button class="btn compact action-delete" type="button" data-hedge-action="delete" data-task-id="${idAttr}"${deleteDisabled}>删除</button>
-              <button class="btn compact primary" type="button" data-hedge-action="fill1" data-task-id="${idAttr}"${fillDisabled}>成交1次</button>
-              ${showFillAll ? `<button class="btn compact primary" type="button" data-hedge-action="fill-all" data-task-id="${idAttr}"${fillDisabled}>立即成交所有</button>` : ''}
+              <button class="btn compact primary" type="button" data-hedge-action="fill1" data-task-id="${idAttr}"${fillDisabled}>${drillMode ? '成交1次（演习）' : '成交1次'}</button>
+              ${showFillAll ? `<button class="btn compact primary" type="button" data-hedge-action="fill-all" data-task-id="${idAttr}"${fillDisabled}>${drillMode ? '立即成交所有（演习）' : '立即成交所有'}</button>` : ''}
               <button class="btn compact" type="button" data-hedge-log-toggle="${idAttr}">${logExpanded ? '收起日志' : '展开日志'}</button>
             </div>
             <div class="borrow-op-error" id="hedge-task-error-${idAttr}" role="alert" aria-live="polite"></div>

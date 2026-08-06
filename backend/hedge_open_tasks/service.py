@@ -24,7 +24,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Callable, Protocol
 
 from . import domain as D
@@ -78,7 +78,9 @@ _START_GATE_BODY_KEYS = ("enabled", "confirm", "version")
 
 # Task-level lifecycle events surfaced on the additive ``entries`` timeline
 # (amendment §5): a fatal stop, a consecutive-failure threshold pause, a
-# fail-closed preflight retry, and a shared 429/Retry-After write delay. These
+# fail-closed preflight exit/pause (the worker exits WITHOUT retry; the task
+# pauses with a Chinese reason — stage 2026-08-06 task 05 §5), and a shared
+# 429/Retry-After write delay. These
 # share the ``hedge_open_log`` table (attempt_id NULL); an attempt's own row
 # projects separately with ``kind="attempt"``.
 _ENTRY_EVENT_KINDS = (
@@ -111,7 +113,8 @@ class _FreshPreflight:
     """Resolved fresh preflight for one dispatch (A-2). ``ok`` means the pair may
     proceed with this exact ``q_common``/snapshot; ``fatal`` means a fatal fact
     stops the task (amendment rows 1–2); a ``None`` result from the resolver
-    means an incomplete read -> fail-closed retry (I-7)."""
+    means an incomplete read -> fail-closed exit (worker exits WITHOUT retry and
+    the task pauses — stage 2026-08-06 task 05 §5)."""
 
     q_common: Decimal | None
     position_side_mode: str | None
@@ -499,6 +502,16 @@ class HedgeOpenTaskService:
         # :meth:`configure_cache_refresh` so the two services stay decoupled
         # (SnapshotService is never imported here).
         self._submit_cache_refresh: Callable[[], None] | None = cache_refresh_submitter
+        # Stage 2026-08-06 task 05 (§4.2): read-only SnapshotService cache
+        # access for the close-spot-balance GATE (缓存只用于「放行」，不用于触发
+        # 有副作用的划转动作). Injected by the server via
+        # :meth:`configure_snapshot_reader`; ``None`` (tests / unwired) keeps the
+        # real-time confirmation path unchanged.
+        self._snapshot_reader: Callable[[str], tuple[float, object] | None] | None = None
+        # §4.2（Human 决定 3）：进程内「本任务已完成划转」事实记录（task_id ->
+        # (amount, asset)），由 _log_close_transfer 的 ok 事件点写入；forward
+        # close 后续余额不足暂停时据此追加「可能是划转尚未到账」提示。
+        self._close_transfer_done: dict[str, tuple[str, str]] = {}
         # Amendment 21 task-local workers: each RUNNING task owns at most ONE
         # bounded-lifetime worker thread (no global guardian/scanner). ``_workers``
         # maps task_id -> live worker thread; ``_stop_events`` carries the per-task
@@ -594,6 +607,92 @@ class HedgeOpenTaskService:
         immediately (``wait=False``); the status hook never blocks on a refresh.
         Passing ``None`` disables the hook (the no-op default)."""
         self._submit_cache_refresh = submitter
+
+    def configure_snapshot_reader(
+        self, reader: Callable[[str], tuple[float, object] | None] | None,
+    ) -> None:
+        """Wire the read-only SnapshotService cache reader (stage 2026-08-06
+        task 05 §4.2).
+
+        Mirrors :meth:`configure_cache_refresh`: the server calls this after
+        both services are built so SnapshotService stays uninjected here. The
+        reader is used ONLY for the close-spot-balance GATE's "cache suffices ->
+        pass" shortcut — a cached balance NEVER authorizes a real transfer (the
+        actual insufficient check still goes real-time before any
+        ``universal_transfer``). Passing ``None`` disables the shortcut."""
+        self._snapshot_reader = reader
+
+    def configure_preflight_reader(
+        self, reader: Callable[[str], tuple[float, object] | None] | None,
+    ) -> None:
+        """Forward the read-only SnapshotService cache reader to the preflight
+        provider (stage 2026-08-06 task 05 §1.3). The provider is built inside
+        ``_build_hedge_service`` with ``snapshot_reader=None`` (server builds
+        services before wiring), so this setter injects it post-construction;
+        a provider without the setter (stub/disabled) is a no-op."""
+        setter = getattr(self._preflight, "set_snapshot_reader", None)
+        if callable(setter):
+            setter(reader)
+
+    def _cached_spot_free(self, base_asset: str) -> Decimal | None:
+        """Fresh-enough ``spot_balances`` free for ``base_asset`` (5min ceiling),
+        or ``None`` when unknown/stale/unwired — the caller must then confirm
+        real-time. Used ONLY as a pass gate (§4.2)."""
+        reader = self._snapshot_reader
+        if reader is None:
+            return None
+        entry = reader("spot_balances")
+        if entry is None:
+            return None
+        try:
+            ts, value = entry
+        except (TypeError, ValueError):
+            return None
+        if time.monotonic() - float(ts) > 5 * 60.0:
+            return None
+        if not isinstance(value, list):
+            return None
+        for row in value:
+            if isinstance(row, dict) and row.get("asset") == base_asset:
+                free = row.get("free")
+                if free is None:
+                    return None
+                try:
+                    return D.Decimal(str(free))
+                except (InvalidOperation, ValueError, TypeError):
+                    return None
+        return None  # 该币不在列表 → 未知，须实时确认
+
+    def _cached_unified_free(self, base_asset: str) -> Decimal | None:
+        """Fresh-enough ``unified_balances`` ``crossMarginFree`` for
+        ``base_asset`` (5min ceiling), or ``None`` when unknown/stale/unwired.
+        The transferable-amount check is a PASS-gate item (§4.2): a cached
+        sufficient amount may authorize the transfer, a cached missing amount
+        must be confirmed real-time before ANY transfer happens."""
+        reader = self._snapshot_reader
+        if reader is None:
+            return None
+        entry = reader("unified_balances")
+        if entry is None:
+            return None
+        try:
+            ts, value = entry
+        except (TypeError, ValueError):
+            return None
+        if time.monotonic() - float(ts) > 5 * 60.0:
+            return None
+        if not isinstance(value, list):
+            return None
+        for row in value:
+            if isinstance(row, dict) and row.get("asset") == base_asset:
+                free = row.get("crossMarginFree")
+                if free is None:
+                    return None
+                try:
+                    return D.Decimal(str(free))
+                except (InvalidOperation, ValueError, TypeError):
+                    return None
+        return None
 
     def _notify_cache_refresh(self, task: dict | None) -> None:
         """Fire the cache-refresh hook when ``task`` carries a real
@@ -1397,24 +1496,27 @@ class HedgeOpenTaskService:
         if task.get("task_type") == D.TASK_TYPE_CLOSE and not self.is_close_gate_on():
             return self._worker_exit(task_id, D.WORKER_EXIT_CLOSE_GATE_OFF)
         # 功能三（close 完成判定，以合约腿为准；Human 2026-08：close 任务从 running
-        # 变为其他状态必须先走合约无仓核实）：无仓即平完（done + close_cycle +
-        # close_log）；还有仓且次数用完 = 部分平完成（done、周期不关、不写结算——
-        # 周期未结束）；还有仓且有次数 → 继续下一条 attempt；查仓失败暂停
-        # （fail-closed，绝不把「查不到」当「已平完」）。
+        # 变为其他状态必须先走合约无仓核实）：stage 2026-08-06 task 05 §4.1
+        # （Human 决定 2）——平完判定不再每轮调用，只在「次数用完、准备收尾」这一
+        # 状态转换点调用一次（仍实时，禁止读缓存：它决定「关周期 + 写结算日志」这一
+        # 不可逆动作）。安全依据（Human 已拍板）：合约腿 reduceOnly=true 使无仓可平
+        # 被交易所拒绝；现货腿数量与合约腿一致，多卖场景不成立。三分支语义不变：
+        # flat → 关周期 + 结算日志；open → 部分平完成（done、周期不关）；failed →
+        # fail-closed 暂停（绝不把「查不到」当「已平完」）。
         if task.get("task_type") == D.TASK_TYPE_CLOSE:
-            verdict = self._verify_close_flat(task, now_us)
-            if verdict == "flat":
-                self._finalize_close_task(task, now_us)
-                return True
-            if verdict == "failed":
-                self._pause_task_local(
-                    task, D.PAUSE_REASON_CLOSE_VERIFY_FAILED, None, now_us,
-                    kind="close_verify_failed",
-                )
-                return True
-            # verdict == "open"：合约仍有仓
             if task["scheduled_attempt_count"] >= task["target_n"]:
-                # 次数用完 + 还有仓 = 部分平完成：任务 done、周期不关（用户拍板语义）
+                verdict = self._verify_close_flat(task, now_us)
+                if verdict == "flat":
+                    self._finalize_close_task(task, now_us)
+                    return True
+                if verdict == "failed":
+                    self._pause_task_local(
+                        task, D.PAUSE_REASON_CLOSE_VERIFY_FAILED, None, now_us,
+                        kind="close_verify_failed",
+                    )
+                    return True
+                # verdict == "open"：次数用完 + 还有仓 = 部分平完成：任务 done、
+                # 周期不关（用户拍板语义）
                 self._store.append_log(
                     task["id"], now_us, "close_partial_done",
                     {"coin": task["coin"], "direction": task["direction"],
@@ -1422,7 +1524,6 @@ class HedgeOpenTaskService:
                 )
                 self._store.set_task_status(task["id"], D.STATUS_DONE, now_us)
                 return True
-            # 还有次数 → 继续下一条 attempt
         else:
             if task["scheduled_attempt_count"] >= task["target_n"]:
                 return self._worker_exit(task_id, D.WORKER_EXIT_TARGET_REACHED)
@@ -1449,7 +1550,10 @@ class HedgeOpenTaskService:
             self._pause_from_signal(task, signal, now_us)
             return False
         if signal == D.SIGNAL_PREFLIGHT_INCOMPLETE:
-            return self._worker_exit(task_id, D.WORKER_EXIT_PREFLIGHT_INCOMPLETE)
+            # Stage 2026-08-06 task 05 §5 (Human decision 4): preflight failure
+            # EXITS the worker WITHOUT retry — but the silent stall is fixed by
+            # pausing the task with a Chinese reason naming the failed read.
+            return self._pause_preflight_incomplete(task, now_us)
         if signal == D.SIGNAL_PREFLIGHT_FATAL:
             return self._worker_exit(task_id, D.WORKER_EXIT_PREFLIGHT_FATAL)
         if signal == D.SIGNAL_LEVERAGE_SET_FAILED:
@@ -1483,7 +1587,13 @@ class HedgeOpenTaskService:
     def _log_close_transfer(self, task_id: str, now_us: int, action: str,
                             coin: str, asset: str, amount: str | None,
                             reason: str | None = None) -> None:
-        """close_transfer 审计行（划转发起/成功/失败/回流），任务卡日志页可见。"""
+        """close_transfer 审计行（划转发起/成功/失败/回流），任务卡日志页可见。
+
+        §4.2（Human 决定 3）：``ok`` 动作同时记录到进程内
+        ``_close_transfer_done``——这是「本任务已划转」的事实记录（复用既有 ok
+        事件点，不新增表），供 forward close 后续余额不足暂停时追加「可能是划转
+        尚未到账」提示。进程内记录覆盖本任务多轮 worker 循环；重启后丢失只导致
+        无提示（保守，不误导）。"""
         payload = {
             "action": action,
             "coin": coin,
@@ -1493,17 +1603,25 @@ class HedgeOpenTaskService:
         if reason is not None:
             payload["reason"] = reason
         self._store.append_log(task_id, now_us, "close_transfer", payload)
+        if action == "ok" and amount is not None:
+            self._close_transfer_done[task_id] = (amount, asset)
 
     def _ensure_close_spot_balance(self, task: dict, now_us: int) -> str | None:
         """forward close 发单前：普通现货账户余额检查 + 一次性划转补足（Human 拍板）。
 
         仅 forward close（现货 SELL 走普通账户）；reverse close（买现货走统一账户）跳过：
-        - 普通账户该币 free ≥ 计划卖量 → 无需划转，返回 None；
-        - 不足 → ``universal_transfer('PORTFOLIO_MARGIN_MAIN', base, 差额)`` 一次 →
-          复检普通账户余额 → 仍不足 → 中文错误（fail-closed，防「响应丢失但划转成功」
-          误判）；
+        - 普通账户该币 free ≥ 计划卖量 → 无需划转，返回 None（§4.2：缓存放行——
+          新鲜 ``spot_balances`` 缓存显示充足即可放行，0 网络请求；缓存不足/未知
+          必须实时读确认）；
+        - 实时确认仍不足 → ``universal_transfer('PORTFOLIO_MARGIN_MAIN', base, 差额)``
+          一次 → 认划转返回结果（缺 ``tranId`` 内部抛错，异常即暂停路径，语义不变）
+          → ``sleep(100ms)`` 让余额同步（经验值非保证）→ 返回 None；
         - 任一步失败/异常 → 中文错误，**不重试、不发单**。
         dry-run（executor 无 query_spot_free / universal_transfer）→ None（模拟余额足够）。
+
+        §4.2（Human 决定 3）：不再做划转后置复检——只认划转返回结果（拿到 tranId
+        即成功）；因划转是真实资金动作，缓存**只用于「放行」**，不足判断必须实时
+        确认才动手；余额不足暂停文案附「可能是划转尚未到账」提示。
         """
         if task.get("task_type") != D.TASK_TYPE_CLOSE or task["direction"] != D.DIR_FORWARD:
             return None
@@ -1514,6 +1632,11 @@ class HedgeOpenTaskService:
             return None  # dry-run：模拟余额足够
         sell_amount = D.Decimal(task["single_amount"])
         base_asset = D._merge_base_asset(task["coin"]) or task["coin"].replace("USDT", "")
+        # §4.2 缓存放行：新鲜 spot_balances 缓存显示充足 → 直接放行（0 请求，
+        # 覆盖绝大多数情况）；缓存不足/未知 → 实时确认。
+        cached_free = self._cached_spot_free(base_asset)
+        if cached_free is not None and cached_free >= sell_amount:
+            return None
         free = q_spot(base_asset)
         if free is None:
             return "现货账户余额查询失败，无法确认平仓现货余额（fail-closed，未发单）"
@@ -1522,7 +1645,10 @@ class HedgeOpenTaskService:
         diff = sell_amount - free
         # 划转前检查统一账户余额（2026-08）：不足直接提示，不盲划——
         # 否则划了才知道失败、日志只有 RuntimeError 无详情（COOKIE 现场教训）。
-        unified_free = q_unified(base_asset) if q_unified is not None else None
+        # §4.2：可划转量为放行类，新鲜 unified_balances 缓存足够即放行，否则实时确认。
+        unified_free = self._cached_unified_free(base_asset)
+        if unified_free is None:
+            unified_free = q_unified(base_asset) if q_unified is not None else None
         if unified_free is None:
             return (f"统一账户余额查询失败，无法确认可划转余额（fail-closed，未发单；"
                     f"普通现货账户缺 {D.fmt_decimal(diff)} {base_asset}）")
@@ -1543,13 +1669,9 @@ class HedgeOpenTaskService:
             return f"划转补足现货失败（{detail}），未发单；请人工核对后恢复"
         self._log_close_transfer(task["id"], now_us, "ok", task["coin"],
                                  base_asset, D.fmt_decimal(diff))
-        recheck = q_spot(base_asset)  # 复检：防响应丢失误判
-        if recheck is None:
-            return "划转后复检现货余额失败，无法确认已补足（fail-closed，未发单）"
-        if recheck < sell_amount:
-            return (f"划转后普通账户现货仍不足"
-                    f"（{D.fmt_decimal(recheck)} < {D.fmt_decimal(sell_amount)}），"
-                    f"未发单；请人工核对")
+        # §4.2（Human 决定 3）：不再后置复检——只认划转返回结果（tranId）；加
+        # sleep(100ms) 让普通现货账户余额同步（经验值非保证，故余额不足文案带提示）。
+        time.sleep(0.1)
         return None
 
     def _transfer_back_usdt(self, task: dict, now_us: int) -> None:
@@ -2021,9 +2143,32 @@ class HedgeOpenTaskService:
                 pause_zh=D.collateral_cap_pause_reason_zh(D.base_asset(task["coin"])),
             )
         else:
+            pause_reason = self._pause_reason_for_signal(signal)
+            pause_zh = self._close_insufficient_pause_zh(task, pause_reason)
             self._pause_task_local(
-                task, self._pause_reason_for_signal(signal), signal, now_us, kind=kind,
+                task, pause_reason, signal, now_us, kind=kind, pause_zh=pause_zh,
             )
+
+    def _close_insufficient_pause_zh(
+        self, task: dict, pause_reason: str,
+    ) -> str | None:
+        """§4.2（Human 决定 3）：forward close 下单阶段余额不足暂停时，若本任务
+        本轮已完成划转，中文原因追加「可能是划转尚未到账」提示——让操作者能区分
+        「真没钱」与「钱还在路上」。无划转记录 → ``None``（沿用表查文案）。"""
+        if (
+            pause_reason != D.PAUSE_REASON_INSUFFICIENT_BALANCE
+            or task.get("task_type") != D.TASK_TYPE_CLOSE
+            or task["direction"] != D.DIR_FORWARD
+        ):
+            return None
+        done = self._close_transfer_done.get(task["id"])
+        if done is None:
+            return None
+        amount, asset = done
+        return (
+            f"{D.pause_reason_zh(pause_reason)}；本轮已完成划转 {amount} {asset}，"
+            f"若仍报余额不足，可能是划转尚未到账，请稍后手动恢复重试"
+        )
 
     @staticmethod
     def _pause_reason_for_signal(signal: str) -> str:
@@ -2159,12 +2304,15 @@ class HedgeOpenTaskService:
     def _resolve_fresh_preflight(self, task: dict) -> _FreshPreflight | None:
         """Compute a fresh factual preflight immediately before send (A-2).
 
-        Returns ``None`` for an incomplete read -> fail-closed retry (I-7): no
-        attempt, no POST, no count, no simulated call. A ``fatal`` result stops
-        the task (amendment rows 1–2); an ``ok`` result carries the exact
-        ``q_common``/snapshot this pair will post. Non-fatal rejections that are
-        not incomplete (e.g. a transient balance gap on a non-fatal path) are
-        also treated as fail-closed retry.
+        Returns ``None`` for an incomplete read -> fail-closed: no attempt, no
+        POST, no count, no simulated call; the worker then EXITS without retry
+        (the exit-vs-retry contract is EXIT — stage 2026-08-06 task 05 §5) and
+        the service pauses the task with a Chinese reason naming the first
+        failed read (``HedgePreflightProvider.last_failed_read``). A ``fatal``
+        result stops the task (amendment rows 1–2); an ``ok`` result carries
+        the exact ``q_common``/snapshot this pair will post. Non-fatal
+        rejections that are not incomplete (e.g. a transient balance gap on a
+        non-fatal path) are also treated as fail-closed exit.
         """
         # close 任务：与 create_task 一致用反转方向做余额检查（forward close 卖
         # 现货需现货余额；provider 内 route_dir 再反转回持仓方向做路由决策）。
@@ -2204,7 +2352,8 @@ class HedgeOpenTaskService:
             )
         if preflight.rejection is not None or preflight.balance_ok is False:
             # Non-fatal reject or a balance gap that is not a fatal rule failure:
-            # fail-closed retry next tick (no attempt, no POST).
+            # fail-closed exit (worker exits, task pauses — stage 2026-08-06
+            # task 05 §5; no attempt, no POST).
             return None
         return _FreshPreflight(
             q_common=preflight.q_common,
@@ -2239,19 +2388,50 @@ class HedgeOpenTaskService:
         )
         return updated
 
-    def _record_preflight_incomplete(self, task: dict, now_us: int) -> None:
-        """Fail-closed (I-7): a missing preflight fact records a retry event but
-        performs no attempt, no POST, and no business-state change."""
+    def _record_preflight_incomplete(
+        self, task: dict, now_us: int, failed_read: str | None = None,
+    ) -> None:
+        """Fail-closed (I-7): a missing preflight fact records the failure event
+        (naming the FIRST failed read — stage 2026-08-06 task 05 §5.3's forensic
+        fix) but performs no attempt, no POST, and no business-state change.
+        The worker then exits WITHOUT retrying (the exit-vs-retry contract is
+        EXIT); the pause + Chinese reason are applied by
+        :meth:`_pause_preflight_incomplete`."""
+        payload = {
+            "reason": "preflight_incomplete",
+            "coin": task["coin"],
+            "direction": task["direction"],
+        }
+        if failed_read is not None:
+            payload["failed_read"] = failed_read
         self._store.record_task_event(
             task["id"],
             "preflight_incomplete",
-            {
-                "reason": "preflight_incomplete",
-                "coin": task["coin"],
-                "direction": task["direction"],
-            },
+            payload,
             now_us,
         )
+
+    def _pause_preflight_incomplete(self, task: dict, now_us: int) -> bool:
+        """Stage 2026-08-06 task 05 §5 (Human decision 4): a preflight failure
+        pauses THIS task with a Chinese reason naming the first failed read,
+        then the worker exits this round (``return False``, same as the
+        SIGNAL_TASK_LOCAL_PAUSE branch). NO retry is introduced — the
+        exit-without-retry contract is kept, only the silent stall is fixed:
+        the pause is visible on the card and recoverable by a manual Start."""
+        failed_read = getattr(self._preflight, "last_failed_read", None)
+        if failed_read:
+            reason_zh = (
+                f"预检数据不完整（{failed_read}），任务已暂停（fail-closed，未发单）；"
+                f"请检查网络后手动恢复"
+            )
+        else:
+            reason_zh = None  # 表查通用文案
+        self._pause_task_local(
+            task, D.PAUSE_REASON_PREFLIGHT_INCOMPLETE,
+            D.SIGNAL_PREFLIGHT_INCOMPLETE, now_us,
+            kind="preflight_incomplete", pause_zh=reason_zh,
+        )
+        return False
 
     def _set_leverage_before_open(self, task: dict, now_us: int) -> str | None:
         """开单前设置该合约 symbol 杠杆（THE -2027 方案 B，Human 拍板）。
@@ -2286,22 +2466,29 @@ class HedgeOpenTaskService:
         Returns ``(task, signal)`` (amendment 21). ``signal`` tells the task-local
         worker what happened on this pair: ``SIGNAL_RATE_LIMITED`` / a
         ``SIGNAL_INSUFFICIENT_*`` -> pause THIS task only; ``SIGNAL_PREFLIGHT_*``
-        are fail-closed / fatal (the worker exits); ``None`` is a normal dispatch.
+        are fail-closed / fatal (the worker exits WITHOUT retry — stage
+        2026-08-06 task 05 §5 aligns the docstring with the EXIT implementation);
+        ``None`` is a normal dispatch.
 
         Fresh-preflight-first + fail-closed (A-2/A-3) applies ONLY on the live
         POST path. A fatal fact stops the task (no attempt/POST); an incomplete
-        read is fail-closed retry (no attempt/POST/count). The dry-run record
+        read exits the worker without retry and pauses the task with a Chinese
+        reason naming the failed read (no attempt/POST/count). The dry-run record
         transport reuses the stored q_common/snapshot and never POSTs.
         """
         live = self._live_dispatch_capable() and self.is_start_gate_on()
         if live:
             fresh = self._resolve_fresh_preflight(task)
             if fresh is None or not fresh.ok:
-                # incomplete read -> fail-closed retry (I-7); fatal -> stop (rows 1–2).
+                # incomplete read -> fail-closed exit (worker exits, task pauses
+                # with a Chinese reason — stage 2026-08-06 task 05 §5); fatal ->
+                # stop (rows 1–2).
                 if fresh is not None and fresh.fatal:
                     self._stop_task_fatal_preflight(task, fresh, now_us)
                     return self._store.get_task(task["id"]) or task, D.SIGNAL_PREFLIGHT_FATAL
-                self._record_preflight_incomplete(task, now_us)
+                self._record_preflight_incomplete(
+                    task, now_us, getattr(self._preflight, "last_failed_read", None),
+                )
                 return self._store.get_task(task["id"]) or task, D.SIGNAL_PREFLIGHT_INCOMPLETE
             q_common = fresh.q_common
             position_side_mode = fresh.position_side_mode

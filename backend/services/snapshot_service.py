@@ -1214,6 +1214,20 @@ class SnapshotService:
         entry = self._global_source_cache.get(source_id)
         return entry[1] if entry is not None else default
 
+    def get_cached_source(self, source_id: str) -> Optional[tuple]:
+        """READ-ONLY cache access for the hedge preflight provider
+        (stage 2026-08-06 task 05, dispatch §1.1).
+
+        Returns ``(monotonic_ts, value)`` from ``_global_source_cache`` or
+        ``None`` when the source has no successful entry yet. It NEVER triggers
+        a refresh (no ``_refresh_due_sources`` call) and never mutates state —
+        the hedge-open preflight path reads what the snapshot worker has already
+        fetched, nothing more. The two services stay decoupled: this method is
+        injected into ``HedgePreflightProvider`` as a plain callable via the
+        server composition root, never imported.
+        """
+        return self._global_source_cache.get(source_id)
+
     def _collateral_cap_state(self) -> Optional[tuple]:
         """The ``(exceeded_assets, checked_at)`` to project onto rows, or ``None``
         when the projection must be the UNKNOWN state (interface §3 / decision

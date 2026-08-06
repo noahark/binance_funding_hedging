@@ -166,6 +166,12 @@ PAUSE_REASON_LEVERAGE_SET_FAILED = "leverage_set_failed"
 # never misjudged absent — R2-F2). Recoverable: the operator checks the order on
 # the exchange and manually resumes; recovery re-queries by client ID only.
 PAUSE_REASON_ORDER_STATE_UNKNOWN = "order_state_unknown"
+# Stage 2026-08-06 task 05 (§5, Human decision 4): a preflight read failed and
+# the worker exits WITHOUT retrying (the exit-vs-retry contract is documented as
+# EXIT). Previously the task stayed RUNNING with zero visible signal — the
+# 33-minute silent stall. Now the task PAUSES with a Chinese reason naming the
+# failed read, so the stall is visible and recoverable on the card.
+PAUSE_REASON_PREFLIGHT_INCOMPLETE = "preflight_incomplete"
 ALL_PAUSE_REASONS = (
     PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE,
     PAUSE_REASON_RATE_LIMITED,
@@ -174,6 +180,7 @@ ALL_PAUSE_REASONS = (
     PAUSE_REASON_INSUFFICIENT_AVAILABLE_QTY,
     PAUSE_REASON_COLLATERAL_CAP_FULL,
     PAUSE_REASON_ORDER_STATE_UNKNOWN,
+    PAUSE_REASON_PREFLIGHT_INCOMPLETE,
 )
 
 # Amendment 21 task-local worker dispatch/drain signals (internal contract between
@@ -251,7 +258,7 @@ WORKER_EXIT_TASK_NOT_RUNNING = "task_not_running"  # done / paused / stopped / d
 WORKER_EXIT_START_GATE_OFF = "start_gate_off"
 WORKER_EXIT_CLOSE_GATE_OFF = "close_gate_off"  # 功能三：平仓闸门关闭（close 任务）
 WORKER_EXIT_TARGET_REACHED = "target_reached"
-WORKER_EXIT_PREFLIGHT_INCOMPLETE = "preflight_incomplete"  # fail-closed retry
+WORKER_EXIT_PREFLIGHT_INCOMPLETE = "preflight_incomplete"  # worker exits WITHOUT retry; task pauses (stage 2026-08-06 task 05 §5)
 WORKER_EXIT_PREFLIGHT_FATAL = "preflight_fatal"
 WORKER_EXIT_WORKER_ERROR = "worker_error"  # last-resort exception containment
 ALL_WORKER_EXIT_REASONS = (
@@ -1074,7 +1081,7 @@ def compute_preflight(
     # Fatal preflight facts (amendment rows 1–2): a readable symbol that is NOT
     # TRADING, or a non-one-way position mode (dualSidePosition != false), stop
     # the task immediately. These are READ facts, not unreadable gaps, so they
-    # are fatal rather than fail-closed retry.
+    # are fatal rather than a fail-closed exit (stage 2026-08-06 task 05 §5).
     if not snapshot.symbol_tradable:
         return PreflightResult(
             q_common=None,
@@ -1569,6 +1576,7 @@ _PAUSE_REASON_ZH = {
     PAUSE_REASON_CLOSE_VERIFY_FAILED: "平仓完成核实失败（查交易所合约持仓未成功），任务已暂停。请到交易所核对该币种合约仓位后手动恢复——「查不到」绝不视为「已平完」",
     PAUSE_REASON_CLOSE_SPOT_BALANCE: "平仓现货余额检查/划转失败，任务已暂停（fail-closed，未发单）。详情见任务卡日志，请人工核对后手动恢复",
     PAUSE_REASON_LEVERAGE_SET_FAILED: "设置合约杠杆失败，任务已暂停（fail-closed，未发单）。详情见任务卡日志，请人工核对后手动恢复",
+    PAUSE_REASON_PREFLIGHT_INCOMPLETE: "预检数据不完整，任务已暂停（fail-closed，未发单）；请检查网络后手动恢复",
 }
 
 # 51169 operator message — FROZEN verbatim (10-design §2(d) / ADR-T3). Only the

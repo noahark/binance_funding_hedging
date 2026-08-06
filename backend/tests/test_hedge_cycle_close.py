@@ -574,10 +574,7 @@ class _CloseSpotExecutor:
         self.free_calls.append(asset)
         if self.spot_free is None:
             return None
-        # 第 2 次调用为划转后复检（防「响应丢失但划转成功」误判）
-        if len(self.free_calls) >= 2 and self.recheck_free is not None:
-            return self.recheck_free
-        return self.spot_free
+        return self.spot_free  # §4.2（task 05）：后置复检已删除，只查一次
 
     def universal_transfer(self, type_, asset, amount):
         if self.transfer_raise is not None:
@@ -656,14 +653,17 @@ def test_ensure_close_spot_balance_transfer_failure_pauses(tmp_path):
     assert json.loads(logs[-1]["payload"])["action"] == "failed"
 
 
-def test_ensure_close_spot_balance_recheck_insufficient(tmp_path):
-    # 复检仍不足 → fail-closed（防「响应丢失但划转成功」误判）
-    exe = _CloseSpotExecutor(spot_free=4, recheck_free=5, unified_free=100)  # 划转后仍 < 10
+def test_ensure_close_spot_balance_no_recheck_after_transfer(tmp_path):
+    # §4.2（Human 决定 3，task 05）：后置复检已删除——只认划转返回结果（拿到
+    # tranId 即成功），划转成功后直接放行，不再重复查询余额。
+    exe = _CloseSpotExecutor(spot_free=4, recheck_free=5, unified_free=100)
     svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
     svc, ctid = _make_forward_close_with_open(lambda: svc)
     task = svc._store.get_task(ctid)
     err = svc._ensure_close_spot_balance(task, svc._wall_us())
-    assert err is not None and "复检" in err or "仍不足" in err
+    assert err is None  # 划转成功即放行（不再复检、不暂停）
+    assert exe.transfers == [("PORTFOLIO_MARGIN_MAIN", "COOKIE", "6")]
+    assert len(exe.free_calls) == 1  # 余额只查了一次（初始不足判断）
 
 
 def test_ensure_close_spot_balance_query_failure(tmp_path):
@@ -913,3 +913,95 @@ def test_live_fresh_preflight_reverse_close_checks_usdt(tmp_path):
     assert provider.calls[-1] == ("COOKIEUSDT", D.DIR_FORWARD, D.TASK_TYPE_CLOSE)
     assert fp is not None and fp.ok is True
     assert fp.fatal is False and fp.rejection is None
+
+
+# ---------------------------------------------------------------------------
+# Stage 2026-08-06 task 05 §4.2（Human 决定 3）：划转改造——缓存放行 / 实时确认
+# 才动手 / 无后置复检 / sleep(100ms) / 余额不足文案带「划转尚未到账」提示。
+# ---------------------------------------------------------------------------
+def _cached_close_svc(tmp_path, exe, caches):
+    svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
+    import time as _t
+    now = _t.monotonic()
+    svc.configure_snapshot_reader(
+        lambda sid: (now, caches[sid]) if sid in caches else None
+    )
+    return svc
+
+
+def test_close_balance_cache_sufficient_passes_without_realtime(tmp_path):
+    # 缓存显示充足 → 直接放行：0 次实时查询、0 划转（覆盖绝大多数情况的 0 网络路径）。
+    exe = _CloseSpotExecutor(spot_free=4, unified_free=100)  # 实时其实不足
+    svc = _cached_close_svc(
+        tmp_path, exe, {"spot_balances": [{"asset": "COOKIE", "free": "999"}]},
+    )
+    svc, ctid = _make_forward_close_with_open(lambda: svc)
+    task = svc._store.get_task(ctid)
+    assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None
+    assert exe.transfers == []    # 缓存充足 → 未划转
+    assert exe.free_calls == []   # 未实时查询
+
+
+def test_close_balance_cache_insufficient_confirms_realtime_then_transfers(tmp_path):
+    # 缓存显示不足 → 必须实时确认；实时仍不足才发起划转（缓存绝不触发有副作用的
+    # 划转动作）。
+    exe = _CloseSpotExecutor(spot_free=4, unified_free=100)
+    svc = _cached_close_svc(
+        tmp_path, exe, {"spot_balances": [{"asset": "COOKIE", "free": "2"}]},
+    )
+    svc, ctid = _make_forward_close_with_open(lambda: svc)
+    task = svc._store.get_task(ctid)
+    assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None
+    assert exe.transfers == [("PORTFOLIO_MARGIN_MAIN", "COOKIE", "6")]  # 实时确认后划转
+    assert len(exe.free_calls) == 1  # 恰好实时确认一次
+
+
+def test_close_balance_cache_sufficient_unified_skips_realtime_unified(tmp_path):
+    # unified_balances 缓存足够（放行类）→ 不实时查统一账户。
+    exe = _CloseSpotExecutor(spot_free=4, unified_free=None)  # 实时统一查询会失败
+    svc = _cached_close_svc(
+        tmp_path, exe, {
+            "spot_balances": [{"asset": "COOKIE", "free": "2"}],
+            "unified_balances": [{"asset": "COOKIE", "crossMarginFree": "100"}],
+        },
+    )
+    svc, ctid = _make_forward_close_with_open(lambda: svc)
+    task = svc._store.get_task(ctid)
+    assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None
+    assert exe.transfers == [("PORTFOLIO_MARGIN_MAIN", "COOKIE", "6")]
+    assert getattr(exe, "unified_calls", []) == []  # 未实时查统一账户
+
+
+def test_close_transfer_sleeps_100ms_and_no_recheck(tmp_path, monkeypatch):
+    slept = []
+    monkeypatch.setattr(
+        "backend.hedge_open_tasks.service.time.sleep", lambda s: slept.append(s),
+    )
+    exe = _CloseSpotExecutor(spot_free=4, recheck_free=5, unified_free=100)
+    svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
+    svc, ctid = _make_forward_close_with_open(lambda: svc)
+    task = svc._store.get_task(ctid)
+    assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None
+    assert slept == [0.1]           # 划转成功后 sleep(100ms) 让余额同步
+    assert len(exe.free_calls) == 1  # 后置复检已删除（只查了一次初始余额）
+
+
+def test_close_insufficient_pause_zh_notes_transfer_in_flight(tmp_path):
+    # §4.2 第 3 条：划转成功后余额不足暂停 → 中文文案含「可能是划转尚未到账」，
+    # 让操作者区分「真没钱」与「钱还在路上」。
+    exe = _CloseSpotExecutor(spot_free=4, unified_free=100)
+    svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
+    svc, ctid = _make_forward_close_with_open(lambda: svc)
+    task = svc._store.get_task(ctid)
+    assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None  # 划转 ok
+    zh = svc._close_insufficient_pause_zh(task, D.PAUSE_REASON_INSUFFICIENT_BALANCE)
+    assert zh is not None
+    assert "可能是划转尚未到账" in zh
+    assert "6 COOKIE" in zh
+    # 无划转记录的任务 → None（沿用表查通用文案）。
+    exe2 = _CloseSpotExecutor(spot_free=20, unified_free=100)
+    svc2 = HedgeOpenTaskService(str(tmp_path / "h2.sqlite3"), mode="disabled", executor=exe2)
+    svc2, ctid2 = _make_forward_close_with_open(lambda: svc2)
+    task2 = svc2._store.get_task(ctid2)
+    assert svc2._ensure_close_spot_balance(task2, svc2._wall_us()) is None  # 充足未划转
+    assert svc2._close_insufficient_pause_zh(task2, D.PAUSE_REASON_INSUFFICIENT_BALANCE) is None

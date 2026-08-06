@@ -278,7 +278,11 @@ def test_3a_missing_preflight_fact_is_fail_closed(tmp_path):
     assert exe.dispatch_calls == 0
     task = svc.store.get_task(doc["id"])
     assert task["fail_count"] == 0
-    assert task["status"] == D.STATUS_RUNNING  # still running, retries later
+    # Stage 2026-08-06 task 05 §5 (Human decision 4): a preflight failure now
+    # PAUSES the task (visible stall fix) — previously it stayed RUNNING and
+    # silently stalled. Still zero retry, zero attempt, zero POST.
+    assert task["status"] == D.STATUS_PAUSED
+    assert task["pause_reason"] == D.PAUSE_REASON_PREFLIGHT_INCOMPLETE
     # A fail-closed preflight_incomplete task event was recorded.
     _, page = svc.get_logs(None, None)
     assert any(e["entry_type"] == "task_event" and e["overall_result"] is None

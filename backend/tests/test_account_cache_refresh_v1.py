@@ -718,3 +718,31 @@ def test_hook_no_fire_when_submitter_not_configured(tmp_path):
     svc._store.create_task("t1", "BTCUSDT", "forward", "immediate", "10", 1, None, None, None, 1)
     svc.post_pause("t1")  # no submitter wired -> no-op, no error
     assert svc._store.get_task("t1")["status"] == HD.STATUS_PAUSED
+
+
+# ---------------------------------------------------------------------------
+# task 05 §1.1 — get_cached_source is READ-ONLY: returns the cached entry and
+# never triggers a refresh (the hedge preflight path may consume what the
+# snapshot worker already fetched, nothing more).
+# ---------------------------------------------------------------------------
+def test_get_cached_source_readonly_returns_entry_without_refresh(raw_inputs):
+    svc, pub = _service(raw_inputs)
+    svc._run_refresh_cycle(force_account_panels=False)  # warm the cache
+    entry = svc.get_cached_source("group_b_public")
+    assert entry is not None and len(entry) == 2
+    assert isinstance(entry[0], float)  # monotonic ts
+    assert "futures_exchange_info" in entry[1]
+    assert svc.get_cached_source("definitely_missing") is None
+    calls_before = (
+        sum(svc._private.calls.values())
+        + pub.group_b_calls + pub.premium_calls + pub.ticker_calls
+    )
+    # Repeated reads must not advance any fetch counter (zero refresh side effect).
+    svc.get_cached_source("group_b_public")
+    svc.get_cached_source("price_map")
+    svc.get_cached_source("unified_balances")
+    calls_after = (
+        sum(svc._private.calls.values())
+        + pub.group_b_calls + pub.premium_calls + pub.ticker_calls
+    )
+    assert calls_after == calls_before

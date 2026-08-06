@@ -597,14 +597,22 @@ def test_routing_regular_spot_insufficient_usdt_is_distinguishable_from_read_fai
 # order through the wrong account.
 # ---------------------------------------------------------------------------
 def test_preflight_provider_accepts_no_display_cache_input():
-    # Structural proof: the provider's constructor takes only live_client + public
-    # urlopen + clock/user_agent — never a SnapshotService or a cap cache. It
-    # therefore cannot read the display cache even if one existed.
+    # Structural proof (stage 2026-08-06 task 05, §1): the provider reads the
+    # SnapshotService-local cache ONLY through the injected read-only
+    # ``snapshot_reader`` callable (default None = unchanged real-time path). It
+    # never imports SnapshotService and carries no cache object of its own, so
+    # the two services stay decoupled.
     import inspect
     params = inspect.signature(HedgePreflightProvider.__init__).parameters
+    assert "snapshot_reader" in params
+    assert params["snapshot_reader"].default is None
     assert not any(
-        "snapshot" in p or "cache" in p or "display" in p for p in params
+        "cache" in p or "display" in p for p in params
     ), list(params)
+    import backend.services.hedge_preflight_provider as mod
+    src = inspect.getsource(mod)
+    assert "import snapshot_service" not in src
+    assert "from snapshot_service" not in src
 
 
 def test_preflight_re_reads_restricted_asset_fresh_each_call():
@@ -624,3 +632,168 @@ def test_preflight_re_reads_restricted_asset_fresh_each_call():
     # The list was read twice (fresh on each preflight — display cache is never
     # consulted, never back-filled).
     assert priv.calls.count("restricted_asset") == 2
+
+
+# ---------------------------------------------------------------------------
+# Stage 2026-08-06 task 05: SnapshotService-local cache reads (§2/§3) + the
+# failed-read name (§5.3). All fake transport — no real network.
+# ---------------------------------------------------------------------------
+import time as _time
+from datetime import datetime, timezone as _tz
+
+_LINK_PERP = _perp_sym("LINKUSDT", "PERPETUAL", "LINK")
+_LINK_SPOT = _spot_sym("LINKUSDT", "LINK")
+
+
+def _fresh_caches(mono_now=None, *, cap_exceeded=frozenset(), wall_now=None):
+    """A full fresh-enough snapshot-cache map for LINKUSDT (all 7 sources).
+
+    Entry timestamps are monotonic (``mono_now``); the ``restricted_asset``
+    ``checked_at`` is wall-clock UTC (``wall_now``) because its staleness is
+    judged on ``checked_at`` (dispatch §2). Pass a stale value to either to age
+    that dimension.
+    """
+    mono_now = _time.monotonic() if mono_now is None else mono_now
+    wall_now = _time.time() if wall_now is None else wall_now
+    checked_at = datetime.fromtimestamp(wall_now, _tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return {
+        "group_b_public": (
+            mono_now,
+            {"futures_exchange_info": {"symbols": [_LINK_PERP]},
+             "spot_exchange_info": {"symbols": [_LINK_SPOT]}},
+        ),
+        "price_map": (mono_now, {"LINKUSDT": "10"}),
+        "unified_balances": (mono_now, [{"asset": "USDT", "crossMarginFree": "100000"}]),
+        "spot_balances": (mono_now, [{"asset": "USDT", "free": "100000"}]),
+        "restricted_asset": (
+            mono_now,
+            {"exceeded": set(cap_exceeded), "checked_at": checked_at},
+        ),
+    }
+
+
+def _cached_provider(private, public, caches, now_ms=lambda: 0):
+    reader = (lambda sid: caches.get(sid)) if caches is not None else None
+    return HedgePreflightProvider(
+        live_client=private, now_ms=now_ms, public_urlopen=public,
+        snapshot_reader=reader,
+    )
+
+
+def test_get_snapshot_cache_hit_zero_network_after_account_warmup():
+    # §2/§3：全部缓存命中时 get_snapshot 零网络请求。账户级配置（position_mode /
+    # rate_limit / spot_rate_limit）是进程内 600s TTL，首次调用实时预热一次。
+    priv = _RoutingPrivate(cap_assets=["LINK"])
+    pub = _RoutingPublic([_LINK_PERP], {"LINKUSDT": _LINK_SPOT})
+    prov = _cached_provider(priv, pub, _fresh_caches())
+    # 预热账户 TTL（实时读三次）→ 之后的 get_snapshot 全部命中缓存。
+    assert prov._read_position_mode() == _D.POS_MODE_BOTH
+    assert prov._read_rate_limit_order() == 100
+    assert prov._read_spot_rate_limit_order() == 50
+    pub.urls.clear()
+    priv.calls.clear()
+    snap = prov.get_snapshot("LINKUSDT", _D.DIR_FORWARD)
+    assert snap is not None
+    assert snap.spot_route == _D.SPOT_ROUTE_PAPI_MARGIN  # cap 未打满 → papi
+    assert pub.urls == [], f"缓存命中不应有任何 public 网络请求: {pub.urls}"
+    assert priv.calls == [], f"缓存命中不应有任何 client 调用: {priv.calls}"
+
+
+def test_check_symbol_legs_cache_hit_zero_network():
+    # §2：建卡路径 check_symbol_legs 命中同一份 group_b_public → 零网络，
+    # 不再重复拉 1.06MB fapi exchangeInfo。
+    priv = _RoutingPrivate(cap_assets=[])
+    pub = _RoutingPublic([_LINK_PERP], {"LINKUSDT": _LINK_SPOT})
+    prov = _cached_provider(priv, pub, _fresh_caches())
+    out = prov.check_symbol_legs("LINKUSDT")
+    assert out == {"spot": True, "perp": True}
+    assert pub.urls == []
+
+
+def test_check_symbol_legs_cache_absent_coin_confirmed_false():
+    # 新鲜缓存确认该币不存在 → False（权威），不是 None。
+    prov = _cached_provider(_RoutingPrivate([]), _RoutingPublic([], {}), _fresh_caches())
+    out = prov.check_symbol_legs("NOPEUSDT")
+    assert out == {"spot": False, "perp": False}
+
+
+def test_stale_cache_degrades_to_realtime():
+    # §2：每个缓存项超上限 → 降级实时读（spy 断言网络请求发生）。
+    stale = _time.monotonic() - 10 * 3600.0  # 10h 前的 entry（monotonic 维度）
+    priv = _RoutingPrivate(cap_assets=["LINK"])
+    pub = _RoutingPublic([_LINK_PERP], {"LINKUSDT": _LINK_SPOT})
+    # cap 列表保持新鲜（fail-closed 项只随 checked_at 判定），其余项全部超龄。
+    caches = _fresh_caches(mono_now=stale)
+    prov = _cached_provider(priv, pub, caches)
+    snap = prov.get_snapshot("LINKUSDT", _D.DIR_FORWARD)
+    assert snap is not None  # cap 新鲜 → 不 fail-closed
+    assert "fapi/v1/exchangeInfo" in " ".join(pub.urls)  # exchangeInfo 降级实时
+    assert "balance" in priv.calls  # balances 降级实时
+    assert "restricted_asset" not in priv.calls  # cap 走缓存（未降级）
+
+
+def test_restricted_asset_stale_fails_closed_no_realtime():
+    # §2 要点：restricted_asset 超龄 → forward open FAIL-CLOSED（get_snapshot
+    # 返回 None），且绝不降级实时读（priv.calls 无 restricted_asset）。
+    stale_wall = _time.time() - 10 * 3600.0  # checked_at 10h 前 → cap 超龄
+    priv = _RoutingPrivate(cap_assets=["LINK"])
+    pub = _RoutingPublic([_LINK_PERP], {"LINKUSDT": _LINK_SPOT})
+    caches = _fresh_caches(wall_now=stale_wall)
+    # now_ms 必须是真实 wall clock（checked_at 与它比较判陈旧）。
+    prov = _cached_provider(priv, pub, caches, now_ms=lambda: _time.time() * 1000)
+    snap = prov.get_snapshot("LINKUSDT", _D.DIR_FORWARD)
+    assert snap is None  # fail-closed
+    assert prov.last_failed_read == "collateral_cap"
+    assert "restricted_asset" not in priv.calls  # 不降级实时读、不猜
+
+
+def test_restricted_asset_missing_fails_closed():
+    # 无 restricted_asset 缓存（reader 缺该 source）→ forward open fail-closed。
+    priv = _RoutingPrivate(cap_assets=["LINK"])
+    pub = _RoutingPublic([_LINK_PERP], {"LINKUSDT": _LINK_SPOT})
+    caches = _fresh_caches()
+    del caches["restricted_asset"]
+    prov = _cached_provider(priv, pub, caches)
+    assert prov.get_snapshot("LINKUSDT", _D.DIR_FORWARD) is None
+    assert "restricted_asset" not in priv.calls
+
+
+def test_account_config_ttl_read_once_per_600s_and_failure_not_cached():
+    # §3：position_mode / rate_limit 在 600s 内各只读一次；读失败不写缓存。
+    priv = _RoutingPrivate(cap_assets=[])
+    pub = _RoutingPublic([_LINK_PERP], {"LINKUSDT": _LINK_SPOT})
+    prov = _cached_provider(priv, pub, None)  # 无 snapshot_reader
+    assert prov._read_position_mode() == _D.POS_MODE_BOTH
+    assert prov._read_position_mode() == _D.POS_MODE_BOTH
+    assert priv.calls.count("position") == 1  # 第二次命中 TTL
+    assert prov._read_rate_limit_order() == 100
+    assert prov._read_rate_limit_order() == 100
+    assert priv.calls.count("papi_ratelimit") == 1
+    # 失败不缓存：下一次调用仍实时（仍失败 → None，fail-closed 不变）。
+    failing = _RoutingPrivate(cap_assets=[], spot_account_fail=True)
+    _orig_dual = failing.get_position_side_dual
+    def _fail_dual(*, timestamp_ms):
+        failing.calls.append("position")
+        return SimpleNamespace(transport_error="timeout", http_status=None, body=None)
+    failing.get_position_side_dual = _fail_dual
+    prov2 = _cached_provider(failing, pub, None)
+    assert prov2._read_position_mode() is None
+    assert prov2._read_position_mode() is None  # 失败未缓存 → 每次实时
+    assert failing.calls.count("position") == 2
+
+
+def test_last_failed_read_names_first_failure():
+    # §5.3：第一个失败的读被记录，供暂停中文原因使用。
+    priv = _RoutingPrivate(cap_assets=[])
+    pub = _RoutingPublic([_LINK_PERP], {"LINKUSDT": _LINK_SPOT})
+    prov = _cached_provider(priv, pub, None)
+    priv.get_balance = lambda *, timestamp_ms: SimpleNamespace(
+        transport_error="connection_error", http_status=None, body=None)
+    snap = prov.get_snapshot("LINKUSDT", _D.DIR_FORWARD)
+    assert snap is None
+    assert prov.last_failed_read == "balances"
+    # 下一次成功调用重置标记。
+    prov2 = _cached_provider(_RoutingPrivate(cap_assets=[]), pub, _fresh_caches())
+    prov2._read_position_mode(); prov2._read_rate_limit_order(); prov2._read_spot_rate_limit_order()
+    assert prov2.get_snapshot("LINKUSDT", _D.DIR_FORWARD) is not None
+    assert prov2.last_failed_read is None

@@ -1062,6 +1062,16 @@ def run(config: Config = None) -> None:
     _cache_refresher = getattr(service, "submit_cache_refresh", None)
     if callable(_cache_refresher):
         hedge_open_service.configure_cache_refresh(_cache_refresher)
+    # Stage 2026-08-06 task 05 (§1.3): wire the hedge preflight + close-spot
+    # gate to the snapshot worker's READ-ONLY cache (get_cached_source). Same
+    # decoupled pattern as configure_cache_refresh above — only this callable
+    # crosses the two services, and it never triggers a refresh.
+    _snapshot_reader = getattr(service, "get_cached_source", None)
+    if callable(_snapshot_reader):
+        hedge_open_service.configure_snapshot_reader(_snapshot_reader)
+        # 预检 provider 的 snapshot_reader 是构造参数；_build_hedge_service 已在
+        # 上面构建，此处通过服务层转发注入（provider 由 service 持有并只读转发）。
+        hedge_open_service.configure_preflight_reader(_snapshot_reader)
     # Dual-ledger flow-log (stage 2026-08-04-dual-ledger-flow-log-v1 task B):
     # reuse the snapshot's PrivateClient (same credential read + offline /
     # private_channel gates — no second key read, no new signing surface) and

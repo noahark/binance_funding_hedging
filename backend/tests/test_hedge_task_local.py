@@ -2129,12 +2129,12 @@ def test_r6_rate_limit_one_leg_other_filled_single_leg_exposure(tmp_path):
     assert task["leg_exposure"]["leg"] == "spot"
 
 
-# R7 — live worker_active tri-state + last_worker_exit_reason: preflight-
-# incomplete exits the worker (task stays RUNNING) with a stable reason; while a
-# worker holds the executor worker_active is True; a manual Start clears the
-# reason on re-entering RUNNING.
+# R7 — live worker_active tri-state + pause-on-preflight-incomplete:
+# stage 2026-08-06 task 05 §5 (Human decision 4) — a preflight failure now
+# PAUSES the task with a Chinese reason naming the failed read (previously it
+# exited the worker while the task stayed RUNNING, the silent-stall defect).
 def test_r7_live_worker_active_tri_state_and_exit_reason(tmp_path):
-    # --- sub A: preflight incomplete -> worker exits, reason recorded ---
+    # --- sub A: preflight incomplete -> task PAUSED with a named failed read ---
     exe_a = _RoutingExecutor()
     svc_a = _svc_with(str(tmp_path / "r7a.sqlite3"), exe_a, _FakeProvider(None), _Clock())
     svc_a.set_start_gate(True)  # None snapshot -> preflight incomplete
@@ -2145,8 +2145,15 @@ def test_r7_live_worker_active_tri_state_and_exit_reason(tmp_path):
         wa.join(timeout=5.0)
     task_a = svc_a.store.get_task(doc_a["id"])
     assert svc_a._worker_active_for(doc_a["id"]) is False
-    assert task_a["last_worker_exit_reason"] == D.WORKER_EXIT_PREFLIGHT_INCOMPLETE
-    assert task_a["status"] == D.STATUS_RUNNING  # preflight incomplete retries
+    assert task_a["status"] == D.STATUS_PAUSED  # 不再静默 running（§5 可见暂停）
+    assert task_a["pause_reason"] == D.PAUSE_REASON_PREFLIGHT_INCOMPLETE
+    assert "预检数据不完整" in (task_a["pause_reason_zh"] or "")
+    # 失败读名：_FakeProvider(None) 无 last_failed_read → 通用文案；有失败读名时
+    # 中文原因必须含读名（见 preflight-incomplete 专项测试）。
+    events = svc_a.store.list_task_event_logs_page(
+        50, ("preflight_incomplete",), None, None, None,
+    )
+    assert any(ev["kind"] == "preflight_incomplete" for ev in events)
 
     # --- sub B: while a live worker holds the executor, worker_active is True ---
     hold = threading.Event()
@@ -2201,3 +2208,85 @@ def test_r8_dry_run_worker_active_is_none_not_false(tmp_path):
     assert doc["worker_active"] is None
     assert "last_worker_exit_reason" in doc
     svc.stop()
+
+
+# ---------------------------------------------------------------------------
+# Stage 2026-08-06 task 05 §5: preflight failure is a VISIBLE pause (Human
+# decision 4). The worker still exits WITHOUT retry, but the task pauses with a
+# Chinese reason naming the failed read — no more 33-minute silent stall.
+# ---------------------------------------------------------------------------
+class _FailedReadProvider(_FakeProvider):
+    last_failed_read = "balances"
+
+    def get_snapshot(self, coin, direction, task_type="open"):
+        return None  # preflight incomplete
+
+
+def test_preflight_incomplete_pause_names_failed_read(tmp_path):
+    exe = _RoutingExecutor()
+    svc = _svc_with(str(tmp_path / "pf.sqlite3"), exe, _FailedReadProvider(), _Clock())
+    svc.set_start_gate(True)
+    doc = _create(svc, target_n=1)
+    svc.post_start(doc["id"])  # RUNNING + real worker
+    wa = svc._workers.get(doc["id"])
+    if wa is not None:
+        wa.join(timeout=5.0)
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_PAUSED  # 可见暂停，不再静默 running
+    assert task["pause_reason"] == D.PAUSE_REASON_PREFLIGHT_INCOMPLETE
+    assert "预检数据不完整" in (task["pause_reason_zh"] or "")
+    assert "balances" in (task["pause_reason_zh"] or "")  # 失败读名必须出现
+    # 事件落库（诊断事件带 failed_read + 暂停事件带 reason_zh）
+    events = svc.store.list_task_event_logs_page(
+        50, ("preflight_incomplete", "task_paused"), None, None, None,
+    )
+    payloads = [json.loads(ev["payload"]) for ev in events]
+    assert any(p.get("failed_read") == "balances" for p in payloads)
+    # 无重试：worker 退出后任务保持 paused（未被自动恢复/重发）。
+    assert svc._worker_active_for(doc["id"]) is False
+
+
+# ---------------------------------------------------------------------------
+# Stage 2026-08-06 task 05 §4.1 (Human decision 2): the close-flat verification
+# runs ONCE at the state-transition point (scheduled_attempt_count >= target_n),
+# NOT every round. Ordinary rounds make ZERO query_symbol_um_qty calls.
+# ---------------------------------------------------------------------------
+def test_close_flat_verify_only_at_target_reached(tmp_path):
+    exe = _RoutingExecutor()
+    verify_calls = {"n": 0}
+
+    def _verify(coin):
+        verify_calls["n"] += 1
+        return 0  # 合约无仓 → flat
+
+    exe.query_symbol_um_qty = _verify
+    svc = _svc_with(str(tmp_path / "close.sqlite3"), exe, _FakeProvider(_ok_snapshot()), _Clock())
+    svc.set_start_gate(True)
+    # 先建一个 open 周期（close 任务要求存在活跃周期）。
+    od = svc.create_task({
+        "coin": "BTCUSDT", "direction": D.DIR_FORWARD, "mode": "immediate",
+        "single_amount": "0.5", "target_n": 1,
+    })[1]
+    exe.set_script(od["id"], [_accepted_pair(od["id"])])
+    svc.post_start(od["id"])
+    wo = svc._workers.get(od["id"])
+    if wo is not None:
+        wo.join(timeout=5.0)
+    assert svc.store.get_active_cycle("BTCUSDT", "forward") is not None
+    doc = svc.create_task({
+        "coin": "BTCUSDT", "direction": D.DIR_FORWARD, "mode": "immediate",
+        "single_amount": "0.5", "target_n": 2, "task_type": "close",
+    })[1]
+    exe.set_script(doc["id"], [_accepted_pair(doc["id"]), _accepted_pair(doc["id"])])
+    svc.post_start(doc["id"])
+    wa = svc._workers.get(doc["id"])
+    if wa is not None:
+        wa.join(timeout=5.0)
+    # 轮 1/2（scheduled 0→1→2）不 verify；轮 3（scheduled=2 >= target_n）恰好一次。
+    assert verify_calls["n"] == 1, f"平完判定应只在次数用完那一轮调用一次: {verify_calls}"
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_DONE
+    # 周期已关（auto_close）+ 结算日志写入。
+    assert svc.store.get_active_cycle("BTCUSDT", "forward") is None
+    close_logs = svc.store.list_close_logs()
+    assert any(row["close_reason"] == D.CLOSE_REASON_AUTO_CLOSE for row in close_logs)

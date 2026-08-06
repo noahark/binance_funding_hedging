@@ -32,8 +32,10 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Callable, Optional
 
@@ -46,6 +48,14 @@ from .hedge_open_live_client import HedgeOpenLiveClient
 _SPOT_API_BASE = "https://api.binance.com"
 _FAPI_BASE = "https://fapi.binance.com"
 DEFAULT_TIMEOUT_SECONDS = 10.0
+
+# Stage 2026-08-06 task 05 (dispatch §2/§3): staleness ceilings for the
+# SnapshotService-local cache reads, in seconds.
+_CACHE_MAX_AGE_EXCHANGE_INFO = 2 * 3600.0   # fapi/spot exchangeInfo (minute-stable)
+_CACHE_MAX_AGE_PRICE = 5 * 60.0             # ticker/price (60s local TTL)
+_CACHE_MAX_AGE_BALANCE = 5 * 60.0           # unified/spot balances (60s local TTL)
+_CACHE_MAX_AGE_RESTRICTED_ASSET = 10 * 60.0  # collateral-cap list (FAIL-CLOSED when stale)
+_ACCOUNT_TTL_SECONDS = 10 * 60.0             # positionSide/dual + rateLimit (process-local)
 
 
 def _parse_spot_filters(symbol_data: dict) -> dict:
@@ -179,12 +189,122 @@ class HedgePreflightProvider:
         public_urlopen: Optional[Callable] = None,
         user_agent: str = "funding-hedging-hedge-preflight",
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+        snapshot_reader: Optional[Callable[[str], Optional[tuple]]] = None,
     ):
         self._client = live_client
         self._now_ms = now_ms
         self._public_urlopen = public_urlopen or urllib.request.urlopen
         self._user_agent = user_agent
         self._timeout = timeout_seconds
+        # Stage 2026-08-06 task 05 (§1): optional read-only access to the
+        # SnapshotService-local cache, injected by the server composition root.
+        # ``None`` keeps the preflight behaviour byte-for-byte unchanged (the
+        # existing real-time read path). The two services stay decoupled — this
+        # module never imports SnapshotService.
+        self._snapshot_reader = snapshot_reader
+        # Process-local cache for the two account-level configuration reads that
+        # have no SnapshotService cache (positionSide/dual, rateLimit/order):
+        # account settings do not change unless the operator changes them, so a
+        # long TTL is safe. Only SUCCESS values are cached (a failed read is
+        # never cached — it keeps fail-closing).
+        self._account_cache: dict[str, tuple[float, object]] = {}
+        # Stage 2026-08-06 task 05 (§5.3): the name of the FIRST read that failed
+        # during the most recent :meth:`get_snapshot` call (or ``None``), so the
+        # service can record WHICH read broke the preflight (the C-incident's
+        # second forensic blind spot).
+        self.last_failed_read: Optional[str] = None
+
+    def set_snapshot_reader(
+        self, reader: Optional[Callable[[str], Optional[tuple]]],
+    ) -> None:
+        """Post-construction injection of the read-only SnapshotService cache
+        reader (stage 2026-08-06 task 05 §1.3). The server builds the provider
+        inside ``_build_hedge_service`` before the SnapshotService exists, then
+        wires this setter once both services exist. ``None`` restores the
+        unchanged real-time behaviour."""
+        self._snapshot_reader = reader
+
+    # -- snapshot-cache read helpers (stage 2026-08-06 task 05, §2) --
+    def _cached(self, source_id: str, max_age: float) -> Optional[object]:
+        """A fresh-enough cached value for ``source_id``, else ``None``.
+
+        ``None`` here means either no reader injected, no cache entry yet, or the
+        entry is older than ``max_age`` — the caller then degrades to its
+        real-time read (never silently uses stale facts)."""
+        reader = self._snapshot_reader
+        if reader is None:
+            return None
+        entry = reader(source_id)
+        if entry is None:
+            return None
+        try:
+            ts, value = entry
+        except (TypeError, ValueError):
+            return None
+        if time.monotonic() - float(ts) > max_age:
+            return None
+        return value
+
+    def _cached_restricted_asset(self) -> Optional[dict]:
+        """Fresh-enough ``restricted_asset`` value keyed on its OWN
+        ``checked_at`` (wall-clock UTC), else ``None``.
+
+        The collateral-cap list is the ONLY fail-closed cache item (dispatch
+        §2): when it is missing or stale the caller returns ``None`` and the
+        snapshot fails closed — it never degrades to a real-time read and never
+        guesses a route on an old cap list."""
+        reader = self._snapshot_reader
+        if reader is None:
+            return None
+        entry = reader("restricted_asset")
+        if entry is None:
+            return None
+        try:
+            _ts, value = entry
+        except (TypeError, ValueError):
+            return None
+        if not isinstance(value, dict):
+            return None
+        checked_at = value.get("checked_at")
+        if not isinstance(checked_at, str):
+            return None
+        try:
+            parsed = datetime.fromisoformat(checked_at.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+        if (self._now_ms() / 1000.0) - parsed.timestamp() > _CACHE_MAX_AGE_RESTRICTED_ASSET:
+            return None
+        return value
+
+    def _cached_account(self, key: str) -> tuple[object, bool]:
+        """``(value, hit)`` from the process-local account-config cache (TTL
+        600s). A miss returns ``(None, False)`` — the caller re-reads the
+        exchange and caches only a success."""
+        entry = self._account_cache.get(key)
+        if entry is not None and (self._now_ms() / 1000.0 - entry[0]) < _ACCOUNT_TTL_SECONDS:
+            return entry[1], True
+        return None, False
+
+    def _store_account(self, key: str, value: object) -> None:
+        self._account_cache[key] = (self._now_ms() / 1000.0, value)
+
+    def _degrade_note(self, source_id: str, detail: str = "") -> None:
+        """A stderr trace when a cache read is unusable and the provider
+        degrades to the (slower) real-time path — so a long-lived silent slow
+        path is visible on the service terminal (dispatch §2)."""
+        print(
+            f"[PREFLIGHT-CACHE] {source_id} cache unusable, degrading"
+            f"{(': ' + detail) if detail else ''}",
+            file=sys.stderr, flush=True,
+        )
+
+    def _mark_failed_read(self, name: str) -> None:
+        """Record the FIRST read that failed during a :meth:`get_snapshot` call
+        (§5.3). Only the first one is kept — it is the actionable root cause."""
+        if self.last_failed_read is None:
+            self.last_failed_read = name
 
     def _read_public_json(self, url: str) -> Optional[object]:
         try:
@@ -231,7 +351,23 @@ class HedgePreflightProvider:
 
     def _read_spot_record(self, symbol: str) -> Optional[dict]:
         """Read one spot exchangeInfo symbol record (raw dict), or None on a read
-        failure / absent symbol."""
+        failure / absent symbol.
+
+        Stage 2026-08-06 task 05 (§2): the SnapshotService-local
+        ``group_b_public`` cache is consulted first (2h staleness ceiling); a
+        fresh-enough hit serves the record directly (zero network), otherwise the
+        read degrades to the real-time path (recorded on stderr). A symbol
+        confirmed absent in a fresh cache is authoritative — same as a 2xx
+        real-time read."""
+        cached = self._cached("group_b_public", _CACHE_MAX_AGE_EXCHANGE_INFO)
+        if cached is not None:
+            symbols = (cached.get("spot_exchange_info") or {}).get("symbols")
+            if isinstance(symbols, list):
+                rec = _find_symbol(symbols, symbol)
+                if rec is not None:
+                    return rec
+                return None  # 新鲜缓存确认该 symbol 不存在（与实时 2xx 一致）
+            self._degrade_note("group_b_public.spot_exchange_info", "bad shape")
         data = self._read_public_json(
             f"{_SPOT_API_BASE}/api/v3/exchangeInfo?symbol={symbol}"
         )
@@ -240,6 +376,15 @@ class HedgePreflightProvider:
         return _find_symbol(data.get("symbols", []), symbol)
 
     def _read_perp_filters(self, coin: str) -> Optional[tuple[dict, bool, dict]]:
+        cached = self._cached("group_b_public", _CACHE_MAX_AGE_EXCHANGE_INFO)
+        if cached is not None:
+            symbols = (cached.get("futures_exchange_info") or {}).get("symbols")
+            if isinstance(symbols, list):
+                symbol = _find_symbol(symbols, coin)
+                if symbol is None:
+                    return None  # 新鲜缓存确认该合约不存在
+                return _parse_perp_filters(symbol), symbol.get("status") == "TRADING", symbol
+            self._degrade_note("group_b_public.futures_exchange_info", "bad shape")
         data = self._read_public_json(f"{_FAPI_BASE}/fapi/v1/exchangeInfo")
         if not isinstance(data, dict):
             return None
@@ -312,7 +457,24 @@ class HedgePreflightProvider:
         return None
 
     def _read_est_price(self, coin: str) -> Optional[Decimal]:
-        """Conservative spot price for the forward min-notional estimate."""
+        """Conservative spot price for the forward min-notional estimate.
+
+        Stage 2026-08-06 task 05 (§2): the ``price_map`` cache (60s local TTL,
+        5min ceiling) is consulted first; a symbol missing from a fresh price
+        map degrades to the real-time read (a missing price is never treated as
+        a fact)."""
+        cached = self._cached("price_map", _CACHE_MAX_AGE_PRICE)
+        if cached is not None:
+            raw = cached.get(coin) if isinstance(cached, dict) else None
+            if raw is not None:
+                try:
+                    value = Decimal(str(raw))
+                except (InvalidOperation, ValueError, TypeError):
+                    self._degrade_note("price_map", f"bad value for {coin}")
+                else:
+                    return value if value > 0 else None
+            else:
+                self._degrade_note("price_map", f"missing symbol {coin}")
         data = self._read_public_json(f"{_SPOT_API_BASE}/api/v3/ticker/price?symbol={coin}")
         if not isinstance(data, dict):
             return None
@@ -326,6 +488,23 @@ class HedgePreflightProvider:
         return value if value > 0 else None
 
     def _read_balances(self) -> Optional[dict]:
+        cached = self._cached("unified_balances", _CACHE_MAX_AGE_BALANCE)
+        if cached is not None:
+            if isinstance(cached, list):
+                out: dict[str, Decimal] = {}
+                for row in cached:
+                    if not isinstance(row, dict):
+                        continue
+                    asset = row.get("asset")
+                    free = row.get("crossMarginFree")
+                    if asset is None or free is None:
+                        continue
+                    try:
+                        out[str(asset)] = Decimal(str(free))
+                    except (InvalidOperation, ValueError, TypeError):
+                        continue
+                return out
+            self._degrade_note("unified_balances", "bad shape")
         if self._client is None:
             return None
         response = self._client.get_balance(timestamp_ms=self._now_ms())
@@ -351,6 +530,9 @@ class HedgePreflightProvider:
         return out
 
     def _read_position_mode(self) -> Optional[str]:
+        cached, hit = self._cached_account("position_mode")
+        if hit:
+            return cached  # type: ignore[return-value]
         if self._client is None:
             return None
         response = self._client.get_position_side_dual(timestamp_ms=self._now_ms())
@@ -360,19 +542,25 @@ class HedgePreflightProvider:
             or response.http_status >= 400
             or not isinstance(response.body, dict)
         ):
-            return None  # read failed -> fail-closed incomplete
+            return None  # read failed -> fail-closed incomplete (not cached)
         dual = response.body.get("dualSidePosition")
         # A readable dualSidePosition=true is a two-way (hedge) account: a fatal
         # fact downstream (the frozen contract is one-way BOTH, PRD §5 / recon
         # §4.3). A literal false is the only one-way confirmation; a missing or
         # ambiguous value cannot confirm one-way, so it fails closed (clause 3).
+        value: Optional[str] = None
         if dual is True:
-            return D.POS_MODE_HEDGE
-        if dual is False:
-            return D.POS_MODE_BOTH
-        return None
+            value = D.POS_MODE_HEDGE
+        elif dual is False:
+            value = D.POS_MODE_BOTH
+        if value is not None:
+            self._store_account("position_mode", value)
+        return value
 
     def _read_rate_limit_order(self) -> Optional[int]:
+        cached, hit = self._cached_account("rate_limit_order")
+        if hit:
+            return cached  # type: ignore[return-value]
         if self._client is None:
             return None
         response = self._client.get_rate_limit_order(timestamp_ms=self._now_ms())
@@ -388,15 +576,25 @@ class HedgePreflightProvider:
             if isinstance(row, dict) and row.get("rateLimitType") == "ORDERS":
                 limit = row.get("limit")
                 if isinstance(limit, int) and limit > 0:
+                    self._store_account("rate_limit_order", limit)
                     return limit
         return None
 
     # --------------------------------------------- regular-spot route reads (§3)
     def _read_collateral_cap_hit(self, spot_base_asset: str) -> Optional[bool]:
-        """FRESH read of the platform collateral-cap list (design §3 step 4).
-        Returns True/False for whether ``spot_base_asset`` is on
-        ``maxCollateralExceededAsset``, or None when the read failed (the caller
-        fail-closes — never guess a route from a missing read).
+        """Read the platform collateral-cap membership for ``spot_base_asset``.
+
+        Stage 2026-08-06 task 05 (§2): the SnapshotService-local
+        ``restricted_asset`` cache is consulted first with a 10min ceiling keyed
+        on its OWN ``checked_at``. This is the ONLY fail-closed cache item: when
+        the list is missing or stale the provider returns ``None`` and the
+        snapshot fails closed — it never degrades to a real-time read and never
+        guesses a route from an old cap list (a stale list could wrongly select
+        the regular-spot route and produce a naked short). When NO reader is
+        injected (``snapshot_reader=None``) the behaviour is byte-for-byte
+        unchanged: the read goes real-time, exactly as before this stage.
+        Returns True/False
+        for whether ``spot_base_asset`` is on ``maxCollateralExceededAsset``.
 
         Reads ONLY ``maxCollateralExceededAsset``; ``openLongRestrictedAsset`` is
         never read or stored (decision §A-3). Membership is EXACT (design §5): no
@@ -405,6 +603,22 @@ class HedgePreflightProvider:
         the resolved spot base asset (``TSLAB`` for a bStock), never the contract
         base, because the caller passes the value ``resolve_spot_leg`` resolved.
         """
+        if self._snapshot_reader is None:
+            return self._read_collateral_cap_hit_live(spot_base_asset)
+        cached = self._cached_restricted_asset()
+        if cached is not None:
+            exceeded = cached.get("exceeded")
+            if isinstance(exceeded, set):
+                return spot_base_asset in exceeded
+            self._degrade_note("restricted_asset", "bad shape -> fail-closed")
+            return None
+        # 有 reader 但缓存缺失 / 超龄 / 结构不符 → fail-closed（不降级实时读，不猜路由）。
+        self._degrade_note("restricted_asset", "stale/missing -> fail-closed")
+        return None
+
+    def _read_collateral_cap_hit_live(self, spot_base_asset: str) -> Optional[bool]:
+        """The unchanged real-time collateral-cap read (the ``snapshot_reader``
+        is ``None`` path — byte-for-byte the pre-task-05 behaviour)."""
         if self._client is None:
             return None
         response = self._client.get_restricted_asset()
@@ -426,7 +640,24 @@ class HedgePreflightProvider:
         ``crossMarginFree`` (design §2.4 — the two wallets are distinct). Returns
         the Decimal free USDT (``Decimal(0)`` when USDT is absent but the account
         read succeeded — a real zero, an insufficient-balance fact), or None when
-        the read failed (caller fail-closes)."""
+        the read failed (caller fail-closes).
+
+        Stage 2026-08-06 task 05 (§2): the ``spot_balances`` cache (60s local
+        TTL, 5min ceiling) is consulted first."""
+        cached = self._cached("spot_balances", _CACHE_MAX_AGE_BALANCE)
+        if cached is not None:
+            if isinstance(cached, list):
+                for row in cached:
+                    if isinstance(row, dict) and row.get("asset") == "USDT":
+                        free = row.get("free")
+                        if free is None:
+                            return Decimal(0)
+                        try:
+                            return Decimal(str(free))
+                        except (InvalidOperation, ValueError, TypeError):
+                            return None
+                return Decimal(0)
+            self._degrade_note("spot_balances", "bad shape")
         if self._client is None:
             return None
         response = self._client.get_spot_account(timestamp_ms=self._now_ms())
@@ -462,7 +693,11 @@ class HedgePreflightProvider:
     def _read_spot_rate_limit_order(self) -> Optional[int]:
         """Standard Spot order-rate limit (design §3 step 5). A regular_spot
         order consumes the spot rate-limit budget, not the PAPI one (§3.5).
-        Returns the ORDERS cap or None on a read failure."""
+        Returns the ORDERS cap or None on a read failure. Process-local 600s TTL
+        (account-level setting, unchanged unless the operator changes it)."""
+        cached, hit = self._cached_account("spot_rate_limit_order")
+        if hit:
+            return cached  # type: ignore[return-value]
         if self._client is None:
             return None
         response = self._client.get_spot_rate_limit_order(timestamp_ms=self._now_ms())
@@ -477,6 +712,7 @@ class HedgePreflightProvider:
             if isinstance(row, dict) and row.get("rateLimitType") == "ORDERS":
                 limit = row.get("limit")
                 if isinstance(limit, int) and limit > 0:
+                    self._store_account("spot_rate_limit_order", limit)
                     return limit
         return None
 
@@ -508,6 +744,9 @@ class HedgePreflightProvider:
         """
         if self._client is None or not self._client.credentials_present:
             return None
+        # §5.3: reset the failed-read marker for this call, then record the
+        # FIRST read that fails so the service can name it in the pause reason.
+        self.last_failed_read = None
         perp = self._read_perp_filters(coin)
         perp_symbol = perp[2] if perp is not None else None
         spot = (
@@ -521,6 +760,16 @@ class HedgePreflightProvider:
         spot_symbol = spot[2] if spot is not None else coin
         est_price = self._read_est_price(spot_symbol)
         # Any base read gap fails closed — never assemble a half-populated snapshot.
+        if spot is None:
+            self._mark_failed_read("spot_leg")
+        if perp is None:
+            self._mark_failed_read("perp_filters")
+        if balances is None:
+            self._mark_failed_read("balances")
+        if position_mode is None:
+            self._mark_failed_read("position_mode")
+        if rate_limit is None:
+            self._mark_failed_read("rate_limit")
         if (
             spot is None
             or perp is None
@@ -555,6 +804,7 @@ class HedgePreflightProvider:
         if direction == D.DIR_FORWARD and task_type != D.TASK_TYPE_CLOSE:
             cap_exceeded = self._read_collateral_cap_hit(spot_base_asset)
             if cap_exceeded is None:
+                self._mark_failed_read("collateral_cap")
                 return None
         if (
             not spot_margin_allowed
@@ -577,6 +827,10 @@ class HedgePreflightProvider:
             spot_account_usdt = self._read_spot_account_usdt()
             spot_rate_limit = self._read_spot_rate_limit_order()
             if spot_account_usdt is None or spot_rate_limit is None:
+                if spot_account_usdt is None:
+                    self._mark_failed_read("spot_account_usdt")
+                if spot_rate_limit is None:
+                    self._mark_failed_read("spot_rate_limit")
                 return None
         spot_endpoint = D.spot_route_endpoint(spot_route)
         return D.PreflightSnapshot(
@@ -604,7 +858,31 @@ class HedgePreflightProvider:
         ``True`` = confirmed present, ``False`` = confirmed absent (spot -1121 or
         perp not in the full exchangeInfo list), and ``None`` = indeterminate (a
         read failure the caller does NOT block on).
+
+        Stage 2026-08-06 task 05 (§2): the ``group_b_public`` cache is consulted
+        first (2h ceiling). A fresh-enough hit resolves both legs from the cached
+        exchangeInfo lists — the duplicate 1.06MB ``fapi exchangeInfo`` fetch on
+        task creation disappears by construction (``get_snapshot`` reads the same
+        source). ``None`` is never produced from a fresh cache (a successful
+        exchangeInfo snapshot is authoritative for existence); on cache
+        miss/stale the probe degrades to the real-time reads.
         """
+        cached = self._cached("group_b_public", _CACHE_MAX_AGE_EXCHANGE_INFO)
+        if cached is not None:
+            spot_symbols = (cached.get("spot_exchange_info") or {}).get("symbols")
+            perp_symbols = (cached.get("futures_exchange_info") or {}).get("symbols")
+            if isinstance(spot_symbols, list) and isinstance(perp_symbols, list):
+                spot_set = {s.get("symbol") for s in spot_symbols if isinstance(s, dict)}
+                perp_set = {s.get("symbol") for s in perp_symbols if isinstance(s, dict)}
+                spot = coin in spot_set
+                perp = coin in perp_set
+                if not spot:
+                    perp_symbol = _find_symbol(perp_symbols, coin)
+                    alias = _bstock_spot_alias(coin, perp_symbol)
+                    if alias is not None and alias in spot_set:
+                        spot = True
+                return {"spot": spot, "perp": perp}
+            self._degrade_note("group_b_public.check_symbol_legs", "bad shape")
         spot_status, spot_body = self._read_public_with_status(
             f"{_SPOT_API_BASE}/api/v3/exchangeInfo?symbol={coin}"
         )
