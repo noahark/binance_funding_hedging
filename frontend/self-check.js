@@ -540,6 +540,8 @@ let hedgePositionsGetResponse = {
 };
 // POST /api/public-market/cache-refresh mock slot (frontend-cache-refresh-v1).
 let cacheRefreshPostResponse = null;
+// 资产互转（T2）：POST /api/asset-transfer 的响应槽；未设置时 503。
+let assetTransferPostResponse = null;
 // 流水日志 private-ledger mock（task C）
 let flowLogGetResponse = null;
 let flowLogRefreshResponse = null;
@@ -880,6 +882,12 @@ global.fetch = async (url, options) => {
   if (urlStr === '/api/public-market/snapshot') {
     fetchUrl = urlStr;
     return buildFetchResponse({ status: 200, body: fixtureToFetch });
+  }
+  if (urlStr === '/api/asset-transfer' && method === 'POST') {
+    return buildFetchResponse(assetTransferPostResponse || {
+      status: 503,
+      body: { error: 'asset_transfer_unavailable', detail: 'mock 未设置划转响应' }
+    });
   }
   if (urlStr === '/api/public-market/cache-refresh' && method === 'POST') {
     return buildFetchResponse(cacheRefreshPostResponse || {
@@ -6985,8 +6993,8 @@ setTimeout(async () => {
       if (!(idxUnified < idxTransfer && idxTransfer < idxSpot)) {
         throw new Error(`互转行位置错误: unified=${idxUnified} transfer=${idxTransfer} spot=${idxSpot}`);
       }
-      // fake 标记必须可见（本轮不真实划转）
-      if (!tBody.includes('数据真实 · 划转未接后端')) throw new Error('缺少「划转未接后端」徽标');
+      // 真实划转徽标：动钱路径必须在界面上说清楚
+      if (!tBody.includes('真实划转 · 点击即动钱')) throw new Error('缺少「真实划转」徽标');
       if (!tBody.includes('>从<') || !tBody.includes('>转到<')) throw new Error('缺少「从」/「转到」标签');
 
       // 默认转出=统一账户，资产下拉展示统一账户资产（含币种/可用/净值三段）
@@ -7060,19 +7068,108 @@ setTimeout(async () => {
         throw new Error('确认文案应含数量/币种/方向: ' + tModal.body);
       }
       if (elements['hedge-modal-confirm'].textContent !== '确认划转') throw new Error('确认词应为「确认划转」');
-      // 确认 → 仍然零请求（fake），出现预览回显，数量清空
+
+      // 确认 → 恰好一次 POST /api/asset-transfer，请求体形状冻结
+      assetTransferPostResponse = { status: 200, body: {
+        client_request_id: 'x', from_account: 'spot', to_account: 'unified',
+        asset: 'BNB', amount: '0.5', status: 'succeeded', tran_id: '90210',
+        error_code: null, error_message: null
+      } };
+      cacheRefreshPostResponse = { status: 200, body: { published: true } };
       await helpers.onHedgeModalConfirm();
-      if (fetchCallLog.length !== transferMark) throw new Error('fake 划转不应发出任何请求');
+      const posts = fetchCallLog.slice(transferMark).filter(c => c.url === '/api/asset-transfer');
+      if (posts.length !== 1) throw new Error(`确认后应恰好一次划转 POST，实际 ${posts.length}`);
+      if (posts[0].method !== 'POST') throw new Error('划转必须用 POST');
+      const sent = posts[0].body;  // mock fetch 已把 JSON body 解析成对象
+      if (sent.confirm !== true) throw new Error('请求体必须带 confirm=true');
+      if (sent.from_account !== 'spot' || sent.to_account !== 'unified') throw new Error('方向字段错误: ' + JSON.stringify(sent));
+      if (sent.asset !== 'BNB' || sent.amount !== '0.5') throw new Error('币种/金额错误: ' + JSON.stringify(sent));
+      if (!/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(sent.client_request_id)) {
+        throw new Error('client_request_id 必须是 UUID（幂等键）: ' + sent.client_request_id);
+      }
+      // 成功 → 回显含流水号、数量清空、触发快照缓存刷新（否则余额显示 60s 旧值）
       tBody = elements['private-panel-body'].innerHTML;
-      if (!tBody.includes('（预览）划转请求已提交：0.5 个 BNB')) throw new Error('缺少预览回显: ' + tBody.slice(tBody.indexOf('资产互转'), tBody.indexOf('资产互转') + 1200));
-      if (!tBody.includes('现货账户 → 统一账户')) throw new Error('预览回显应含方向');
-      if (helpers.getAssetTransfer().amount !== '') throw new Error('提交后数量应清空');
+      if (!tBody.includes('划转成功')) throw new Error('缺少成功回显: ' + tBody.slice(tBody.indexOf('资产互转'), tBody.indexOf('资产互转') + 1400));
+      if (!tBody.includes('90210')) throw new Error('成功回显应含交易所流水号');
+      if (helpers.getAssetTransfer().amount !== '') throw new Error('成功后数量应清空');
+      if (!fetchCallLog.slice(transferMark).some(c => c.url === '/api/public-market/cache-refresh')) {
+        throw new Error('划转成功后应刷新快照缓存');
+      }
+
+      // 成功后的 cache-refresh 是**不等待**的后台调用（不阻塞 UI），它会异步把快照
+      // 换成 mock 的默认 fixture——这正是「成功后刷新余额」生效的旁证。先让它跑完，
+      // 再恢复本用例的账户快照，否则后续用例会撞上被换掉的资产列表。
+      await new Promise(resolve => setImmediate(resolve));
+      await new Promise(resolve => setImmediate(resolve));
+      helpers.ingestSnapshot(transferFixture);
+      helpers.setTransferFrom('unified');
+      helpers.setTransferFrom('spot');
+
+      // 业务失败：HTTP 仍是 200，结论只在 body.status —— 前端不得当成功
+      helpers.setTransferAsset('BNB');
+      helpers.setTransferAmount('0.25');
+      assetTransferPostResponse = { status: 200, body: {
+        client_request_id: 'y', from_account: 'spot', to_account: 'unified',
+        asset: 'BNB', amount: '0.25', status: 'failed', tran_id: null,
+        error_code: '-4015', error_message: '请求被币安拒绝（HTTP 400）：Insufficient balance'
+      } };
+      helpers.requestAssetTransferConfirm();
+      await helpers.onHedgeModalConfirm();
+      tBody = elements['private-panel-body'].innerHTML;
+      if (!tBody.includes('划转失败')) throw new Error('HTTP 200 + status=failed 必须显示失败');
+      if (!tBody.includes('-4015') || !tBody.includes('Insufficient balance')) {
+        throw new Error('失败回显应含错误码与交易所原文');
+      }
+      if (helpers.getAssetTransfer().locked) throw new Error('业务失败不应锁定表单（钱确定没动）');
+
+      // 结果未知：醒目警示 + 无重试入口 + 锁定表单，直到人工「我已核对」
+      helpers.setTransferAsset('BNB');
+      helpers.setTransferAmount('0.75');
+      assetTransferPostResponse = { status: 200, body: {
+        client_request_id: 'z', from_account: 'spot', to_account: 'unified',
+        asset: 'BNB', amount: '0.75', status: 'unknown', tran_id: null,
+        error_code: null, error_message: '请求过于频繁，已触发币安限流（HTTP 429）'
+      } };
+      helpers.requestAssetTransferConfirm();
+      await helpers.onHedgeModalConfirm();
+      tBody = elements['private-panel-body'].innerHTML;
+      if (!tBody.includes('结果未知，请勿直接重试')) throw new Error('unknown 必须醒目警示');
+      if (!tBody.includes('可能已经执行')) throw new Error('unknown 必须说明钱可能已经转了');
+      if (/data-transfer-retry|>重试</.test(tBody)) throw new Error('unknown 绝不能给重试按钮');
+      if (!helpers.getAssetTransfer().locked) throw new Error('unknown 后必须锁定表单');
+      if (!tBody.includes('data-transfer-ack')) throw new Error('unknown 应提供「我已核对」解锁入口');
+      if (evaluateTransferOk()) throw new Error('锁定期间不得可提交');
+      const lockedMark = fetchCallLog.length;
+      helpers.requestAssetTransferConfirm();
+      if (fetchCallLog.length !== lockedMark) throw new Error('锁定期间不得发出任何请求');
+      // 人工核对后解锁：纯本地状态，零请求
+      helpers.acknowledgeTransferUnknown();
+      if (fetchCallLog.length !== lockedMark) throw new Error('解锁不应发出请求');
+      if (helpers.getAssetTransfer().locked) throw new Error('「我已核对」后应解除锁定');
+
+      // 请求层失败（400/503）：钱一定没动，显示「划转未发出」
+      helpers.setTransferAsset('BNB');
+      helpers.setTransferAmount('0.1');
+      assetTransferPostResponse = { status: 503, body: {
+        error: 'asset_transfer_unavailable', detail: '划转通道未配置（离线模式或缺少 API 凭证）'
+      } };
+      helpers.requestAssetTransferConfirm();
+      await helpers.onHedgeModalConfirm();
+      tBody = elements['private-panel-body'].innerHTML;
+      if (!tBody.includes('划转未发出')) throw new Error('请求层失败应显示「划转未发出」');
+      if (!tBody.includes('划转通道未配置')) throw new Error('请求层失败应带后端 detail');
 
       // 复位，不污染后续断言
+      assetTransferPostResponse = null;
+      cacheRefreshPostResponse = null;
       helpers.setTransferFrom('unified');
       helpers.setTransferAmount('');
       helpers.ingestSnapshot(designFixture);
-      console.log('[PASS] 资产互转：cross_margin_free 真实回显（缺失=—不回退总量）/位置/自动反转/资产跟随转出账户/不过滤小额/按可用额校验/二次确认/零请求');
+      console.log('[PASS] 资产互转 T2 接线：UUID 幂等键 + confirm=true + 恰一次 POST/成功刷缓存/failed 不当成功/unknown 锁定且无重试入口/请求层失败/位置/自动反转/可用额校验');
+    }
+
+    function evaluateTransferOk() {
+      return helpers.evaluateTransfer().ok;
     }
 
     // 76. 无泄漏证明：fetch 同源白名单、无 Binance/外域、无新任务定时器、localStorage 白名单
@@ -7101,7 +7198,9 @@ setTimeout(async () => {
         /^\/api\/hedge-open-close-logs$/,
         // dual-ledger flow-log（task C）
         /^\/api\/private-ledger\/flow-log\?/,
-        /^\/api\/private-ledger\/refresh$/
+        /^\/api\/private-ledger\/refresh$/,
+        // 资产互转（stage 2026-08-06-asset-transfer-live-v1 T2）：同源、POST。
+        /^\/api\/asset-transfer$/
       ];
       for (const c of fetchCallLog) {
         if (/binance/i.test(c.url)) {
@@ -7148,6 +7247,9 @@ setTimeout(async () => {
           if (c.method !== 'GET') throw new Error(`flow-log 路由非法方法 ${c.method}`);
         } else if (c.url === '/api/private-ledger/refresh') {
           if (c.method !== 'POST') throw new Error(`flow-log refresh 路由非法方法 ${c.method}`);
+        } else if (c.url === '/api/asset-transfer') {
+          // 划转是写操作，只能 POST（GET 划转会被浏览器预取/重放，绝不允许）。
+          if (c.method !== 'POST') throw new Error(`资产互转路由非法方法 ${c.method}`);
         } else if (c.method !== 'GET') {
           throw new Error(`只读路由非法方法 ${c.method}: ${c.url}`);
         }

@@ -1642,10 +1642,16 @@
         // 形状：{ kind:'borrow_create', symbol } | { kind:'hedge_open', symbol, direction, mode }
         //     | { kind:'asset_transfer', from, to, asset, amount }
         marketActionPending: null,
-        // 资产互转（前端 fake 预览，零请求）：私有面板 60s 重渲染会重建这一行的 DOM，
-        // 选择与输入必须存在 state 里回填，否则自动刷新会清空用户填了一半的表单。
-        // from: 'unified' | 'spot'（转入账户恒为另一个）；notice 为提交后的行内回显。
-        assetTransfer: { from: 'unified', asset: null, amount: '', notice: null },
+        // 资产互转：私有面板 60s 重渲染会重建这一行的 DOM，选择与输入必须存在
+        // state 里回填，否则自动刷新会清空用户填了一半的表单。
+        // from: 'unified' | 'spot'（转入账户恒为另一个）。
+        // result 为后端返回的划转记录（含 status 四态）或请求层错误；
+        // locked 在 status=unknown 后置真——结果未知时钱可能已经转了，必须先人工
+        // 核对再解锁，否则换个新编号重来就会转第二次。
+        assetTransfer: {
+          from: 'unified', asset: null, amount: '',
+          submitting: false, result: null, locked: false,
+        },
         // 立即开单创建中：导航徽标显示转圈，计数可叠加（并发创建）。
         hedgeTaskNavLoading: 0,
         // attempt 时间线（2026-07-hedge-open-real-api-v1，12-breakdown §3.4）：
@@ -3400,9 +3406,17 @@
       }
 
       // 提交条件与提示文案的唯一判定点（渲染与局部刷新共用，避免两处口径漂移）。
-      // available 未知（null/非法）时不拦超额，交由后端/真实实现兜底。
+      // available 未知（null/非法）时不拦超额，交由后端/交易所兜底。
       function evaluateTransfer(pa) {
         const t = state.assetTransfer;
+        if (t.submitting) return { ok: false, hint: '划转请求已发出，等待交易所返回…', hintCls: 'muted' };
+        if (t.locked) {
+          return {
+            ok: false,
+            hint: '上一笔划转结果未知，已暂时锁定：请先到币安核对，再点「我已核对」解除',
+            hintCls: 'negative'
+          };
+        }
         const row = transferSelectedRow(pa);
         if (!row) return { ok: false, hint: '请选择要划转的资产', hintCls: 'muted' };
         const amount = String(t.amount == null ? '' : t.amount).trim();
@@ -3428,6 +3442,41 @@
         return `${row.asset} · 可用 ${formatBalanceAmount(row.available)} · 净值 ${approximateUsdtLine(row.netUsdt)}`;
       }
 
+      // 后端对业务结果一律返回 HTTP 200，真实结论只在 body.status 里（四态）。
+      // 前端**只认 status**，绝不把 HTTP 200 当成划转成功。
+      function renderTransferResult(result) {
+        if (!result) return '';
+        if (result.requestError) {
+          return `<div class="asset-transfer-hint negative">划转未发出：${escapeHtml(result.requestError)}</div>`;
+        }
+        const dir = `${TRANSFER_ACCOUNT_LABELS[result.from_account] || result.from_account} → ` +
+          `${TRANSFER_ACCOUNT_LABELS[result.to_account] || result.to_account}`;
+        const what = `${result.amount} 个 ${result.asset}（${dir}）`;
+        if (result.status === 'succeeded') {
+          const tran = result.tran_id ? `，交易所流水号 ${result.tran_id}` : '';
+          return `<div class="asset-transfer-hint positive">划转成功：${escapeHtml(what + tran)}</div>`;
+        }
+        if (result.status === 'failed') {
+          const code = result.error_code ? `（错误码 ${result.error_code}）` : '';
+          const why = result.error_message || '交易所未给出原因';
+          return `<div class="asset-transfer-hint negative">划转失败：${escapeHtml(what)}——${escapeHtml(why + code)}</div>`;
+        }
+        if (result.status === 'unknown') {
+          // 最危险的一态：钱可能已经转了。不给重试入口，只给核对指引。
+          const why = result.error_message || '交易所未返回明确结果';
+          return `<div class="asset-transfer-hint negative">
+            <strong>结果未知，请勿直接重试</strong>：${escapeHtml(what)}——${escapeHtml(why)}。
+            这笔划转<strong>可能已经执行</strong>，请到币安账户核对余额与划转记录后再操作；
+            确认后点下方「我已核对」解除锁定。
+            <button class="btn compact" type="button" data-transfer-ack style="margin-left:8px;">我已核对</button>
+          </div>`;
+        }
+        if (result.status === 'pending') {
+          return `<div class="asset-transfer-hint muted">同编号的上一笔请求仍在处理中：${escapeHtml(what)}。请稍候刷新查看结果，不要重复提交。</div>`;
+        }
+        return '';
+      }
+
       function renderAssetTransfer(pa) {
         const t = state.assetTransfer;
         const from = TRANSFER_ACCOUNTS.includes(t.from) ? t.from : 'unified';
@@ -3441,11 +3490,9 @@
           ...rows.map(r => `<option value="${escapeHtml(r.asset)}"${r.asset === t.asset ? ' selected' : ''}>${escapeHtml(transferAssetOptionLabel(r))}</option>`)
         ].join('');
         const verdict = evaluateTransfer(pa);
-        // 提交回显（陈述上一次提交的事实）保留到下一次提交或切换转出账户；
+        // 结果回显（陈述上一次提交的事实）保留到下一次提交或切换转出账户；
         // 编辑表单时不清，避免为移除一行文字重建输入框而打断输入焦点。
-        const notice = t.notice
-          ? `<div class="asset-transfer-hint positive">${escapeHtml(t.notice)}</div>`
-          : '';
+        const notice = renderTransferResult(t.result);
         // 可用额口径随转出账户变化，写在界面上而不是只留在代码注释里。
         // 措辞刻意中性：卡片「总量」(totalWalletBalance) 含 UM/CM 合约子钱包，
         // 「可用」(crossMarginFree) 只是全仓杠杆钱包的可动用额，两者基数不同，
@@ -3458,7 +3505,7 @@
           <div class="asset-transfer">
             <div class="transfer-head">
               <h3>资产互转</h3>
-              <span class="badge warn compact">数据真实 · 划转未接后端</span>
+              <span class="badge danger compact">真实划转 · 点击即动钱</span>
             </div>
             <div class="asset-transfer-row">
               <label for="transfer-from">从</label>
@@ -3497,7 +3544,7 @@
         if (from === state.assetTransfer.from) return;
         state.assetTransfer.from = from;
         state.assetTransfer.asset = null;  // 两账户资产集合不同，切换后必须重选
-        state.assetTransfer.notice = null;
+        state.assetTransfer.result = null;
         renderPrivatePanel();
       }
 
@@ -3518,15 +3565,59 @@
         );
       }
 
-      // fake 提交：不发请求、不改余额，只写一条行内回显并清空数量。
-      function submitAssetTransferPreview(pending) {
-        state.assetTransfer.amount = '';
-        state.assetTransfer.notice =
-          `（预览）划转请求已提交：${pending.amount} 个 ${pending.asset}，` +
-          `${TRANSFER_ACCOUNT_LABELS[pending.from]} → ${TRANSFER_ACCOUNT_LABELS[pending.to]}；` +
-          `本次未调用任何接口，账户余额不变。`;
+      // 幂等键：同一笔划转只生成一次，重复提交同一编号后端会回放首次结果而不再外发。
+      function newTransferRequestId() {
+        return crypto.randomUUID();
+      }
+
+      // 用户确认已到币安核对过那笔未知结果，解除锁定。纯本地状态，不发请求，
+      // 也不改变那笔划转的真实结局（它在交易所那边早已确定）。
+      function acknowledgeTransferUnknown() {
+        state.assetTransfer.locked = false;
+        state.assetTransfer.result = null;
         renderPrivatePanel();
-        return { ok: true, preview: true };
+      }
+
+      // 真实提交（stage 2026-08-06-asset-transfer-live-v1 T2）。
+      // 后端 POST /api/asset-transfer 对业务结果一律 200，四态在 body.status；
+      // 400/503 才抛错（请求层失败，钱一定没动）。
+      async function submitAssetTransfer(pending) {
+        const t = state.assetTransfer;
+        t.submitting = true;
+        t.result = null;
+        renderPrivatePanel();
+        try {
+          const record = await hedgeApi('/api/asset-transfer', {
+            method: 'POST',
+            body: {
+              client_request_id: newTransferRequestId(),
+              from_account: pending.from,
+              to_account: pending.to,
+              asset: pending.asset,
+              amount: pending.amount,
+              confirm: true,
+            },
+          });
+          t.result = record;
+          // 结果未知 -> 锁定表单：换个新编号重来会真的转第二次。
+          t.locked = record && record.status === 'unknown';
+          if (record && record.status === 'succeeded') {
+            t.amount = '';
+          }
+          return { ok: true, status: record && record.status };
+        } catch (err) {
+          // 请求层失败（校验 400 / 通道未配置 503 / 网络中断）：后端未受理，钱没动。
+          t.result = { requestError: (err && err.message) || '请求失败' };
+          return { ok: false, error: err && err.errorCode };
+        } finally {
+          t.submitting = false;
+          renderPrivatePanel();
+          // 成功后账户余额已变，但快照缓存 60 秒——不刷新用户会看到旧数字，
+          // 以为没转成功而重复操作。刷新失败不影响划转结果本身。
+          if (t.result && t.result.status === 'succeeded') {
+            onCacheRefresh();
+          }
+        }
       }
 
       function renderPrivatePanel() {
@@ -3565,7 +3656,7 @@
             <div class="empty-state">
               <strong>私有账户未读取</strong><br/>
               未配置 API key 或私有只读请求失败，未获取到账户资产数据${errorDetail}<br/>
-              <span class="muted small">请检查 API key 权限、IP 白名单或后端私有通道配置；本地对冲持仓（任务记账）仍展示在下方；系统不会执行交易或划转</span>
+              <span class="muted small">请检查 API key 权限、IP 白名单或后端私有通道配置；本地对冲持仓（任务记账）仍展示在下方；账户数据未就绪期间无法发起资产划转</span>
             </div>
             ${renderHedgeMergedPositions()}
           `;
@@ -4948,7 +5039,7 @@
           return clearBorrowLogs();
         }
         if (pending.kind === 'asset_transfer') {
-          return submitAssetTransferPreview(pending);
+          return submitAssetTransfer(pending);
         }
         return { ok: false, error: 'unknown_pending' };
       }
@@ -6957,6 +7048,12 @@
               requestAssetTransferConfirm();
               return;
             }
+            // 「我已核对」：结果未知后的人工解锁，纯本地状态，零请求。
+            if (closest('[data-transfer-ack]')) {
+              e.stopPropagation();
+              acknowledgeTransferUnknown();
+              return;
+            }
             const btn = closest('[data-hedge-close]');
             if (!btn || btn.disabled) return;
             e.stopPropagation();
@@ -7182,6 +7279,8 @@
         requestAssetTransferConfirm,
         transferAssetRows,
         evaluateTransfer: () => evaluateTransfer(state.snapshot && state.snapshot.private_account),
+        submitAssetTransfer,
+        acknowledgeTransferUnknown,
         setTransferAsset: (asset) => {
           state.assetTransfer.asset = asset;
           updateTransferValidity();
