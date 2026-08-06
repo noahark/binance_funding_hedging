@@ -5,9 +5,9 @@ check.
 
 ## Current Status (2026-08-06)
 
-- **stage `2026-08-06-hedge-order-close-validation` 修复链闭环（评审 ACCEPT，Human 决定不回审）**：
-  下单与平仓链路经 Human **实盘显示验收通过**（2026-08-06：THE forward close 200×2 不再误拦、
-  平仓收尾实时判定、建卡/preflight 缓存提速、live 发单正常）。修复链
+- **stage `2026-08-06-hedge-order-close-validation` 已归档（2026-08-06 合并 main + 手动重启）**：
+  下单与平仓链路经 Human **实盘显示验收通过**；Human 授权合并 main（`f153cdc..64f0051`
+  fast-forward）并手动重启服务（healthz ok，新代码已生效）。修复链
   `ee7ec4f..83c0b8a`：task 05 preflight 本地缓存+平仓简化+预检失败可见暂停（e4d5464）、
   task 06 close+forward 余额读普通现货账户（5388938，THE 600 不再误报可用 0）、
   task 07 视图滚动定位（3006db3）、HTML 多余 `</section>` 删除（10f1f01，f153cdc 残留致
@@ -17,8 +17,9 @@ check.
   不回审、不安排 review-2，以显示验收为准**；`rework_count` 2。
   不阻塞后续项：N-2（`_close_transfer_done` 只写不清）、N-3（settings 重复渲染）、
   N-4（monotonic 跨进程演进风险）；第三态「live 但凭证为空」（`live_hedge_executor.py:743`
-  腿状态未知但徽标显示 live）为独立待决项。服务当前运行中（前端静态文件实时读盘，
-  刷新即生效，无需重启）。
+  腿状态未知但徽标显示 live）为独立待决项；`executor_mode_snapshot` 死字段
+  （停 2026-07-27）未清理；周期表 `096232b7` first/last_task_id 指向已删任务。
+  证据归档：`archive/2026-08-06-hedge-order-close-validation`。
 - **持仓周期三功能 + 平仓执行：全部开发完成，Human 验收通过，sonnet5 综合评审 ACCEPT**
   （review-1+review-2 合一；首轮 REWORK 1 处真实 P0 → 修复 + live 回归测试 → 复评 ACCEPT）。
   提交：`97ecb7f`（工作树后续改动见 git status）。
@@ -351,7 +352,14 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
 
 ## Last Completed
 
-- stage: `2026-08-04-dual-ledger-flow-log-v1`
+- stage: `2026-08-06-hedge-order-close-validation`
+- archive_ref: `archive/2026-08-06-hedge-order-close-validation`
+  (delivery range `ee7ec4f..83c0b8a` 修复链 + 收尾；01/02/03 + 05 + 06 + 07 + HTML 标签修复 + F-1 徽标修复；
+  review-1 opus5 对四交付 REWORK 仅 F-1 一条 → 修复后 Human 决定不回审、不安排 review-2，以显示验收为准；`rework_count` 2)
+- recorded_completed_at: `2026-08-06`
+- scope delivered: 验证下单/平仓核心链路 + 修复小 bug 全链——01 SPOT_ONLY 路由修复、02 开单前自动设杠杆、03 传输层异常证据保全 + 移除 dry-run 假成交模式（RecordTransportExecutor 移出生产）、05 preflight 改读本地缓存（2h/5min/10min 陈旧上限，restricted_asset 唯一 fail-closed）+ 平仓校验简化（平完判定收敛 + 划转去复检）+ 预检失败可见暂停（含失败读名）、06 close+forward 平仓余额读普通现货账户（THE 600 误拦修复）、07 视图切换滚动定位、HTML 多余 `</section>` 删除（history-view 落底根因）、F-1 徽标 class 互斥 + 措辞 dry-run→已禁用；全量回归 1467 passed + self-check 全绿。
+- closing note: Human 2026-08-06 实盘显示验收通过（下单与平仓），授权合并 main（`f153cdc..64f0051` fast-forward 推送）并手动重启服务（healthz ok）；Human 决定修复链只做一轮 review-1（F-1 修复后不回审），不安排 review-2。后续项：N-2/N-3/N-4、第三态「live 凭证为空」（`live_hedge_executor.py:743`）、`executor_mode_snapshot` 死字段、周期表 `096232b7` first/last_task_id 指向已删任务。
+- previous stage: `2026-08-04-dual-ledger-flow-log-v1`
 - archive_ref: `archive/2026-08-04-dual-ledger-flow-log-v1`
   (delivery range `dc4cc6d..0c9c4de` + 收尾提交；A/B/C+前端最终+修复；deepseek review-1 REWORK→修复→复审 ACCEPT、sonnet5 review-2 ACCEPT；`rework_count` 1)
 - recorded_completed_at: `2026-08-04`
