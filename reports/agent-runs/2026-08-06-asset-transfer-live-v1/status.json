@@ -1,0 +1,54 @@
+{
+  "schema_version": "2",
+  "revision": 1,
+  "stage_id": "2026-08-06-asset-transfer-live-v1",
+  "bookkeeper": "deepseek",
+  "phase": "implementation",
+  "checkpoint": "开阶段基线核验：base_sha=bb47d02（git rev-parse HEAD 实测，与开发文稿 §6 一致）；Human 2026-08-06 决定——O-1/O-2 不设闸门与单笔上限、O-3 跳过计划评审、O-4 基线一次性提交（待 Human 执行）；T1 后端 dispatch 已备妥并指向本修订；越门两条与基线 blocker 见 blockers",
+  "base_sha": "bb47d0213cd98942dc12b91b562926ff848bfdee",
+  "delivery_sha": null,
+  "ledger_sha": "bb47d0213cd98942dc12b91b562926ff848bfdee",
+  "current_task": {
+    "id": "asset-transfer-live-t1-backend",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-06-asset-transfer-live-v1/20-opus5-t1-backend.dispatch.md"
+  },
+  "next": {
+    "actor": "human_operator",
+    "action": "exec-baseline-single-commit-then-start-t1-opus5"
+  },
+  "rework_count": 0,
+  "blockers": [
+    {
+      "id": "gate-violation-1-bookkeeper-as-review1",
+      "type": "record-not-blocking",
+      "rule": "agents/roles.md Bookkeeper Purpose：Maintain the authoritative current-stage state ... without becoming an implementer, reviewer, or autonomous dispatcher",
+      "fact": "本阶段 Bookkeeper（deepseek）兼任 review-1，违反上述规则",
+      "human_decision": "2026-08-06 Human 决定；原因：其余模型配额耗尽，可用模型仅剩 opus5 与 deepseek（开发文稿 §3）",
+      "consequence": "「核验状态的人」与「评审代码的人」为同一会话来源，两道独立闸门塌成一道；若 deepseek 评审漏判，封存前无第二个视角拦截"
+    },
+    {
+      "id": "gate-violation-2-no-review2",
+      "type": "record-not-blocking",
+      "rule": "AGENTS.md §8：HIGH_RISK（transfer 明示在清单内）须 review-1 + review-2",
+      "fact": "本阶段无 review-2",
+      "human_decision": "2026-08-06 Human 决定；原因同上（配额耗尽，开发文稿 §3）",
+      "consequence": "无独立核查「需求是否真被满足、实盘风险是否可接受、是否可发布」；由 Human 实盘小额试划转显示验收承担；开发文稿 §3 建议本阶段先不合并 main"
+    },
+    {
+      "id": "baseline-commit-pending",
+      "type": "blocking",
+      "rule": "开发文稿 §6：开阶段前 A/B 两组改动须经 Human 授权提交（「提交由 Human 授权后执行」）；本 dispatch 验收检查 1：存在未提交改动时 Bookkeeper 不得自行提交",
+      "fact": "git status --porcelain 显示未提交改动：A 组（本次互转交付，已 Human 显示验收）backend/domain/snapshot.py、schemas/api/public-market/snapshot.schema.json、docs/api/public-market-contract.md、backend/tests/test_private_account_v1.py、frontend/index.html、frontend/self-check.js；B 组（更早在途改动）资产卡 <10 USDT 过滤、DISABLED_SPOT_ONLY 借币操作列；两组混在同一工作区",
+      "human_decision": "O-4=一次性提交（Human 2026-08-06）；提交待 Human 授权执行",
+      "consequence": "T1 实现终端启动前若基线未提交，交付范围会与在途改动混杂；Human 执行一次性基线提交后即可启动 T1"
+    },
+    {
+      "id": "plan-review-skipped-o3",
+      "type": "record-not-blocking",
+      "rule": "AGENTS.md §8 计划评审：HIGH_RISK 任务在实现开始前须经一次独立的、跨 provider 的只读计划评审",
+      "fact": "O-3=跳过（Human 2026-08-06 决定）；未评审 00-intake.md，未产出 11-deepseek-plan-review.md，verdict 未返回 Planner",
+      "consequence": "实现前少一道设计把关；由实现后 review-1（deepseek）与 Human 实盘验收承担"
+    }
+  ]
+}
