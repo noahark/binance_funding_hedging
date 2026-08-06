@@ -144,7 +144,7 @@ DB schema、前端。
 - verified_at: `2026-08-06 21:04:43 CST`
 - source_sha256: `4ee1ea5425056d0a02440c46f58531e8fe07df2356a1d2822c2798d393628be2`
 - status_revision: 8（核验时 `status.json` 指向本任务，state `dispatched`）
-- base_sha / delivery_sha: `e4d546435cb4684ec3f0b88a7c40a9b69567ba56` .. 见下文交付提交
+- base_sha / delivery_sha: `e4d546435cb4684ec3f0b88a7c40a9b69567ba56` .. `538893849d6f831108c491d2d07c1b38a5287f94`（`git rev-parse` 直取）
 - verdict: **verified（通过）**；`rework_count` 1（响应实盘缺陷的修复交付，dispatch 已注明）
 - 依据（可复现）：
   - `python3 -m pytest backend/tests -q` → **1467 passed**（本 Bookkeeper 实测，91.22s）
