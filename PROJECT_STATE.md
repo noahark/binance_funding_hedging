@@ -5,19 +5,19 @@ check.
 
 ## Current Status (2026-08-07)
 
-- **stage `2026-08-06-asset-transfer-live-v1`（HIGH_RISK 资产互转真实划转）：已合并推送 main（Human 2026-08-07 授权）**：
-  `bb47d02..b98ad4f main -> main` 已推送 `origin`（github.com:noahark/binance_funding_hedging）。
-  **收尾前状态**：Human 实盘验收通过（首批真实划转成功：1+50+50 USDT 均 `succeeded` 带流水号）；
-  服务在实盘验收时已在运行含本阶段后端代码（01:19:37 启动，晚于 `ce2569e`；`bbe81b0` 为纯前端静态文件，
-  服务实时读取无需重启）。§9 收尾（归档证据、ACTIVE.json 置 null、Last Completed 更新）未执行，待 Human 决定。
-  封存 `base_sha bb47d02..delivery bbe81b0`：① T1 `1f91241`（`POST /api/asset-transfer` 复用
-  `universal_transfer`、`client_request_id` 唯一索引幂等、超时/5xx 记 `unknown` 不重试、O-1/O-2 无闸门无上限）；
-  ② 修复轮 `ce2569e`（R1 启动提示、R4 并发测试、R5 状态码人话映射 418/429→`unknown`；R3 不修开放）；
-  ③ T2 `036fcd1`（前端接线、只认 `body.status`、`unknown` 锁定+「我已核对」解锁、空态文案改写）；
-  ④ T2 UUID 修复轮 `bbe81b0`（`crypto.randomUUID()` 实盘故障→随机字节+格式自拼，T2 `rework_count` 0→1）。
-  三笔交付均无 dispatch（Human 直接指示，越门记录于 status.json blockers）。R1 暴露面（划转端点不受
-  `APP_HEDGE_EXECUTOR` 控制）接受现状、R3（`pending` 卡死）不修，均为开放缺口；仅验证 `unified→spot`
-  成功路径。证据：`reports/agent-runs/2026-08-06-asset-transfer-live-v1/evidence/`。
+- **stage `2026-08-06-asset-transfer-live-v1` 已收尾归档（2026-08-07）**：Human 实盘验收通过并
+  授权合并推送（`bb47d02..b98ad4f` + 记录提交 `4d0fd44` 均已推送 origin）；证据归档
+  `archive/2026-08-06-asset-transfer-live-v1`（archive 分支已推送 origin，含全部
+  dispatch/handoff/evidence/status.json）；`ACTIVE.json` 已置 `null`；阶段目录已从工作树移除。
+  本阶段交付：资产互转真实划转前后端打通——`POST /api/asset-transfer`（复用
+  `universal_transfer`、`client_request_id` 唯一索引幂等、超时/5xx 记 `unknown` 不重试、
+  O-1/O-2 无闸门无上限）、前端接线（只认 `body.status`、`unknown` 锁定+「我已核对」解锁、
+  成功后刷快照缓存、空态文案改写）、UUID 生成器修复（实盘 `crypto.randomUUID()` 故障→
+  随机字节+格式自拼）。全量 1518 passed + self-check 全绿 + 实盘首批三笔真实划转
+  `succeeded`。**后续项（开放缺口）**：R1 划转端点不受 `APP_HEDGE_EXECUTOR` 控制
+  （接受现状，见 Live Risks）、R3 `pending` 卡死（不修，人工查库处置）、仅验证
+  `unified→spot` 成功路径（`spot→unified`/`failed`/`unknown` 三路径仅离线证据）。
+- **stage `2026-08-06-hedge-order-close-validation` 已归档（2026-08-06 合并 main + 手动重启）**：
 - **stage `2026-08-06-hedge-order-close-validation` 已归档（2026-08-06 合并 main + 手动重启）**：
   下单与平仓链路经 Human **实盘显示验收通过**；Human 授权合并 main（`f153cdc..64f0051`
   fast-forward）并手动重启服务（healthz ok，新代码已生效）。修复链
@@ -388,7 +388,25 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
 
 ## Last Completed
 
-- stage: `2026-08-06-hedge-order-close-validation`
+- stage: `2026-08-06-asset-transfer-live-v1`
+- archive_ref: `archive/2026-08-06-asset-transfer-live-v1`
+  (delivery range `bb47d02..bbe81b0` + 各轮封存；基线 `8e17027` + T1 `1f91241` + 修复轮 `ce2569e` +
+  T2 `036fcd1` + UUID 修复轮 `bbe81b0`；review-1 deepseek 兼任（Human 越门）R1-R5 → R1 接受现状、
+  R2 转 T2、R3 不修、R4/R5 修复；无 review-2（Human 越门）；T1 `rework_count` 1、T2 `rework_count` 1)
+- recorded_completed_at: `2026-08-07`
+- scope delivered: 资产互转真实划转前后端打通——`POST /api/asset-transfer`（复用
+  `universal_transfer` 本体零改动、`client_request_id` 唯一索引幂等（币安该端点无幂等键，重放零外发）、
+  超时/5xx 记 `unknown` 不重试、O-1/O-2 无闸门无上限、R5 状态码人话映射 418/429→`unknown`）；
+  前端接线（UUID 幂等键前端生成、只认 `body.status`、`unknown` 锁定表单+「我已核对」人工解锁、
+  `failed` 不锁定、成功后刷快照缓存、空态文案改写）；UUID 生成器修复（实盘 `crypto.randomUUID()`
+  返回非标准值→随机字节+版本/variant 位与格式自拼，self-check 注入坏实现回归）；全量
+  1518 passed + self-check 全绿 + 实盘首批三笔真实划转 `succeeded`（1+50+50 USDT 带交易所流水号）。
+- closing note: Human 2026-08-07 实盘验收通过并授权合并推送（`bb47d02..b98ad4f` + 记录提交
+  `4d0fd44` 推送 origin）；三笔交付均无 dispatch（Human 直接指示，越门如实记录）；bookkeeper 兼
+  review-1、无 review-2（Human 越门，配额耗尽原因）。后续项：R1 划转端点不受 `APP_HEDGE_EXECUTOR`
+  控制（接受现状，启动有提示）、R3 `pending` 卡死（不修，人工查 `data/asset-transfer.sqlite3` 处置）、
+  仅验证 `unified→spot` 成功路径（`spot→unified`/`failed`/`unknown` 三路径仅离线证据）。
+- previous stage: `2026-08-06-hedge-order-close-validation`
 - archive_ref: `archive/2026-08-06-hedge-order-close-validation`
   (delivery range `ee7ec4f..83c0b8a` 修复链 + 收尾；01/02/03 + 05 + 06 + 07 + HTML 标签修复 + F-1 徽标修复；
   review-1 opus5 对四交付 REWORK 仅 F-1 一条 → 修复后 Human 决定不回审、不安排 review-2，以显示验收为准；`rework_count` 2)
