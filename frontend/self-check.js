@@ -6951,6 +6951,45 @@ setTimeout(async () => {
       console.log('[PASS] frontend-position-balance-display-v1：双行现货/杠杆、缺失/真零/隐私、徽标列、标题区时间与 PM 位置');
     }
 
+    // 75y2. 幂等键生成器（2026-08-07 实盘首笔划转故障的回归防线）
+    // 故障事实：用户浏览器的 crypto.randomUUID() 返回了 'c886-84-03-46-bc0e13'
+    // （4-2-2-2-6 共 16 位，标准是 8-4-4-4-12 共 32 位，版本位也不是 4），被后端
+    // 400 拦下。结论：环境 API 的输出格式不能当保证，格式必须由前端自己拼装。
+    {
+      if (typeof helpers.newTransferRequestId !== 'function') {
+        throw new Error('须导出 newTransferRequestId');
+      }
+      // 严格 v4：版本位必须是 4，variant 位必须是 8/9/a/b
+      const strictV4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+      // 把环境的 randomUUID 换成当天那个坏实现：生成器绝不能受影响
+      const savedRandomUUID = globalThis.crypto.randomUUID;
+      globalThis.crypto.randomUUID = () => 'c886-84-03-46-bc0e13';
+      const ids = new Set();
+      for (let i = 0; i < 200; i++) {
+        const id = helpers.newTransferRequestId();
+        if (!strictV4.test(id)) {
+          throw new Error('幂等键不是合法 UUID v4: ' + id);
+        }
+        ids.add(id);
+      }
+      globalThis.crypto.randomUUID = savedRandomUUID;
+      if (ids.size !== 200) throw new Error(`幂等键重复：200 次生成只得到 ${ids.size} 个不同值`);
+      // 兜底路径：环境连 getRandomValues 都没有时，仍须产出合法 UUID
+      const savedGetRandomValues = globalThis.crypto.getRandomValues;
+      globalThis.crypto.getRandomValues = undefined;
+      const fallbackId = helpers.newTransferRequestId();
+      globalThis.crypto.getRandomValues = savedGetRandomValues;
+      if (!strictV4.test(fallbackId)) {
+        throw new Error('无 getRandomValues 时的兜底幂等键非法: ' + fallbackId);
+      }
+      // 后端正则（server.py _TRANSFER_UUID_RE）必须接受本生成器的输出
+      const backendRe = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+      if (!backendRe.test(helpers.newTransferRequestId())) {
+        throw new Error('生成的幂等键不被后端正则接受');
+      }
+      console.log('[PASS] 幂等键生成器：不依赖 crypto.randomUUID（实盘坏实现回归）/严格 v4/200 次无重复/无 getRandomValues 兜底/后端正则接受');
+    }
+
     // 75z. 资产互转（统一 ⇄ 现货）：真实可用额回显（统一账户取 cross_margin_free，
     // 现货取 free）、位置、账户自动反转、资产跟随转出账户、不套用 <10 USDT 卡片过滤、
     // 数量校验按可用额、二次确认、确认前后均零请求（划转接口本轮未接）

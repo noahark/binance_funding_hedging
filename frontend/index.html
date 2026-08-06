@@ -3566,8 +3566,25 @@
       }
 
       // 幂等键：同一笔划转只生成一次，重复提交同一编号后端会回放首次结果而不再外发。
+      // **不用 crypto.randomUUID()**：2026-08-07 实盘首笔划转即被后端 400 拦下，
+      // 该 API 在用户浏览器里返回了 `c886-84-03-46-bc0e13`（4-2-2-2-6 共 16 位，
+      // 标准 UUID 是 8-4-4-4-12 共 32 位，且版本位不是 4）。根因未知（WebView /
+      // 插件 / 中间层改写皆有可能），但结论明确：环境 API 的输出格式不能当保证。
+      // 这里只取随机字节，格式完全由本函数拼装，任何环境下都是合法 UUID v4。
       function newTransferRequestId() {
-        return crypto.randomUUID();
+        const bytes = new Uint8Array(16);
+        if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+          crypto.getRandomValues(bytes);
+        } else {
+          // 兜底：幂等键只需唯一，不需密码学强度。
+          for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+        }
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;  // version 4
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;  // variant 10xx
+        let hex = '';
+        for (let i = 0; i < 16; i++) hex += bytes[i].toString(16).padStart(2, '0');
+        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-` +
+          `${hex.slice(16, 20)}-${hex.slice(20)}`;
       }
 
       // 用户确认已到币安核对过那笔未知结果，解除锁定。纯本地状态，不发请求，
@@ -7281,6 +7298,7 @@
         evaluateTransfer: () => evaluateTransfer(state.snapshot && state.snapshot.private_account),
         submitAssetTransfer,
         acknowledgeTransferUnknown,
+        newTransferRequestId,
         setTransferAsset: (asset) => {
           state.assetTransfer.asset = asset;
           updateTransferValidity();
