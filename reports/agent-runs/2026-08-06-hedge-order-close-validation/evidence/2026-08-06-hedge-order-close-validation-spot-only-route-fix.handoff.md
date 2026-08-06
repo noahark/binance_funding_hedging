@@ -124,3 +124,15 @@ decide 规则与 close/reverse 不变；新增 5 条路由回归，全量 1426 p
 [/TASK_RESULT]
 
 <!-- BOOKKEEPER_APPEND_ONLY: all bytes before this marker are the source payload -->
+
+## Bookkeeper Verification (Bookkeeper append-only)
+
+- verified_at: `2026-08-06 18:40:28 CST`
+- source_sha256: `5be867b8140073253e5fe37c7977d76e18b001cdae17a2ffc8984c0106657612`
+- status_revision: 1（本任务 reported 时状态；封存时随 03 一次性提交，status.json 现指向 03）
+- base_sha / delivery_sha: `f153cdc38469a3fde80d7d2f79682d4d7aa23df8` .. `ee7ec4f3a41db8d896652101fcd1821972b381bc`（Human 授权一次性提交 stage 全部工作树改动）
+- verdict: **verified（通过）**
+- 依据（可复现）：
+  - `python3 -m pytest backend/tests -q` → **1446 passed**（本 Bookkeeper 实测；含 5 条新增 SPOT_ONLY 路由测试）
+  - `hedge_preflight_provider.py:264/532/560`：`is_margin_trading_allowed` 透传 + `not spot_margin_allowed and direction==forward and task_type!=close` 前置强制；`domain.py` `ROUTE_REASON_SPOT_ONLY_REGULAR`
+- 后续状态：01 `reported` → `verified`；Human 实盘复测时带上 -2027 核实点

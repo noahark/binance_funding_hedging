@@ -126,3 +126,16 @@ THE 合约开仓 `-2027 Exceeded the maximum allowable position at current lever
 [/TASK_RESULT]
 
 <!-- BOOKKEEPER_APPEND_ONLY: all bytes before this marker are the source payload -->
+
+## Bookkeeper Verification (Bookkeeper append-only)
+
+- verified_at: `2026-08-06 18:40:28 CST`
+- source_sha256: `2525bd14f4a8c39e33569b087df8e272ea1e43864bae4a05fd07817ae9cb6d85`
+- status_revision: 2（本任务 reported 时状态；封存时随 03 一次性提交，status.json 现指向 03）
+- base_sha / delivery_sha: `f153cdc38469a3fde80d7d2f79682d4d7aa23df8` .. `ee7ec4f3a41db8d896652101fcd1821972b381bc`（Human 授权一次性提交 stage 全部工作树改动）
+- verdict: **verified（通过）**
+- 依据（可复现）：
+  - `python3 -m pytest backend/tests -q` → **1446 passed**（本 Bookkeeper 实测；含 test_hedge_leverage.py 12 条）
+  - 白名单含 `("POST", "/papi/v1/um/leverage")`（`hedge_open_live_client.py:138,506`）；`service.py:2256 _set_leverage_before_open`、`:2326` 插入点（preflight ok 后）、`:1455` 信号分支、`:2330` fail-closed 暂停
+  - 注：handoff 正文写 `/fapi/v1/leverage`，实际交付代码为 `/papi/v1/um/leverage`（UM 杠杆端点，与下单同域同权限）——以代码为准，属交接描述不精确，不改变功能语义
+- 后续状态：02 `reported` → `verified`；杠杆实盘启用仍须 Human 单独授权（重启服务复测）

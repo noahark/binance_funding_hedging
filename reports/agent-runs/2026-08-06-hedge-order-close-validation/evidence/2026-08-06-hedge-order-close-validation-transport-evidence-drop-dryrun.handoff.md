@@ -162,3 +162,21 @@
 ```
 
 <!-- BOOKKEEPER_APPEND_ONLY: all bytes before this marker are the source payload -->
+
+## Bookkeeper Verification (Bookkeeper append-only)
+
+- verified_at: `2026-08-06 18:40:28 CST`
+- source_sha256: `7d9087ee15d13ba3511b5fbe5bd3ce733ebacd57003e3e4d8f9ee32a2b585d4c`
+- status_revision: 3（核验时 `status.json` 指向本任务，state `dispatched`）
+- base_sha / delivery_sha: `f153cdc38469a3fde80d7d2f79682d4d7aa23df8` .. `ee7ec4f3a41db8d896652101fcd1821972b381bc`（Human 授权一次性提交 stage 全部工作树改动，含 01/02/03 与 frontend 提前量检测）
+- verdict: **verified（通过）**
+- 依据（可复现）：
+  - `python3 -m pytest backend/tests -q` → **1446 passed**（本 Bookkeeper 实测，90.70s）
+  - `node frontend/self-check.js` → 全部自检通过（本 Bookkeeper 实测）
+  - `grep -rn "RecordTransport" backend/hedge_open_tasks/ backend/services/` → 无命中（B-1 纯度）
+  - `_send` 三分支均走 `_transport_error_text`（`hedge_open_live_client.py:252/257/261`）；`_error_leg` 构造 raw dict 并设 `raw_response`（`live_hedge_executor.py:968-999`）；`service.py:481` 默认 `DisabledHedgeExecutor()`；`server.py:995` disabled 醒目警告
+  - audit `dryclean.audit.json`：before 800/600/-600 → after 400/200/-200；备份 `data/hedge-open-tasks.sqlite3.bak-dryclean-20260806-182416`（376832 字节）存在；attempt 6/7 leg/raw 计数前后不变
+- 观察点（不阻塞）：
+  - A-2/B-4 新测试落在 `test_live_hedge_executor.py` / `test_service_health.py`，不在 dispatch Allowed Files 明示列表——属新测试最自然载体，记录不阻塞
+  - 01/02 与本任务同批封存，其 handoff 另附 Verification 块；frontend 提前量检测（Human 2026-08）经 Human 决定一并纳入本次提交
+- 后续状态：03 `dispatched` → `verified`；下一步 review-1（opus5）→ Human 实盘复测（面板 400/200 + disabled 无假成交）
