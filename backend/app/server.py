@@ -28,6 +28,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+from ..asset_transfer.store import (
+    STATUS_FAILED,
+    STATUS_SUCCEEDED,
+    STATUS_UNKNOWN,
+    AssetTransferStore,
+)
 from ..borrow_tasks import BorrowError, BorrowTaskService
 from ..borrow_tasks import domain as borrow_domain
 from ..config import Config, DEFAULT, from_env
@@ -38,6 +44,12 @@ from ..ledger_flow.domain import WindowValidationError
 from ..ledger_flow.scheduler import LedgerScheduler
 from ..ledger_flow.service import LedgerFlowService
 from ..ledger_flow.store import LedgerStore
+# 只取冻结的划转枚举常量（模块无导入副作用）；枚举的唯一权威仍在客户端模块，
+# 此处不复制字面量。客户端类本身仍按既有惯例在构造函数内延迟导入。
+from ..services.hedge_open_live_client import (
+    TRANSFER_TYPE_MAIN_PM,
+    TRANSFER_TYPE_PM_MAIN,
+)
 from ..services.snapshot_service import SnapshotNotReady, SnapshotService
 
 # Borrow-task route table (breakdown §3.1). Path templates with their allowed
@@ -127,11 +139,91 @@ def _is_hedge_open_path(path: str) -> bool:
     )
 
 
+# ---- 资产互转（stage 2026-08-06-asset-transfer-live-v1）----
+# 方向映射只在服务端做：请求体不接受币安 transfer type，杜绝外部注入。
+_TRANSFER_ACCOUNTS = ("unified", "spot")
+_TRANSFER_TYPE_BY_DIRECTION = {
+    ("unified", "spot"): TRANSFER_TYPE_PM_MAIN,
+    ("spot", "unified"): TRANSFER_TYPE_MAIN_PM,
+}
+_TRANSFER_UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+# 正十进制字符串：先用正则挡掉负号、科学计数法（1e3）与空白，再交给 Decimal。
+_TRANSFER_AMOUNT_RE = re.compile(r"^\d+(\.\d+)?$")
+
+_TRANSFER_REQUIRED_FIELDS = (
+    "client_request_id", "from_account", "to_account", "asset", "amount", "confirm",
+)
+
+
+def _parse_asset_transfer_request(data):
+    """校验划转请求体，返回 ``(parsed, error)``；``error`` 为 ``(status, payload)``。
+
+    只做形状与取值校验，**不做余额充足性预判**——快照缓存 60 秒可能已过期，
+    余额不足交由币安返回错误码后原样回显（00-intake.md §4.2）。
+    """
+    if not isinstance(data, dict):
+        return None, (400, {"error": "invalid_request", "detail": "请求体必须是 JSON 对象"})
+    missing = [k for k in _TRANSFER_REQUIRED_FIELDS if k not in data]
+    if missing:
+        return None, (400, {
+            "error": "invalid_request",
+            "detail": f"缺少必填字段: {', '.join(missing)}",
+        })
+    client_request_id = data["client_request_id"]
+    if not isinstance(client_request_id, str) or not _TRANSFER_UUID_RE.match(client_request_id):
+        return None, (400, {
+            "error": "invalid_request",
+            "detail": "client_request_id 必须是 UUID 格式",
+        })
+    from_account = data["from_account"]
+    to_account = data["to_account"]
+    if from_account not in _TRANSFER_ACCOUNTS or to_account not in _TRANSFER_ACCOUNTS:
+        return None, (400, {
+            "error": "invalid_request",
+            "detail": "from_account / to_account 仅支持 unified 或 spot",
+        })
+    if from_account == to_account:
+        return None, (400, {
+            "error": "invalid_request",
+            "detail": "转出与转入账户不能相同",
+        })
+    asset = data["asset"]
+    if not isinstance(asset, str) or not asset.strip():
+        return None, (400, {"error": "invalid_request", "detail": "asset 不能为空"})
+    amount = data["amount"]
+    if not isinstance(amount, str) or not _TRANSFER_AMOUNT_RE.match(amount):
+        return None, (400, {
+            "error": "invalid_request",
+            "detail": "amount 必须是正十进制字符串（不接受负号、科学计数法或空白）",
+        })
+    if Decimal(amount) <= 0:
+        return None, (400, {"error": "invalid_request", "detail": "amount 必须大于 0"})
+    # 动钱前的显式意图确认（Human O-1 决定的唯一门）：防止误调用与误触发。
+    if data["confirm"] is not True:
+        return None, (400, {
+            "error": "confirm_required",
+            "detail": "confirm 必须为 true",
+        })
+    return {
+        "client_request_id": client_request_id,
+        "from_account": from_account,
+        "to_account": to_account,
+        "asset": asset,
+        "amount": amount,
+    }, None
+
+
 class _Handler(BaseHTTPRequestHandler):
     service = None  # injected via build_server
     borrow_service = None  # injected via build_server; None -> 503 on borrow routes
     hedge_open_service = None  # injected via build_server; None -> 503 on hedge routes
     ledger_flow_service = None  # injected in run(); None -> 503 on private-ledger routes
+    # 资产互转（stage 2026-08-06-asset-transfer-live-v1）：store 与 PAPI 客户端
+    # 分别注入；任一为 None -> 该路由 503（不做静默降级）。
+    asset_transfer_store = None
+    asset_transfer_client = None
     frontend_dir = None
     server_version = "funding-hedging-public-market/1.0"
 
@@ -171,6 +263,9 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/private-ledger/refresh":
             self._handle_flow_refresh()
+            return
+        if path == "/api/asset-transfer":
+            self._handle_asset_transfer()
             return
         if self._try_hedge_open("POST"):
             return
@@ -416,6 +511,119 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    # -------------------------------------------------------- asset transfer
+
+    def _handle_asset_transfer(self):
+        """POST /api/asset-transfer — 统一账户 ⇄ 普通现货账户的受控划转。
+
+        Human 2026-08-06 决定（O-1/O-2）：不设独立闸门、不设单笔上限。动钱约束为
+        ``confirm: true`` 必填 + 全量落库审计 + ``client_request_id`` 幂等。
+
+        币安 ``/sapi/v1/asset/transfer`` **没有幂等键**，重复提交会真的转两次；
+        幂等由本地唯一索引提供——``store.begin`` 返回 ``is_new=False`` 即直接回放
+        首次结果，绝不二次外发。外发是 one-shot：超时/5xx 不重试，记 ``unknown``。
+        """
+        if self.asset_transfer_store is None or self.asset_transfer_client is None:
+            self._send_borrow(503, {
+                "error": "asset_transfer_unavailable",
+                "detail": "划转通道未配置（离线模式或缺少 API 凭证）",
+            })
+            return
+        data, error = self._read_json_body(required=True)
+        if error is not None:
+            self._send_borrow(*error)
+            return
+        parsed, verr = _parse_asset_transfer_request(data)
+        if verr is not None:
+            self._send_borrow(*verr)
+            return
+        # 币种白名单：必须在转出账户当前快照的余额里，杜绝任意币种注入与打字错误。
+        whitelist = self._asset_transfer_assets(parsed["from_account"])
+        if whitelist is None:
+            self._send_borrow(503, {
+                "error": "snapshot_not_ready",
+                "detail": "账户快照未就绪，无法校验币种，请稍后重试",
+            })
+            return
+        if parsed["asset"] not in whitelist:
+            self._send_borrow(400, {
+                "error": "unknown_asset",
+                "detail": f"{parsed['asset']} 不在转出账户的余额列表中",
+            })
+            return
+        record, is_new = self.asset_transfer_store.begin(
+            client_request_id=parsed["client_request_id"],
+            from_account=parsed["from_account"],
+            to_account=parsed["to_account"],
+            asset=parsed["asset"],
+            amount=parsed["amount"],
+            now_us=_now_us(),
+        )
+        if not is_new:
+            # 幂等回放：该 client_request_id 已处理过，不再外发。
+            self._send_borrow(200, record)
+            return
+        resolution = self._dispatch_asset_transfer(
+            _TRANSFER_TYPE_BY_DIRECTION[(parsed["from_account"], parsed["to_account"])],
+            parsed["asset"],
+            parsed["amount"],
+        )
+        record = self.asset_transfer_store.resolve(
+            parsed["client_request_id"], now_us=_now_us(), **resolution
+        )
+        self._send_borrow(200, record)
+
+    def _asset_transfer_assets(self, account: str):
+        """转出账户当前快照里的资产集合；快照未就绪返回 ``None``（调用方 503）。"""
+        try:
+            snapshot = self.service.get_snapshot()
+        except Exception:
+            return None
+        private_account = (snapshot or {}).get("private_account") or {}
+        key = "balances_unified" if account == "unified" else "balances_spot"
+        rows = private_account.get(key) or []
+        return {
+            row.get("asset") for row in rows
+            if isinstance(row, dict) and row.get("asset")
+        }
+
+    def _dispatch_asset_transfer(self, transfer_type: str, asset: str, amount: str) -> dict:
+        """一次性外发并把结果分类成落库字段（00-intake.md §4.6）。
+
+        传输失败或 5xx -> ``unknown``，**不是失败**：钱可能已经转了，不重试，
+        由人工去币安核对。4xx -> ``failed``，币安 code/msg 原样带回。200 且带
+        ``tranId`` -> ``succeeded``；200 但无 ``tranId`` -> ``unknown``（结果不明，
+        不擅自当成功）。
+        """
+        try:
+            resp = self.asset_transfer_client.universal_transfer(
+                transfer_type, asset, amount, timestamp_ms=_now_ms(),
+            )
+        except Exception as exc:
+            # 未预期异常也必须落终态，否则记录会永远停在 pending，前端不知结果。
+            return {
+                "status": STATUS_UNKNOWN,
+                "error_message": f"transport_exception:{type(exc).__name__}",
+            }
+        if resp is None or resp.transport_error is not None or resp.http_status is None:
+            return {
+                "status": STATUS_UNKNOWN,
+                "error_message": f"transport_error:{getattr(resp, 'transport_error', None)}",
+            }
+        body = resp.body if isinstance(resp.body, dict) else {}
+        if resp.http_status == 200:
+            tran_id = body.get("tranId")
+            if tran_id is None:
+                return {"status": STATUS_UNKNOWN, "error_message": "http 200 但响应缺少 tranId"}
+            return {"status": STATUS_SUCCEEDED, "tran_id": str(tran_id)}
+        code = body.get("code")
+        msg = body.get("msg")
+        return {
+            "status": STATUS_FAILED if 400 <= resp.http_status < 500 else STATUS_UNKNOWN,
+            "error_code": None if code is None else str(code),
+            "error_message": msg if isinstance(msg, str) else f"http {resp.http_status}",
+        }
 
     # ------------------------------------------------------------------ borrow
 
@@ -1022,6 +1230,28 @@ def _build_hedge_service(config: Config) -> HedgeOpenTaskService:
     )
 
 
+def _build_asset_transfer_client(config: Config):
+    """构造资产互转用的 PAPI/SAPI 客户端（stage 2026-08-06-asset-transfer-live-v1）。
+
+    与 ``_build_restricted_asset_client`` 同一模式：复用既有 hedge 凭证，独立于
+    ``APP_HEDGE_EXECUTOR``。**这是有意的**——该开关的语义是「对冲开单任务是否真实
+    发单」，而划转是用户手动发起的独立动作，不属于开单链路。离线模式或缺少 API key
+    时返回 ``None``，路由随即 503（不静默降级成假成功）。
+
+    客户端的 deny-by-default 路径白名单 + 硬编码 host 限制了它能做什么；本通路只
+    调用 ``universal_transfer``，其 transfer type 由服务端映射后传入（冻结枚举）。
+    """
+    if config.offline or not config.binance_hedge_api_key:
+        return None
+    from ..services.hedge_open_live_client import HedgeOpenLiveClient
+
+    return HedgeOpenLiveClient(
+        api_key=config.binance_hedge_api_key,
+        api_secret=config.binance_hedge_api_secret,
+        user_agent=config.user_agent,
+    )
+
+
 def _build_restricted_asset_client(config: Config):
     """Build the read-only restricted-asset client injected into SnapshotService
     (decision §E-4 / interface §10). Uses the existing hedge API key and is
@@ -1091,6 +1321,11 @@ def run(config: Config = None) -> None:
     _Handler.borrow_service = borrow_service
     _Handler.hedge_open_service = hedge_open_service
     _Handler.ledger_flow_service = ledger_flow_service
+    # 资产互转（stage 2026-08-06-asset-transfer-live-v1）：独立库 + 独立客户端。
+    _Handler.asset_transfer_store = AssetTransferStore(
+        str(config.borrow_db_path.parent / "asset-transfer.sqlite3")
+    )
+    _Handler.asset_transfer_client = _build_asset_transfer_client(config)
     # 功能三：close_log 费率/利息复用 ledger 汇总（duck-typed；结算失败不阻塞平仓）。
     hedge_open_service._ledger_flow_service = ledger_flow_service
     _emit_lifecycle("server_start", host=config.bind_host, port=config.bind_port)

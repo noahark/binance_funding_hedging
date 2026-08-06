@@ -10,7 +10,7 @@
   "ledger_sha": "bb47d0213cd98942dc12b91b562926ff848bfdee",
   "current_task": {
     "id": "asset-transfer-live-t1-backend",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-08-06-asset-transfer-live-v1/20-opus5-t1-backend.dispatch.md"
   },
   "next": {
