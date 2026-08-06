@@ -690,6 +690,65 @@ class HedgePreflightProvider:
                     return None
         return Decimal(0)
 
+    def _read_spot_account_base_free(self, base_asset: str) -> Optional[Decimal]:
+        """Standard Spot account free for ``base_asset`` (design §3 step 5 /
+        stage 2026-08-06 task 06).
+
+        The close+forward SELL gate sizes the sellable quantity against THIS
+        wallet — a ``regular_spot`` route sells from the STANDARD spot account,
+        not PAPI ``crossMarginFree`` (the two wallets are distinct; THE 600 is
+        in the standard spot account while the unified account has none).
+        Shape-copied from :meth:`_read_spot_account_usdt` with the asset
+        parameterized: returns the Decimal free (``Decimal(0)`` when the asset
+        is absent but the account read succeeded — a real zero), or ``None`` on
+        a read failure (the caller fail-closes the snapshot). The
+        ``spot_balances`` cache (60s local TTL, 5min ceiling) is consulted
+        first, with a real-time degrade on a stale/missing/shape-bad entry
+        (stderr trace)."""
+        cached = self._cached("spot_balances", _CACHE_MAX_AGE_BALANCE)
+        if cached is not None:
+            if isinstance(cached, list):
+                for row in cached:
+                    if isinstance(row, dict) and row.get("asset") == base_asset:
+                        free = row.get("free")
+                        if free is None:
+                            return Decimal(0)
+                        try:
+                            return Decimal(str(free))
+                        except (InvalidOperation, ValueError, TypeError):
+                            return None
+                return Decimal(0)
+            self._degrade_note("spot_balances", "bad shape")
+        if self._client is None:
+            return None
+        response = self._client.get_spot_account(timestamp_ms=self._now_ms())
+        if (
+            response.transport_error is not None
+            or response.http_status is None
+            or response.http_status >= 400
+            or not isinstance(response.body, dict)
+        ):
+            print(
+                f"[PREFLIGHT] spot_account_base_free read failed: "
+                f"transport={response.transport_error} http={response.http_status} "
+                f"body_type={type(response.body).__name__}",
+                file=sys.stderr, flush=True,
+            )
+            return None
+        balances = response.body.get("balances")
+        if not isinstance(balances, list):
+            return None
+        for row in balances:
+            if isinstance(row, dict) and row.get("asset") == base_asset:
+                free = row.get("free")
+                if free is None:
+                    return Decimal(0)
+                try:
+                    return Decimal(str(free))
+                except (InvalidOperation, ValueError, TypeError):
+                    return None
+        return Decimal(0)
+
     def _read_spot_rate_limit_order(self) -> Optional[int]:
         """Standard Spot order-rate limit (design §3 step 5). A regular_spot
         order consumes the spot rate-limit budget, not the PAPI one (§3.5).
@@ -795,6 +854,7 @@ class HedgePreflightProvider:
         spot_route_reason = D.ROUTE_REASON_PAPI_DEFAULT
         spot_account_usdt: Optional[Decimal] = None
         spot_rate_limit: Optional[int] = None
+        spot_account_base_free: Optional[Decimal] = None
         cap_exceeded: Optional[bool] = None
         route_dir = direction
         if task_type == D.TASK_TYPE_CLOSE:
@@ -826,11 +886,21 @@ class HedgePreflightProvider:
         if spot_route == D.SPOT_ROUTE_REGULAR_SPOT:
             spot_account_usdt = self._read_spot_account_usdt()
             spot_rate_limit = self._read_spot_rate_limit_order()
-            if spot_account_usdt is None or spot_rate_limit is None:
+            # Stage 2026-08-06 task 06：regular_spot 路由同时补读可卖 base 资产的
+            # 普通现货账户可用量（close+forward 卖现货的余额门——THE 现货在普通账户、
+            # 统一账户无该币，读错钱包会误报「可用 0」）。任一读失败 → fail-closed。
+            spot_account_base_free = self._read_spot_account_base_free(spot_base_asset)
+            if (
+                spot_account_usdt is None
+                or spot_rate_limit is None
+                or spot_account_base_free is None
+            ):
                 if spot_account_usdt is None:
                     self._mark_failed_read("spot_account_usdt")
                 if spot_rate_limit is None:
                     self._mark_failed_read("spot_rate_limit")
+                if spot_account_base_free is None:
+                    self._mark_failed_read("spot_account_base_free")
                 return None
         spot_endpoint = D.spot_route_endpoint(spot_route)
         return D.PreflightSnapshot(
@@ -847,6 +917,7 @@ class HedgePreflightProvider:
             spot_route_endpoint=spot_endpoint,
             spot_account_usdt=spot_account_usdt,
             spot_rate_limit_order=spot_rate_limit,
+            spot_account_base_free=spot_account_base_free,
         )
 
     def check_symbol_legs(self, coin: str) -> dict:

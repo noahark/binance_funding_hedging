@@ -904,6 +904,14 @@ class PreflightSnapshot:
     # here means the read was not performed — compute_preflight never guesses.
     spot_account_usdt: Decimal | None = None
     spot_rate_limit_order: int | None = None
+    # Stage 2026-08-06 task 06 (close+forward 读错钱包修复): the STANDARD spot
+    # account's free balance of the sellable base asset (e.g. THE for a
+    # close+forward THE sell). The REVERSE branch of the balance gate sizes the
+    # SELL against THIS wallet — the regular-spot route sells from the standard
+    # spot account, not PAPI ``crossMarginFree`` (the two wallets are distinct).
+    # None unless the route is ``regular_spot``; a None here means the read was
+    # not performed (compute_preflight never guesses).
+    spot_account_base_free: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -1194,6 +1202,13 @@ def compute_preflight(
     # (returned None) when a regular_spot account/rate-limit read failed, so a
     # non-None snapshot here carries the figure; a shortfall is a readable
     # insufficient-balance fact distinct from a read failure.
+    #
+    # Stage 2026-08-06 task 06: the REVERSE branch (SELL direction) is symmetric
+    # — a ``regular_spot`` route (the ONLY entry is close+forward selling into
+    # the standard spot account) sizes the base need against the standard spot
+    # account's free base (``spot_account_base_free``), not PAPI
+    # ``crossMarginFree``. Every other reverse path (reverse open / close+reverse
+    # buy, both papi_margin) keeps ``balances`` verbatim.
     base = base_asset(coin)
     if direction == DIR_FORWARD:
         required = q_common * target_n * snapshot.est_price
@@ -1203,7 +1218,10 @@ def compute_preflight(
             available = snapshot.balances.get(QUOTE_ASSET, Decimal(0))
     else:
         required = q_common * target_n
-        available = snapshot.balances.get(base, Decimal(0))
+        if snapshot.spot_route == SPOT_ROUTE_REGULAR_SPOT:
+            available = snapshot.spot_account_base_free or Decimal(0)
+        else:
+            available = snapshot.balances.get(base, Decimal(0))
     balance_ok = available >= required
     return PreflightResult(
         q_common=q_common,

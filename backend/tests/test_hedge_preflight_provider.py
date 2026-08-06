@@ -797,3 +797,120 @@ def test_last_failed_read_names_first_failure():
     prov2._read_position_mode(); prov2._read_rate_limit_order(); prov2._read_spot_rate_limit_order()
     assert prov2.get_snapshot("LINKUSDT", _D.DIR_FORWARD) is not None
     assert prov2.last_failed_read is None
+
+
+# ---------------------------------------------------------------------------
+# Stage 2026-08-06 task 06：close+forward 余额检查读错钱包修复（unified → 普通
+# 现货账户）。THE 实盘场景：普通现货持有 THE 600、统一账户无 THE → 不再误报
+# 「当前可用 0」。
+# ---------------------------------------------------------------------------
+_THE_SPOT_FILTERS = {
+    "lot_size": {"min_qty": "0.01", "max_qty": "9000", "step_size": "0.01"},
+    "market_lot_size": {"min_qty": "0", "max_qty": "9000", "step_size": "0"},
+    "notional": {"min_notional": "5", "apply_min_to_market": True},
+}
+_THE_PERP_FILTERS = {
+    "lot_size": {"min_qty": "0.01", "max_qty": "9000", "step_size": "0.01"},
+    "market_lot_size": {"min_qty": "0.01", "max_qty": "9000", "step_size": "0.01"},
+    "notional": {"notional": "5"},
+}
+
+
+class _TheSpotPrivate(_RoutingPrivate):
+    """普通现货账户持有 THE 600（free），统一账户（balances）无 THE。"""
+
+    def get_spot_account(self, *, timestamp_ms):
+        self.calls.append("spot_account")
+        return SimpleNamespace(
+            transport_error=None, http_status=200,
+            body={"balances": [{"asset": "USDT", "free": "100000"},
+                               {"asset": "THE", "free": "600"}]},
+        )
+
+
+def test_close_forward_reads_standard_spot_base_free_the_scenario():
+    # THE 实盘场景（Human 复测暴露）：普通现货 THE 600、统一账户无 THE、
+    # close+forward 单次 200×2 → spot_account_base_free=600、balance_ok=True
+    # （不再误拦「当前可用 0」）。
+    priv = _TheSpotPrivate(cap_assets=[])
+    pub = _RoutingPublic(
+        [_perp_sym("THEUSDT", "PERPETUAL", "THE")],
+        {"THEUSDT": _spot_sym("THEUSDT", "THE", margin_allowed=False)},
+    )
+    prov = _route_provider(pub, priv)
+    snap = prov.get_snapshot("THEUSDT", _D.DIR_REVERSE, task_type=_D.TASK_TYPE_CLOSE)
+    assert snap is not None
+    assert snap.spot_route == _D.SPOT_ROUTE_REGULAR_SPOT
+    assert snap.spot_account_base_free == Decimal("600")
+    pf = _D.compute_preflight(snap, "THEUSDT", _D.DIR_REVERSE, Decimal("200"), 2)
+    assert pf.rejection is None
+    assert pf.balance_ok is True
+    assert pf.available == Decimal("600")
+    assert pf.required == Decimal("400")
+
+
+def test_compute_preflight_reverse_regular_spot_uses_standard_spot_base():
+    # 纯 domain：REVERSE + regular_spot → available 取普通现货账户该币
+    # （spot_account_base_free），不用统一账户 balances（THE 场景误拦的根因修复）。
+    snap = _D.PreflightSnapshot(
+        spot_filters=_THE_SPOT_FILTERS, perp_filters=_THE_PERP_FILTERS,
+        balances={},  # 统一账户无该币
+        position_mode=_D.POS_MODE_BOTH, est_price=Decimal("10"),
+        spot_route=_D.SPOT_ROUTE_REGULAR_SPOT,
+        spot_route_reason=_D.ROUTE_REASON_CLOSE_SELL_REGULAR,
+        spot_route_endpoint=_D.REGULAR_SPOT_ORDER_PATH,
+        spot_account_usdt=Decimal("100000"), spot_rate_limit_order=50,
+        spot_account_base_free=Decimal("600"),
+    )
+    pf = _D.compute_preflight(snap, "THEUSDT", _D.DIR_REVERSE, Decimal("200"), 2)
+    assert pf.balance_ok is True
+    assert pf.available == Decimal("600")
+
+
+def test_compute_preflight_reverse_regular_spot_missing_base_is_zero():
+    # 语义与 FORWARD 分支一致：可用量缺失但账户读取成功 = 真 0（不足事实），
+    # 不是 None / 不是读取失败。
+    snap = _D.PreflightSnapshot(
+        spot_filters=_THE_SPOT_FILTERS, perp_filters=_THE_PERP_FILTERS,
+        balances={}, position_mode=_D.POS_MODE_BOTH, est_price=Decimal("10"),
+        spot_route=_D.SPOT_ROUTE_REGULAR_SPOT,
+        spot_route_reason=_D.ROUTE_REASON_CLOSE_SELL_REGULAR,
+        spot_route_endpoint=_D.REGULAR_SPOT_ORDER_PATH,
+        spot_account_usdt=Decimal("100000"), spot_rate_limit_order=50,
+        spot_account_base_free=None,  # 未读取（或缺失）→ 按 0 计
+    )
+    pf = _D.compute_preflight(snap, "THEUSDT", _D.DIR_REVERSE, Decimal("200"), 2)
+    assert pf.balance_ok is False
+    assert pf.available == Decimal("0")
+    assert pf.rejection == _D.REJECT_INSUFFICIENT_BALANCE
+
+
+def test_compute_preflight_reverse_papi_margin_keeps_balances_verbatim():
+    # 负向回归：REVERSE + papi_margin（reverse 开仓 / close+reverse 买现货）→
+    # available 仍取统一账户 balances，逐字不变。
+    snap = _D.PreflightSnapshot(
+        spot_filters=_THE_SPOT_FILTERS, perp_filters=_THE_PERP_FILTERS,
+        balances={"THE": Decimal("2")}, position_mode=_D.POS_MODE_BOTH,
+        est_price=Decimal("10"),  # 默认 papi_margin
+        spot_account_base_free=None,  # regular_spot 之外不读
+    )
+    pf = _D.compute_preflight(snap, "THEUSDT", _D.DIR_REVERSE, Decimal("0.5"), 3)
+    assert pf.balance_ok is True
+    assert pf.available == Decimal("2")
+    assert pf.required == Decimal("1.5")
+
+
+def test_non_regular_spot_never_reads_standard_spot_base():
+    # provider 侧：非 regular_spot 路由（close+reverse / reverse 开仓）不读
+    # spot_account_base_free（保持 None），且不触发额外普通现货账户读取。
+    priv = _RoutingPrivate(cap_assets=[])
+    pub = _RoutingPublic(
+        [_perp_sym("THEUSDT", "PERPETUAL", "THE")],
+        {"THEUSDT": _spot_sym("THEUSDT", "THE", margin_allowed=False)},
+    )
+    prov = _route_provider(pub, priv)
+    # close+reverse（买现货还币）→ papi_margin
+    snap = prov.get_snapshot("THEUSDT", _D.DIR_FORWARD, task_type=_D.TASK_TYPE_CLOSE)
+    assert snap is not None
+    assert snap.spot_route == _D.SPOT_ROUTE_PAPI_MARGIN
+    assert snap.spot_account_base_free is None
