@@ -185,14 +185,54 @@ def test_urlerror_is_connection_error_no_status():
     resp = _client(openr).post_margin_order({"symbol": "BTCUSDT"}, timestamp_ms=1)
     assert resp.http_status is None
     assert resp.body is None
-    assert resp.transport_error == "connection_error"
+    assert resp.transport_error.startswith("connection_error")
 
 
 def test_timeout_is_timeout_error_no_status():
     openr = _CapturingOpen(error=TimeoutError())
     resp = _client(openr).post_margin_order({"symbol": "BTCUSDT"}, timestamp_ms=1)
     assert resp.http_status is None
-    assert resp.transport_error == "timeout"
+    assert resp.transport_error.startswith("timeout")
+
+
+# ---- stage 2026-08-06: transport failures keep exception type + message ----
+def test_transport_error_keeps_exception_type_and_reason():
+    # URLError.reason is preferred over str(exc); the category word stays first.
+    openr = _CapturingOpen(error=urllib.error.URLError(ConnectionResetError(54, "Connection reset by peer")))
+    resp = _client(openr).post_margin_order({"symbol": "BTCUSDT"}, timestamp_ms=1)
+    assert resp.transport_error.startswith("connection_error:URLError:")
+    assert "Connection reset by peer" in resp.transport_error
+    assert len(resp.transport_error) <= 200
+
+
+def test_transport_error_caps_length_at_200():
+    long_msg = "x" * 500
+    openr = _CapturingOpen(error=urllib.error.URLError(long_msg))
+    resp = _client(openr).post_margin_order({"symbol": "BTCUSDT"}, timestamp_ms=1)
+    assert resp.transport_error.startswith("connection_error:URLError:")
+    assert len(resp.transport_error) <= 200
+
+
+def test_transport_error_drops_message_when_it_could_carry_a_url():
+    # A message containing "http" or "?" could embed a signed URL/query — keep
+    # only the exception type name (negative test; a credential leak costs more
+    # than the diagnostic value).
+    openr = _CapturingOpen(
+        error=urllib.error.URLError("http://papi.binance.com/papi/v1/um/order?timestamp=1&signature=abc")
+    )
+    resp = _client(openr).post_margin_order({"symbol": "BTCUSDT"}, timestamp_ms=1)
+    assert resp.transport_error == "connection_error:URLError"
+    openr2 = _CapturingOpen(error=urllib.error.URLError("https://x/?apiKey=SECRET"))
+    resp2 = _client(openr2).post_margin_order({"symbol": "BTCUSDT"}, timestamp_ms=1)
+    assert resp2.transport_error == "connection_error:URLError"
+
+
+def test_transport_error_keeps_plain_exception_detail():
+    # The generic Exception branch keeps "<ExcType>:<ExcType>: <message>" shape.
+    openr = _CapturingOpen(error=RuntimeError("proxy tunnel down"))
+    resp = _client(openr).post_margin_order({"symbol": "BTCUSDT"}, timestamp_ms=1)
+    assert resp.transport_error.startswith("RuntimeError:RuntimeError: proxy tunnel down")
+    assert len(resp.transport_error) <= 200
 
 
 # ---- one-shot transport: never retried here ----

@@ -51,6 +51,7 @@ _LIVE_MODULE_RE = re.compile(
 # missing entry, a sixth entry, or a wrong host — is a contract break.
 _PAPI_HOST = "https://papi.binance.com"
 _SPOT_HOST = "https://api.binance.com"
+_FAPI_HOST = "https://fapi.binance.com"
 _FROZEN_ALLOWLIST = {
     # ---- 7 PAPI endpoints (order writes + preflight reads) ----
     ("POST", "/papi/v1/margin/order"): _PAPI_HOST,
@@ -70,6 +71,8 @@ _FROZEN_ALLOWLIST = {
     ("GET", "/api/v3/rateLimit/order"): _SPOT_HOST,
     # 平仓现货卖出重设计（2026-08）：万向划转（统一账户⇄普通现货账户）。
     ("POST", "/sapi/v1/asset/transfer"): _SPOT_HOST,
+    # 开单前自动设置合约杠杆（THE -2027 方案 B，2026-08）：fapi 域名，写语义与订单一致。
+    ("POST", "/papi/v1/um/leverage"): _PAPI_HOST,
 }
 # The two host groups, for the per-group hardcoded-host assertion.
 _PAPI_KEYS = frozenset({
@@ -80,7 +83,7 @@ _PAPI_KEYS = frozenset({
     ("GET", "/papi/v1/balance"),
     ("GET", "/papi/v1/um/positionSide/dual"),
     ("GET", "/papi/v1/rateLimit/order"),
-    ("GET", "/papi/v1/um/positionRisk"),
+    ("GET", "/papi/v1/um/positionRisk"),    ("POST", "/papi/v1/um/leverage"),  # 统一账户 UM 合约杠杆（2026-08：原 fapi 端点对 PM 账户 401，改 PAPI）
 })
 _SPOT_KEYS = frozenset({
     ("GET", "/sapi/v1/margin/restricted-asset"),
@@ -90,6 +93,7 @@ _SPOT_KEYS = frozenset({
     ("GET", "/api/v3/rateLimit/order"),
     ("POST", "/sapi/v1/asset/transfer"),
 })
+_FAPI_KEYS = frozenset()
 
 
 # ---- 1. hedge_open_tasks/** purity (the dry-run zero-network proof) ----
@@ -131,24 +135,31 @@ def test_store_never_invokes_or_holds_an_executor():
 
 # ---- 2. frozen allowlist (recon §3.1/§3.2/§4.1 + decision §E-2 / §4) ----
 def test_allowlist_is_exactly_the_frozen_allowlist():
-    # Exact equality + length 13 (12 + 功能三 positionRisk): the anti-expansion
-    # guard. A missing authorized one both fail here. Not a subset/contains check.
+    # Exact equality + length 15 (14 + 开单前设置杠杆 POST /papi/v1/um/leverage): the
+    # anti-expansion guard. A missing authorized one both fail here. Not a
+    # subset/contains check.
     assert ALLOWLIST == _FROZEN_ALLOWLIST
-    assert len(ALLOWLIST) == 14  # 13 + 平仓现货卖出重设计的万向划转 POST
-    assert len(_PAPI_KEYS) == 8
+    assert len(ALLOWLIST) == 15  # 14 + THE -2027 方案 B 的杠杆设置 POST
+    assert len(_PAPI_KEYS) == 9  # 8 + 统一账户 UM 合约杠杆（2026-08 PAPI 端点）
     assert len(_SPOT_KEYS) == 6
+    assert len(_FAPI_KEYS) == 0  # 2026-08：杠杆端点改 PAPI 后无 fapi 端点
     assert _PAPI_KEYS.isdisjoint(_SPOT_KEYS)
+    assert _PAPI_KEYS.isdisjoint(_FAPI_KEYS)
+    assert _SPOT_KEYS.isdisjoint(_FAPI_KEYS)
 
 
 def test_allowlist_hosts_hardcoded_per_group():
-    # Hosts are hardcoded per endpoint group (never caller-supplied): the 7 PAPI
-    # pairs -> papi.binance.com; the 5 regular-spot pairs -> api.binance.com.
+    # Hosts are hardcoded per endpoint group (never caller-supplied): the 8 PAPI
+    # pairs -> papi.binance.com; the 6 regular-spot pairs -> api.binance.com; the
+    # 1 papi leverage pair -> papi.binance.com.
     for key in _PAPI_KEYS:
         assert ALLOWLIST[key] == _PAPI_HOST, f"PAPI endpoint {key} not hardbound to {_PAPI_HOST}"
     for key in _SPOT_KEYS:
         assert ALLOWLIST[key] == _SPOT_HOST, f"spot endpoint {key} not hardbound to {_SPOT_HOST}"
+    for key in _FAPI_KEYS:
+        assert ALLOWLIST[key] == _FAPI_HOST, f"fapi endpoint {key} not hardbound to {_FAPI_HOST}"
     # No endpoint maps to any other host.
-    assert set(ALLOWLIST.values()) == {_PAPI_HOST, _SPOT_HOST}
+    assert set(ALLOWLIST.values()) == {_PAPI_HOST, _SPOT_HOST}  # 2026-08：杠杆端点改 PAPI 后无 fapi 端点
 
 
 def test_allowlist_has_both_order_writes_and_queries():
@@ -494,3 +505,21 @@ def test_detector_anchors_single_line_sql_insert():
     findings = find_money_zero_defaults(src, "<synth>")
     assert findings, "single-line INSERT money-column '0' must be flagged"
     assert findings[0][0] == 1
+
+
+# ---------------------------------------------------------------------------
+# B-1 (stage 2026-08-06): the dry-run record-transport fill simulator is
+# removed from production. Grep proof that neither the hedge-open domain package
+# nor backend/services/ carries any ``RecordTransport`` reference — the class
+# survives only as the test-only RecordTransportFake under backend/tests/.
+# ---------------------------------------------------------------------------
+def test_no_record_transport_reference_in_production_code():
+    bad = []
+    for scope in (HEDGE_PKG, REPO_ROOT / "backend" / "services"):
+        for py in scope.rglob("*.py"):
+            if "RecordTransport" in py.read_text(encoding="utf-8"):
+                bad.append(str(py.relative_to(REPO_ROOT)))
+    assert bad == [], (
+        "RecordTransport reference found in production code (dry-run fill "
+        f"simulator must not be reachable at runtime): {bad}"
+    )

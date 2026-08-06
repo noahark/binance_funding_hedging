@@ -4878,6 +4878,36 @@
           setErr('计划尝试次数需为 ≥1 的整数');
           return { ok: false, error: 'invalid_count' };
         }
+        // Human 2026-08：开单前端提前量检测（对齐平仓，强制拦截不发请求，宁拦勿放）。
+        // forward（买现货+开空合约）：需 USDT = 单次×次数×盘口价（估算）；
+        // reverse（卖现货借币）：需该币现货 = 单次×次数。
+        // 数据缺失（无快照余额/无盘口价）→ 跳过（后端实时校验兜底，不误拦）。
+        const pa = state.snapshot && state.snapshot.private_account;
+        if (pa && Array.isArray(pa.balances_unified)) {
+          const snapRow = (state.snapshot && state.snapshot.rows || []).find(r => r.symbol === symbol);
+          const oq = (snapRow && snapRow.opening_quotes) || {};
+          if (direction === 'forward') {
+            const usdt = pa.balances_unified.find(b => b.asset === 'USDT');
+            const price = oq.spot_ask_price || oq.futures_ask_price;
+            if (usdt && price) {
+              const avail = Number(usdt.total_balance);
+              const need = Number(amountStr) * n * Number(price);
+              if (Number.isFinite(avail) && Number.isFinite(need) && avail < need) {
+                setErr(`页面显示统一账户 USDT 约 ${avail.toFixed(2)} < 估算需 ${need.toFixed(2)}（单次 ${amountStr} × ${n} × 盘口价 ${price}，缓存约 60s 旧，以后端为准）；已拦截`);
+                return { ok: false, error: 'insufficient_balance_frontend' };
+              }
+            }
+          } else if (direction === 'reverse') {
+            const posRow = (state.hedgePositions || []).find(r => r.coin === symbol);
+            const avail = posRow && posRow.unified_balance != null && posRow.unified_balance !== ''
+              ? Number(posRow.unified_balance) : NaN;
+            const need = Number(amountStr) * n;
+            if (Number.isFinite(avail) && Number.isFinite(need) && avail < need) {
+              setErr(`页面显示该币现货约 ${avail.toFixed(2)} < 需 ${need}（单次 ${amountStr} × ${n}；缓存约 60s 旧，以后端为准）；已拦截`);
+              return { ok: false, error: 'insufficient_balance_frontend' };
+            }
+          }
+        }
         setErr('');
         const dirLabel = direction === 'forward' ? '正向' : direction === 'reverse' ? '反向' : String(direction);
         state.marketActionPending = { kind: 'hedge_open', symbol, direction, mode };

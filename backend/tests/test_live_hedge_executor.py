@@ -597,3 +597,40 @@ def test_query_zero_avg_price_is_not_a_real_price():
     body_real = {"orderId": 55, "status": "FILLED", "executedQty": "0.5", "avgPrice": "50000.12"}
     d_real = classify_query_response(_resp(200, body_real), "perp")
     assert d_real is not None and d_real.avg_price == "50000.12"   # 真实均价照常
+
+
+# ---- A-2 (stage 2026-08-06): a leg-send Python exception keeps evidence ----
+def test_dispatch_leg_exception_carries_raw_response_and_stays_unknown():
+    """A Python exception raised during send (whitelist PermissionError, Request
+    construction, …) must persist a sanitized raw-response row instead of being
+    silently dropped, and the leg stays LEG_UNKNOWN_QUERYING (query by client id,
+    never resend — ADR-2)."""
+
+    class _RaisingPerpClient(_FakeClient):
+        def post_um_order(self, params, *, timestamp_ms, recv_window_ms=None):
+            raise PermissionError(
+                "hedge endpoint not whitelisted: POST /papi/v1/um/order"
+            )
+
+    dispatch = _exe(_RaisingPerpClient()).dispatch(_ctx())
+    assert dispatch.perp.dispatch_state == LEG_UNKNOWN_QUERYING
+    assert dispatch.perp.raw_response is not None
+    raw = dispatch.perp.raw_response
+    assert raw["http_status"] is None
+    assert raw["code"] is None and raw["msg"] is None
+    assert raw["body"] == ""
+    assert raw["transport_error"].startswith(
+        "leg_send_exception:PermissionError:"
+    )
+    assert "whitelisted" in raw["transport_error"]
+    # the other leg still dispatched normally
+    assert dispatch.spot.dispatch_state == LEG_ACCEPTED
+
+
+def test_error_leg_without_exception_marks_unknown():
+    from backend.services.live_hedge_executor import _error_leg
+
+    d = _error_leg("spot", None)
+    assert d.dispatch_state == LEG_UNKNOWN_QUERYING
+    assert d.raw_response is not None
+    assert d.raw_response["transport_error"] == "leg_send_exception:unknown"

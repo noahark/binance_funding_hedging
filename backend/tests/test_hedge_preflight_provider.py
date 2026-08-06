@@ -172,6 +172,7 @@ class _BstockUrlopen:
         return {
             "symbol": symbol,
             "status": "TRADING",
+            "isMarginTradingAllowed": True,
             "filters": [
                 {"filterType": "LOT_SIZE", "stepSize": "0.001", "minQty": "0.001", "maxQty": "1000"},
                 {"filterType": "MARKET_LOT_SIZE", "stepSize": "0.001", "minQty": "0.001", "maxQty": "1000"},
@@ -298,9 +299,10 @@ def test_disabled_preflight_provider_has_no_leg_probe():
 from backend.hedge_open_tasks import domain as _D  # noqa: E402
 
 
-def _spot_sym(symbol, base):
+def _spot_sym(symbol, base, margin_allowed=True):
     return {
         "symbol": symbol, "baseAsset": base, "status": "TRADING",
+        "isMarginTradingAllowed": margin_allowed,
         "filters": [
             {"filterType": "LOT_SIZE", "stepSize": "0.01", "minQty": "0.01", "maxQty": "9000"},
             {"filterType": "MARKET_LOT_SIZE", "stepSize": "0", "minQty": "0", "maxQty": "9000"},
@@ -465,6 +467,88 @@ def test_routing_reverse_never_reads_restricted_asset_or_selects_regular_spot():
     assert snap.spot_route == _D.SPOT_ROUTE_PAPI_MARGIN
     assert "restricted_asset" not in priv.calls
     assert "spot_account" not in priv.calls
+
+
+def test_routing_forward_spot_only_selects_regular_spot():
+    # THE 51023 根因复现修复：仅现货标的（公开现货 isMarginTradingAllowed=False，
+    # 如 THEUSDT）forward 开仓，现货腿必须走普通现货端点 /api/v3/order
+    # （regular_spot），绝不发到全仓杠杆 /papi/v1/margin/order。cap 列表不包含
+    # 该资产、也不是 TRADIFI——旧逻辑会漏判为 papi_margin，现由 provider 前置强制。
+    priv = _RoutingPrivate(cap_assets=[])
+    pub = _RoutingPublic(
+        [_perp_sym("THEUSDT", "PERPETUAL", "THE")],
+        {"THEUSDT": _spot_sym("THEUSDT", "THE", margin_allowed=False)},
+    )
+    snap = _route_provider(pub, priv).get_snapshot("THEUSDT", _D.DIR_FORWARD)
+    assert snap is not None
+    assert snap.spot_route == _D.SPOT_ROUTE_REGULAR_SPOT
+    assert snap.spot_route_reason == _D.ROUTE_REASON_SPOT_ONLY_REGULAR
+    assert snap.spot_route_endpoint == _D.REGULAR_SPOT_ORDER_PATH
+    # regular_spot 特有读取被执行（标准现货账户 + 现货 rate limit）
+    assert "spot_account" in priv.calls
+    assert "spot_ratelimit" in priv.calls
+
+
+def test_routing_forward_margin_spot_stays_papi_when_no_cap_hit():
+    # MARGIN_SPOT 回归（dispatch 验收 2）：isMarginTradingAllowed=True 的普通标的
+    # forward 开仓、cap 未命中、非 TRADIFI → 仍 papi_margin（既有行为逐字不变）。
+    priv = _RoutingPrivate(cap_assets=[])
+    pub = _RoutingPublic([_perp_sym("BTCUSDT", "PERPETUAL", "BTC")],
+                         {"BTCUSDT": _spot_sym("BTCUSDT", "BTC", margin_allowed=True)})
+    snap = _route_provider(pub, priv).get_snapshot("BTCUSDT", _D.DIR_FORWARD)
+    assert snap is not None
+    assert snap.spot_route == _D.SPOT_ROUTE_PAPI_MARGIN
+    assert snap.spot_route_reason == _D.ROUTE_REASON_PAPI_DEFAULT
+    assert "spot_account" not in priv.calls
+
+
+def test_routing_close_forward_spot_only_keeps_close_sell_regular():
+    # close 路径回归：仅现货标的 close+forward（卖现货）行为不变——仍固定
+    # regular_spot，reason 是 close_sell_regular_spot（decide 规则），不被
+    # 仅现货前置强制劫持（强制仅作用于 open+forward）。注意 close 任务传给
+    # get_snapshot 的 direction 是反转后的余额检查方向（REVERSE）。
+    priv = _RoutingPrivate(cap_assets=[])
+    pub = _RoutingPublic(
+        [_perp_sym("THEUSDT", "PERPETUAL", "THE")],
+        {"THEUSDT": _spot_sym("THEUSDT", "THE", margin_allowed=False)},
+    )
+    snap = _route_provider(pub, priv).get_snapshot(
+        "THEUSDT", _D.DIR_REVERSE, task_type=_D.TASK_TYPE_CLOSE,
+    )
+    assert snap is not None
+    assert snap.spot_route == _D.SPOT_ROUTE_REGULAR_SPOT
+    assert snap.spot_route_reason == _D.ROUTE_REASON_CLOSE_SELL_REGULAR
+    assert snap.spot_route_endpoint == _D.REGULAR_SPOT_ORDER_PATH
+
+
+def test_routing_close_reverse_spot_only_keeps_papi():
+    # close 路径回归 2：仅现货标的 close+reverse（买现货还币）行为不变——仍
+    # papi_margin（decide 规则），不被仅现货强制劫持。
+    priv = _RoutingPrivate(cap_assets=[])
+    pub = _RoutingPublic(
+        [_perp_sym("THEUSDT", "PERPETUAL", "THE")],
+        {"THEUSDT": _spot_sym("THEUSDT", "THE", margin_allowed=False)},
+    )
+    snap = _route_provider(pub, priv).get_snapshot(
+        "THEUSDT", _D.DIR_FORWARD, task_type=_D.TASK_TYPE_CLOSE,
+    )
+    assert snap is not None
+    assert snap.spot_route == _D.SPOT_ROUTE_PAPI_MARGIN
+    assert snap.spot_route_reason == _D.ROUTE_REASON_PAPI_DEFAULT
+
+
+def test_routing_reverse_spot_only_keeps_papi():
+    # 仅现货标的 reverse（开仓卖现货）不在本次强制范围：仍走既有 decide 规则
+    # papi_margin（负费率方向从不选 regular_spot，决策 §E-1 逐字保留）。
+    priv = _RoutingPrivate(cap_assets=[])
+    pub = _RoutingPublic(
+        [_perp_sym("THEUSDT", "PERPETUAL", "THE")],
+        {"THEUSDT": _spot_sym("THEUSDT", "THE", margin_allowed=False)},
+    )
+    snap = _route_provider(pub, priv).get_snapshot("THEUSDT", _D.DIR_REVERSE)
+    assert snap is not None
+    assert snap.spot_route == _D.SPOT_ROUTE_PAPI_MARGIN
+    assert "restricted_asset" not in priv.calls
 
 
 def test_routing_forward_cap_read_failure_fails_closed():

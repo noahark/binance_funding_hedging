@@ -18,11 +18,11 @@ import pytest
 from backend.hedge_open_tasks import domain as D
 from backend.hedge_open_tasks.executor import (
     AttemptContext,
-    RecordTransportExecutor,
     _client_order_ids,
     build_perp_order_params,
     build_spot_order_params,
 )
+from backend.tests.fakes import RecordTransportFake
 from backend.hedge_open_tasks.wire_constraints import (
     CLIENT_ORDER_ID_MAX,
     validate_client_order_id,
@@ -166,11 +166,11 @@ def test_prefix_s1_derivation_fails_offline_and_new_derivation_restores(monkeypa
     the offline gate as a two-leg REJECTED outcome with ``offline_constraint``;
     restoring the new ``hg<hex>{s|p}`` derivation returns the same path to a
     balanced fill. This fixes the defect class offline, not on a real send."""
-    import backend.hedge_open_tasks.executor as exe_mod
+    import backend.tests.fakes as fakes_mod
 
     aid = "b" * 32
     # New derivation (the shipped code): 35 chars -> passes the offline gate.
-    new_exe = RecordTransportExecutor()
+    new_exe = RecordTransportFake()
     out_new = new_exe.execute(_ctx(attempt_id=aid))
     assert out_new.category == D.ATTEMPT_SUCCESS
     assert out_new.error_code is None
@@ -180,8 +180,11 @@ def test_prefix_s1_derivation_fails_offline_and_new_derivation_restores(monkeypa
     def _old(attempt_id):
         return f"hgo-{attempt_id}-s", f"hgo-{attempt_id}-p"
 
-    monkeypatch.setattr(exe_mod, "_client_order_ids", _old)
-    old_exe = RecordTransportExecutor()
+    # The fake lives in backend/tests/fakes.py and binds _client_order_ids at
+    # import time, so the monkeypatch must target the fakes module, not
+    # hedge_open_tasks.executor (whose production callers are unaffected).
+    monkeypatch.setattr(fakes_mod, "_client_order_ids", _old)
+    old_exe = RecordTransportFake()
     out_old = old_exe.execute(_ctx(attempt_id=aid))
     assert out_old.category == D.ATTEMPT_FAILED
     assert out_old.error_code == "offline_constraint"
@@ -197,7 +200,7 @@ def test_prefix_s1_derivation_fails_offline_and_new_derivation_restores(monkeypa
     # Restore the new derivation -> the same path returns to a balanced fill.
     monkeypatch.undo()
     assert _client_order_ids(aid) == (f"hg{aid}s", f"hg{aid}p")
-    restored_exe = RecordTransportExecutor()
+    restored_exe = RecordTransportFake()
     out_restored = restored_exe.execute(_ctx(attempt_id=aid))
     assert out_restored.category == D.ATTEMPT_SUCCESS
     assert out_restored.error_code is None
@@ -206,7 +209,7 @@ def test_prefix_s1_derivation_fails_offline_and_new_derivation_restores(monkeypa
 def test_record_transport_records_constraint_violations_only_when_defective():
     """A clean dispatch leaves ``constraint_violations`` absent; only a defective
     one records the evidence list (never swallowed)."""
-    exe = RecordTransportExecutor()
+    exe = RecordTransportFake()
     out = exe.execute(_ctx())
     assert out.category == D.ATTEMPT_SUCCESS
     assert "constraint_violations" not in out.record_payload
@@ -261,7 +264,7 @@ def test_record_transport_rejects_quantity_violating_loaded_filters(q_common, fr
     ``offline_constraint``, the violations recorded, and NO simulated fill —
     rather than acted out as a balanced success (the pre-fix behavior the
     Review-2 finding reproduced with q_common=0.0005 and step=min=0.001)."""
-    exe = RecordTransportExecutor()
+    exe = RecordTransportFake()
     ctx = _ctx_with_qty_filters(_GRID_FILTERS, _GRID_FILTERS, q_common=q_common)
     out = exe.execute(ctx)
     assert out.category == D.ATTEMPT_FAILED
@@ -281,7 +284,7 @@ def test_record_transport_rejects_quantity_violating_loaded_filters(q_common, fr
 def test_record_transport_accepts_grid_aligned_quantity_with_loaded_filters():
     """S5 positive case: once the loaded filters are honored, a grid-aligned
     quantity within bounds is still simulated as a balanced fill (success)."""
-    exe = RecordTransportExecutor()
+    exe = RecordTransportFake()
     ctx = _ctx_with_qty_filters(_GRID_FILTERS, _GRID_FILTERS, q_common="0.003")
     out = exe.execute(ctx)
     assert out.category == D.ATTEMPT_SUCCESS
@@ -296,7 +299,7 @@ def test_record_transport_applies_per_leg_filters_independently():
     spot (step 0.001) but not for perp (step 0.01) is rejected because the perp
     leg's own filter fails — proving each leg adopts its own loaded filter, not
     a single shared one."""
-    exe = RecordTransportExecutor()
+    exe = RecordTransportFake()
     ctx = _ctx_with_qty_filters(
         {"step": "0.001", "min_qty": "0.001", "max_qty": "100"},
         {"step": "0.01", "min_qty": "0.01", "max_qty": "100"},

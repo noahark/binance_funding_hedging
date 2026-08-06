@@ -156,6 +156,9 @@ PAUSE_REASON_CLOSE_VERIFY_FAILED = "close_verify_failed"
 # 平仓现货卖出重设计（2026-08）：forward close 发单前现货余额检查/划转/复检失败
 # → 任务暂停（fail-closed，不重试、不发单），错误原因随 pause_reason 展示。
 PAUSE_REASON_CLOSE_SPOT_BALANCE = "close_spot_balance"
+# 开单前自动设置合约杠杆（THE -2027 方案 B，Human 拍板）：设置失败 → 任务暂停
+# （fail-closed，不创建 attempt、不发单——避免在错误杠杆下开仓，仓位风险不可控）。
+PAUSE_REASON_LEVERAGE_SET_FAILED = "leverage_set_failed"
 # Retry-counter task (fix-review1-retry-counter): an order-detail query that
 # stayed inconclusive (5xx / timeout / malformed 2xx) for all LEG_QUERY_MAX_RETRIES
 # attempts. The worker could neither confirm acceptance nor absence, so it pauses
@@ -206,6 +209,11 @@ SIGNAL_PREFLIGHT_FATAL = "signal_preflight_fatal"
 # NOT a confirmed-absent signal, so it is deliberately outside
 # SIGNAL_TASK_LOCAL_PAUSE.
 SIGNAL_ORDER_STATE_UNKNOWN = "signal_order_state_unknown"
+# 开单前设置杠杆失败（THE -2027 方案 B）：_dispatch_one_for_task 内已落库暂停
+# （PAUSE_REASON_LEVERAGE_SET_FAILED + leverage_set_failed 事件），worker 收到此信号
+# 直接退出本轮（不重复暂停、不创建 attempt、不发单）。刻意不在
+# SIGNAL_TASK_LOCAL_PAUSE 内（避免 _pause_from_signal 二次暂停）。
+SIGNAL_LEVERAGE_SET_FAILED = "signal_leverage_set_failed"
 
 # Fatal-stop reasons (amendment error-matrix rows 1–2 / breakdown I-4). Recorded
 # on the task as the nullable `stop_reason` alongside `status=stopped`. A fatal
@@ -450,6 +458,15 @@ ROUTE_REASON_COLLATERAL_CAP_PRECHECK = "collateral_cap_precheck"
 # 平仓现货卖出重设计（2026-08）：forward 平仓卖现货固定走普通现货账户（单一出口，
 # 根治 collateral-cap 预检把卖出误导到普通账户的 -2010 事故；cap 语义只对买入有意义）。
 ROUTE_REASON_CLOSE_SELL_REGULAR = "close_sell_regular_spot"
+# 仅现货（SPOT_ONLY，公开现货 isMarginTradingAllowed=False）前置强制（2026-08）：现货腿
+# 必须走普通现货端点 /api/v3/order，不得发到全仓杠杆——THE 51023 根因。这是 provider 层
+# 在 decide_spot_route 之前的强制，不是 decide_spot_route 的新规则分支（其规则逐字不变）。
+ROUTE_REASON_SPOT_ONLY_REGULAR = "spot_only_regular_spot"
+
+# 开单前自动设置合约杠杆（THE -2027 方案 B，Human 2026-08 拍板）：每任务首个
+# attempt 发单前将合约杠杆设为 3 倍（交易所默认 20 倍→现最大 10 倍，10 倍下开仓量
+# 超限）。先硬编码 3，后续可配置化（Human：不做杠杆可配置 UI）。
+OPEN_LEVERAGE = 3
 
 # Per-product business-code tables — ONLY product-specific codes live here. Codes
 # whose margin/UM semantics are identical (insufficient balance/margin, filter /
@@ -1551,6 +1568,7 @@ _PAUSE_REASON_ZH = {
     PAUSE_REASON_ORDER_STATE_UNKNOWN: "订单状态经 10 次重试查询仍不明，无法确认是否已被交易所接受，任务已暂停。请到交易所核对订单后手动恢复（恢复后仅按既有 clientOrderId 重查，不重发下单）",
     PAUSE_REASON_CLOSE_VERIFY_FAILED: "平仓完成核实失败（查交易所合约持仓未成功），任务已暂停。请到交易所核对该币种合约仓位后手动恢复——「查不到」绝不视为「已平完」",
     PAUSE_REASON_CLOSE_SPOT_BALANCE: "平仓现货余额检查/划转失败，任务已暂停（fail-closed，未发单）。详情见任务卡日志，请人工核对后手动恢复",
+    PAUSE_REASON_LEVERAGE_SET_FAILED: "设置合约杠杆失败，任务已暂停（fail-closed，未发单）。详情见任务卡日志，请人工核对后手动恢复",
 }
 
 # 51169 operator message — FROZEN verbatim (10-design §2(d) / ADR-T3). Only the

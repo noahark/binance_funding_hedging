@@ -33,7 +33,6 @@ from .executor import (
     AttemptOutcome,
     DisabledHedgeExecutor,
     HedgeExecutor,
-    RecordTransportExecutor,
     _client_order_ids,
     build_perp_order_params,
     build_spot_order_params,
@@ -471,14 +470,16 @@ class HedgeOpenTaskService:
         self._store = HedgeOpenStore(
             db_path, executor_mode_snapshot=mode, now_us=self._wall_us(),
         )
-        # Default executor is the dry-run record transport (ADR-4): it records
-        # the would-send params and returns a simulated outcome, and performs NO
-        # network POST. A real POST is reachable only under APP_HEDGE_EXECUTOR=
-        # live AND the Start gate AND a live executor (injected by the server
-        # with a fresh preflight provider); the default disabled/record executor
-        # keeps a real POST unreachable. DisabledHedgeExecutor is an injectable
-        # zero-record alternative.
-        self._executor: HedgeExecutor = executor or RecordTransportExecutor()
+        # Default executor is DisabledHedgeExecutor (zero I/O, zero fills): it
+        # resolves every attempt to ATTEMPT_DISABLED with filled_qty=0 and
+        # performs NO network POST and NO simulated fill. The dry-run
+        # record-transport fill simulator was removed from production
+        # (2026-08-06 Human decision); a real POST is reachable only under
+        # APP_HEDGE_EXECUTOR=live AND the Start gate AND a live executor
+        # (injected by the server with a fresh preflight provider), so the
+        # default keeps a real POST unreachable. The test-only record fake lives
+        # under backend/tests/fakes.py.
+        self._executor: HedgeExecutor = executor or DisabledHedgeExecutor()
         self._preflight: PreflightProvider = preflight_provider or DisabledPreflightProvider()
         self._mode = mode
         self._live_mode = mode == "live"
@@ -1451,6 +1452,11 @@ class HedgeOpenTaskService:
             return self._worker_exit(task_id, D.WORKER_EXIT_PREFLIGHT_INCOMPLETE)
         if signal == D.SIGNAL_PREFLIGHT_FATAL:
             return self._worker_exit(task_id, D.WORKER_EXIT_PREFLIGHT_FATAL)
+        if signal == D.SIGNAL_LEVERAGE_SET_FAILED:
+            # 杠杆设置失败的暂停已由 _dispatch_one_for_task 落库（中文原因 + 错误
+            # 详情 + leverage_set_failed 事件）；worker 直接退出本轮——不创建 attempt、
+            # 不发单、不二次暂停。
+            return False
         return False  # dispatched -> next round resolves/drains this pair
 
     # ------------------------------------------------------------------ #
@@ -2247,6 +2253,29 @@ class HedgeOpenTaskService:
             now_us,
         )
 
+    def _set_leverage_before_open(self, task: dict, now_us: int) -> str | None:
+        """开单前设置该合约 symbol 杠杆（THE -2027 方案 B，Human 拍板）。
+
+        仅 live executor 有 ``set_leverage``（dry-run/disabled 无 → 跳过，模拟成功）。
+        成功返回 ``None``；失败/异常返回中文错误（含交易所详情，截断 200 字符），
+        调用方 fail-closed：任务暂停（``PAUSE_REASON_LEVERAGE_SET_FAILED`` + 中文原因 +
+        ``leverage_set_failed`` 事件）、不创建 attempt、不发单。每任务只调一次（由调用方
+        在 ``scheduled_attempt_count == 0`` 时执行）。
+        """
+        setter = getattr(self._executor, "set_leverage", None)
+        if setter is None:
+            return None  # dry-run / disabled：不设杠杆，模拟成功
+        try:
+            setter(task["coin"], D.OPEN_LEVERAGE)
+        except Exception as exc:  # noqa: BLE001 —— 任何失败都 fail-closed，如实记录
+            detail = str(exc)[:200]
+            return (
+                f"设置合约杠杆失败（fail-closed，未发单）：{detail}"
+                if detail
+                else "设置合约杠杆失败（fail-closed，未发单），无错误详情"
+            )
+        return None
+
     def _dispatch_one_for_task(self, task: dict, now_us: int) -> tuple[dict, str | None]:
         """Durable-before-send: a fresh preflight (live path only) -> persist the
         immutable attempt + both client IDs + sanitized request shapes in ONE
@@ -2285,6 +2314,26 @@ class HedgeOpenTaskService:
         attempt_uuid = uuid.uuid4().hex
         spot_cid, perp_cid = _client_order_ids(attempt_uuid)
         task_type = task.get("task_type") or D.TASK_TYPE_OPEN
+        # 开单前自动设置合约杠杆（THE -2027 方案 B，Human 拍板）：live 开单任务
+        # 首个 attempt 发单前设置一次（每任务只设一次）。设置失败 fail-closed——
+        # 任务暂停（中文原因 + 错误详情落库）、不创建 attempt、不发单（避免在错误
+        # 杠杆下开仓，仓位风险不可控）。dry-run（executor 无 set_leverage）跳过。
+        if (
+            live
+            and task_type == D.TASK_TYPE_OPEN
+            and task.get("scheduled_attempt_count", 0) == 0
+        ):
+            lev_err = self._set_leverage_before_open(task, now_us)
+            if lev_err is not None:
+                self._pause_task_local(
+                    task, D.PAUSE_REASON_LEVERAGE_SET_FAILED,
+                    D.SIGNAL_LEVERAGE_SET_FAILED, now_us,
+                    kind="leverage_set_failed", pause_zh=lev_err,
+                )
+                return (
+                    self._store.get_task(task["id"]) or task,
+                    D.SIGNAL_LEVERAGE_SET_FAILED,
+                )
         actions = D.direction_to_leg_actions(
             task["direction"], position_side_mode or D.POS_MODE_BOTH,
             task_type=task_type,
@@ -2347,8 +2396,14 @@ class HedgeOpenTaskService:
         return self._store.get_task(task["id"]) or task, signal
 
     def _dispatch_simulated(self, attempt: dict, ctx: AttemptContext, now_us: int) -> None:
-        """Record/disabled path (no network POST): a synchronous simulated
-        outcome resolves both legs to a terminal verdict immediately."""
+        """Disabled path (no network POST): the default executor resolves the
+        attempt to ``ATTEMPT_DISABLED`` — zero I/O, zero simulated fills — so
+        every disabled attempt/leg row carries ``filled_qty=0``
+        (``cumulative_base_qty=0`` never enters the position aggregate,
+        ``store.py`` skips it). The dry-run record-transport fill simulator was
+        removed from production (2026-08-06 Human decision); only the test-only
+        record-transport fake (``backend/tests/fakes.py``) still simulates
+        fills, and it is never reachable at runtime."""
         try:
             outcome = self._executor.execute(ctx)
         except Exception as exc:

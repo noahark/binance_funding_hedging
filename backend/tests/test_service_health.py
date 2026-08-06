@@ -503,3 +503,24 @@ def test_build_restricted_asset_client_none_when_offline_or_no_key():
     assert _build_restricted_asset_client(offline_cfg) is None
     no_key_cfg = Config(offline=False, binance_hedge_api_key="", bind_port=0)
     assert _build_restricted_asset_client(no_key_cfg) is None
+
+
+# ---------------------------------------------------------------------------
+# B-4 (stage 2026-08-06): a disabled hedge executor must be unmistakable at
+# service build time. The THE dry-run pollution incident's direct cause was a
+# process started as disabled (no .env loaded) with nobody noticing.
+# ---------------------------------------------------------------------------
+def test_disabled_hedge_mode_warns_on_stderr(capsys, tmp_path):
+    from backend.app.server import _build_hedge_service
+
+    cfg = Config(
+        offline=False,
+        hedge_executor="disabled",
+        bind_port=0,
+        borrow_db_path=tmp_path / "borrow.sqlite3",
+    )
+    svc = _build_hedge_service(cfg)
+    assert svc.mode == "disabled"
+    captured = capsys.readouterr()
+    assert "对冲下单已禁用" in captured.err
+    assert "不会真实发单" in captured.err

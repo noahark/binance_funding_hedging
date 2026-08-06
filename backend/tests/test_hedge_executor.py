@@ -1,7 +1,7 @@
 """Executor seam + dry-run record-transport proofs (10-design §6 / §9 / ADR-5).
 
-Covers DisabledHedgeExecutor, the dry-run RecordTransportExecutor (the round-1
-default): the would-send signed-request param shape (no secrets), the simulated
+Covers DisabledHedgeExecutor and the test-only RecordTransportFake (moved to
+backend/tests/fakes.py in stage 2026-08-06): the would-send signed-request param shape (no secrets), the simulated
 outcomes and their injectable seeds, the grep/AST-level proof that the package
 uses no network or signing primitives, the runtime proof that a full scenario
 issues zero urllib calls, and the no-secret-leak proof.
@@ -19,8 +19,10 @@ from backend.hedge_open_tasks import domain as D
 from backend.hedge_open_tasks.executor import (
     AttemptContext,
     DisabledHedgeExecutor,
+)
+from backend.tests.fakes import (
     OutcomeSpec,
-    RecordTransportExecutor,
+    RecordTransportFake,
     _leg_qty_filters,
 )
 from backend.hedge_open_tasks.service import HedgeOpenTaskService
@@ -64,11 +66,11 @@ def test_disabled_executor_returns_execution_disabled_no_record():
 
 
 # ---------------------------------------------------------------------------
-# RecordTransportExecutor — default balanced outcome + param shape
+# RecordTransportFake — default balanced outcome + param shape
 # ---------------------------------------------------------------------------
 
 def test_record_transport_default_is_balanced_dual_leg_fill():
-    exe = RecordTransportExecutor()
+    exe = RecordTransportFake()
     out = exe.execute(_ctx())
     assert out.category == D.ATTEMPT_SUCCESS
     assert out.spot["status"] == D.LEG_FILLED
@@ -78,7 +80,7 @@ def test_record_transport_default_is_balanced_dual_leg_fill():
 
 
 def test_record_transport_spot_params_shape_forward():
-    exe = RecordTransportExecutor()
+    exe = RecordTransportFake()
     out = exe.execute(_ctx(direction=D.DIR_FORWARD))
     spot = out.record_payload["spot_order_params"]
     # A-4: the endpoint path and every internal field leave the signed body.
@@ -117,13 +119,13 @@ def test_record_transport_uses_resolved_bstock_spot_symbol():
             },
         },
     )
-    out = RecordTransportExecutor().execute(ctx)
+    out = RecordTransportFake().execute(ctx)
     assert out.record_payload["spot_order_params"]["symbol"] == "TSLABUSDT"
     assert out.record_payload["perp_order_params"]["symbol"] == "TSLAUSDT"
 
 
 def test_record_transport_perp_params_shape_reverse_hedge():
-    exe = RecordTransportExecutor()
+    exe = RecordTransportFake()
     out = exe.execute(_ctx(direction=D.DIR_REVERSE, position_side_mode="hedge"))
     perp = out.record_payload["perp_order_params"]
     # A-4: only the approved wire keys; the endpoint path is metadata on the
@@ -142,7 +144,7 @@ def test_record_transport_perp_params_shape_reverse_hedge():
 
 
 def test_record_transport_marks_posted_false_and_q_common():
-    exe = RecordTransportExecutor()
+    exe = RecordTransportFake()
     out = exe.execute(_ctx())
     assert out.record_payload["posted"] is False
     assert out.record_payload["q_common"] == "0.5"
@@ -153,7 +155,7 @@ def test_record_transport_marks_posted_false_and_q_common():
 def test_record_transport_unrounded_quantity_when_no_q_common():
     # Dry-run without a resolved preflight still records the would-send quantity
     # using single_amount as the unrounded estimate, flagged so it is visible.
-    exe = RecordTransportExecutor()
+    exe = RecordTransportFake()
     out = exe.execute(_ctx(q_common=None, single_amount="0.555"))
     assert out.record_payload["q_common"] is None
     assert out.record_payload["q_common_resolved"] is False
@@ -194,7 +196,7 @@ def test_client_order_id_derivation_within_cap_distinct_charset_unique():
 # ---------------------------------------------------------------------------
 
 def test_seed_spot_only_filled_is_single_leg_exposure():
-    exe = RecordTransportExecutor([OutcomeSpec.spot_only_filled()])
+    exe = RecordTransportFake([OutcomeSpec.spot_only_filled()])
     out = exe.execute(_ctx())
     assert out.category == D.ATTEMPT_SINGLE_LEG_EXPOSURE
     assert out.exposure is not None
@@ -205,7 +207,7 @@ def test_seed_spot_only_filled_is_single_leg_exposure():
 
 
 def test_seed_perp_only_filled_is_single_leg_exposure():
-    exe = RecordTransportExecutor([OutcomeSpec.perp_only_filled()])
+    exe = RecordTransportFake([OutcomeSpec.perp_only_filled()])
     out = exe.execute(_ctx())
     assert out.category == D.ATTEMPT_SINGLE_LEG_EXPOSURE
     assert out.exposure is not None
@@ -216,14 +218,14 @@ def test_seed_perp_only_filled_is_single_leg_exposure():
 
 
 def test_seed_both_failed_is_failed():
-    exe = RecordTransportExecutor([OutcomeSpec.both_failed()])
+    exe = RecordTransportFake([OutcomeSpec.both_failed()])
     out = exe.execute(_ctx())
     assert out.category == D.ATTEMPT_FAILED
     assert out.exposure is None
 
 
 def test_seed_qty_mismatch_is_success():
-    exe = RecordTransportExecutor([OutcomeSpec.qty_mismatch(Decimal("0.5"), Decimal("0.4"))])
+    exe = RecordTransportFake([OutcomeSpec.qty_mismatch(Decimal("0.5"), Decimal("0.4"))])
     out = exe.execute(_ctx())
     # fix-3 (DI-6): both legs FILLED -> success regardless of filled-qty mismatch.
     assert out.category == D.ATTEMPT_SUCCESS
@@ -232,7 +234,7 @@ def test_seed_qty_mismatch_is_success():
 
 
 def test_seeds_consumed_in_order_then_balanced():
-    exe = RecordTransportExecutor([OutcomeSpec.both_failed()])
+    exe = RecordTransportFake([OutcomeSpec.both_failed()])
     assert exe.execute(_ctx()).category == D.ATTEMPT_FAILED
     # subsequent attempts fall back to balanced.
     assert exe.execute(_ctx()).category == D.ATTEMPT_SUCCESS
@@ -282,7 +284,7 @@ def test_full_scenario_makes_zero_urllib_calls(tmp_path, monkeypatch):
 
     monkeypatch.setattr(urllib.request, "urlopen", boom)
     clock = _Clock(0)
-    exe = RecordTransportExecutor(
+    exe = RecordTransportFake(
         [OutcomeSpec.spot_only_filled(), OutcomeSpec.both_failed(), OutcomeSpec.balanced()]
     )
     svc = HedgeOpenTaskService(
@@ -307,9 +309,12 @@ def test_full_scenario_makes_zero_urllib_calls(tmp_path, monkeypatch):
     # reaching here proves no hedge-open path attempted a network call
 
 
-def test_service_default_executor_is_record_transport(tmp_path):
+def test_service_default_executor_is_disabled(tmp_path):
+    # B-1 (stage 2026-08-06): the production default executor is now
+    # DisabledHedgeExecutor — zero I/O, zero fills. The record-transport fill
+    # simulator moved to backend/tests/fakes.py (RecordTransportFake).
     svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"))
-    assert isinstance(svc.executor, RecordTransportExecutor)
+    assert isinstance(svc.executor, DisabledHedgeExecutor)
 
 
 # ---------------------------------------------------------------------------
@@ -327,7 +332,7 @@ def test_poisoned_env_secrets_never_leak(tmp_path, monkeypatch):
     clock = _Clock(0)
     svc = HedgeOpenTaskService(
         str(tmp_path / "ho.sqlite3"),
-        executor=RecordTransportExecutor(),
+        executor=RecordTransportFake(),
         mono_us=clock.mono_us,
         wall_us=clock.wall_us,
     )

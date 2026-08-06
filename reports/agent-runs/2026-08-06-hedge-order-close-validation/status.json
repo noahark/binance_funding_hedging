@@ -1,0 +1,16 @@
+{
+  "stage_id": "2026-08-06-hedge-order-close-validation",
+  "bookkeeper": "deepseek",
+  "current_task": {
+    "task_id": "2026-08-06-hedge-order-close-validation-transport-evidence-drop-dryrun",
+    "target_role": "Implementer",
+    "target_model": "deepseek",
+    "status": "dispatched",
+    "dispatch_path": "reports/agent-runs/2026-08-06-hedge-order-close-validation/03-transport-evidence-and-drop-dryrun.dispatch.md"
+  },
+  "status_revision": 3,
+  "base_sha": "f153cdc",
+  "ledger_sha": "f153cdc",
+  "delivery_sha": "pending",
+  "note": "Human 2026-08-06 指定 Bookkeeper=deepseek；开 stage：验证下单/平仓核心链路 + 修复小 bug（首个 SPOT_ONLY 路由修复与第二个杠杆修复均已 reported，待核验，改动在工作树未提交；03 由 claude-opus-5 取证+范围界定起草，含传输层异常证据保全 A + 移除 dry-run 假成交模式 B，B-3 破坏性清理 Human 已授权，执行前须备份并附前后对账）。"
+}

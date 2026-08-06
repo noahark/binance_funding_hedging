@@ -18,14 +18,21 @@ from decimal import Decimal
 import pytest
 
 from backend.hedge_open_tasks import domain as D
-from backend.hedge_open_tasks.executor import AttemptContext, AttemptOutcome, RecordTransportExecutor
+from backend.hedge_open_tasks.executor import AttemptContext, AttemptOutcome
+from backend.tests.fakes import RecordTransportFake
 from backend.hedge_open_tasks.service import HedgeOpenTaskService
 from backend.hedge_open_tasks.store import HedgeOpenStore
 from backend.services.live_hedge_executor import LiveHedgeExecutor
 
 
 def _svc(tmp_path):
-    return HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled")
+    # B-1 (stage 2026-08-06): the production default executor is disabled (zero
+    # fills); these open/close cycle scenarios need the simulated fills of the
+    # test-only record fake, injected explicitly.
+    return HedgeOpenTaskService(
+        str(tmp_path / "ho.sqlite3"), mode="disabled",
+        executor=RecordTransportFake(),
+    )
 
 
 def _outcome(attempt_id: str, qty: str = "0.5", price: str = "50000") -> AttemptOutcome:
@@ -195,7 +202,7 @@ def test_close_execution_reversed_reduceonly_and_finalize(tmp_path):
     row = logs[0]
     assert row["cycle_id"] == cycle["id"]
     assert row["close_reason"] == "auto_close"
-    # RecordTransportExecutor 模拟成交价恒 1（无价格注入），open/close 均价独立记录
+    # RecordTransportFake 模拟成交价恒 1（无价格注入），open/close 均价独立记录
     assert row["open_avg_price"] == "1" and row["open_qty"] == "0.5"   # open 腿成本基
     assert row["close_avg_price"] == "1"                                # close 腿加权（独立）
     assert row["spot_open_avg"] == "1" and row["spot_open_qty"] == "0.5"  # 现货买入（open 腿）
@@ -208,11 +215,11 @@ def test_close_execution_reversed_reduceonly_and_finalize(tmp_path):
 # 验收 5：完成判定（合约腿为准）
 # ---------------------------------------------------------------------------
 class _StubCloseVerifyExecutor:
-    """stub executor：实现 dispatch（RecordTransportExecutor 语义）+ 可编程
+    """stub executor：实现 dispatch（RecordTransportFake 语义）+ 可编程
     query_symbol_um_qty 返回（有仓/无仓/查失败）。"""
 
     def __init__(self, qty_result):
-        self._inner = RecordTransportExecutor()
+        self._inner = RecordTransportFake()
         self._qty_result = qty_result
 
     def execute(self, ctx: AttemptContext) -> AttemptOutcome:
@@ -540,12 +547,12 @@ def test_universal_transfer_error_carries_response_body():
 
 # ---- 验收 3：划转时序（一次性 + fail-closed） ----
 class _CloseSpotExecutor:
-    """可编程 close 现货流程 stub：dispatch（RecordTransportExecutor 语义）+
+    """可编程 close 现货流程 stub：dispatch（RecordTransportFake 语义）+
     query_spot_free + universal_transfer + query_symbol_um_qty。"""
 
     def __init__(self, spot_free=None, transfer_raise=None, recheck_free=None,
                  unified_free=None):
-        self._inner = RecordTransportExecutor()
+        self._inner = RecordTransportFake()
         self.spot_free = spot_free          # 初始普通账户余额
         self.recheck_free = recheck_free    # 划转后复检余额（None = 用 spot_free）
         self.transfer_raise = transfer_raise

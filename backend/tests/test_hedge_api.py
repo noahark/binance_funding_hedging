@@ -24,7 +24,7 @@ import pytest
 from backend.app.server import _Handler, build_server
 from backend.config import Config
 from backend.hedge_open_tasks import domain as D
-from backend.hedge_open_tasks.executor import OutcomeSpec, RecordTransportExecutor
+from backend.tests.fakes import OutcomeSpec, RecordTransportFake
 from backend.hedge_open_tasks.service import HedgeOpenTaskService
 from backend.ledger_flow.service import LedgerFlowService
 from backend.ledger_flow.store import LedgerStore
@@ -417,7 +417,9 @@ def test_action_on_unknown_task_is_unknown_task(tmp_path):
 # Task lifecycle + invalid_state (§3.4)
 # ===========================================================================
 def test_fill_once_advances_then_done_is_invalid_state(tmp_path):
-    with _server(_svc(tmp_path)) as (host, port):
+    # B-1: the fill scenario injects the test-only record fake explicitly (the
+    # production default executor is disabled / zero fills).
+    with _server(_svc(tmp_path, executor=RecordTransportFake())) as (host, port):
         tid = _create_task(host, port, _create_body(target_n=1))["id"]
         status, _, payload = _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-once")
         assert status == 200
@@ -437,7 +439,7 @@ def test_injected_single_leg_exposure_is_advisory(tmp_path):
     # leg="spot" with the spot leg's actual qty/price (dry-run placeholder price).
     # Advisory (breakdown §4.5): the exposure is recorded but the task is NOT
     # frozen and a further fill is still allowed.
-    exe = RecordTransportExecutor([OutcomeSpec.spot_only_filled()])
+    exe = RecordTransportFake([OutcomeSpec.spot_only_filled()])
     with _server(_svc(tmp_path, executor=exe)) as (host, port):
         tid = _create_task(host, port)["id"]
         status, _, payload = _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-once")
@@ -460,7 +462,7 @@ def test_injected_perp_only_exposure_http_shape(tmp_path):
     # §3.2 HTTP regression for the other single-leg direction: perp-only accepted
     # -> leg="perp" with the perp leg's actual qty/price, not the un-accepted spot
     # leg. Advisory: the task keeps running and accepts a further fill.
-    exe = RecordTransportExecutor([OutcomeSpec.perp_only_filled()])
+    exe = RecordTransportFake([OutcomeSpec.perp_only_filled()])
     with _server(_svc(tmp_path, executor=exe)) as (host, port):
         tid = _create_task(host, port)["id"]
         status, _, payload = _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-once")
@@ -536,7 +538,7 @@ def test_put_on_tasks_collection_is_method_not_allowed(tmp_path):
 # Logs: newest-first cursor pagination + record-transport payload (§3.6)
 # ===========================================================================
 def test_logs_pagination_and_record_transport_payload(tmp_path):
-    exe = RecordTransportExecutor()
+    exe = RecordTransportFake()
     with _server(_svc(tmp_path, executor=exe)) as (host, port):
         tid = _create_task(host, port, _create_body(target_n=3))["id"]
         status, _, _ = _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-all")
@@ -565,7 +567,7 @@ def test_logs_includes_additive_attempts_timeline(tmp_path):
     # attempt + both legs with the frozen §3.4 fields; the frontend extractor
     # (index.html extractHedgeAttempts) scans doc.attempts. legacy logs/cursor
     # still present.
-    exe = RecordTransportExecutor([OutcomeSpec.spot_only_filled()])
+    exe = RecordTransportFake([OutcomeSpec.spot_only_filled()])
     with _server(_svc(tmp_path, executor=exe)) as (host, port):
         tid = _create_task(host, port, _create_body(target_n=2))["id"]
         _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-once")
@@ -599,7 +601,7 @@ def test_logs_entries_pagination_params_threaded_through_http(tmp_path):
     # logs/next_cursor and are unaffected. The entries cursor never re-surfaces
     # an entry across pages (the R4 defect). An invalid entries_cursor is
     # rejected (fail-closed), not silently treated as page 1.
-    exe = RecordTransportExecutor()
+    exe = RecordTransportFake()
     with _server(_svc(tmp_path, executor=exe)) as (host, port):
         tid = _create_task(host, port, _create_body(target_n=3))["id"]
         _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-all")
@@ -669,7 +671,7 @@ def test_logs_entries_surfaces_order_state_unknown_manual_verification_event(tmp
 # Positions projection (§3.3)
 # ===========================================================================
 def test_positions_shape_after_fill(tmp_path):
-    exe = RecordTransportExecutor()
+    exe = RecordTransportFake()
     with _server(_svc(tmp_path, executor=exe)) as (host, port):
         tid = _create_task(host, port, _create_body(target_n=1))["id"]
         _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-all")
@@ -690,7 +692,7 @@ def test_full_scenario_makes_zero_urllib_calls(tmp_path, monkeypatch):
         raise AssertionError("urlopen must never be called on a hedge-open path")
 
     monkeypatch.setattr(urllib.request, "urlopen", boom)
-    exe = RecordTransportExecutor(
+    exe = RecordTransportFake(
         [OutcomeSpec.spot_only_filled(), OutcomeSpec.both_failed(), OutcomeSpec.balanced()]
     )
     with _server(_svc(tmp_path, executor=exe)) as (host, port):
@@ -805,7 +807,7 @@ def test_positions_stats_true_values_with_ledger(tmp_path):
         ],
     )
     ledger_svc = _make_ledger_svc(tmp_path, client, now_ms)
-    exe = RecordTransportExecutor()
+    exe = RecordTransportFake()
     clock = _Clock(t0_ms * 1000)  # 注入 wall_us：cycle_opened_at 固定在 t0
     try:
         _Handler.ledger_flow_service = ledger_svc
@@ -830,7 +832,7 @@ def test_positions_stats_true_values_with_ledger(tmp_path):
 
 def test_positions_stats_none_when_ledger_missing(tmp_path):
     """ledger 未注入 → 三列 None（前端「暂无」），不渲染真值。"""
-    exe = RecordTransportExecutor()
+    exe = RecordTransportFake()
     try:
         _Handler.ledger_flow_service = None
         with _server(_svc(tmp_path, executor=exe)) as (host, port):
@@ -849,7 +851,7 @@ def test_positions_stats_incomplete_when_coverage_missing(tmp_path):
     import time
     now_ms = int(time.time() * 1000)
     ledger_svc = _make_ledger_svc(tmp_path, _StubLedgerClientInterestFail(), now_ms)
-    exe = RecordTransportExecutor()
+    exe = RecordTransportFake()
     try:
         _Handler.ledger_flow_service = ledger_svc
         with _server(_svc(tmp_path, executor=exe)) as (host, port):
@@ -879,7 +881,7 @@ def test_positions_stats_closed_cycle_window_excludes_after_close(tmp_path):
         ],
     )
     ledger_svc = _make_ledger_svc(tmp_path, client, now_ms)
-    exe = RecordTransportExecutor()
+    exe = RecordTransportFake()
     clock = _Clock(t0_ms * 1000)
     try:
         _Handler.ledger_flow_service = ledger_svc

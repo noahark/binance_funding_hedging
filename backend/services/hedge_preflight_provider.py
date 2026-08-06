@@ -19,9 +19,9 @@ the implementation report's deviation note versus breakdown §4.3's literal
 ``urlopen`` (default ``urllib.request.urlopen``).
 
 Default-off: with no live client (or no credentials) :meth:`get_snapshot` returns
-``None``, which the service treats as the dry-run "no preflight data" case
+``None``, which the service treats as the disabled "no preflight data" case
 (:func:`domain.compute_preflight` then returns an unknown result so a task may
-still be created to exercise the record transport). In live mode the service
+still be created under the disabled executor). In live mode the service
 fails the pair closed when a snapshot cannot be assembled.
 
 Any partial read failure (a hedge-mode account, a missing step/filter, a failed
@@ -31,6 +31,7 @@ a live send is never authorized on incomplete facts.
 from __future__ import annotations
 
 import json
+import sys
 import urllib.error
 import urllib.request
 from decimal import Decimal, InvalidOperation
@@ -165,8 +166,9 @@ def _perp_leg_exists(status: Optional[int], body: object, coin: str) -> Optional
 class HedgePreflightProvider:
     """Read-only preflight data source for the live hedge-open path.
 
-    Returns ``None`` (dry-run) when no live client/credentials are configured, or
-    when any read fails or the account is not one-way (hedge mode fails closed).
+    Returns ``None`` (disabled mode) when no live client/credentials are
+    configured, or when any read fails or the account is not one-way (hedge mode
+    fails closed).
     """
 
     def __init__(
@@ -249,7 +251,7 @@ class HedgePreflightProvider:
 
     def _read_spot_leg(
         self, coin: str, perp_symbol: Optional[dict]
-    ) -> Optional[tuple[dict, bool, str, str]]:
+    ) -> Optional[tuple[dict, bool, str, str, bool]]:
         """Resolve the spot leg via the shared :func:`resolve_spot_leg` pure
         function — the SINGLE resolution rule shared with the display path
         (design §6.5 / interface §5, acceptance S8). Reads the exact + bStock
@@ -259,10 +261,14 @@ class HedgePreflightProvider:
         ``symbol_unavailable`` fact) from a read failure (``None`` -> fail-closed
         incomplete).
 
-        Returns ``(filters, tradable, symbol, base_asset)`` — ``base_asset`` is
-        the resolved spot record's ``baseAsset`` (``TSLAB`` for a bStock, never
-        the contract ``TSLA``), the input used by the collateral-cap membership
-        check. Returns ``None`` only when no candidate record could be read.
+        Returns ``(filters, tradable, symbol, base_asset, is_margin_trading_allowed)``
+        — ``base_asset`` is the resolved spot record's ``baseAsset`` (``TSLAB``
+        for a bStock, never the contract ``TSLA``), the input used by the
+        collateral-cap membership check; ``is_margin_trading_allowed`` is the
+        PUBLIC spot record's ``isMarginTradingAllowed``, read conservatively as
+        ``False`` when the field is missing or unreadable (an SPOT_ONLY symbol
+        must route to the regular spot endpoint — the safest default). Returns
+        ``None`` only when no candidate record could be read.
         """
         candidates = [coin]
         alias = _bstock_spot_alias(coin, perp_symbol)
@@ -288,6 +294,7 @@ class HedgePreflightProvider:
                 True,
                 spot.get("symbol", coin),
                 spot.get("baseAsset", ""),
+                bool(spot.get("isMarginTradingAllowed")),
             )
         if read_ok:
             # A record was read but none is tradable -> a fatal symbol_unavailable
@@ -300,6 +307,7 @@ class HedgePreflightProvider:
                 False,
                 non_tradable.get("symbol", coin),
                 non_tradable.get("baseAsset", ""),
+                bool(non_tradable.get("isMarginTradingAllowed")),
             )
         return None
 
@@ -428,6 +436,14 @@ class HedgePreflightProvider:
             or response.http_status >= 400
             or not isinstance(response.body, dict)
         ):
+            # 2026-08 诊断日志：THE SPOT_ONLY preflight 失败排查——普通现货账户读取失败
+            # 的具体原因（transport/http 状态），否则只记「预检数据不完整」无法定位。
+            print(
+                f"[PREFLIGHT] spot_account_usdt read failed: "
+                f"transport={response.transport_error} http={response.http_status} "
+                f"body_type={type(response.body).__name__}",
+                file=sys.stderr, flush=True,
+            )
             return None
         balances = response.body.get("balances")
         if not isinstance(balances, list):
@@ -469,7 +485,7 @@ class HedgePreflightProvider:
     ) -> Optional[D.PreflightSnapshot]:
         """Assemble a fresh preflight snapshot, or ``None`` on any gap.
 
-        ``None`` covers both the dry-run default (no live client) and a live read
+        ``None`` covers both the disabled default (no live client) and a live read
         that could not be fully assembled (a missing filter/step, a failed
         balance/position/rate-limit read, or an ambiguous one-way confirmation).
         The service never authorizes a live send on a ``None`` snapshot. A
@@ -485,7 +501,10 @@ class HedgePreflightProvider:
         funding (``reverse``) direction NEVER reads the list and never selects
         ``regular_spot`` — it keeps the existing PAPI path (decision §E-1). Any
         read failure on a needed fact fails the whole snapshot closed (never guess
-        a route from a missing read).
+        a route from a missing read). 仅现货标的（公开现货
+        ``isMarginTradingAllowed=False``）在 forward 开仓时被 provider 前置强制为
+        ``regular_spot``（普通现货端点），绝不发到全仓杠杆（THE 51023 根因修复）；
+        该强制发生在 decide_spot_route 之前，不改其既有规则。
         """
         if self._client is None or not self._client.credentials_present:
             return None
@@ -510,7 +529,7 @@ class HedgePreflightProvider:
             or rate_limit is None
         ):
             return None
-        spot_filters, spot_tradable, spot_symbol, spot_base_asset = spot
+        spot_filters, spot_tradable, spot_symbol, spot_base_asset, spot_margin_allowed = spot
         perp_filters, perp_tradable, perp_symbol_dict = perp
         contract_type = (
             perp_symbol_dict.get("contractType", "")
@@ -537,10 +556,23 @@ class HedgePreflightProvider:
             cap_exceeded = self._read_collateral_cap_hit(spot_base_asset)
             if cap_exceeded is None:
                 return None
-        spot_route, spot_route_reason = D.decide_spot_route(
-            route_dir, contract_type, spot_base_asset, cap_exceeded,
-            task_type=task_type,
-        )
+        if (
+            not spot_margin_allowed
+            and direction == D.DIR_FORWARD
+            and task_type != D.TASK_TYPE_CLOSE
+        ):
+            # 仅现货（SPOT_ONLY，公开现货 isMarginTradingAllowed=False）前置强制：
+            # 现货腿必须走普通现货端点 /api/v3/order，不得发到全仓杠杆（THE 51023 根因）。
+            # 这是 provider 层在 decide_spot_route 之前的前置强制，不改其既有规则——
+            # MARGIN_SPOT/正常标的行为逐字不变；close 路径不经此分支（close+forward
+            # 已固定 regular_spot、close+reverse 固定 papi_margin，均走 decide 规则）。
+            spot_route = D.SPOT_ROUTE_REGULAR_SPOT
+            spot_route_reason = D.ROUTE_REASON_SPOT_ONLY_REGULAR
+        else:
+            spot_route, spot_route_reason = D.decide_spot_route(
+                route_dir, contract_type, spot_base_asset, cap_exceeded,
+                task_type=task_type,
+            )
         if spot_route == D.SPOT_ROUTE_REGULAR_SPOT:
             spot_account_usdt = self._read_spot_account_usdt()
             spot_rate_limit = self._read_spot_rate_limit_order()
@@ -567,7 +599,7 @@ class HedgePreflightProvider:
         """Three-state existence probe for a coin's spot + UM legs (S4b / ADR-H5).
 
         Public-only (unsigned); the probe works without credentials and is safe
-        to call from the dry-run record transport as well as the live path.
+        to call from the disabled path as well as the live path.
         Returns ``{"spot": True|False|None, "perp": True|False|None}`` where
         ``True`` = confirmed present, ``False`` = confirmed absent (spot -1121 or
         perp not in the full exchangeInfo list), and ``None`` = indeterminate (a

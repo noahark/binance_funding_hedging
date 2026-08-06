@@ -1,0 +1,54 @@
+{
+  "mode": "applied（已写库）",
+  "db": "/Users/ark/Desktop/ai code/funding_hedging/data/hedge-open-tasks.sqlite3",
+  "backup": "/Users/ark/Desktop/ai code/funding_hedging/data/hedge-open-tasks.sqlite3.bak-dryclean-20260806-182416",
+  "before": {
+    "counts": {
+      "dry_legs": 4,
+      "task_attempts": 2,
+      "task_raw": 0,
+      "task_logs": 3,
+      "task": 1,
+      "attempt_6_7_legs": 4,
+      "attempt_6_7_raw": 7
+    },
+    "positions": {
+      "coin": "THEUSDT",
+      "direction": "forward",
+      "spot_qty": "800",
+      "perp_qty": "600",
+      "position_qty": "-600"
+    }
+  },
+  "after": {
+    "counts": {
+      "dry_legs": 0,
+      "task_attempts": 0,
+      "task_raw": 0,
+      "task_logs": 3,
+      "task": 1,
+      "attempt_6_7_legs": 4,
+      "attempt_6_7_raw": 7
+    },
+    "positions": {
+      "coin": "THEUSDT",
+      "direction": "forward",
+      "spot_qty": "400",
+      "perp_qty": "200",
+      "position_qty": "-200"
+    }
+  },
+  "verification": [],
+  "deleted_rows": {
+    "legs": 4,
+    "attempts": 2,
+    "task_updates": 1
+  },
+  "task_after": {
+    "id": "e22ce275-bdc1-4302-998c-c50acdaa8161",
+    "status": "deleted",
+    "success_count": 0,
+    "scheduled_attempt_count": 0,
+    "accepted_pair_count": 0
+  }
+}

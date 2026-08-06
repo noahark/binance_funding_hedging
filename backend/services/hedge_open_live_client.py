@@ -67,6 +67,7 @@ attempt/leg vocabulary lives in :mod:`live_hedge_executor`.
 from __future__ import annotations
 
 import json
+import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -102,6 +103,10 @@ ALLOWLIST: Dict[tuple, str] = {
     ("GET", "/api/v3/order"): "https://api.binance.com",
     ("GET", "/api/v3/account"): "https://api.binance.com",
     ("GET", "/api/v3/rateLimit/order"): "https://api.binance.com",
+    # 开单前自动设置合约杠杆（THE -2027 方案 B，Human 2026-08）：POST /papi/v1/um/leverage
+    # （fapi 域名；weight 1，写语义与订单一致——超时/5xx 不重试）。参数冻结
+    # symbol + leverage，签名 POST。
+    ("POST", "/papi/v1/um/leverage"): "https://papi.binance.com",
 }
 
 # Order-write transport timeout (mirror borrow client §5.1). Module-level, NOT
@@ -126,6 +131,11 @@ RESTRICTED_ASSET_PATH = "/sapi/v1/margin/restricted-asset"
 SPOT_ORDER_PATH = "/api/v3/order"
 SPOT_ACCOUNT_PATH = "/api/v3/account"
 UNIVERSAL_TRANSFER_PATH = "/sapi/v1/asset/transfer"
+# 开单前自动设置合约杠杆（THE -2027 方案 B）：/papi/v1/um/leverage（PAPI 域名——统一账户 PM
+# 的 UM 合约杠杆端点，与下单 /papi/v1/um/order 同域同权限；原 /fapi/v1/leverage 是独立合约
+# 账户端点，PM 账户调用 401 -2015，2026-08 修正。白名单
+# 硬绑定，配置不可覆盖）。
+LEVERAGE_PATH = "/papi/v1/um/leverage"
 # 万向划转 type 冻结枚举（平仓现货卖出重设计）：统一账户 → 普通现货账户
 # （forward close 补足现货）/ 普通现货账户 → 统一账户（USDT 回流）。仅此两个。
 TRANSFER_TYPE_PM_MAIN = "PORTFOLIO_MARGIN_MAIN"
@@ -163,6 +173,34 @@ def _parse_retry_after(header_value: Optional[str]) -> Optional[int]:
         return int(text)
     except (TypeError, ValueError):
         return None
+
+
+def _transport_error_text(category: str, exc: BaseException) -> str:
+    """Sanitized transport-error detail: ``"<category>:<ExcType>: <message>"``.
+
+    Stage 2026-08-06 (THE single-leg incident): a transport-layer failure must
+    keep its exception type AND message so a later read can tell connection
+    refused / reset / TLS / DNS / proxy-drop apart — a bare category word is no
+    longer enough. Constraints (dispatch A-1):
+
+    * the category word stays the FIRST token (``timeout`` / ``connection_error``
+      / ``<ExcType>``) so existing ``transport_error is not None`` semantics and
+      prefix checks are unchanged;
+    * only ``type(exc).__name__`` and ``str(exc)`` are taken — never the request
+      URL, credentials, or signature. ``URLError.reason`` is preferred over
+      ``str(exc)`` (it is the underlying cause);
+    * if the message could carry a URL/query (contains ``http`` or ``?``) only
+      the exception type name is kept — a signature/API-key leak costs more than
+      the diagnostic value;
+    * total length capped at 200 chars (universal_transfer body-truncation
+      precedent).
+    """
+    detail = type(exc).__name__
+    reason = getattr(exc, "reason", None)
+    message = str(reason) if reason is not None else str(exc)
+    if not message or "http" in message.lower() or "?" in message:
+        return f"{category}:{detail}"
+    return f"{category}:{detail}: {message}"[:200]
 
 
 class HedgeOpenLiveClient:
@@ -209,13 +247,19 @@ class HedgeOpenLiveClient:
             status = exc.code
             retry_after = _parse_retry_after(exc.headers.get("Retry-After"))
             transport_error = None
-        except TimeoutError:
-            return HedgeHttpResponse(None, None, "", "timeout", None)
+        except TimeoutError as exc:
+            return HedgeHttpResponse(
+                None, None, "", _transport_error_text("timeout", exc), None,
+            )
         except urllib.error.URLError as exc:
             # connection loss / DNS / refused — no HTTP response was received
-            return HedgeHttpResponse(None, None, "", "connection_error", None)
+            return HedgeHttpResponse(
+                None, None, "", _transport_error_text("connection_error", exc), None,
+            )
         except Exception as exc:  # any other transport-level failure
-            return HedgeHttpResponse(None, None, "", type(exc).__name__, None)
+            return HedgeHttpResponse(
+                None, None, "", _transport_error_text(type(exc).__name__, exc), None,
+            )
         body = None
         if raw:
             try:
@@ -244,7 +288,18 @@ class HedgeOpenLiveClient:
                 "Content-Type": "application/x-www-form-urlencoded",
             },
         )
-        return self._send(req)
+        resp = self._send(req)
+        # 2026-08 诊断日志：杠杆设置失败排查（-2015 权限 vs 端点不匹配）——
+        # 打印实际请求的端点/参数/响应，服务终端可见。
+        if path == LEVERAGE_PATH:
+            body_snip = str(resp.body)[:200] if resp.body is not None else None
+            print(
+                f"[SET_LEVERAGE] POST {path} params={params} "
+                f"transport={resp.transport_error} http={resp.http_status} "
+                f"body={body_snip}",
+                file=sys.stderr, flush=True,
+            )
+        return resp
 
     def _get_signed(self, path: str, params: Dict[str, str], timestamp_ms: int,
                     recv_window_ms: Optional[int]) -> HedgeHttpResponse:
@@ -432,6 +487,24 @@ class HedgeOpenLiveClient:
         return self._post_signed(
             UNIVERSAL_TRANSFER_PATH,
             {"type": type_, "asset": asset, "amount": str(amount)},
+            timestamp_ms,
+            recv_window_ms,
+        )
+
+    def set_leverage(
+        self, symbol: str, leverage: int, *,
+        timestamp_ms: int, recv_window_ms: Optional[int] = None,
+    ) -> HedgeHttpResponse:
+        """POST /papi/v1/um/leverage — 统一账户（PM）开单前设置该合约 symbol 的杠杆
+        （THE -2027 方案 B；PM 账户必须用 PAPI 端点，2026-08 修正）。
+
+        ``symbol``/``leverage`` 由 service 内部计算传入（杠杆冻结为
+        ``domain.OPEN_LEVERAGE``）。One-shot：超时/5xx 不重试（写语义与订单一致），
+        由调用方 fail-closed 处理。返回原始响应，成功/失败判定在 executor 层。
+        """
+        return self._post_signed(
+            LEVERAGE_PATH,
+            {"symbol": symbol, "leverage": str(int(leverage))},
             timestamp_ms,
             recv_window_ms,
         )

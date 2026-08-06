@@ -20,8 +20,6 @@ from .executor import (
     AttemptOutcome,
     DisabledHedgeExecutor,
     HedgeExecutor,
-    OutcomeSpec,
-    RecordTransportExecutor,
 )
 from .scheduler import HedgeOpenScheduler
 from .service import (
@@ -41,7 +39,5 @@ __all__ = [
     "HedgeOpenScheduler",
     "HedgeOpenStore",
     "HedgeOpenTaskService",
-    "OutcomeSpec",
     "PreflightProvider",
-    "RecordTransportExecutor",
 ]

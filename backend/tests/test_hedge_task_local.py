@@ -160,6 +160,10 @@ class _LiveWireClient:
     def query_um_order(self, symbol, cid, *, timestamp_ms, recv_window_ms=None):
         return self._perp_query
 
+    def set_leverage(self, symbol, leverage, *, timestamp_ms, recv_window_ms=None):
+        # 开单前设置杠杆（THE -2027 方案 B）：wire fake 模拟成功（200 + leverage 字段）。
+        return _wire_resp(200, {"symbol": symbol, "leverage": leverage})
+
 
 def _leg(state, *, name="spot", order_id=None, status=None, executed="0",
          quote="0", avg=None, rate_limited=False, error_code=None,
@@ -2182,10 +2186,10 @@ def test_r7_live_worker_active_tri_state_and_exit_reason(tmp_path):
 # R8 — in dry-run (record / disabled) the worker concept does not apply, so
 # worker_active is None — never the misleading False.
 def test_r8_dry_run_worker_active_is_none_not_false(tmp_path):
-    from backend.hedge_open_tasks.executor import RecordTransportExecutor
+    from backend.tests.fakes import RecordTransportFake
     svc = HedgeOpenTaskService(
         str(tmp_path / "dry.sqlite3"),
-        executor=RecordTransportExecutor(),
+        executor=RecordTransportFake(),
         preflight_provider=_FakeProvider(None),
         mode="disabled",
         credentials_present=False,

@@ -988,6 +988,15 @@ def _build_hedge_service(config: Config) -> HedgeOpenTaskService:
     mode = config.hedge_executor
     db_path = config.borrow_db_path.parent / "hedge-open-tasks.sqlite3"
     if mode != "live":
+        # B-4 (stage 2026-08-06): THE dry-run pollution incident's direct cause
+        # was a process started as disabled without anyone noticing. Make the
+        # disabled state unmistakable on the service terminal at startup.
+        print(
+            "!!! [HEDGE-OPEN] 对冲下单已禁用（APP_HEDGE_EXECUTOR=disabled）："
+            "任何任务不会真实发单，也不会产生成交记录。"
+            "如需实盘开单，请用 scripts/run-server.sh 加载 .env 并以 live 模式启动。",
+            file=sys.stderr, flush=True,
+        )
         return HedgeOpenTaskService(str(db_path), mode=mode)
     from ..services.hedge_open_live_client import HedgeOpenLiveClient
     from ..services.hedge_preflight_provider import HedgePreflightProvider

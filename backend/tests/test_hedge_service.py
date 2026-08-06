@@ -22,9 +22,8 @@ from backend.hedge_open_tasks import domain as D
 from backend.hedge_open_tasks.executor import (
     AttemptOutcome,
     DisabledHedgeExecutor,
-    OutcomeSpec,
-    RecordTransportExecutor,
 )
+from backend.tests.fakes import OutcomeSpec, RecordTransportFake
 from backend.hedge_open_tasks.service import (
     HedgeOpenTaskService,
     PreflightProvider,
@@ -112,7 +111,7 @@ def test_create_with_preflight_resolves_q_common(tmp_path):
 
 
 def test_service_records_resolved_bstock_spot_symbol(tmp_path):
-    executor = RecordTransportExecutor()
+    executor = RecordTransportFake()
     preflight = _StubPreflight(
         _snapshot(
             {"USDT": Decimal("100000")},
@@ -260,13 +259,16 @@ def test_pause_start_delete_transitions(tmp_path):
 
 
 def test_fill_once_advances_success(tmp_path):
-    svc = _svc(tmp_path)
+    # B-1: the production default executor is disabled (zero fills); the
+    # simulated-fill scenario injects the test-only fake explicitly.
+    svc = _svc(tmp_path, executor=RecordTransportFake())
     _, doc = svc.create_task(_create_body(target_n=2))
     assert svc.post_fill_once(doc["id"])[1]["success_count"] == 1
 
 
 def test_fill_all_runs_to_done(tmp_path):
-    svc = _svc(tmp_path)
+    # B-1: same as above — the fill scenario needs the injected record fake.
+    svc = _svc(tmp_path, executor=RecordTransportFake())
     _, doc = svc.create_task(_create_body(target_n=3))
     out = svc.post_fill_all(doc["id"])[1]
     assert out["success_count"] == 3
@@ -282,7 +284,7 @@ def test_fill_all_runs_to_done(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_injected_single_leg_exposure_is_advisory(tmp_path):
-    exe = RecordTransportExecutor([OutcomeSpec.spot_only_filled()])
+    exe = RecordTransportFake([OutcomeSpec.spot_only_filled()])
     svc = _svc(tmp_path, executor=exe)
     _, doc = svc.create_task(_create_body(target_n=3))
     out = svc.post_fill_once(doc["id"])[1]
@@ -304,7 +306,7 @@ def test_injected_single_leg_exposure_is_advisory(tmp_path):
 
 
 def test_injected_failures_pause_at_threshold(tmp_path):
-    exe = RecordTransportExecutor([OutcomeSpec.both_failed()] * 4)
+    exe = RecordTransportFake([OutcomeSpec.both_failed()] * 4)
     svc = _svc(tmp_path, executor=exe)
     _, doc = svc.create_task(_create_body(target_n=5))
     out = svc.post_fill_all(doc["id"])[1]
@@ -322,7 +324,9 @@ def test_injected_failures_pause_at_threshold(tmp_path):
 
 def test_tick_respects_start_gate(tmp_path):
     clock = _Clock(0)
-    svc = _svc(tmp_path, clock=clock)
+    # B-1: the tick-to-done scenario needs the injected record fake (the
+    # production default executor is disabled / zero fills).
+    svc = _svc(tmp_path, clock=clock, executor=RecordTransportFake())
     svc.create_task(_create_body(target_n=1))
     assert svc.tick() is False  # start gate off -> no dispatch
     svc.set_start_gate(True)
@@ -405,14 +409,15 @@ def test_floor_display_matches_effective_value(tmp_path):
 # Default-off posture: a real POST requires an injected live executor
 # ---------------------------------------------------------------------------
 
-def test_live_mode_without_injected_executor_still_record_transport(tmp_path):
+def test_live_mode_without_injected_executor_still_disabled(tmp_path):
     # ``mode="live"`` alone (no live executor injected by the caller) keeps the
-    # default dry-run record transport: a real POST is unreachable until the
-    # server injects a LiveHedgeExecutor under APP_HEDGE_EXECUTOR=live.
+    # default disabled executor (zero I/O, zero fills): a real POST is
+    # unreachable until the server injects a LiveHedgeExecutor under
+    # APP_HEDGE_EXECUTOR=live.
     svc = _svc(tmp_path, mode="live")
     assert svc.is_live_mode is True
     assert svc._live_dispatch_capable() is False  # no dispatch() on the executor
-    assert isinstance(svc.executor, RecordTransportExecutor)
+    assert isinstance(svc.executor, DisabledHedgeExecutor)
 
 
 def test_disabled_executor_is_injectable_and_records_no_fill(tmp_path):
@@ -436,7 +441,7 @@ def test_get_logs_includes_attempts_projection_for_record_fill(tmp_path):
     # The logs read endpoint carries a first-class additive `attempts` array
     # projecting the durable attempt + both legs (breakdown §3.4), alongside
     # the unchanged legacy logs/cursor.
-    exe = RecordTransportExecutor()
+    exe = RecordTransportFake()
     svc = _svc(tmp_path, executor=exe)
     _, doc = svc.create_task(_create_body(target_n=1))
     svc.post_fill_once(doc["id"])
@@ -501,7 +506,7 @@ def test_get_logs_attempts_residual_is_signed_decimal_no_float(tmp_path):
     # residual = spot_base - perp_base as a decimal string. A single-leg spot
     # fill (perp rejected, 0 base) leaves a non-zero residual; it must be a
     # string, never a float, and the pair_outcome is the advisory single_leg.
-    exe = RecordTransportExecutor([OutcomeSpec.spot_only_filled()])
+    exe = RecordTransportFake([OutcomeSpec.spot_only_filled()])
     svc = _svc(tmp_path, executor=exe)
     _, doc = svc.create_task(_create_body(target_n=2))
     svc.post_fill_once(doc["id"])
@@ -828,7 +833,7 @@ def test_get_logs_task_id_returns_all_attempts_unpaged(tmp_path):
     # bounded by the default page size (50), not mixed with the entries cursor,
     # and scoped to just that task. Without task_id the legacy contract is
     # unchanged (newest LIMIT_DEFAULT page). Read path only — no state machine.
-    exe = RecordTransportExecutor()  # balanced accepted_pair fills
+    exe = RecordTransportFake()  # balanced accepted_pair fills
     svc = _svc(tmp_path, executor=exe)
     _, t1 = svc.create_task(_create_body(target_n=60))
     _, t2 = svc.create_task(_create_body(target_n=60))

@@ -35,6 +35,7 @@ never imports it (the AST purity guard enforces that).
 from __future__ import annotations
 
 import json
+import sys
 import threading
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
@@ -47,7 +48,11 @@ from ..hedge_open_tasks.executor import (
     build_perp_order_params,
     build_spot_order_params,
 )
-from .hedge_open_live_client import HedgeHttpResponse, HedgeOpenLiveClient
+from .hedge_open_live_client import (
+    HedgeHttpResponse,
+    HedgeOpenLiveClient,
+    _transport_error_text,
+)
 
 # Per-leg POST verdict. These alias the domain LEG_* dispatch-state vocabulary so
 # the service (which cannot import this services-layer module) matches on domain
@@ -698,6 +703,32 @@ class LiveHedgeExecutor:
             raise RuntimeError(f"universal_transfer missing tranId body={str(resp.body)[:200]}")
         return str(tran_id)
 
+    def set_leverage(self, symbol: str, leverage: int) -> None:
+        """开单前设置合约 symbol 的杠杆（THE -2027 方案 B，Human 拍板）。
+
+        写语义与订单一致：超时/5xx 不重试；非 200 或 body 含业务错误 → 抛错（**带
+        交易所响应详情**，便于任务卡日志定位，如 -2027 档位拒绝），调用方 fail-closed
+        处理（任务暂停、不创建 attempt、不发单）。成功无返回值。
+        """
+        resp = self._client.set_leverage(
+            symbol, leverage, timestamp_ms=self._now_ms(),
+        )
+        if resp is None or resp.http_status != 200:
+            body_snip = ""
+            if resp is not None and resp.body:
+                body_snip = str(resp.body)[:200]
+            raise RuntimeError(
+                f"set_leverage http={getattr(resp, 'http_status', None)} body={body_snip}"
+            )
+        try:
+            doc = json.loads(resp.body) if isinstance(resp.body, (str, bytes)) else resp.body
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError("set_leverage unparseable response") from exc
+        if not isinstance(doc, dict):
+            raise RuntimeError(f"set_leverage unexpected body={str(resp.body)[:200]}")
+        if "leverage" not in doc:
+            raise RuntimeError(f"set_leverage missing leverage field body={str(resp.body)[:200]}")
+
     def _send_one_leg(
         self, leg: str, params: dict, symbol: str, client_order_id: str,
         spot_route: str,
@@ -874,6 +905,11 @@ class LiveHedgeExecutor:
                 outcomes[leg] = self._send_one_leg(leg, params, symbol, cid, spot_route)
             except Exception as exc:  # containment: a leg send failure is queryable, not fatal
                 errors[leg] = exc
+                print(
+                    f"[HEDGE_LEG] {leg} send raised: "
+                    f"{_transport_error_text('leg_send_exception', exc)}",
+                    file=sys.stderr, flush=True,
+                )
 
         threads = [
             threading.Thread(target=_run, args=("spot", spot_params, spot_cid), name="hgo-leg-spot"),
@@ -930,7 +966,26 @@ class LiveHedgeExecutor:
 
 
 def _error_leg(leg: str, exc: Optional[BaseException]) -> LegDispatch:
-    """A leg whose send/thread raised maps to UNKNOWN_QUERYING (query, not fail)."""
+    """A leg whose send/thread raised maps to UNKNOWN_QUERYING (query, not fail).
+
+    Stage 2026-08-06 (A-2, GLM crosscheck): the exception is no longer dropped.
+    Its type + message (sanitized under the same rules as the live client's
+    ``_send``) are persisted as a raw-response row under the
+    ``leg_send_exception`` category, so this path leaves evidence instead of a
+    silent blank in ``hedge_open_raw_response``. Control flow is unchanged: the
+    leg stays ``LEG_UNKNOWN_QUERYING`` — queried by client id, never resent
+    (ADR-2).
+    """
+    transport_error = "leg_send_exception:unknown"
+    if exc is not None:
+        transport_error = _transport_error_text("leg_send_exception", exc)
+    raw = {
+        "http_status": None,
+        "transport_error": transport_error,
+        "code": None,
+        "msg": None,
+        "body": "",
+    }
     return LegDispatch(
         leg=leg,
         dispatch_state=LEG_UNKNOWN_QUERYING,
@@ -940,4 +995,5 @@ def _error_leg(leg: str, exc: Optional[BaseException]) -> LegDispatch:
         cumulative_quote=None,
         avg_price=None,
         rate_limited=False,
+        raw_response=raw,
     )
