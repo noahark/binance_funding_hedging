@@ -5,6 +5,20 @@ check.
 
 ## Current Status (2026-08-06)
 
+- **stage `2026-08-06-hedge-order-close-validation` 修复链闭环（评审 ACCEPT，Human 决定不回审）**：
+  下单与平仓链路经 Human **实盘显示验收通过**（2026-08-06：THE forward close 200×2 不再误拦、
+  平仓收尾实时判定、建卡/preflight 缓存提速、live 发单正常）。修复链
+  `ee7ec4f..83c0b8a`：task 05 preflight 本地缓存+平仓简化+预检失败可见暂停（e4d5464）、
+  task 06 close+forward 余额读普通现货账户（5388938，THE 600 不再误报可用 0）、
+  task 07 视图滚动定位（3006db3）、HTML 多余 `</section>` 删除（10f1f01，f153cdc 残留致
+  history-view 被浏览器移出 main——历史仓位表单落页面底部的真正根因）、F-1 徽标 class 互斥
+  + 措辞 dry-run→已禁用（83c0b8a）。review-1（opus5）对四个交付 REWORK 仅 F-1 一条
+  （dry-run 徽标警示色被 muted 覆盖），修复方案即 opus5 所提方案 a；**Human 决定修复后
+  不回审、不安排 review-2，以显示验收为准**；`rework_count` 2。
+  不阻塞后续项：N-2（`_close_transfer_done` 只写不清）、N-3（settings 重复渲染）、
+  N-4（monotonic 跨进程演进风险）；第三态「live 但凭证为空」（`live_hedge_executor.py:743`
+  腿状态未知但徽标显示 live）为独立待决项。服务当前运行中（前端静态文件实时读盘，
+  刷新即生效，无需重启）。
 - **持仓周期三功能 + 平仓执行：全部开发完成，Human 验收通过，sonnet5 综合评审 ACCEPT**
   （review-1+review-2 合一；首轮 REWORK 1 处真实 P0 → 修复 + live 回归测试 → 复评 ACCEPT）。
   提交：`97ecb7f`（工作树后续改动见 git status）。

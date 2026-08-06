@@ -5,17 +5,17 @@
     "task_id": "2026-08-06-hedge-order-close-validation-badge-fix",
     "target_role": "Implementer",
     "target_model": "deepseek",
-    "status": "dispatched",
+    "status": "verified",
     "dispatch_path": "reports/agent-runs/2026-08-06-hedge-order-close-validation/09-badge-fix.dispatch.md"
   },
-  "status_revision": 13,
+  "status_revision": 14,
   "base_sha": "10f1f01",
-  "ledger_sha": "10f1f01",
-  "delivery_sha": "pending",
+  "ledger_sha": "83c0b8a",
+  "delivery_sha": "83c0b8a",
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-task"
+    "action": "final-visual-accept"
   },
   "rework_count": 2,
-  "note": "Human 2026-08-06 指定 Bookkeeper=deepseek；开 stage：验证下单/平仓核心链路 + 修复小 bug。任务 01/02/03 封存 ee7ec4f（review-1 ACCEPT）。修复链四交付 ee7ec4f..10f1f01 经 review-1（opus5）评审：task 05/06/07 + HTML 标签修复全通过（1467 passed + self-check 全绿，Bookkeeper 与评审者双重复核），唯一阻塞 F-1：dry-run 徽标警示色被 muted 覆盖（frontend/index.html:1449 带 muted、:4508 只加 warn 不移除、CSS .badge.muted:266 后声明胜出）——证据已独立复核属实。现派发修复任务 09（bounded repair，deepseek，revision 13，base 10f1f01）：一行 class 互斥 + self-check 防回归断言 + N-1 顺带；rework_count 1→2（review-1 REWORK 修复轮）。N-2/N-3/N-4 为不阻塞后续项。修复后回 review-1 复审或 Human 行使已知风险暂不修授权。"
+  "note": "Human 2026-08-06 指定 Bookkeeper=deepseek；开 stage：验证下单/平仓核心链路 + 修复小 bug。任务 01/02/03 封存 ee7ec4f（review-1 ACCEPT）。修复链 ee7ec4f..10f1f01 经 review-1（opus5）REWORK（唯一阻塞 F-1：dry-run 徽标警示色被 muted 覆盖）。F-1 修复由 Bookkeeper 直接执行（Human 决定不派发外部终端）：frontend/index.html class 互斥（disabled→warn 无 muted、live→muted 无 warn）+ 措辞 dry-run→已禁用 + N-1 配色重置；self-check 全绿含防回归断言、后端 37 passed 抽查。交付 83c0b8a。评审闭环：opus5 确认 F-1 修完即 ACCEPT，Human 决定不回审、以显示验收为准；【下单与平仓已 Human 显示验收通过（2026-08-06）】；Human 决定不安排 review-2。后续项不阻塞：N-2/N-3/N-4；第三态「live 凭证为空」为独立待决项。rework_count 2（review-1 REWORK 修复轮）。"
 }
