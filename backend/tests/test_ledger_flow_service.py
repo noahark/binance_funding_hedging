@@ -394,3 +394,88 @@ def test_trigger_refresh_error_response_has_no_binance_body(tmp_path):
     blob = str(payload)
     assert "sensitive-upstream-detail" not in blob
     assert payload["interest_error"] == "interest_history_failed"
+
+
+# --------------------------------------------------------------------------- #
+# 持仓周期汇总（功能二，stage3 §3.1）：sum_funding_by_symbol / sum_interest_by_asset
+# / coverage_for_window —— 纯读汇总，不触发拉取
+# --------------------------------------------------------------------------- #
+def test_sum_funding_by_symbol_filters_window_type_symbol(tmp_path):
+    client = StubClient()
+    client.income_pages = [[
+        {"symbol": "MUUSDT", "incomeType": "FUNDING_FEE", "income": "0.1",
+         "asset": "USDT", "info": "FUNDING_FEE", "time": NOW - 2000, "tranId": 1, "tradeId": ""},
+        {"symbol": "MUUSDT", "incomeType": "FUNDING_FEE", "income": "0.2",
+         "asset": "USDT", "info": "FUNDING_FEE", "time": NOW - 1000, "tranId": 2, "tradeId": ""},
+        {"symbol": "MUUSDT", "incomeType": "COMMISSION", "income": "5",
+         "asset": "USDT", "info": "COMMISSION", "time": NOW - 1000, "tranId": 3, "tradeId": ""},
+        {"symbol": "OTHERUSDT", "incomeType": "FUNDING_FEE", "income": "9",
+         "asset": "USDT", "info": "FUNDING_FEE", "time": NOW - 1000, "tranId": 4, "tradeId": ""},
+        {"symbol": "MUUSDT", "incomeType": "FUNDING_FEE", "income": "7",
+         "asset": "USDT", "info": "FUNDING_FEE", "time": NOW - 30000, "tranId": 5, "tradeId": ""},
+    ]]
+    client.interest_pages = [{"total": 0, "rows": []}]
+    svc = _svc(tmp_path, client)
+    svc.run_once("backfill")  # 30 天窗口全落库；coverage 建立
+    # 窗口 [NOW-2000, NOW-1000]：MUUSDT FUNDING_FEE = 0.1+0.2 = 0.3
+    # （COMMISSION 类型、OTHERUSDT symbol、窗口外 NOW-30000 行均排除）
+    assert svc.sum_funding_by_symbol("MUUSDT", NOW - 2000, NOW - 1000) == "0.3"
+    assert svc.sum_funding_by_symbol("OTHERUSDT", NOW - 2000, NOW - 1000) == "9"
+    assert svc.sum_funding_by_symbol("NOPEUSDT", NOW - 2000, NOW - 1000) == "0"  # 无行 → 真零
+
+
+def test_sum_funding_by_symbol_unparseable_returns_none(tmp_path):
+    client = StubClient()
+    client.income_pages = [[
+        {"symbol": "MUUSDT", "incomeType": "FUNDING_FEE", "income": "0.1",
+         "asset": "USDT", "info": "FUNDING_FEE", "time": NOW - 1000, "tranId": 1, "tradeId": ""},
+        {"symbol": "MUUSDT", "incomeType": "FUNDING_FEE", "income": "oops",
+         "asset": "USDT", "info": "FUNDING_FEE", "time": NOW - 1000, "tranId": 2, "tradeId": ""},
+    ]]
+    client.interest_pages = [{"total": 0, "rows": []}]
+    svc = _svc(tmp_path, client)
+    svc.run_once("backfill")
+    # 任一行不可解析 → None（绝不部分相加 0.1）
+    assert svc.sum_funding_by_symbol("MUUSDT", NOW - 2000, NOW) is None
+
+
+def test_sum_interest_by_asset_filters_window_and_asset(tmp_path):
+    client = StubClient()
+    client.interest_pages = [{"total": 4, "rows": [
+        {"txId": 1, "interestAccuredTime": NOW - 2000, "asset": "HOME", "interest": "0.1"},
+        {"txId": 2, "interestAccuredTime": NOW - 1000, "asset": "HOME", "interest": "0.2"},
+        {"txId": 3, "interestAccuredTime": NOW - 1000, "asset": "OTHER", "interest": "9"},
+        {"txId": 4, "interestAccuredTime": NOW - 30000, "asset": "HOME", "interest": "7"},
+    ]}]
+    client.income_pages = [[]]
+    svc = _svc(tmp_path, client)
+    svc.run_once("backfill")
+    assert svc.sum_interest_by_asset("HOME", NOW - 2000, NOW - 1000) == "0.3"
+    assert svc.sum_interest_by_asset("OTHER", NOW - 2000, NOW - 1000) == "9"
+    assert svc.sum_interest_by_asset("MISSING", NOW - 2000, NOW - 1000) == "0"
+
+
+def test_sum_interest_by_asset_unparseable_returns_none(tmp_path):
+    client = StubClient()
+    client.interest_pages = [{"total": 2, "rows": [
+        {"txId": 1, "interestAccuredTime": NOW - 1000, "asset": "HOME", "interest": "0.1"},
+        {"txId": 2, "interestAccuredTime": NOW - 1000, "asset": "HOME", "interest": "bad"},
+    ]}]
+    client.income_pages = [[]]
+    svc = _svc(tmp_path, client)
+    svc.run_once("backfill")
+    assert svc.sum_interest_by_asset("HOME", NOW - 2000, NOW) is None
+
+
+def test_coverage_for_window_wraps_gap_aware_judgement(tmp_path):
+    client = StubClient()
+    client.interest_pages = [{"total": 0, "rows": []}]
+    client.income_pages = [[]]
+    svc = _svc(tmp_path, client)
+    svc.run_once("backfill")  # 双源 coverage 建立（起点 = NOW-30d）
+    cov = svc.coverage_for_window(NOW - 1000, NOW)
+    assert cov["complete"] is True
+    assert cov["start_ms"] is not None and cov["end_ms"] == NOW
+    # 窗口起点早于 coverage 起点 → 不完整（诚实降级，绝不把未覆盖窗口当真值）
+    early = svc.coverage_for_window(NOW - 30 * 24 * 3600 * 1000 - 3600_000, NOW)
+    assert early["complete"] is False

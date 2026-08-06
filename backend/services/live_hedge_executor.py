@@ -34,6 +34,7 @@ never imports it (the AST purity guard enforces that).
 """
 from __future__ import annotations
 
+import json
 import threading
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
@@ -584,6 +585,119 @@ class LiveHedgeExecutor:
     def credentials_present(self) -> bool:
         return self._client.credentials_present
 
+    def query_symbol_um_qty(self, coin: str) -> Optional[Decimal]:
+        """close 完成核实（功能三）：查该 symbol 合约当前持仓量并求和。
+
+        返回该 symbol 合约净持仓量（有仓 → 非零，无仓 → ``Decimal(0)``）；
+        查询失败/响应不可解析 → ``None``（调用方必须按「查不到 ≠ 已平完」处理）。
+        """
+        try:
+            resp = self._client.fetch_um_positions(
+                symbol=coin, timestamp_ms=self._now_ms(),
+            )
+        except Exception:
+            return None
+        if resp is None or resp.http_status != 200:
+            return None
+        try:
+            rows = json.loads(resp.body) if isinstance(resp.body, (str, bytes)) else resp.body
+        except (TypeError, ValueError):
+            return None
+        if not isinstance(rows, list):
+            return None
+        total = Decimal(0)
+        for r in rows:
+            if not isinstance(r, dict) or r.get("symbol") != coin:
+                continue
+            amt = r.get("positionAmt")
+            try:
+                total += Decimal(str(amt))
+            except (InvalidOperation, TypeError, ValueError):
+                return None
+        return total
+
+    def query_spot_free(self, asset: str) -> Optional[Decimal]:
+        """普通现货账户指定资产 free 余额（平仓现货卖出重设计）。
+
+        实时查（不用缓存快照）；失败/不可解析 → ``None``（调用方 fail-closed，
+        不猜余额）。"""
+        try:
+            resp = self._client.get_spot_account(timestamp_ms=self._now_ms())
+        except Exception:
+            return None
+        if resp is None or resp.http_status != 200:
+            return None
+        try:
+            doc = json.loads(resp.body) if isinstance(resp.body, (str, bytes)) else resp.body
+        except (TypeError, ValueError):
+            return None
+        if not isinstance(doc, dict):
+            return None
+        for row in doc.get("balances") or []:
+            if not isinstance(row, dict) or row.get("asset") != asset:
+                continue
+            try:
+                return Decimal(str(row.get("free")))
+            except (InvalidOperation, TypeError, ValueError):
+                return None
+        return Decimal(0)  # 该资产无行 → 余额 0
+
+    def query_unified_free(self, asset: str) -> Optional[Decimal]:
+        """统一账户（PM）指定资产 free 余额（平仓划转前检查，2026-08）。
+
+        划转前先查统一账户余额——不足直接提示，不盲划（划了才知道失败、
+        日志只有 RuntimeError 无详情）。实时查；失败/不可解析 → ``None``
+        （调用方 fail-closed）。字段 ``crossMarginFree``（design §2.4）。
+        注意：/papi/v1/balance 响应是**顶层数组**（对齐 provider
+        `_read_balances` 的解析），不是 ``{"balances": [...]}`` dict——
+        初版按 dict 解析导致恒 None、任务误暂停（2026-08 修复）。"""
+        try:
+            resp = self._client.get_balance(timestamp_ms=self._now_ms())
+        except Exception:
+            return None
+        if resp is None or resp.http_status is None or resp.http_status >= 400:
+            return None
+        rows = resp.body
+        if isinstance(rows, (str, bytes)):
+            try:
+                rows = json.loads(rows)
+            except (TypeError, ValueError):
+                return None
+        if not isinstance(rows, list):
+            return None
+        for row in rows:
+            if not isinstance(row, dict) or row.get("asset") != asset:
+                continue
+            try:
+                return Decimal(str(row.get("crossMarginFree")))
+            except (InvalidOperation, TypeError, ValueError):
+                return None
+        return Decimal(0)  # 该资产无行 → 余额 0
+
+    def universal_transfer(self, type_: str, asset: str, amount: str) -> str:
+        """万向划转（平仓现货卖出重设计）：统一账户⇄普通现货账户。返回 tranId。
+
+        写语义与订单一致：超时/5xx 不重试；失败抛错（**带交易所响应详情**，
+        便于任务卡日志定位真实原因，如 -4015 余额不足），调用方 fail-closed 处理。"""
+        resp = self._client.universal_transfer(
+            type_, asset, str(amount), timestamp_ms=self._now_ms(),
+        )
+        if resp is None or resp.http_status != 200:
+            body_snip = ""
+            if resp is not None and resp.body:
+                body_snip = str(resp.body)[:200]
+            raise RuntimeError(
+                f"universal_transfer http={getattr(resp, 'http_status', None)} body={body_snip}"
+            )
+        try:
+            doc = json.loads(resp.body) if isinstance(resp.body, (str, bytes)) else resp.body
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError("universal_transfer unparseable response") from exc
+        tran_id = doc.get("tranId") if isinstance(doc, dict) else None
+        if tran_id is None:
+            raise RuntimeError(f"universal_transfer missing tranId body={str(resp.body)[:200]}")
+        return str(tran_id)
+
     def _send_one_leg(
         self, leg: str, params: dict, symbol: str, client_order_id: str,
         spot_route: str,
@@ -722,7 +836,8 @@ class LiveHedgeExecutor:
         classifies its own response and best-effort queries once if unknown.
         """
         actions = D.direction_to_leg_actions(
-            ctx.direction, ctx.position_side_mode or D.POS_MODE_BOTH
+            ctx.direction, ctx.position_side_mode or D.POS_MODE_BOTH,
+            task_type=ctx.task_type,
         )
         send_qty = ctx.q_common if ctx.q_common is not None else ctx.single_amount
         spot_cid, perp_cid = _client_order_ids(ctx.attempt_id)
@@ -736,7 +851,9 @@ class LiveHedgeExecutor:
             )
         else:
             spot_params = build_spot_order_params(spot_symbol, actions, send_qty, spot_cid)
-        perp_params = build_perp_order_params(ctx.coin, actions, send_qty, perp_cid)
+        perp_params = build_perp_order_params(
+            ctx.coin, actions, send_qty, perp_cid, task_type=ctx.task_type,
+        )
         record_payload = {
             "transport": "live",
             "posted": True,

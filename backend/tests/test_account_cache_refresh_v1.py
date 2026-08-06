@@ -466,6 +466,7 @@ class _CapHandler:
     def __init__(self, service, hedge_open_service=None, content_length="0"):
         self.service = service
         self.hedge_open_service = hedge_open_service
+        self.ledger_flow_service = None  # 功能二接线桩（与 _Handler 类属性一致）
         self.headers = {"Content-Length": content_length}
         self.rfile = _BytesRead(b"")
         self.calls = []

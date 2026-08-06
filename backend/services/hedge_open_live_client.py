@@ -85,6 +85,11 @@ ALLOWLIST: Dict[tuple, str] = {
     ("GET", "/papi/v1/um/order"): "https://papi.binance.com",
     ("GET", "/papi/v1/balance"): "https://papi.binance.com",
     ("GET", "/papi/v1/um/positionSide/dual"): "https://papi.binance.com",
+    # 功能三（2026-08）：close 完成核实——查该 symbol 合约持仓是否归零。
+    ("GET", "/papi/v1/um/positionRisk"): "https://papi.binance.com",
+    # 平仓现货卖出重设计（2026-08）：万向划转——统一账户⇄普通现货账户
+    # （forward close 补足现货 / USDT 回流）。用户万向划转（权重 TRADE）。
+    ("POST", "/sapi/v1/asset/transfer"): "https://api.binance.com",
     ("GET", "/papi/v1/rateLimit/order"): "https://papi.binance.com",
     # Regular spot account route (stage 2026-08-02-spot-order-routing-cap-display-v1
     # §4 / decision §E-2). Five exact (method, path) pairs HARDBOUND to the public
@@ -111,6 +116,7 @@ MARGIN_ORDER_PATH = "/papi/v1/margin/order"
 UM_ORDER_PATH = "/papi/v1/um/order"
 BALANCE_PATH = "/papi/v1/balance"
 POSITION_SIDE_DUAL_PATH = "/papi/v1/um/positionSide/dual"
+UM_POSITION_RISK_PATH = "/papi/v1/um/positionRisk"
 RATE_LIMIT_ORDER_PATH = "/papi/v1/rateLimit/order"
 # Regular-spot account route paths (decision §E-2 / §4), all on api.binance.com.
 # restricted-asset is the shared platform collateral-cap list (stage
@@ -119,6 +125,12 @@ RATE_LIMIT_ORDER_PATH = "/papi/v1/rateLimit/order"
 RESTRICTED_ASSET_PATH = "/sapi/v1/margin/restricted-asset"
 SPOT_ORDER_PATH = "/api/v3/order"
 SPOT_ACCOUNT_PATH = "/api/v3/account"
+UNIVERSAL_TRANSFER_PATH = "/sapi/v1/asset/transfer"
+# 万向划转 type 冻结枚举（平仓现货卖出重设计）：统一账户 → 普通现货账户
+# （forward close 补足现货）/ 普通现货账户 → 统一账户（USDT 回流）。仅此两个。
+TRANSFER_TYPE_PM_MAIN = "PORTFOLIO_MARGIN_MAIN"
+TRANSFER_TYPE_MAIN_PM = "MAIN_PORTFOLIO_MARGIN"
+_ALLOWED_TRANSFER_TYPES = frozenset({TRANSFER_TYPE_PM_MAIN, TRANSFER_TYPE_MAIN_PM})
 SPOT_RATE_LIMIT_ORDER_PATH = "/api/v3/rateLimit/order"
 
 
@@ -336,6 +348,17 @@ class HedgeOpenLiveClient:
         """
         return self._get_signed(POSITION_SIDE_DUAL_PATH, {}, timestamp_ms, recv_window_ms)
 
+    def fetch_um_positions(self, *, symbol: Optional[str] = None,
+                           timestamp_ms: int,
+                           recv_window_ms: Optional[int] = None) -> HedgeHttpResponse:
+        """GET /papi/v1/um/positionRisk — close 完成核实（功能三）：查该 symbol
+        合约持仓是否归零。``symbol`` 省略时查全量（调用方按 symbol 过滤）。
+        """
+        params = {"symbol": symbol} if symbol else {}
+        return self._get_signed(
+            UM_POSITION_RISK_PATH, params, timestamp_ms, recv_window_ms,
+        )
+
     def get_rate_limit_order(self, *, timestamp_ms: int,
                              recv_window_ms: Optional[int] = None) -> HedgeHttpResponse:
         """GET /papi/v1/rateLimit/order — the account's real order-rate limit.
@@ -390,8 +413,28 @@ class HedgeOpenLiveClient:
 
         Used by the positive-funding regular_spot preflight to size the available
         USDT for a spot BUY (PAPI ``crossMarginFree`` cannot answer this — design
-        §2.4)."""
+        §2.4) and by forward-close spot-sell balance pre-check / re-check."""
         return self._get_signed(SPOT_ACCOUNT_PATH, {}, timestamp_ms, recv_window_ms)
+
+    def universal_transfer(
+        self, type_: str, asset: str, amount: str, *,
+        timestamp_ms: int, recv_window_ms: Optional[int] = None,
+    ) -> HedgeHttpResponse:
+        """POST /sapi/v1/asset/transfer — 用户万向划转（平仓现货卖出重设计）。
+
+        ``type_`` 仅允许冻结枚举（``PORTFOLIO_MARGIN_MAIN`` 统一→现货 /
+        ``MAIN_PORTFOLIO_MARGIN`` 现货→统一）；``asset``/``amount`` 由内部计算传入，
+        拒绝外部注入。One-shot：超时/5xx 不重试（写语义与订单一致），由调用方
+        fail-closed 处理。返回原始响应，tranId 由调用方解析。
+        """
+        if type_ not in _ALLOWED_TRANSFER_TYPES:
+            raise ValueError(f"transfer type not allowed: {type_!r}")
+        return self._post_signed(
+            UNIVERSAL_TRANSFER_PATH,
+            {"type": type_, "asset": asset, "amount": str(amount)},
+            timestamp_ms,
+            recv_window_ms,
+        )
 
     def get_spot_rate_limit_order(self, *, timestamp_ms: int,
                                   recv_window_ms: Optional[int] = None) -> HedgeHttpResponse:

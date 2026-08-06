@@ -198,7 +198,9 @@ const ids = [
   // 假数据·预览（设计探针，2026-07-31-hedge-task-lifecycle-v1）：新增静态元素，须注册以避免
   // eval(script) 时 els 的 getElementById 抛「未 mock 的元素」。
   'hedge-fake-preview-toggle', 'hedge-fake-preview-panel',
-  'hedge-fake-preview-scenarios', 'hedge-fake-preview-body'
+  'hedge-fake-preview-scenarios', 'hedge-fake-preview-body',
+  // 历史仓位 fake 原型（2026-08 hedge-open-position-cycle-v1）：新增静态元素，须注册。
+  'nav-history', 'history-view', 'history-list'
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
 
@@ -519,12 +521,13 @@ let hedgeActionResponses = {};
 let hedgeSettingsGetResponse = { status: 200, body: { executor_mode: 'disabled', start_gate: false, interval_seconds: 1, version: 1 } };
 // live-hardening v1（10-design §2.3）：POST /api/hedge-open-settings/start-gate 响应槽；未设置时 503。
 let hedgeStartGatePostResponse = null;
+// 功能三 ③a：历史仓位——周期结算日志 GET 响应槽。
+let hedgeCloseLogsGetResponse = { status: 200, body: { logs: [] } };
 let hedgePositionsGetResponse = {
   status: 200,
   body: {
     positions: [],
-    account: {
-      verified: true,
+    account: {      verified: true,
       error: null,
       checked_at: null,
       source_checked_at: {
@@ -957,6 +960,10 @@ global.fetch = async (url, options) => {
   if (urlStr === '/api/hedge-open-positions' && method === 'GET') {
     return buildFetchResponse(hedgePositionsGetResponse || mockHedge503());
   }
+  // 功能三 ③a：历史仓位——周期结算日志（真实数据源）。
+  if (urlStr === '/api/hedge-open-close-logs' && method === 'GET') {
+    return buildFetchResponse(hedgeCloseLogsGetResponse || mockHedge503());
+  }
   // real-api-v1：attempt 时间线读取（既有 logs 路由，GET，固定 ?limit=100 无 cursor，
   // 17 号兼容修正未改动这条）；开单日志页改用独立加法式 ?entries_limit=[&entries_cursor=]
   // 走独立分页队列，二者共享同一路由但请求形状不同（不同字面量 query string），
@@ -1004,7 +1011,11 @@ global.document = {
     if (!elements[id]) {
       // 借币任务操作控件为按 symbol/任务 id（字符串 UUID）动态生成的 id，按需惰性 mock（最小 mock 能力补足）；
       // 开单市场表操作列输入/行内错误、任务动作错误元素，与任务卡内嵌日志容器同样按需惰性 mock。
-      if (/^(borrow-(amount|count|error|preview)-[A-Za-z0-9_]+|task-edit-(amount|count|error)-[A-Za-z0-9_-]+|hedge-(amount|count|error)-(forward|reverse)-[A-Za-z0-9_]+|hedge-task-error-[A-Za-z0-9-]+|hedge-task-log-[A-Za-z0-9_-]+)$/.test(id)) return makeElement(id);
+      if (/^(borrow-(amount|count|error|preview)-[A-Za-z0-9_]+|task-edit-(amount|count|error)-[A-Za-z0-9_-]+|hedge-(amount|count|error)-(forward|reverse)-[A-Za-z0-9_]+|hedge-close-(amount|count|error)-[A-Za-z0-9_]+|hedge-task-error-[A-Za-z0-9-]+|hedge-task-log-[A-Za-z0-9_-]+)$/.test(id)) {
+        const el = makeElement(id);
+        elements[id] = el;
+        return el;
+      }
       throw new Error(`未 mock 的元素: ${id}`);
     }
     return elements[id];
@@ -4488,7 +4499,7 @@ setTimeout(async () => {
       helpers.renderPrivatePanel();
       const privHtml = elements['private-panel-body'].innerHTML;
       for (const piece of ['对冲开单持仓', '币种', '方向', '持仓数量', '现货均价', '合约均价', '开单价差率',
-        '价格未实现盈亏', '累计资金费', '借币利息', '净盈亏', 'AUSDT', '正向', '101.3333', '0.0614']) {
+        '价格未实现盈亏', '累计资金费', '借币利息', '净盈亏', 'AUSDT', '正向', '101.3333', '0.06']) {
         if (!privHtml.includes(piece)) throw new Error(`私有面板持仓表缺少「${piece}」`);
       }
       // 原生小数 + 去尾零：0.00125000 → 0.00125；0.00124600 → 0.001246（非 0.0012）
@@ -4524,6 +4535,160 @@ setTimeout(async () => {
         throw new Error('空持仓应渲染空态');
       }
       console.log('[PASS] 持仓表从 GET /api/hedge-open-positions 渲染（§3.4 字段逐字）+ 空态 + 均价精度/方向色/价差率');
+    }
+
+    // 83. 功能二：持仓周期统计三列真值渲染（资金费正负着色 + 利息 ≈U 第二行 +
+    //     net_pnl 按换算 U 计算着色）+ 统计区间不全 + 已完全平仓标记
+    {
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        {
+          coin: 'AUSDT', direction: 'forward', position_qty: 6, spot_avg: '101.3333', perp_avg: 102.3333,
+          open_basis_rate: 0.00233, price_pnl: -0.5,
+          // Human 2026-08-05：利息按币计 + 换算 U（borrow_interest_usdt）；net_pnl = 资金费 + 利息U
+          accrued_funding: '0.0614', borrow_interest: '0.02', borrow_interest_usdt: '2.35', net_pnl: '2.4114',
+          cycle_id: 'c1', cycle_opened_at: '2026-07-27T06:14:29.000000Z', cycle_closed_at: null,
+          stats_incomplete: false, match_status: 'normal'
+        },
+        {
+          coin: 'RSRUSDT', direction: 'reverse', position_qty: '10000.00000000',
+          spot_avg: '0.00125000', perp_avg: '0.00124600',
+          open_basis_rate: 0, price_pnl: 0,
+          accrued_funding: null, borrow_interest: null, borrow_interest_usdt: null, net_pnl: null,
+          cycle_id: 'c2', cycle_opened_at: '2026-07-30T08:16:38.000000Z', cycle_closed_at: '2026-07-30T10:00:00.000000Z',
+          stats_incomplete: true, match_status: 'no_um'
+        }
+      ], account: { verified: true, error: null, checked_at: null } } };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      const statsHtml = elements['private-panel-body'].innerHTML;
+      for (const piece of ['0.06', '0.02', '≈ 2.35 U', '+2.41', '统计区间不全', '已完全平仓', '暂无']) {
+        if (!statsHtml.includes(piece)) throw new Error(`功能二持仓统计缺少「${piece}」: ` + statsHtml);
+      }
+      // net_pnl 正值 positive 着色（AUSDT +2.4114）；资金费正值同样 positive（正=收取绿）。
+      const positiveCount = (statsHtml.match(/class="mono positive">/g) || []).length;
+      if (positiveCount < 2) {
+        throw new Error('资金费列与 net_pnl 列正值均应 positive 着色，实际 ' + positiveCount + ' 处: ' + statsHtml);
+      }
+      if (!statsHtml.includes('统计区间不全') || !statsHtml.includes('已完全平仓')) {
+        throw new Error('统计区间不全 / 已完全平仓 标记缺失: ' + statsHtml);
+      }
+      // RSR 行三列 null → 暂无，且无 ≈U 第二行（borrow_interest_usdt null）。
+      if (statsHtml.includes('≈ 2.35 U') && !statsHtml.includes('暂无')) {
+        throw new Error('RSR 行应为「暂无」: ' + statsHtml);
+      }
+      console.log('[PASS] 功能二：三列真值（资金费着色 + 利息≈U换算 + net_pnl 单位一致）+ 统计区间不全 + 已完全平仓标记');
+    }
+
+    // 83b. 立即平仓列（功能三 UI 预览）：表头、输入框、按钮；已平仓/无周期行禁用；
+    //     点击可用行按钮 → 确认弹框 → 确认 → stub 提示（不发真实请求）。
+    {
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        { coin: 'AUSDT', direction: 'forward', cycle_id: 'c1', cycle_closed_at: null, match_status: 'normal',
+          position_qty: 6, spot_avg: '101.3333', perp_avg: 102.3333, accrued_funding: null, borrow_interest: null, net_pnl: null },
+        { coin: 'RSRUSDT', direction: 'reverse', cycle_id: 'c2', cycle_closed_at: '2026-07-30T10:00:00.000000Z', match_status: 'normal',
+          position_qty: '10000.00000000', spot_avg: '0.00125000', perp_avg: '0.00124600', accrued_funding: null, borrow_interest: null, net_pnl: null },
+        { coin: 'MUUSDT', direction: 'forward', cycle_id: null, cycle_closed_at: null, match_status: 'no_task',
+          position_qty: null, spot_avg: null, perp_avg: null, accrued_funding: null, borrow_interest: null, net_pnl: null }
+      ], account: { verified: true, error: null, checked_at: null } } };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      const body = elements['private-panel-body'].innerHTML;
+      if (!body.includes('<th') || !body.includes('立即平仓')) {
+        throw new Error('持仓表缺少「立即平仓」表头');
+      }
+      if (!body.includes('id="hedge-close-amount-AUSDT"') || !body.includes('id="hedge-close-count-AUSDT"')) {
+        throw new Error('立即平仓输入框缺失');
+      }
+      // 已平仓行（RSRUSDT cycle_closed_at）与无周期行（MUUSDT cycle_id null）→ 按钮 disabled
+      if (!body.includes('data-hedge-close="RSRUSDT"') || !body.includes('disabled')) {
+        throw new Error('已平仓/无周期行平仓按钮应禁用');
+      }
+      const ausdtBtn = body.match(/data-hedge-close="AUSDT"[^>]*>/);
+      if (ausdtBtn && ausdtBtn[0].includes('disabled')) {
+        throw new Error('活跃周期行平仓按钮不应禁用: ' + ausdtBtn[0]);
+      }
+      // 点击 AUSDT 平仓按钮 → 确认弹框（不发网络请求）
+      const mark = fetchCallLog.length;
+      const amountEl = document.getElementById('hedge-close-amount-AUSDT');
+      const countEl = document.getElementById('hedge-close-count-AUSDT');
+      if (amountEl) amountEl.value = '0.5';
+      if (countEl) countEl.value = '3';
+      helpers.requestHedgeCloseConfirm('AUSDT', 'forward');
+      const modalTitle = elements['hedge-modal-title'].textContent;
+      if (!modalTitle.includes('确认正向立即平仓')) {
+        throw new Error('平仓确认弹框标题错误: ' + modalTitle);
+      }
+      if (fetchCallLog.length !== mark) throw new Error('平仓确认阶段不应发起网络请求');
+      // 确认 → 真实 POST /api/hedge-open-tasks（task_type:'close'，方向沿用持仓行）
+      hedgeTasksPostResponse = { status: 201, body: { id: 'close-1', coin: 'AUSDT', direction: 'forward', task_type: 'close' } };
+      const postMark = fetchCallLog.length;
+      await helpers.submitHedgeClose('AUSDT', 'forward', '0.5', 3);
+      const postCall = fetchCallLog.slice(postMark).find(
+        c => c.url === '/api/hedge-open-tasks' && c.method === 'POST'
+      );
+      if (!postCall) throw new Error('平仓确认应 POST /api/hedge-open-tasks');
+      const sentBody = postCall.body || {};
+      if (sentBody.task_type !== 'close' || sentBody.coin !== 'AUSDT'
+          || sentBody.direction !== 'forward' || sentBody.single_amount !== '0.5'
+          || sentBody.target_n !== 3 || sentBody.mode !== 'immediate') {
+        throw new Error('平仓 POST body 不正确: ' + JSON.stringify(sentBody));
+      }
+      if (elements['hedge-close-error-AUSDT'].textContent !== '') {
+        throw new Error('平仓 POST 成功后错误提示应清空: ' + elements['hedge-close-error-AUSDT'].textContent);
+      }
+      console.log('[PASS] 立即平仓列：表头+输入框+禁用逻辑+确认弹框+真实 POST（task_type:close）');
+    }
+
+    // 83c. 前端提前量检测（Human 2026-08）：forward close 与后端口径同步——
+    //     总量（单次×次数）对比统一账户余额 + 合约持仓；不足强制拦截（零请求）。
+    {
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        { coin: 'COOKIEUSDT', direction: 'forward', cycle_id: 'c1', cycle_closed_at: null, match_status: 'normal',
+          spot_balance: null, unified_balance: '997.0', um_position_amt: '-2000', position_qty: 6, spot_avg: '1', perp_avg: '1',
+          accrued_funding: null, borrow_interest: null, net_pnl: null },
+        { coin: 'BTCUSDT', direction: 'forward', cycle_id: 'c2', cycle_closed_at: null, match_status: 'normal',
+          spot_balance: '5000', unified_balance: '20000', um_position_amt: '-5000', position_qty: 6, spot_avg: '1', perp_avg: '1',
+          accrued_funding: null, borrow_interest: null, net_pnl: null }
+      ], account: { verified: true, error: null, checked_at: null } } };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      const mark = fetchCallLog.length;
+      const modalOpenBefore = elements['hedge-modal'].classList.contains('open');
+      // COOKIE：统一账户 997 < 需 1000×2=2000 → 现货侧拦截（后端同口径 required=2000）
+      const amtEl = document.getElementById('hedge-close-amount-COOKIEUSDT');
+      const cntEl = document.getElementById('hedge-close-count-COOKIEUSDT');
+      if (amtEl) amtEl.value = '1000';
+      if (cntEl) cntEl.value = '2';
+      const r1 = helpers.requestHedgeCloseConfirm('COOKIEUSDT', 'forward');
+      if (r1.ok !== false || r1.error !== 'insufficient_balance_frontend') {
+        throw new Error('COOKIE 前端余额不足应拦截（总量口径）: ' + JSON.stringify(r1));
+      }
+      const err1 = elements['hedge-close-error-COOKIEUSDT'].textContent;
+      if (!err1.includes('已拦截') || !err1.includes('2000')) throw new Error('拦截行内错误缺失/总量未体现: ' + err1);
+      // 拦截不改弹框状态（不弹新确认框，也不动旧弹框）
+      const modalOpenAfterBlock = elements['hedge-modal'].classList.contains('open');
+      if (modalOpenAfterBlock !== modalOpenBefore) {
+        throw new Error('拦截不应改变弹框状态');
+      }
+      if (fetchCallLog.length !== mark) throw new Error('拦截时不应发请求');
+      // BTCUSDT：统一账户 20000 ≥ 需 100×1=100、合约持仓 5000 ≥ 100 → 放行 → 确认弹框
+      const amtB = document.getElementById('hedge-close-amount-BTCUSDT');
+      const cntB = document.getElementById('hedge-close-count-BTCUSDT');
+      if (amtB) amtB.value = '100';
+      if (cntB) cntB.value = '1';
+      const r2 = helpers.requestHedgeCloseConfirm('BTCUSDT', 'forward');
+      if (!r2.ok || r2.pending !== true) throw new Error('BTC 余额足够应放行: ' + JSON.stringify(r2));
+      if (!elements['hedge-modal'].classList.contains('open')) throw new Error('放行应弹确认框');
+      if (fetchCallLog.length !== mark) throw new Error('确认阶段不应发请求');
+      // 合约持仓不足：BTC 填 6000×1（合约持仓 5000 < 6000）→ 合约侧拦截
+      if (amtB) amtB.value = '6000';
+      if (cntB) cntB.value = '1';
+      const r3 = helpers.requestHedgeCloseConfirm('BTCUSDT', 'forward');
+      if (r3.ok !== false || r3.error !== 'insufficient_perp_frontend') {
+        throw new Error('合约持仓不足应拦截: ' + JSON.stringify(r3));
+      }
+      if (fetchCallLog.length !== mark) throw new Error('合约侧拦截不应发请求');
+      console.log('[PASS] 前端提前量检测：余额不足强制拦截（零请求）+ 余额足够放行确认');
     }
 
     // 82b. R1/R2 渲染证据（fix-merged-positions-n2-ui-v1）
@@ -4592,7 +4757,7 @@ setTimeout(async () => {
       let body = elements['private-panel-body'].innerHTML;
       const noTaskSpot = getRowCell(body, 'MUUSDT', 10);
       const noTaskPerp = getRowCell(body, 'MUUSDT', 11);
-      const noTaskMark = getRowCell(body, 'MUUSDT', 16);
+      const noTaskMark = getRowCell(body, 'MUUSDT', 17);
       if (!noTaskSpot.includes('—') || noTaskSpot.includes('0')) {
         throw new Error('G2: no_task 现货均价应显示 — 而非 0: ' + noTaskSpot);
       }
@@ -4613,7 +4778,7 @@ setTimeout(async () => {
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
       body = elements['private-panel-body'].innerHTML;
-      const noUmMark = getRowCell(body, 'XYZUSDT', 16);
+      const noUmMark = getRowCell(body, 'XYZUSDT', 17);
       if (!noUmMark.includes('交易所无仓')) {
         throw new Error('G1: no_um 行应标记「交易所无仓」: ' + noUmMark);
       }
@@ -4629,7 +4794,7 @@ setTimeout(async () => {
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
       body = elements['private-panel-body'].innerHTML;
-      const g5Mark = getRowCell(body, 'RSRUSDT', 16);
+      const g5Mark = getRowCell(body, 'RSRUSDT', 17);
       if (!g5Mark.includes('均价不完整')) {
         throw new Error('G5: 不完整均价应显示「均价不完整」标记: ' + g5Mark);
       }
@@ -5540,6 +5705,54 @@ setTimeout(async () => {
       clickHandlers[0]();
       if (panel.hidden !== true) throw new Error('再次点击开关应收起预览');
       console.log('[PASS] 假数据·预览：默认关闭 + 开关可切 + 51169 冻结文案逐字渲染 + 打开零网络请求');
+    }
+
+    // 98c. 历史仓位（功能三 ③a）：侧栏入口、视图切换、真实结算日志 API 渲染。
+    {
+      const nav = document.getElementById('nav-history');
+      const view = document.getElementById('history-view');
+      const list = document.getElementById('history-list');
+      if (!nav || !view || !list) throw new Error('历史仓位 DOM 缺失');
+      if (!nav.listeners.click || !nav.listeners.click.length) throw new Error('历史仓位导航未绑定 click');
+      hedgeCloseLogsGetResponse = { status: 200, body: { logs: [
+        {
+          cycle_id: 'c1', symbol: 'BTCUSDT', direction: 'forward',
+          opened_at_us: 1785310000000000, closed_at_us: 1785390000000000,
+          close_reason: 'auto_close', open_avg_price: '61231.50', open_qty: '0.5',
+          close_avg_price: '61190.20', funding_fee: '38.71', borrow_interest: '0.42',
+          settled_at_us: 1785390000000000
+        },
+        {
+          cycle_id: 'c2', symbol: 'RSRUSDT', direction: 'reverse',
+          opened_at_us: 1785400000000000, closed_at_us: 1785500000000000,
+          close_reason: 'auto_close', open_avg_price: '0.001246', open_qty: '10000',
+          close_avg_price: '0.001251', funding_fee: '-0.92', borrow_interest: '0.00',
+          settled_at_us: 1785500000000000
+        }
+      ] } };
+      const mark = fetchCallLog.length;
+      helpers.setActiveView('history');
+      await helpers.loadHedgeCloseLogs();  // 确保真实 API 渲染完成（setActiveView 内为异步不 await）
+      if (view.style.display === 'none') {
+        throw new Error('setActiveView(history) 后历史仓位视图应可见（display 非 none）');
+      }
+      if (document.getElementById('market-view').style.display !== 'none') {
+        throw new Error('进入历史仓位后市场视图应隐藏');
+      }
+      const call = fetchCallLog.slice(mark).find(c => c.url === '/api/hedge-open-close-logs' && c.method === 'GET');
+      if (!call) throw new Error('进入历史仓位应 GET /api/hedge-open-close-logs: ' + JSON.stringify(fetchCallLog.slice(mark)));
+      const html = list.innerHTML;
+      for (const piece of ['币种', '开单时间', '平仓时间', '合约开单均价', '合约平单均价',
+        '现货买入均价', '现货卖出均价', '总借币利息', '总资金费率收益', '总计开单滑点', '总计平单滑点']) {
+        if (!html.includes(piece)) throw new Error(`历史仓位表缺少表头「${piece}」`);
+      }
+      if (!html.includes('BTCUSDT') || !html.includes('RSRUSDT')) throw new Error('历史仓位真实数据行缺失');
+      if (!html.includes('正向') || !html.includes('反向')) throw new Error('历史仓位应同时含正向/反向行');
+      if (!html.includes('61231.50') || !html.includes('61190.20')) throw new Error('历史仓位应渲染合约开/平单均价');
+      if (html.includes('假数据')) throw new Error('历史仓位不应再显示假数据横幅');
+      helpers.setActiveView('market');
+      if (view.style.display !== 'none') throw new Error('切回市场后历史仓位视图应隐藏');
+      console.log('[PASS] 历史仓位：侧栏入口 + 视图切换 + 真实结算日志 API 渲染（无假数据横幅）');
     }
 
     // 98b. 流水日志真实数据源（task C）+ 页内双看板布局（tab-layout-v2）
@@ -6774,6 +6987,8 @@ setTimeout(async () => {
         /^\/api\/hedge-open-positions$/,
         // real-api-v1：attempt 时间线经既有 logs 路由读取（同源、GET）。
         /^\/api\/hedge-open-logs\?/,
+        // 功能三 ③a：历史仓位——周期结算日志（同源、GET）。
+        /^\/api\/hedge-open-close-logs$/,
         // dual-ledger flow-log（task C）
         /^\/api\/private-ledger\/flow-log\?/,
         /^\/api\/private-ledger\/refresh$/

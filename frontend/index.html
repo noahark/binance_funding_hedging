@@ -1219,6 +1219,12 @@
           开单任务
           <span class="badge compact nav-count" id="hedge-task-count">0</span>
         </button>
+        <button class="nav-button" id="nav-history">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 8v4l3 2M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          历史仓位
+        </button>
       </nav>
 
     </aside>
@@ -1548,6 +1554,22 @@
           </div>
         </div>
       </section>
+
+      <!-- 历史仓位（功能三 ③a，2026-08 hedge-open-position-cycle-v1）：真实数据源
+           = 周期结算日志 hedge_open_cycle_close_log（GET /api/hedge-open-close-logs）。
+           现货买/卖均价与滑点字段本轮无数据源（close_log 无现货列、滑点需盘口参考价），
+           显示 —。 -->
+      <section class="panel" id="history-view" style="display:none;">
+        <div class="panel-header">
+          <div class="panel-title">
+            <h2>历史仓位</h2>
+            <p class="subtitle">已平仓标的的周期结算记录：开单/平仓时间、合约与现货开平均价、借币利息、资金费率收益、开平单滑点</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="history-list"></div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -1636,7 +1658,7 @@
         drawerHistoryError: null,
         drawerNotice: null,
         // 借币任务：后端 SQLite 是唯一权威；state.borrowTasks 只是最近一次
-        // GET /api/borrow-tasks 的渲染缓存。activeView: 'market' | 'borrow-tasks'
+        // GET /api/borrow-tasks 的渲染缓存。activeView: 'market' | 'borrow-tasks' | 'hedge-tasks' | 'history'
         borrowTasks: [],
         borrowTasksError: null,
         borrowSchedulerSettings: null,
@@ -1653,6 +1675,7 @@
         hedgeTasks: [],
         hedgeTasksError: null,
         hedgePositions: [],
+        hedgeCloseLogs: [],  // 功能三 ③a：历史仓位（周期结算日志）
         hedgeSettings: null,
         hedgeModal: null,
         // live-hardening v1（10-design §2.3）：待确认的闸门变更方向（pending 期间未发请求）。
@@ -1789,6 +1812,9 @@
         navHedgeTasks: document.getElementById('nav-hedge-tasks'),
         hedgeTaskCount: document.getElementById('hedge-task-count'),
         hedgeTaskView: document.getElementById('hedge-task-view'),
+        navHistory: document.getElementById('nav-history'),
+        historyView: document.getElementById('history-view'),
+        historyList: document.getElementById('history-list'),
         hedgeTaskList: document.getElementById('hedge-task-list'),
         hedgeTaskFilters: document.getElementById('hedge-task-filters'),
         hedgeExecutionBadge: document.getElementById('hedge-execution-badge'),
@@ -4489,6 +4515,71 @@
         }
       }
 
+      // 功能三 ③a：历史仓位——周期结算日志（GET /api/hedge-open-close-logs，只读）。
+      async function loadHedgeCloseLogs() {
+        try {
+          const doc = await hedgeApi('/api/hedge-open-close-logs');
+          state.hedgeCloseLogs = Array.isArray(doc && doc.logs) ? doc.logs : [];
+        } catch (err) {
+          // 加载失败保留上次缓存
+        }
+        renderHedgeHistory();
+      }
+
+      function renderHedgeHistory() {
+        if (!els.historyList) return;
+        const logs = Array.isArray(state.hedgeCloseLogs) ? state.hedgeCloseLogs : [];
+        const dirLabel = (d) => d === 'forward' ? '正向' : d === 'reverse' ? '反向' : hedgeText(d);
+        const rowsHtml = logs.map(r => {
+          const feeNum = hedgeNum(r.funding_fee);
+          const feeCls = (r.funding_fee === null || r.funding_fee === undefined || r.funding_fee === '')
+            ? '' : (Number.isFinite(feeNum) ? classForSignedNumber(feeNum) : '');
+          return `
+            <tr>
+              <td class="mono">${escapeHtml(r.symbol)}</td>
+              <td>${dirLabel(r.direction)}</td>
+              <td class="mono">${formatBeijing(r.opened_at_us != null ? Math.floor(r.opened_at_us / 1000) : null)}</td>
+              <td class="mono">${formatBeijing(r.closed_at_us != null ? Math.floor(r.closed_at_us / 1000) : null)}</td>
+              <td class="mono">${r.open_qty != null && r.open_avg_price != null ? (Number(r.open_qty) * Number(r.open_avg_price)).toFixed(2) : '<span class="muted">—</span>'}</td>
+              <td class="mono">${r.open_qty != null ? escapeHtml(r.open_qty) : '<span class="muted">—</span>'}</td>
+              <td class="mono">${r.open_avg_price != null ? escapeHtml(r.open_avg_price) : '<span class="muted">—</span>'}</td>
+              <td class="mono">${r.close_avg_price != null ? escapeHtml(r.close_avg_price) : '<span class="muted">—</span>'}</td>
+              <!-- 2026-08 补充：现货成交额（≈ 成交量×买入均价）与现货成交量（spot_open_qty） -->
+              <td class="mono">${r.spot_open_qty != null && r.spot_open_avg != null ? (Number(r.spot_open_qty) * Number(r.spot_open_avg)).toFixed(2) : '<span class="muted">—</span>'}</td>
+              <td class="mono">${r.spot_open_qty != null ? escapeHtml(r.spot_open_qty) : '<span class="muted">—</span>'}</td>
+              <td class="mono">${r.spot_open_avg != null ? escapeHtml(r.spot_open_avg) : '<span class="muted">—</span>'}</td>
+              <td class="mono">${r.spot_close_avg != null ? escapeHtml(r.spot_close_avg) : '<span class="muted">—</span>'}</td>
+              <td class="mono">${r.borrow_interest != null ? escapeHtml(r.borrow_interest) : '<span class="muted">—</span>'}</td>
+              <td class="mono ${feeCls}">${r.funding_fee != null ? escapeHtml(r.funding_fee) : '<span class="muted">—</span>'}</td>
+              <!-- 2026-08：滑点（USDT，成交均价 vs 开/平仓 est_price 加权，合约腿；负=成交优于估价） -->
+              <td class="mono ${classForSignedNumber(hedgeNum(r.open_slippage))}">${r.open_slippage != null ? escapeHtml(r.open_slippage) + '%' : '<span class="muted">—</span>'}</td>
+              <td class="mono ${classForSignedNumber(hedgeNum(r.close_slippage))}">${r.close_slippage != null ? escapeHtml(r.close_slippage) + '%' : '<span class="muted">—</span>'}</td>
+            </tr>`;
+        }).join('');
+        els.historyList.innerHTML = `
+          <div class="table-wrap"><table>
+            <thead><tr>
+              <th>币种</th>
+              <th>方向</th>
+              <th>开单时间</th>
+              <th>平仓时间</th>
+              <th title="合约腿开仓累计成交额 ≈ 成交量 × 开单均价（USDT）">合约成交额</th>
+              <th title="合约腿开仓累计成交数量">合约成交量</th>
+              <th>合约开单均价</th>
+              <th>合约平单均价</th>
+              <th title="现货腿开仓累计成交额 ≈ 成交量 × 买入均价（USDT）">现货成交额</th>
+              <th title="现货腿开仓累计成交数量">现货成交量</th>
+              <th>现货买入均价</th>
+              <th>现货卖出均价</th>
+              <th>总借币利息</th>
+              <th>总资金费率收益</th>
+              <th title="成交均价 vs 开仓估价(est_price) 的偏离率 %（负=成交优于估价）">总计开单滑点 %</th>
+              <th title="成交均价 vs 平仓估价(est_price) 的偏离率 %（负=成交优于估价）">总计平单滑点 %</th>
+            </tr></thead>
+            <tbody>${rowsHtml || '<tr><td colspan="16"><span class="muted small">暂无已平仓周期记录；平仓任务完成后在此展示结算日志</span></td></tr>'}</tbody>
+          </table></div>`;
+      }
+
       // 执行徽标（§3：GET /api/hedge-open-settings）：executor_mode disabled→dry-run；
       // start_gate 为后端全局 Start 闸门只读投影，前端不提供开关。
       function renderHedgeExecutionStatus(doc) {
@@ -4686,6 +4777,9 @@
         if (pending.kind === 'hedge_open') {
           return submitHedgeOpen(pending.symbol, pending.direction, pending.mode);
         }
+        if (pending.kind === 'hedge_close') {
+          return submitHedgeClose(pending.coin, pending.direction, pending.amountStr, pending.targetN);
+        }
         if (pending.kind === 'borrow_clear_logs') {
           return clearBorrowLogs();
         }
@@ -4724,6 +4818,134 @@
         if (!/^[0-9]+(\.[0-9]+)?$/.test(s)) return null;
         if (!/[1-9]/.test(s)) return null;
         return s;
+      }
+
+      // 立即平仓列（功能三 UI 预览，Human 2026-08 拍板）：仿市场表开单列——单次平仓币量 +
+      // 计划尝试次数 + 确认弹框。后端平仓任务未实现：确认后提示「后端开发中」，不发真实请求。
+      // 周期已完全平仓（cycle_closed_at）或无周期记录（cycle_id null）→ 输入与按钮禁用。
+      function renderHedgeCloseInputs(p) {
+        const sym = escapeHtml(p.coin);
+        const dir = p.direction || 'forward';
+        const closed = !!(p.cycle_closed_at);
+        const noCycle = !p.cycle_id;
+        const disabled = closed || noCycle;
+        const disTitle = closed ? '该持仓周期已完全平仓，无需平仓'
+          : noCycle ? '无本地周期记录（可能为手工仓），暂不可平仓' : '';
+        const disAttr = disabled ? ' disabled' : '';
+        const btnTitle = disabled ? ` title="${disTitle}"` : '';
+        return `
+              <div class="borrow-op-inputs">
+                <label for="hedge-close-amount-${sym}">单次平仓币量</label>
+                <input id="hedge-close-amount-${sym}" type="text" inputmode="decimal" placeholder="如 0.01" autocomplete="off"${disAttr}/>
+                <label for="hedge-close-count-${sym}">计划尝试次数</label>
+                <input id="hedge-close-count-${sym}" type="text" inputmode="numeric" placeholder="如 3" autocomplete="off"${disAttr}/>
+                <button class="btn compact" type="button" data-hedge-close="${sym}" data-hedge-close-dir="${dir}"${btnTitle}${disAttr}>立即平仓</button>
+              </div>
+              <div class="borrow-op-error" id="hedge-close-error-${sym}" role="alert" aria-live="polite"></div>`;
+      }
+
+      // 立即平仓按钮：本地校验后弹确认；后端未实现，确认后走 submitHedgeClose（stub）。
+      function requestHedgeCloseConfirm(coin, direction) {
+        const errEl = document.getElementById(`hedge-close-error-${coin}`);
+        const amountEl = document.getElementById(`hedge-close-amount-${coin}`);
+        const countEl = document.getElementById(`hedge-close-count-${coin}`);
+        const setErr = (msg) => { if (errEl) errEl.textContent = msg || ''; };
+        const amountStr = normalizeHedgeAmount(amountEl ? amountEl.value : '');
+        if (!amountStr) {
+          setErr('单次平仓币量需为正数');
+          return { ok: false, error: 'invalid_amount' };
+        }
+        const n = parseSuccessTarget(countEl ? countEl.value : '');
+        if (n === null) {
+          setErr('计划尝试次数需为 ≥1 的整数');
+          return { ok: false, error: 'invalid_count' };
+        }
+        // Human 2026-08-05：前端提前量检测（强制拦截，不发请求）。**与后端 create_task
+        // 校验同步**：后端 close 用 preflight_direction=reverse 分支——required = 单次×次数
+        // （总量）、available = 统一账户该币余额（PAPI crossMarginFree，不看普通账户）。
+        // 前端口径：总量 = 单次×次数；现货侧用 unified_balance（统一账户，total ≥ free，
+        // 宁拦勿放）；合约侧用 um_position_amt（防超平，reduceOnly 超量交易所会拒）。
+        // 无数据字段 → 跳过对应侧（不误拦，后端实时兜底）。后端校验保持不动（Human 决定）。
+        if (direction === 'forward') {
+          const posRow = (state.hedgePositions || []).find(r => r.coin === coin);
+          const total = Number(amountStr) * n;
+          const hasUnifiedData = posRow && posRow.unified_balance != null && posRow.unified_balance !== '';
+          if (hasUnifiedData && Number.isFinite(total)) {
+            const unifiedBal = Number(posRow.unified_balance);
+            if (Number.isFinite(unifiedBal) && unifiedBal < total) {
+              setErr(`页面显示统一账户现货约 ${unifiedBal.toFixed(2)} < 需 ${total}（单次 ${amountStr} × ${n} 次；缓存约 60s 旧，以后端校验为准）；已拦截`);
+              return { ok: false, error: 'insufficient_balance_frontend' };
+            }
+          }
+          // 合约持仓对比（用户 2026-08 补充）：平仓总量不能超过合约持仓（reduceOnly 超平被拒）
+          const umAmtRaw = posRow && posRow.um_position_amt != null ? posRow.um_position_amt : null;
+          if (umAmtRaw !== null && String(umAmtRaw).trim() !== '' && Number.isFinite(total)) {
+            const perpPos = Math.abs(Number(umAmtRaw));
+            if (Number.isFinite(perpPos) && perpPos < total) {
+              setErr(`页面显示合约持仓约 ${perpPos.toFixed(2)} < 需 ${total}（单次 ${amountStr} × ${n} 次）；已拦截`);
+              return { ok: false, error: 'insufficient_perp_frontend' };
+            }
+          }
+        }
+        setErr('');
+        const dirLabel = direction === 'forward' ? '正向' : '反向';
+        state.marketActionPending = { kind: 'hedge_close', coin, direction, amountStr, targetN: n };
+        state.hedgeGatePending = null;
+        showHedgeConfirm(
+          `确认${dirLabel}立即平仓？`,
+          `币种 ${coin}，方向 ${dirLabel}，单次平仓币量 ${amountStr}，计划尝试 ${n} 次。`
+            + '确认后创建平仓任务（合约腿 reduceOnly，以合约无仓为完成判定）。',
+          '确认平仓'
+        );
+        return { ok: true, pending: true };
+      }
+
+      // 立即平仓提交（功能三）：创建平仓任务（task_type:'close'，方向沿用持仓行）。
+      async function submitHedgeClose(coin, direction, amountStr, targetN) {
+        const errEl = document.getElementById(`hedge-close-error-${coin}`);
+        const setErr = (msg) => { if (errEl) errEl.textContent = msg || ''; };
+        // 诊断日志（2026-08：定位「平仓任务点击后未创建」问题）。
+        console.log('[HEDGE-CLOSE-SUBMIT]', { coin, direction, amountStr, targetN });
+        beginHedgeTaskNavLoading();
+        try {
+          const task = await hedgeApi('/api/hedge-open-tasks', {
+            method: 'POST',
+            body: { coin, direction, mode: 'immediate', single_amount: amountStr, target_n: targetN, task_type: 'close' }
+          });
+          console.log('[HEDGE-CLOSE-SUBMIT] ok', task && task.id);
+          // 对齐 submitHedgeOpen：新任务立即进 state.hedgeTasks + 刷新导航徽标，
+          // 否则「开单任务」数字不回显新任务（任务卡出现但徽标还是旧值/转圈）。
+          if (task && typeof task.id === 'string') {
+            const idx = state.hedgeTasks.findIndex(t => t.id === task.id);
+            if (idx !== -1) state.hedgeTasks[idx] = task; else state.hedgeTasks.push(task);
+          }
+          updateHedgeTaskNav();
+        } catch (err) {
+          console.error('[HEDGE-CLOSE-SUBMIT] failed', err);
+          if (err.errorCode === 'no_active_cycle') {
+            setErr('该持仓周期已不可平仓（无活跃周期）');
+            return { ok: false, error: 'no_active_cycle' };
+          }
+          if (err.errorCode === 'insufficient_balance') {
+            const payload = err.payload || {};
+            const dirLabel = direction === 'forward' ? '正向' : '反向';
+            showHedgeModal(
+              `${dirLabel}平仓余额不足`,
+              direction === 'forward'
+                ? `卖回现货需要现货持仓：需要约 ${payload.required != null ? payload.required : '—'} ${coin.replace(/USDT$/, '')}，当前可用 ${payload.available != null ? payload.available : '—'}。`
+                : `买回现货需要 USDT：需要约 ${payload.required != null ? payload.required : '—'} USDT，当前可用 ${payload.available != null ? payload.available : '—'}。`
+            );
+            return { ok: false, error: 'insufficient_balance' };
+          }
+          setErr((err.detail && typeof err.detail === 'string') ? err.detail
+            : (err.errorCode || '平仓任务创建失败'));
+          return { ok: false, error: err.errorCode || 'unknown' };
+        } finally {
+          endHedgeTaskNavLoading();
+        }
+        setErr('');
+        await loadHedgeTasks();
+        return { ok: true };
       }
 
       // 立即开单按钮：本地校验后弹确认；真正 POST 在确认后走 submitHedgeOpen。
@@ -4937,6 +5159,7 @@
           <div class="borrow-task-card" data-hedge-task-id="${idAttr}">
             <div class="borrow-task-head">
               <h3>${escapeHtml(task.coin)}</h3>
+              <span class="badge ${task.task_type === 'close' ? 'danger' : 'muted'}" title="${task.task_type === 'close' ? '平仓任务：现货卖出（或买入还币）+ 合约平仓' : '开单任务：现货买入（或卖出）+ 合约开仓'}">${task.task_type === 'close' ? '平仓' : '开单'}</span>
               <span class="badge ${dirCls}">${dirLabel}</span>
               <span class="badge info">${modeLabel}</span>
               <span class="badge ${statusBadge}">${statusLabel}</span>
@@ -5155,6 +5378,23 @@
           if (blank) return '<span class="muted small">暂无</span>';
           return `<span class="mono">${formatter(v)}</span>`;
         };
+        // 功能二：持仓周期统计三列真值渲染。wire 语义：null/'' = 无统计（「暂无」，
+        // 含无周期数据行与覆盖率不足行）；字符串（含 "0"）= 真值——真零显示 0，
+        // 与「未知」可区分（P7 规则，绝不把未知渲染成 0）。
+        const statsCell = (v, formatter) => {
+          if (v === null || v === undefined || v === '') return '<span class="muted small">暂无</span>';
+          return `<span class="mono">${formatter(v)}</span>`;
+        };
+        // Human 2026-08-05：累计资金费 / 净盈亏保留两位小数（与利息 ≈U 一致）。
+        // signed=true 时带 +/- 符号（净盈亏）；wire 语义不变（null → 暂无）。
+        const stats2Cell = (v, signed) => {
+          if (v === null || v === undefined || v === '') return '<span class="muted small">暂无</span>';
+          const num = typeof v === 'number' ? v : Number(v);
+          if (!Number.isFinite(num)) return '<span class="muted small">暂无</span>';
+          const fixed = num.toFixed(2);
+          const shown = signed ? (num > 0 ? '+' : '') + fixed : fixed;
+          return `<span class="mono">${shown}</span>`;
+        };
         const hasRows = Array.isArray(positions) && positions.length > 0;
         // G6: cross-margin borrow is an account-level, per-asset figure — NOT a
         // per-row property. When the same asset spans several rows (e.g. a coin
@@ -5180,6 +5420,19 @@
           const pnlReal = hasUm && upnlPresent;
           const pnlCls = pnlReal ? classForSignedNumber(hedgeNum(p.price_pnl)) : '';
           const pnlText = pnlReal ? formatHedgeSigned(p.price_pnl) : '<span class="muted small">暂无</span>';
+          // 功能二：周期净盈亏（资金费+利息换算U）正负着色；无统计（null）不着色。
+          const netPnlNum = (p.net_pnl === null || p.net_pnl === undefined || p.net_pnl === '')
+            ? NaN : hedgeNum(p.net_pnl);
+          const netPnlCls = Number.isFinite(netPnlNum) ? classForSignedNumber(netPnlNum) : '';
+          // Human 2026-08-05：累计资金费也按正负着色（正=收取绿、负=支付红）。
+          const fundingNum = (p.accrued_funding === null || p.accrued_funding === undefined || p.accrued_funding === '')
+            ? NaN : hedgeNum(p.accrued_funding);
+          const fundingCls = Number.isFinite(fundingNum) ? classForSignedNumber(fundingNum) : '';
+          // Human 2026-08-05：借币利息第二行 ≈U（保留两位小数）。borrow_interest_usdt
+          // 为后端按 price_map 换算的 U 值（null=无法换算，不显示第二行）。
+          const interestUsdtHtml = (p.borrow_interest_usdt === null || p.borrow_interest_usdt === undefined
+            || p.borrow_interest_usdt === '')
+            ? '' : `<span class="muted small" style="display:block;">≈ ${Number(p.borrow_interest_usdt).toFixed(2)} U</span>`;
           // 行标记（只展示、不动作）。
           const markers = [];
           // G1: explicit match status — the backend knows both sides, so the UI
@@ -5193,6 +5446,9 @@
           if (p.spot_avg_price_incomplete || p.perp_avg_price_incomplete) markers.push('<span class="risk-warn small" title="该均价在部分成交（金额未知）上计算，非完整口径">均价不完整</span>');
           if (p.drift) markers.push('<span class="risk-warn small">本地记录与实际不一致</span>');
           if (p.includes_deleted_task) markers.push('<span class="muted small">含已删除任务记录，均价为混合值</span>');
+          // 功能二：统计覆盖率不足（含窗口内缺口）→ 三列非真值；已平仓周期行标记。
+          if (p.stats_incomplete) markers.push('<span class="risk-warn small" title="统计窗口未被账本完整覆盖（含中间缺口），费率/利息/净盈亏非真值">统计区间不全</span>');
+          if (p.cycle_closed_at) markers.push('<span class="muted small" title="该持仓周期已完全平仓">已完全平仓</span>');
           const markerText = markers.length ? markers.join(' ') : '<span class="muted">—</span>';
           // G6: per-asset borrow dedup (see seenBorrowAsset above).
           const borrowAsset = (typeof p.coin === 'string' && p.coin.endsWith('USDT'))
@@ -5226,13 +5482,14 @@
                         <td class="mono"${spotAvgTitle}>${formatHedgeAvgPrice(p.spot_avg)}</td>
                         <td class="mono"${perpAvgTitle}>${formatHedgeAvgPrice(p.perp_avg)}</td>
                         <td class="mono ${basisCls}">${formatHedgeBasisPct(basisRate)}</td>
-                        <td class="mono">${pendingCell(p.accrued_funding, formatHedgeDecimal)}</td>
-                        <td class="mono">${pendingCell(p.borrow_interest, formatHedgeDecimal)}</td>
-                        <td class="mono">${pendingCell(p.net_pnl, formatHedgeSigned)}</td>
+                        <td class="mono ${fundingCls}">${stats2Cell(p.accrued_funding, false)}</td>
+                        <td class="mono">${statsCell(p.borrow_interest, formatHedgeDecimal)}${interestUsdtHtml}</td>
+                        <td class="mono ${netPnlCls}">${stats2Cell(p.net_pnl, true)}</td>
+                        <td class="hedge-op-cell">${renderHedgeCloseInputs(p)}</td>
                         <td class="small">${markerText}</td>
                       </tr>
                     `;
-        }).join('') : `<tr><td colspan="17"><span class="muted small">暂无开单持仓；任务成交后按币种聚合展示</span></td></tr>`;
+        }).join('') : `<tr><td colspan="18"><span class="muted small">暂无开单持仓；任务成交后按币种聚合展示</span></td></tr>`;
         // Multi-source freshness: earliest of UM + unified + spot; any null → not-ready
         // (never invents a complete time from remaining sources). Prefer snapshot
         // private_account.source_checked_at; fall back to positions account meta.
@@ -5270,6 +5527,7 @@
                     <th>累计资金费</th>
                     <th>借币利息</th>
                     <th>净盈亏</th>
+                    <th title="立即平仓：仿开单交互——单次平仓币量 + 计划尝试次数，确认后创建平仓任务（功能三，当前为界面预览）">立即平仓</th>
                     <th>标记</th>
                   </tr>
                 </thead>
@@ -5924,20 +6182,23 @@
           target = 'market';
           boardHint = 'market';
         }
-        const allowed = { 'borrow-tasks': 1, 'hedge-tasks': 1, market: 1 };
+        const allowed = { 'borrow-tasks': 1, 'hedge-tasks': 1, history: 1, market: 1 };
         state.activeView = allowed[target] ? target : 'market';
         const isBorrow = state.activeView === 'borrow-tasks';
         const isHedge = state.activeView === 'hedge-tasks';
+        const isHistory = state.activeView === 'history';
         const isMarket = state.activeView === 'market';
-        // market 页始终可见（含双看板）；仅借币/开单隐藏
-        els.marketView.style.display = (isBorrow || isHedge) ? 'none' : '';
+        // market 页始终可见（含双看板）；仅借币/开单/历史隐藏
+        els.marketView.style.display = (isBorrow || isHedge || isHistory) ? 'none' : '';
         els.borrowTaskView.style.display = isBorrow ? '' : 'none';
         els.hedgeTaskView.style.display = isHedge ? '' : 'none';
-        // 侧栏仅三个入口；#nav-market 不随看板切换改变激活态
+        els.historyView.style.display = isHistory ? '' : 'none';
+        // 侧栏四个入口；#nav-market 不随看板切换改变激活态
         const navEntries = [
           ['market', els.navMarket],
           ['borrow-tasks', els.navBorrowTasks],
-          ['hedge-tasks', els.navHedgeTasks]
+          ['hedge-tasks', els.navHedgeTasks],
+          ['history', els.navHistory]
         ];
         for (const [name, btn] of navEntries) {
           if (!btn) continue;
@@ -5979,6 +6240,9 @@
           loadHedgeSettings();
           loadHedgeAttempts();
           if (state.hedgeTab === 'logs') loadHedgeLogs(true);
+        } else if (isHistory) {
+          // 功能三 ③a：历史仓位接真实结算日志 API（只读）。
+          loadHedgeCloseLogs();
         }
       }
 
@@ -6831,6 +7095,19 @@
         els.navMarket.addEventListener('click', () => setActiveView('market'));
         els.navBorrowTasks.addEventListener('click', () => setActiveView('borrow-tasks'));
         els.navHedgeTasks.addEventListener('click', () => setActiveView('hedge-tasks'));
+        if (els.navHistory) els.navHistory.addEventListener('click', () => setActiveView('history'));
+        // 立即平仓列（功能三 UI 预览）：私有面板容器事件委托，渲染替换不丢绑定。
+        if (els.privatePanelBody) {
+          els.privatePanelBody.addEventListener('click', (e) => {
+            const btn = e.target && typeof e.target.closest === 'function' ? e.target.closest('[data-hedge-close]') : null;
+            if (!btn || btn.disabled) return;
+            e.stopPropagation();
+            requestHedgeCloseConfirm(
+              btn.getAttribute('data-hedge-close'),
+              btn.getAttribute('data-hedge-close-dir')
+            );
+          });
+        }
         els.hedgeModalClose.addEventListener('click', closeHedgeModal);
         els.hedgeModalBackdrop.addEventListener('click', closeHedgeModal);
         if (els.hedgeModalConfirm) els.hedgeModalConfirm.addEventListener('click', () => { onHedgeModalConfirm(); });
@@ -7017,6 +7294,9 @@
         // ---- 开单任务（2026-07-hedge-open-live-v1，§3 冻结 API） ----
         submitHedgeOpen,
         requestHedgeOpenConfirm,
+        // ---- 立即平仓列（功能三 UI 预览） ----
+        submitHedgeClose,
+        requestHedgeCloseConfirm,
         requestBorrowCreateConfirm,
         confirmMarketAction,
         onHedgeModalConfirm,
@@ -7027,6 +7307,8 @@
         hedgeFillAll,
         loadHedgeTasks,
         loadHedgePositions,
+        loadHedgeCloseLogs,
+        renderHedgeHistory,
         loadHedgeSettings,
         loadHedgeAttempts,
         renderHedgeTasks,

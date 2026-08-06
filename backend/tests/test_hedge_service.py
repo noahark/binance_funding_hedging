@@ -48,7 +48,7 @@ class _StubPreflight(PreflightProvider):
     def __init__(self, snapshot):
         self._snapshot = snapshot
 
-    def get_snapshot(self, coin, direction):
+    def get_snapshot(self, coin, direction, task_type="open"):
         return self._snapshot
 
 
@@ -181,7 +181,7 @@ class _ProbePreflight:
     def __init__(self, legs):
         self._legs = legs
 
-    def get_snapshot(self, coin, direction):
+    def get_snapshot(self, coin, direction, task_type="open"):
         return None  # dry-run path; compute_preflight tolerates a None snapshot
 
     def check_symbol_legs(self, coin):
@@ -351,7 +351,8 @@ def test_settings_doc_renders_subsecond_interval():
     # Since 2026-08-02 the doc reports D.DEFAULT_INTERVAL_US, so a stale row value
     # (here 100_000) is deliberately ignored — one source of truth.
     doc = settings_to_doc(
-        {"start_gate": 0, "interval_us": 100_000, "version": 1}, "disabled"
+        {"start_gate": 0, "interval_us": 100_000, "version": 1, "close_gate": 1},
+        "disabled",
     )
     assert doc["interval_seconds"] == round(D.DEFAULT_INTERVAL_US / 1_000_000, 3)
     assert doc["interval_seconds"] != 0

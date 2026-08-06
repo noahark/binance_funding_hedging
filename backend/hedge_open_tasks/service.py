@@ -19,6 +19,7 @@ and merely arms the task — breakdown §3.8).
 from __future__ import annotations
 
 import json
+import sys
 import threading
 import time
 import uuid
@@ -41,7 +42,7 @@ from .scheduler import HedgeOpenScheduler
 from .store import HedgeOpenStore, UnknownTaskError
 
 
-_CREATE_BODY_KEYS = ("coin", "direction", "mode", "single_amount", "target_n")
+_CREATE_BODY_KEYS = ("coin", "direction", "mode", "single_amount", "target_n", "task_type")
 
 
 def _leg_query_symbol(leg: dict, task: dict) -> str:
@@ -133,14 +134,14 @@ class PreflightProvider(Protocol):
     """
 
     def get_snapshot(
-        self, coin: str, direction: str
+        self, coin: str, direction: str, task_type: str = "open",
     ) -> D.PreflightSnapshot | None: ...
 
 
 class DisabledPreflightProvider:
     """The default provider: no preflight data (dry-run, no network read)."""
 
-    def get_snapshot(self, coin: str, direction: str) -> D.PreflightSnapshot | None:
+    def get_snapshot(self, coin: str, direction: str, task_type: str = "open") -> D.PreflightSnapshot | None:
         return None
 
 
@@ -172,6 +173,8 @@ def task_to_doc(task: dict, *, worker_active: bool | None = None) -> dict:
         "consecutive_submission_failures": task["consecutive_submission_failures"],
         "failure_pause_threshold": task["failure_pause_threshold"],
         "pause_reason": task["pause_reason"],
+        # 功能三（2026-08）：任务类型（'open'=开仓 / 'close'=平仓）。
+        "task_type": task.get("task_type") or D.TASK_TYPE_OPEN,
         # Amendment 21: the safe Chinese cause of a task-local pause (429 /
         # insufficient balance/margin/available-qty) alongside status=paused.
         "pause_reason_zh": task["pause_reason_zh"],
@@ -221,6 +224,8 @@ def settings_to_doc(settings: dict, executor_mode: str) -> dict:
         # concurrency-safe start-gate write must echo back. Existing field names
         # and semantics are unchanged.
         "version": int(settings["version"]),
+        # 功能三：平仓闸门（独立于开单闸门，默认开；CAS 写见 put_close_gate）。
+        "close_gate": bool(settings["close_gate"]),
     }
 
 
@@ -459,6 +464,7 @@ class HedgeOpenTaskService:
         mono_us: Callable[[], int] | None = None,
         wall_us: Callable[[], int] | None = None,
         cache_refresh_submitter: Callable[[], None] | None = None,
+        ledger_flow_service=None,  # 功能三：结算日志费率/利息复用（duck-typed，可选）
     ):
         self._mono_us = mono_us or _real_mono_us
         self._wall_us = wall_us or _real_wall_us
@@ -476,6 +482,7 @@ class HedgeOpenTaskService:
         self._preflight: PreflightProvider = preflight_provider or DisabledPreflightProvider()
         self._mode = mode
         self._live_mode = mode == "live"
+        self._ledger_flow_service = ledger_flow_service  # 功能三：close_log 费率/利息（可选）
         # Whether the injected live executor holds real credentials (server
         # computes this from the live client; default False for dry-run). The
         # value is a boolean only — never a credential value (Boundary C).
@@ -614,6 +621,9 @@ class HedgeOpenTaskService:
     def is_start_gate_on(self) -> bool:
         return bool(self._store.get_settings()["start_gate"])
 
+    def is_close_gate_on(self) -> bool:
+        return bool(self._store.get_settings()["close_gate"])
+
     # ------------------------------------------------------------------ tasks
 
     def create_task(self, body) -> tuple[int, dict]:
@@ -623,6 +633,18 @@ class HedgeOpenTaskService:
         coin = D.validate_coin(body.get("coin"))
         direction = D.validate_direction(body.get("direction"))
         mode = D.validate_mode(body.get("mode") or D.DEFAULT_MODE)
+        task_type = body.get("task_type") or D.TASK_TYPE_OPEN
+        single_amount = body.get("single_amount")
+        target_n = body.get("target_n")
+        # 诊断日志（2026-08：定位「平仓任务点击后未创建」问题）。stderr 输出，
+        # 服务启动终端/重定向可见；不写库（失败时无 task_id 可挂）。
+        print(
+            f"[HEDGE-CREATE] body task_type={task_type} coin={coin} "
+            f"direction={direction} mode={mode} single_amount={single_amount} "
+            f"target_n={target_n}",
+            file=sys.stderr, flush=True,
+        )
+        D.validate_task_type(task_type)
         # Round-1 freeze (frozen §3.1): only ``immediate`` is dispatchable this
         # round. ``smooth`` remains a reserved vocabulary word (validate_mode
         # accepts it) but is rejected here so the immediate engine never runs a
@@ -631,6 +653,22 @@ class HedgeOpenTaskService:
             raise D.invalid_field("mode", f"round-1 supports only {D.MODE_IMMEDIATE!r}")
         single_amount = D.validate_single_amount(body.get("single_amount"))
         target_n = D.validate_target_n(body.get("target_n"))
+
+        # 功能三（close 任务）：必须存在该 (coin, direction) 的活跃周期（无仓不可平）；
+        # 平仓方向沿用持仓行方向（forward 仓 → forward 平仓：现货 SELL + 合约 BUY）。
+        active_cycle = None
+        if task_type == D.TASK_TYPE_CLOSE:
+            active_cycle = self._store.get_active_cycle(coin, direction)
+            if active_cycle is None:
+                print(
+                    f"[HEDGE-CREATE] close rejected: no_active_cycle coin={coin} "
+                    f"direction={direction}",
+                    file=sys.stderr, flush=True,
+                )
+                raise D.HedgeError(
+                    409, "no_active_cycle",
+                    f"{direction} {coin} 无活跃持仓周期，不可平仓（无仓不可平）",
+                )
 
         # S4b (ADR-H5): when the provider can probe leg existence, block creating
         # a task for a coin confirmed absent on spot and/or UM (e.g. KORUUSDT,
@@ -649,15 +687,20 @@ class HedgeOpenTaskService:
                     extra={"missing": missing},
                 )
 
-        snapshot = self._preflight.get_snapshot(coin, direction)
+        # close 任务按反转方向做余额检查：forward 平仓卖现货需现货持仓，
+        # reverse 平仓买现货需 USDT（与开仓检查方向相反）。
+        preflight_direction = (
+            D.DIR_REVERSE if direction == D.DIR_FORWARD else D.DIR_FORWARD
+        ) if task_type == D.TASK_TYPE_CLOSE else direction
+        snapshot = self._preflight.get_snapshot(coin, preflight_direction, task_type=task_type)
         preflight = D.compute_preflight(
-            snapshot, coin, direction, D.Decimal(single_amount), target_n
+            snapshot, coin, preflight_direction, D.Decimal(single_amount), target_n
         )
         if preflight.rejection == D.REJECT_INSUFFICIENT_BALANCE:
             raise D.HedgeError(
                 400,
                 "insufficient_balance",
-                f"{direction} open balance check failed",
+                f"{direction} {task_type} balance check failed",
                 extra={
                     "direction": direction,
                     "required": D.fmt_decimal(preflight.required),
@@ -671,6 +714,11 @@ class HedgeOpenTaskService:
             )
         task_id = str(uuid.uuid4())
         now_us = self._wall_us()
+        print(
+            f"[HEDGE-CREATE] success task_id={task_id[:8]} task_type={task_type} "
+            f"coin={coin} direction={direction} q={D.fmt_decimal(preflight.q_common)}",
+            file=sys.stderr, flush=True,
+        )
         task = self._store.create_task(
             task_id,
             coin,
@@ -682,6 +730,7 @@ class HedgeOpenTaskService:
             preflight.position_side_mode,
             preflight.snapshot_record,
             now_us,
+            task_type=task_type,
         )
         return 201, self._doc(task)
 
@@ -689,6 +738,10 @@ class HedgeOpenTaskService:
         status_filter = D.filter_status_for_list(status_query)
         tasks = [self._doc(t) for t in self._store.list_tasks(status_filter)]
         return 200, {"tasks": tasks}
+
+    def get_close_logs(self) -> tuple[int, dict]:
+        """功能三 ③a：周期结算日志（按 closed_at 倒序），历史仓位页数据源。只读。"""
+        return 200, {"logs": self._store.list_close_logs()}
 
     def _get_task_or_404(self, task_id: str) -> dict:
         task = self._store.get_task(task_id)
@@ -1121,6 +1174,33 @@ class HedgeOpenTaskService:
             )
         return 200, settings_to_doc(result, self._mode)
 
+    def put_close_gate(self, body) -> tuple[int, dict]:
+        """Concurrency-safe, confirmation-gated write of the close gate
+        （功能三，镜像 put_start_gate ADR-H2）。Body
+        ``{"enabled": <bool>, "confirm": true, "version": <int>}``：``confirm``
+        必须为字面 true（防裸 POST 开闸）；``version`` 为 CAS 守卫（冲突 409）。
+        审计 kind ``close_gate_changed``（sentinel ``task_id="close-gate"``）。"""
+        if not isinstance(body, dict):
+            raise D.HedgeError(400, "invalid_json", "request body must be a JSON object")
+        D.reject_unknown_keys(body, _START_GATE_BODY_KEYS)
+        enabled = body.get("enabled")
+        if not isinstance(enabled, bool):
+            raise D.invalid_field("enabled", "must be a boolean")
+        if body.get("confirm") is not True:
+            raise D.HedgeError(
+                400, "confirmation_required", "平仓闸门变更必须显式确认"
+            )
+        version = body.get("version")
+        if isinstance(version, bool) or not isinstance(version, int):
+            raise D.invalid_field("version", "must be an integer")
+        result = self._store.set_close_gate_cas(enabled, version, self._wall_us())
+        if result is None:
+            raise D.HedgeError(
+                409, "version_conflict", "设置已被其他会话修改，请刷新后重试",
+                extra={"settings": settings_to_doc(self._store.get_settings(), self._mode)},
+            )
+        return 200, settings_to_doc(result, self._mode)
+
     # -------------------------------------------------------- task-local workers
     #
     # Amendment 21 binding runtime contract: there is NO long-lived global
@@ -1312,8 +1392,51 @@ class HedgeOpenTaskService:
             return self._worker_exit(task_id, D.WORKER_EXIT_TASK_NOT_RUNNING)
         if not self.is_start_gate_on():
             return self._worker_exit(task_id, D.WORKER_EXIT_START_GATE_OFF)
-        if task["scheduled_attempt_count"] >= task["target_n"]:
-            return self._worker_exit(task_id, D.WORKER_EXIT_TARGET_REACHED)
+        # 功能三：close 任务受独立平仓闸门（close_gate）约束（默认开，Human 已拍板）。
+        if task.get("task_type") == D.TASK_TYPE_CLOSE and not self.is_close_gate_on():
+            return self._worker_exit(task_id, D.WORKER_EXIT_CLOSE_GATE_OFF)
+        # 功能三（close 完成判定，以合约腿为准；Human 2026-08：close 任务从 running
+        # 变为其他状态必须先走合约无仓核实）：无仓即平完（done + close_cycle +
+        # close_log）；还有仓且次数用完 = 部分平完成（done、周期不关、不写结算——
+        # 周期未结束）；还有仓且有次数 → 继续下一条 attempt；查仓失败暂停
+        # （fail-closed，绝不把「查不到」当「已平完」）。
+        if task.get("task_type") == D.TASK_TYPE_CLOSE:
+            verdict = self._verify_close_flat(task, now_us)
+            if verdict == "flat":
+                self._finalize_close_task(task, now_us)
+                return True
+            if verdict == "failed":
+                self._pause_task_local(
+                    task, D.PAUSE_REASON_CLOSE_VERIFY_FAILED, None, now_us,
+                    kind="close_verify_failed",
+                )
+                return True
+            # verdict == "open"：合约仍有仓
+            if task["scheduled_attempt_count"] >= task["target_n"]:
+                # 次数用完 + 还有仓 = 部分平完成：任务 done、周期不关（用户拍板语义）
+                self._store.append_log(
+                    task["id"], now_us, "close_partial_done",
+                    {"coin": task["coin"], "direction": task["direction"],
+                     "reason": "合约仍有仓，本次平仓目标完成，周期未关闭"},
+                )
+                self._store.set_task_status(task["id"], D.STATUS_DONE, now_us)
+                return True
+            # 还有次数 → 继续下一条 attempt
+        else:
+            if task["scheduled_attempt_count"] >= task["target_n"]:
+                return self._worker_exit(task_id, D.WORKER_EXIT_TARGET_REACHED)
+        # 平仓现货卖出重设计（2026-08）：forward close 首个 attempt 发单前一次性
+        # 检查普通现货余额（不足划转补足，失败即停、不重试、不发单）；后续 attempt
+        # 不再进入该路径（幂等；paused 后 worker 被既有拦截挡住）。
+        if (task.get("task_type") == D.TASK_TYPE_CLOSE
+                and task["scheduled_attempt_count"] == 0):
+            err = self._ensure_close_spot_balance(task, now_us)
+            if err is not None:
+                self._pause_task_local(
+                    task, D.PAUSE_REASON_CLOSE_SPOT_BALANCE, err, now_us,
+                    kind="close_spot_balance",
+                )
+                return True
         # Dispatch the next pair (preflight -> reserve -> two-leg submit).
         _, signal = self._dispatch_one_for_task(task, now_us)
         if signal == D.SIGNAL_RATE_LIMITED:
@@ -1329,6 +1452,187 @@ class HedgeOpenTaskService:
         if signal == D.SIGNAL_PREFLIGHT_FATAL:
             return self._worker_exit(task_id, D.WORKER_EXIT_PREFLIGHT_FATAL)
         return False  # dispatched -> next round resolves/drains this pair
+
+    # ------------------------------------------------------------------ #
+    # 功能三：close 完成判定（以合约腿为准）与结算日志
+    # ------------------------------------------------------------------ #
+    def _verify_close_flat(self, task: dict, now_us: int) -> str:
+        """核实该 symbol 合约是否已无仓。返回 ``"flat"`` / ``"open"`` / ``"failed"``。
+
+        dry-run（executor 无 ``query_symbol_um_qty``）→ 模拟「无仓」（平完）；
+        live → 实时查交易所合约持仓：净持仓 0 → flat，非零 → open，查询失败/
+        响应不可解析 → failed（fail-closed，绝不把「查不到」当「已平完」）。
+        """
+        query = getattr(self._executor, "query_symbol_um_qty", None)
+        if query is None:
+            return "flat"  # dry-run 模拟：双腿成交即视为平完
+        qty = query(task["coin"])
+        if qty is None:
+            return "failed"
+        return "flat" if qty == 0 else "open"
+
+    # ------------------------------------------------------------------ #
+    # 平仓现货卖出重设计（2026-08）：现货余额检查/划转/复检 + USDT 回流
+    # ------------------------------------------------------------------ #
+    def _log_close_transfer(self, task_id: str, now_us: int, action: str,
+                            coin: str, asset: str, amount: str | None,
+                            reason: str | None = None) -> None:
+        """close_transfer 审计行（划转发起/成功/失败/回流），任务卡日志页可见。"""
+        payload = {
+            "action": action,
+            "coin": coin,
+            "asset": asset,
+            "amount": amount,
+        }
+        if reason is not None:
+            payload["reason"] = reason
+        self._store.append_log(task_id, now_us, "close_transfer", payload)
+
+    def _ensure_close_spot_balance(self, task: dict, now_us: int) -> str | None:
+        """forward close 发单前：普通现货账户余额检查 + 一次性划转补足（Human 拍板）。
+
+        仅 forward close（现货 SELL 走普通账户）；reverse close（买现货走统一账户）跳过：
+        - 普通账户该币 free ≥ 计划卖量 → 无需划转，返回 None；
+        - 不足 → ``universal_transfer('PORTFOLIO_MARGIN_MAIN', base, 差额)`` 一次 →
+          复检普通账户余额 → 仍不足 → 中文错误（fail-closed，防「响应丢失但划转成功」
+          误判）；
+        - 任一步失败/异常 → 中文错误，**不重试、不发单**。
+        dry-run（executor 无 query_spot_free / universal_transfer）→ None（模拟余额足够）。
+        """
+        if task.get("task_type") != D.TASK_TYPE_CLOSE or task["direction"] != D.DIR_FORWARD:
+            return None
+        q_spot = getattr(self._executor, "query_spot_free", None)
+        q_unified = getattr(self._executor, "query_unified_free", None)
+        xfer = getattr(self._executor, "universal_transfer", None)
+        if q_spot is None or xfer is None:
+            return None  # dry-run：模拟余额足够
+        sell_amount = D.Decimal(task["single_amount"])
+        base_asset = D._merge_base_asset(task["coin"]) or task["coin"].replace("USDT", "")
+        free = q_spot(base_asset)
+        if free is None:
+            return "现货账户余额查询失败，无法确认平仓现货余额（fail-closed，未发单）"
+        if free >= sell_amount:
+            return None
+        diff = sell_amount - free
+        # 划转前检查统一账户余额（2026-08）：不足直接提示，不盲划——
+        # 否则划了才知道失败、日志只有 RuntimeError 无详情（COOKIE 现场教训）。
+        unified_free = q_unified(base_asset) if q_unified is not None else None
+        if unified_free is None:
+            return (f"统一账户余额查询失败，无法确认可划转余额（fail-closed，未发单；"
+                    f"普通现货账户缺 {D.fmt_decimal(diff)} {base_asset}）")
+        if unified_free < diff:
+            return (f"统一账户 {base_asset} 余额不足：剩 {D.fmt_decimal(unified_free)}，"
+                    f"需划转 {D.fmt_decimal(diff)}（普通现货账户缺 {D.fmt_decimal(free)}），"
+                    f"未划转未发单；请人工补充后恢复")
+        self._log_close_transfer(task["id"], now_us, "start", task["coin"],
+                                 base_asset, D.fmt_decimal(diff))
+        try:
+            xfer("PORTFOLIO_MARGIN_MAIN", base_asset, str(diff))
+        except Exception as exc:
+            # 2026-08：日志带交易所响应详情（body 截断 200），不只有异常类型名。
+            detail = str(exc)[:200] or type(exc).__name__
+            self._log_close_transfer(task["id"], now_us, "failed", task["coin"],
+                                     base_asset, D.fmt_decimal(diff),
+                                     reason=f"{type(exc).__name__}: {detail}")
+            return f"划转补足现货失败（{detail}），未发单；请人工核对后恢复"
+        self._log_close_transfer(task["id"], now_us, "ok", task["coin"],
+                                 base_asset, D.fmt_decimal(diff))
+        recheck = q_spot(base_asset)  # 复检：防响应丢失误判
+        if recheck is None:
+            return "划转后复检现货余额失败，无法确认已补足（fail-closed，未发单）"
+        if recheck < sell_amount:
+            return (f"划转后普通账户现货仍不足"
+                    f"（{D.fmt_decimal(recheck)} < {D.fmt_decimal(sell_amount)}），"
+                    f"未发单；请人工核对")
+        return None
+
+    def _transfer_back_usdt(self, task: dict, now_us: int) -> None:
+        """forward close 平仓完成后 USDT 回流（Human 拍板：失败不阻塞，平仓已完成是主事实）。
+
+        统计本轮 close 任务全部现货腿成交额 → ``universal_transfer('MAIN_PORTFOLIO_MARGIN',
+        'USDT', 合计)`` 划回统一账户；失败写任务卡日志（中文），任务状态不变（done）。
+        金额 0/空 → 跳过。dry-run（无 universal_transfer）→ 模拟成功。"""
+        if task.get("task_type") != D.TASK_TYPE_CLOSE or task["direction"] != D.DIR_FORWARD:
+            return
+        xfer = getattr(self._executor, "universal_transfer", None)
+        total = self._store.close_task_spot_quote_total(task["id"])
+        if total is None or total <= 0:
+            return
+        if xfer is None:
+            return  # dry-run：模拟回流成功
+        try:
+            xfer("MAIN_PORTFOLIO_MARGIN", "USDT", str(total))
+            self._log_close_transfer(task["id"], now_us, "usdt_back_ok",
+                                     task["coin"], "USDT", D.fmt_decimal(total))
+        except Exception as exc:
+            self._log_close_transfer(
+                task["id"], now_us, "usdt_back_failed", task["coin"], "USDT",
+                D.fmt_decimal(total),
+                reason=f"USDT 回流失败，金额 {D.fmt_decimal(total)}，请人工处理"
+                       f"（{type(exc).__name__}）",
+            )
+
+    def _finalize_close_task(self, task: dict, now_us: int) -> None:
+        """平仓完成：任务 done → close_cycle('auto_close') → 写结算日志。
+
+        三个独立短事务顺序执行（dispatch 允许「同一事务内或事务后紧接着」）；
+        结算日志失败不阻塞 close_cycle 落库（周期已关是主事实）。
+        """
+        cycle = self._store.get_active_cycle(task["coin"], task["direction"])
+        self._store.set_task_status(task["id"], D.STATUS_DONE, now_us)
+        if cycle is None:
+            return  # 无活跃周期（异常）→ 仅置 done，不写结算
+        closed_at_us = now_us
+        self._store.close_cycle(cycle["id"], closed_at_us, D.CLOSE_REASON_AUTO_CLOSE)
+        open_basis = self._store.cycle_perp_basis(cycle["id"], D.TASK_TYPE_OPEN)
+        close_basis = self._store.cycle_perp_basis(cycle["id"], D.TASK_TYPE_CLOSE)
+        # 2026-08：历史页现货列——现货腿加权（买入=open、卖出=close）
+        spot_open = self._store.cycle_spot_basis(cycle["id"], D.TASK_TYPE_OPEN)
+        spot_close = self._store.cycle_spot_basis(cycle["id"], D.TASK_TYPE_CLOSE)
+        # 2026-08：滑点率（%，成交均价 vs 开/平仓 est_price 加权；Human 要求百分比）
+        open_slippage = self._store.cycle_slippage_pct(cycle["id"], D.TASK_TYPE_OPEN)
+        close_slippage = self._store.cycle_slippage_pct(cycle["id"], D.TASK_TYPE_CLOSE)
+        funding = None
+        interest = None
+        lsvc = self._ledger_flow_service
+        if lsvc is not None and hasattr(lsvc, "sum_funding_by_symbol"):
+            try:
+                opened_ms = cycle["opened_at_us"] // 1000
+                closed_ms = closed_at_us // 1000
+                funding = lsvc.sum_funding_by_symbol(task["coin"], opened_ms, closed_ms)
+                base_asset = D._merge_base_asset(task["coin"])
+                if base_asset:
+                    interest = lsvc.sum_interest_by_asset(base_asset, opened_ms, closed_ms)
+            except Exception:
+                funding = interest = None  # 统计失败不阻塞平仓完成
+        try:
+            self._store.insert_close_log(
+                {
+                    "cycle_id": cycle["id"],
+                    "symbol": task["coin"],
+                    "direction": task["direction"],
+                    "opened_at_us": cycle["opened_at_us"],
+                    "closed_at_us": closed_at_us,
+                    "close_reason": D.CLOSE_REASON_AUTO_CLOSE,
+                    "open_avg_price": open_basis.get("avg_price"),
+                    "open_qty": open_basis.get("qty"),
+                    "close_avg_price": close_basis.get("avg_price"),
+                    "spot_open_avg": spot_open.get("avg_price"),
+                    "spot_open_qty": spot_open.get("qty"),
+                    "spot_close_avg": spot_close.get("avg_price"),
+                    "spot_close_qty": spot_close.get("qty"),
+                    "open_slippage": open_slippage,
+                    "close_slippage": close_slippage,
+                    "funding_fee": funding,
+                    "borrow_interest": interest,
+                    "settled_at_us": now_us,
+                }
+            )
+        except Exception:
+            pass  # 结算日志失败仅丢统计，不丢「周期已关」事实
+        # 平仓现货卖出重设计（2026-08）：forward close 现货卖出后 USDT 划回统一
+        # 账户——失败不阻塞（平仓已完成是主事实），错误写任务卡日志。
+        self._transfer_back_usdt(task, now_us)
 
     def _reconcile_own_legs(self, task_id: str, task: dict, now_us: int) -> str | None:
         """Query ONLY this task's non-terminal legs by client order ID to
@@ -1856,13 +2160,24 @@ class HedgeOpenTaskService:
         not incomplete (e.g. a transient balance gap on a non-fatal path) are
         also treated as fail-closed retry.
         """
-        snapshot = self._preflight.get_snapshot(task["coin"], task["direction"])
+        # close 任务：与 create_task 一致用反转方向做余额检查（forward close 卖
+        # 现货需现货余额；provider 内 route_dir 再反转回持仓方向做路由决策）。
+        preflight_dir = task["direction"]
+        if task.get("task_type") == D.TASK_TYPE_CLOSE:
+            preflight_dir = (
+                D.DIR_REVERSE if task["direction"] == D.DIR_FORWARD
+                else D.DIR_FORWARD
+            )
+        snapshot = self._preflight.get_snapshot(
+            task["coin"], preflight_dir,
+            task_type=task.get("task_type") or D.TASK_TYPE_OPEN,
+        )
         if snapshot is None:
             return None
         preflight = D.compute_preflight(
             snapshot,
             task["coin"],
-            task["direction"],
+            preflight_dir,  # 余额校验必须与路由决策同方向（close 用反转方向校验实际资金约束）
             D.Decimal(task["single_amount"]),
             task["target_n"],
         )
@@ -1969,8 +2284,10 @@ class HedgeOpenTaskService:
 
         attempt_uuid = uuid.uuid4().hex
         spot_cid, perp_cid = _client_order_ids(attempt_uuid)
+        task_type = task.get("task_type") or D.TASK_TYPE_OPEN
         actions = D.direction_to_leg_actions(
-            task["direction"], position_side_mode or D.POS_MODE_BOTH
+            task["direction"], position_side_mode or D.POS_MODE_BOTH,
+            task_type=task_type,
         )
         send_qty = q_common if q_common is not None else D.Decimal(task["single_amount"])
         spot_route = (snapshot_record or {}).get(
@@ -1987,7 +2304,9 @@ class HedgeOpenTaskService:
             spot_shape = build_spot_order_params(
                 spot_order_symbol, actions, send_qty, spot_cid
             )
-        perp_shape = build_perp_order_params(task["coin"], actions, send_qty, perp_cid)
+        perp_shape = build_perp_order_params(
+            task["coin"], actions, send_qty, perp_cid, task_type=task_type,
+        )
         q_common_str = D.fmt_decimal(q_common) if q_common is not None else task["single_amount"]
         attempt = self._store.prepare_attempt(
             task["id"],
@@ -2018,6 +2337,7 @@ class HedgeOpenTaskService:
             filter_versions=snapshot_record,
             target_n=task["target_n"],
             ts_us=now_us,
+            task_type=task_type,
         )
         signal: str | None = None
         if live:
@@ -2034,7 +2354,14 @@ class HedgeOpenTaskService:
         except Exception as exc:
             outcome = self._failed_outcome(ctx, f"executor_exception:{type(exc).__name__}")
         try:
-            updated = self._store.resolve_attempt(attempt["id"], outcome, now_us)
+            updated = self._store.resolve_attempt(
+                attempt["id"], outcome, now_us,
+                # 功能三（2026-08 修复）：close 任务成交后不自动 done——完成判定由
+                # worker 的合约无仓核实接管（与 _settle_attempt 主路径一致）。
+                suppress_done=(
+                    getattr(ctx, "task_type", D.TASK_TYPE_OPEN) == D.TASK_TYPE_CLOSE
+                ),
+            )
             self._notify_cache_refresh(updated)
         except Exception:
             # containment: a resolve failure must not kill dispatch.
@@ -2192,7 +2519,13 @@ class HedgeOpenTaskService:
         }
         try:
             updated = self._store.resolve_attempt(
-                attempt["id"], outcome, now_us, leg_terminal=leg_terminal
+                attempt["id"], outcome, now_us, leg_terminal=leg_terminal,
+                # 功能三（2026-08 修复）：close 任务 attempt 成交后不自动 done——
+                # 完成判定（done/close_cycle/close_log）由 worker 的合约无仓核实接管
+                # （Human：close 从 running 变其他状态必须先核实）。开单任务不变。
+                suppress_done=(
+                    getattr(ctx, "task_type", D.TASK_TYPE_OPEN) == D.TASK_TYPE_CLOSE
+                ),
             )
             self._notify_cache_refresh(updated)
         except Exception as exc:

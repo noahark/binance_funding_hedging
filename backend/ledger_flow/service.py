@@ -349,6 +349,46 @@ class LedgerFlowService:
         return any(v is not None for k, v in cov.items() if k.endswith("_end_ms"))
 
     # ------------------------------------------------------------------ #
+    # 持仓周期费率/利息汇总（功能二，stage3 §3.1/§3.3）— 纯读，不触发拉取
+    # ------------------------------------------------------------------ #
+    def sum_funding_by_symbol(
+        self, symbol: str, start_ms: int, end_ms: int,
+    ) -> Optional[str]:
+        """``um_income_rows`` 中 ``income_type='FUNDING_FEE' AND symbol=? AND
+        time_ms ∈ [start_ms, end_ms]`` 的 ``income`` Decimal 合计。
+
+        窗口内无行 → ``"0"``（真零）；任一行不可解析 → ``None``（沿用
+        ``domain._sum_amounts`` 规则，绝不部分相加）。只读，不触发拉取。
+        """
+        rows = self._store.query_income_rows(start_ms, end_ms, limit=None)
+        amounts = [
+            r["income"] for r in rows
+            if r.get("income_type") == "FUNDING_FEE" and r.get("symbol") == symbol
+        ]
+        total, unparsed = domain._sum_amounts(amounts)
+        return total if unparsed == 0 else None
+
+    def sum_interest_by_asset(
+        self, asset: str, start_ms: int, end_ms: int,
+    ) -> Optional[str]:
+        """``interest_rows`` 中 ``asset=? AND accrued_at_ms ∈ [start_ms, end_ms]``
+        的 ``interest`` Decimal 合计。规则同上（无行 → ``"0"``；不可解析 → None）。"""
+        rows = self._store.query_interest_rows(start_ms, end_ms, limit=None)
+        amounts = [
+            r["interest"] for r in rows if r.get("asset") == asset
+        ]
+        total, unparsed = domain._sum_amounts(amounts)
+        return total if unparsed == 0 else None
+
+    def coverage_for_window(self, start_ms: int, end_ms: int) -> Dict[str, Any]:
+        """按窗口调用的公开覆盖率包装（gap-aware 判定权威在 ``_build_coverage``）。
+
+        供组合根（server）逐行统计前调用；``complete == False`` 时该窗口统计
+        不得呈现为真值（端点覆盖但中间有洞同样算不完整）。
+        """
+        return self._build_coverage(start_ms, end_ms, self._store.get_coverage())
+
+    # ------------------------------------------------------------------ #
     # GET flow-log response (§13.2) — pure read, zero upstream I/O
     # ------------------------------------------------------------------ #
     def get_flow_log(self, start_ms: int, end_ms: int) -> Dict[str, Any]:

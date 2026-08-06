@@ -23,6 +23,7 @@ import re
 import sys
 import time
 from datetime import datetime, timezone
+from decimal import Decimal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
@@ -93,8 +94,16 @@ _HEDGE_OPEN_ROUTES = (
         ("POST",),
         "_hedge_open_start_gate",
     ),
+    # 功能三：平仓闸门（独立于开单闸门，CAS/confirm 机制同 start-gate）。
+    (
+        re.compile(r"^/api/hedge-open-settings/close-gate$"),
+        ("POST",),
+        "_hedge_open_close_gate",
+    ),
     (re.compile(r"^/api/hedge-open-logs$"), ("GET",), "_hedge_open_logs"),
     (re.compile(r"^/api/hedge-open-positions$"), ("GET",), "_hedge_open_positions"),
+    # 功能三 ③a：周期结算日志（历史仓位页数据源）。
+    (re.compile(r"^/api/hedge-open-close-logs$"), ("GET",), "_hedge_open_close_logs"),
 )
 
 _HEDGE_OPEN_ACTIONS = {
@@ -114,6 +123,7 @@ def _is_hedge_open_path(path: str) -> bool:
         or path.startswith("/api/hedge-open-settings/")
         or path == "/api/hedge-open-logs"
         or path == "/api/hedge-open-positions"
+        or path == "/api/hedge-open-close-logs"
     )
 
 
@@ -715,6 +725,22 @@ class _Handler(BaseHTTPRequestHandler):
             *self._safe_hedge(self.hedge_open_service.put_start_gate, data)
         )
 
+    def _hedge_open_close_gate(self):
+        # 功能三：平仓闸门 CAS 写（镜像 start-gate；confirm/version 机制一致）。
+        data, error = self._read_hedge_body(required=True)
+        if error is not None:
+            self._send_hedge_open(*error)
+            return
+        self._send_hedge_open(
+            *self._safe_hedge(self.hedge_open_service.put_close_gate, data)
+        )
+
+    def _hedge_open_close_logs(self):
+        # 功能三 ③a：周期结算日志（历史仓位页数据源，按 closed_at 倒序）。
+        self._send_hedge_open(
+            *self._safe_hedge(self.hedge_open_service.get_close_logs)
+        )
+
     def _hedge_open_logs(self):
         query = parse_qs(urlparse(self.path).query)
         cursor = query.get("cursor", [None])[0]
@@ -771,6 +797,75 @@ class _Handler(BaseHTTPRequestHandler):
                 "spot_balances": None,
                 "pm_account": None,
             }
+        # 持仓周期费率/利息统计（功能二，stage3 §3.2/§3.3）：纯读、现算、不写库。
+        # 对每个带周期字段的 merged row 现算三列（窗口 = [cycle_opened_at,
+        # cycle_closed_at 或 now]，毫秒换算在查询层）；ledger 未注入 / 无周期 /
+        # 窗口起点不可解析 → 三列保持占位；coverage 不足（含窗口内 gaps）→ 三列
+        # 置 None + stats_incomplete 标记，绝不把覆盖率不足的窗口当成真值；
+        # 任一源不可解析 → net_pnl = None（「暂无」，绝不部分相加）。
+        # base_asset 推导复用 hedge_open_domain._merge_base_asset 规则（1000x
+        # 资产不自动对齐），在组合根本地推导，不改 domain.py。
+        lsvc = self.ledger_flow_service
+        # Human 2026-08-05：利息按币（asset）计，资金费按 USDT 计——net_pnl 必须把
+        # 利息换算成 U 再相加，否则单位不一致。价格源 = 公开行情缓存 rows 的
+        # opening_quotes（纯读、无请求）；键 = symbol（如 RSRUSDT），匹配
+        # `{base_asset}USDT`。缺失/stale/无该 symbol → 利息 U 值 None（「暂无」），
+        # net_pnl 绝不部分相加。注：private_account 不含 price_map（估值只留在
+        # value_usdt 里），故不能从 private_account 取价。
+        price_map = {}
+        if isinstance(snapshot, dict):
+            for _r in snapshot.get("rows") or []:
+                _oq = _r.get("opening_quotes") or {}
+                if _oq.get("status") == "fresh" and _oq.get("spot_bid_price"):
+                    price_map[_r.get("symbol")] = _oq["spot_bid_price"]
+        for row in merged:
+            row["stats_incomplete"] = False
+            cycle_id = row.get("cycle_id")
+            opened_us = _iso_to_us(row.get("cycle_opened_at"))
+            if not cycle_id or lsvc is None or opened_us is None:
+                # 无统计：三列 None（前端「暂无」）；真零与占位在 wire 上可区分
+                # （null = 未知/无统计，字符串含 "0" = 真值）。
+                row["accrued_funding"] = None
+                row["borrow_interest"] = None
+                row["borrow_interest_usdt"] = None
+                row["net_pnl"] = None
+                continue
+            closed_us = _iso_to_us(row.get("cycle_closed_at"))
+            window_us = (opened_us, closed_us or _now_us())
+            start_ms, end_ms = window_us[0] // 1000, window_us[1] // 1000
+            cov = lsvc.coverage_for_window(start_ms, end_ms)
+            if not cov.get("complete"):
+                row["stats_incomplete"] = True
+                row["accrued_funding"] = None
+                row["borrow_interest"] = None
+                row["borrow_interest_usdt"] = None
+                row["net_pnl"] = None
+                continue
+            funding = lsvc.sum_funding_by_symbol(
+                row.get("coin"), start_ms, end_ms,
+            )
+            base_asset = hedge_open_domain._merge_base_asset(row.get("coin"))
+            interest = (
+                lsvc.sum_interest_by_asset(base_asset, start_ms, end_ms)
+                if base_asset else None
+            )
+            row["accrued_funding"] = funding
+            row["borrow_interest"] = interest
+            # 利息币值 → U 值：真零无需价格（0 × 任何 = 0）；非零缺价格 → None（无法换算）。
+            interest_usdt = None
+            if interest is not None:
+                if Decimal(interest) == 0:
+                    interest_usdt = "0"
+                else:
+                    price = price_map.get(f"{base_asset}USDT") if base_asset else None
+                    if price is not None:
+                        interest_usdt = str(Decimal(interest) * Decimal(price))
+            row["borrow_interest_usdt"] = interest_usdt
+            # 单位一致：net_pnl = 资金费(U) + 利息换算(U)；任一不可解析 → 「暂无」。
+            if funding is not None and interest_usdt is not None:
+                row["net_pnl"] = str(Decimal(funding) + Decimal(interest_usdt))
+            else:
+                row["net_pnl"] = None  # 任一不可解析/无价格 → 「暂无」
         self._send_hedge_open(200, {"positions": merged, "account": account_meta})
 
     def _serve_static(self, path: str):
@@ -827,6 +922,21 @@ def _emit_lifecycle(event: str, **fields) -> None:
 
 def _now_ms() -> int:
     return int(time.time() * 1000)
+
+
+def _now_us() -> int:
+    return int(time.time() * 1_000_000)
+
+
+def _iso_to_us(iso: str | None) -> int | None:
+    """``us_to_iso`` 输出（``YYYY-MM-DDTHH:MM:SS.ffffffZ``）解析回微秒。"""
+    if not iso:
+        return None
+    try:
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    return int(dt.timestamp() * 1_000_000)
 
 
 def _build_borrow_service(config: Config) -> BorrowTaskService:
@@ -962,6 +1072,8 @@ def run(config: Config = None) -> None:
     _Handler.borrow_service = borrow_service
     _Handler.hedge_open_service = hedge_open_service
     _Handler.ledger_flow_service = ledger_flow_service
+    # 功能三：close_log 费率/利息复用 ledger 汇总（duck-typed；结算失败不阻塞平仓）。
+    hedge_open_service._ledger_flow_service = ledger_flow_service
     _emit_lifecycle("server_start", host=config.bind_host, port=config.bind_port)
     _emit_lifecycle(
         "hedge_open_execution_mode",

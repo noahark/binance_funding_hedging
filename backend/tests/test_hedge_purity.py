@@ -42,8 +42,10 @@ _LIVE_MODULE_RE = re.compile(
     r"(hedge_open_live_client|live_hedge_executor|hedge_preflight_provider)"
 )
 
-# The frozen 12-endpoint allowlist. 7 PAPI pairs (recon §3.1/§3.2/§4.1) hardbound
-# to papi.binance.com; 5 regular-spot pairs (decision §E-2 / §4, evidenced by
+# The frozen allowlist. 8 PAPI pairs (recon §3.1/§3.2/§4.1; 功能三 2026-08 新增
+# ``GET /papi/v1/um/positionRisk``——close 完成核实查合约持仓，与快照侧 E4 同一
+# 端点、非新权限) hardbound to papi.binance.com; 5 regular-spot pairs (decision
+# §E-2 / §4, evidenced by
 # reports/api-samples/2026-08-spot-order-routing-v1/restricted-asset.raw.json)
 # hardbound to api.binance.com. Method/path/host are facts; drift here — a
 # missing entry, a sixth entry, or a wrong host — is a contract break.
@@ -58,12 +60,16 @@ _FROZEN_ALLOWLIST = {
     ("GET", "/papi/v1/balance"): _PAPI_HOST,
     ("GET", "/papi/v1/um/positionSide/dual"): _PAPI_HOST,
     ("GET", "/papi/v1/rateLimit/order"): _PAPI_HOST,
+    # 功能三（2026-08）：close 完成核实——查该 symbol 合约持仓是否归零（E4）。
+    ("GET", "/papi/v1/um/positionRisk"): _PAPI_HOST,
     # ---- 5 regular-spot endpoints (collateral-cap + spot order/account/limit) ----
     ("GET", "/sapi/v1/margin/restricted-asset"): _SPOT_HOST,
     ("POST", "/api/v3/order"): _SPOT_HOST,
     ("GET", "/api/v3/order"): _SPOT_HOST,
     ("GET", "/api/v3/account"): _SPOT_HOST,
     ("GET", "/api/v3/rateLimit/order"): _SPOT_HOST,
+    # 平仓现货卖出重设计（2026-08）：万向划转（统一账户⇄普通现货账户）。
+    ("POST", "/sapi/v1/asset/transfer"): _SPOT_HOST,
 }
 # The two host groups, for the per-group hardcoded-host assertion.
 _PAPI_KEYS = frozenset({
@@ -74,6 +80,7 @@ _PAPI_KEYS = frozenset({
     ("GET", "/papi/v1/balance"),
     ("GET", "/papi/v1/um/positionSide/dual"),
     ("GET", "/papi/v1/rateLimit/order"),
+    ("GET", "/papi/v1/um/positionRisk"),
 })
 _SPOT_KEYS = frozenset({
     ("GET", "/sapi/v1/margin/restricted-asset"),
@@ -81,6 +88,7 @@ _SPOT_KEYS = frozenset({
     ("GET", "/api/v3/order"),
     ("GET", "/api/v3/account"),
     ("GET", "/api/v3/rateLimit/order"),
+    ("POST", "/sapi/v1/asset/transfer"),
 })
 
 
@@ -122,13 +130,13 @@ def test_store_never_invokes_or_holds_an_executor():
 
 
 # ---- 2. frozen allowlist (recon §3.1/§3.2/§4.1 + decision §E-2 / §4) ----
-def test_allowlist_is_exactly_the_frozen_twelve_endpoints():
-    # Exact equality + length 12: the anti-expansion guard. A sixth endpoint or a
-    # missing authorized one both fail here. Not a subset/contains check.
+def test_allowlist_is_exactly_the_frozen_allowlist():
+    # Exact equality + length 13 (12 + 功能三 positionRisk): the anti-expansion
+    # guard. A missing authorized one both fail here. Not a subset/contains check.
     assert ALLOWLIST == _FROZEN_ALLOWLIST
-    assert len(ALLOWLIST) == 12
-    assert len(_PAPI_KEYS) == 7
-    assert len(_SPOT_KEYS) == 5
+    assert len(ALLOWLIST) == 14  # 13 + 平仓现货卖出重设计的万向划转 POST
+    assert len(_PAPI_KEYS) == 8
+    assert len(_SPOT_KEYS) == 6
     assert _PAPI_KEYS.isdisjoint(_SPOT_KEYS)
 
 
@@ -152,7 +160,7 @@ def test_allowlist_has_both_order_writes_and_queries():
 @pytest.mark.parametrize("method,path", [
     ("POST", "/papi/v1/margin/maxBorrowable"),
     ("DELETE", "/papi/v1/um/order"),
-    ("GET", "/papi/v1/um/positionRisk"),
+    ("POST", "/papi/v1/um/positionRisk"),  # 写方法仍拒绝（只允许 GET 核实读）
     ("POST", "/papi/v1/balance"),
     ("GET", "/sapi/v1/margin/order"),
 ])

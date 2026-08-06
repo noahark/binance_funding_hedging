@@ -465,7 +465,7 @@ class HedgePreflightProvider:
         return None
 
     def get_snapshot(
-        self, coin: str, direction: str
+        self, coin: str, direction: str, task_type: str = D.TASK_TYPE_OPEN,
     ) -> Optional[D.PreflightSnapshot]:
         """Assemble a fresh preflight snapshot, or ``None`` on any gap.
 
@@ -517,26 +517,35 @@ class HedgePreflightProvider:
             if isinstance(perp_symbol_dict, dict)
             else ""
         )
-        # Route decision (design §3 step 4). Forward reads the collateral-cap
-        # list fresh; reverse skips it and stays papi_margin. A failed list read
-        # on a forward direction fails closed (never guess).
+        # Route decision (design §3 step 4 + 平仓现货卖出重设计). Forward open
+        # reads the collateral-cap list fresh; reverse skips it and stays
+        # papi_margin. A failed list read on a forward open direction fails
+        # closed (never guess). close 任务的 ``direction`` 是反转后的余额检查
+        # 方向，route 决策须按持仓方向（反转回来）——close+forward（卖现货）固定
+        # regular_spot、不再走 cap 预检；close+reverse（买现货）固定 papi_margin。
         spot_route = D.SPOT_ROUTE_PAPI_MARGIN
         spot_route_reason = D.ROUTE_REASON_PAPI_DEFAULT
         spot_account_usdt: Optional[Decimal] = None
         spot_rate_limit: Optional[int] = None
         cap_exceeded: Optional[bool] = None
-        if direction == D.DIR_FORWARD:
+        route_dir = direction
+        if task_type == D.TASK_TYPE_CLOSE:
+            route_dir = D.DIR_REVERSE if direction == D.DIR_FORWARD else D.DIR_FORWARD
+        # open+forward 才读 collateral-cap 列表（close 不依赖 cap：close+forward
+        # 固定 regular_spot、close+reverse 固定 papi_margin）。
+        if direction == D.DIR_FORWARD and task_type != D.TASK_TYPE_CLOSE:
             cap_exceeded = self._read_collateral_cap_hit(spot_base_asset)
             if cap_exceeded is None:
                 return None
-            spot_route, spot_route_reason = D.decide_spot_route(
-                direction, contract_type, spot_base_asset, cap_exceeded
-            )
-            if spot_route == D.SPOT_ROUTE_REGULAR_SPOT:
-                spot_account_usdt = self._read_spot_account_usdt()
-                spot_rate_limit = self._read_spot_rate_limit_order()
-                if spot_account_usdt is None or spot_rate_limit is None:
-                    return None
+        spot_route, spot_route_reason = D.decide_spot_route(
+            route_dir, contract_type, spot_base_asset, cap_exceeded,
+            task_type=task_type,
+        )
+        if spot_route == D.SPOT_ROUTE_REGULAR_SPOT:
+            spot_account_usdt = self._read_spot_account_usdt()
+            spot_rate_limit = self._read_spot_rate_limit_order()
+            if spot_account_usdt is None or spot_rate_limit is None:
+                return None
         spot_endpoint = D.spot_route_endpoint(spot_route)
         return D.PreflightSnapshot(
             spot_filters=spot_filters,

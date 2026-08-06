@@ -92,7 +92,7 @@ class _FakeProvider:
     def __init__(self, snapshot=None):
         self.snapshot = snapshot
 
-    def get_snapshot(self, coin, direction):
+    def get_snapshot(self, coin, direction, task_type="open"):
         return self.snapshot
 
 
@@ -1541,7 +1541,7 @@ class _BarrierFatalProvider:
         self.started = started
         self.release = release
 
-    def get_snapshot(self, coin, direction):
+    def get_snapshot(self, coin, direction, task_type="open"):
         self.started.set()
         self.release.wait(10.0)
         return self._snapshot

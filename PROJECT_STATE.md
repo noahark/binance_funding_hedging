@@ -54,6 +54,24 @@ check.
   cadence. A missing, revoked, or IP-rejected key makes the page show
   「抵押额度未知」; its cache never feeds the order preflight. This stage was
   formally reviewed, and Human separately confirmed the bStock order integration.
+- `[RESOLVED][OPERATIONS][2026-08-05]` **Live DB schema was auto-migrated by an
+  operator service restart (Human-confirmed), ahead of the planned explicit
+  migration.** New code (hedge-open position-cycle v1, stage
+  `2026-08-hedge-position-cycle-v1`) adds `hedge_open_cycle` (empty table) and
+  `hedge_open_attempt.cycle_id` (column + index) to `_SCHEMA`/`_migrate`, which
+  `HedgeOpenStore.__init__` executes idempotently on every open. Human restarted
+  the 8787 service at ~2026-08-05 14:54 while the implemented code was already
+  in the worktree; the restart therefore migrated the live DB: `hedge_open_cycle`
+  empty (0 rows), `attempt.cycle_id` column present, 0 rows affected, no data
+  change, no backfill data written. Impact: none (idempotent additive DDL; the
+  current `prepare_attempt` does not yet write `cycle_id`, behavior unchanged).
+  Process deviation vs design v1 §3.4: migration ran WITHOUT a prior live-DB
+  backup (`bak-cycle-test-*` is a test copy taken after migration, not a pre-migration
+  backup). Remaining gates: live backfill still requires Human authorization and
+  must first back up the live DB, then dry-run → `--apply` → row-count verify.
+  Evidence: `reports/agent-runs/2026-08-hedge-position-cycle-v1/evidence/
+  hedge-position-cycle-v1-cycle-table-backfill.handoff.md`; audit
+  `data/hedge-open-tasks.sqlite3.bak-cycle-test-20260805-145452.audit.json`.
 ## Merged Position Table — Accepted Limitations (Task 1, merged 2026-08-01)
 
 All three are the same class: **the display asserting something it does not
@@ -240,6 +258,36 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
 - `[OPEN][HARNESS]` ~41 completed stage dirs in `reports/agent-runs/`, vs §9.5.
   v2 findings: batch A merged; batch B + R3/R4 wait for a real problem, G1/G14
   OPEN by decision (Human 2026-07-31). Detail: archive `22-`.
+- `[OPEN][FOLLOW-UP][2026-08-05]` **现货/合约 symbol 别名未配对（MUUUSDT 案例）。**
+  MUUUSDT 合约对应现货是 **MUBUSDT**（B 后缀现货），持仓列表现货数量/余额未配对：
+  实测 `MUUUSDT` 行 `spot_qty=0, perp_qty=1, spot_balance=None`——`_merge_base_asset`
+  （`backend/hedge_open_tasks/domain.py:1559`）只处理 1000x 倍数前缀（BONK/FLOKI 等），
+  **不处理 B 后缀现货别名**，`spot_by_asset.get('MUU')` 查不到 MUBUSDT 余额 → None。
+  影响：该行现货余额列显示「—」、现货配对/drift 判定失真。`hedge_preflight_provider.py:117`
+  已有 `_bstock_spot_alias` 处理 bStock 别名（另一条路径），此处未复用。记录为已知缺陷，
+  **以后解决**（Human 2026-08-05 拍板：记录，暂不修）；修复方向：merge 层按 B 后缀别名
+  对齐现货余额，或复用 `_bstock_spot_alias` 规则。
+- `[RESOLVED][OPERATIONS][2026-08-05]` **COOKIEUSDT 平仓单腿事故（已修复并实盘验证）。**
+  事件：首次实盘平仓时，forward close 现货 SELL 被 `decide_spot_route` 的
+  collateral-cap 预检误导到**普通现货账户**（`/api/v3/order`），而现货实际在**统一账户**
+  （开仓走 `/papi/v1/margin/order`）→ `-2010 insufficient_funds`；合约腿已平（reduceOnly
+  FILLED）、现货单腿（1000 COOKIE 留在统一账户），任务 paused（Human 确认保持暂停）。
+  根因：平仓任务复用开仓路由规则，close 未区分账户 + create/fresh preflight 路由漂移。
+  修复链（全部完成并实盘验证，Human 2026-08-05 验收通过）：① `close-spot-sell-redesign`
+  （forward close 固定普通现货账户 + 发单前一次性万向划转补足 + 复检 + fail-closed + USDT
+  回流；reverse 维持统一账户；`POST /sapi/v1/asset/transfer` 白名单 type 冻结；API key 划转
+  权限已确认）；② 划转前统一账户余额检查 + 失败日志带交易所详情（`query_unified_free` 修复
+  `/papi/v1/balance` 顶层数组解析）；③ **close 完成判定重构**（Human 拍板：close 任务从
+  running 变其他状态必须先走合约无仓核实——`_worker_round` 核实优先 + resolve suppress_done
+  + 部分平 done 语义）；④ 前端提前量检测（总量=单次×次数 vs 统一账户+合约持仓，强制拦截零请求）。
+  数据修正：COOKIE 周期已手动补关（`closed_at_us` + close_reason=manual_verify）+ close_log
+  补记（合约/现货开平均价、成交量、资金费、滑点 %）。**持仓表口径决策（Human 2026-08）**：
+  只显示「未平仓周期」——`aggregate_positions` 加 `(cycle_id IS NULL OR closed_at_us IS NULL)`
+  过滤，已平仓标的从根源排除（只在历史仓位页 close_log 呈现）。**本地数量口径保持现状**
+  （累计开仓，close 腿扣减方案 B 已回退——Human 决定暂不改）。挂账 follow-up：本地数量与
+  交易所脱节（手工/强平不可记账）的整改方案待 Human 定（X 交易所权威 / Y 手工录入 / Z 现状）。
+  证据：`reports/agent-runs/2026-08-hedge-position-cycle-v1/evidence/`（close/redesign handoff +
+  本条目时间线）。
 - `[OPEN][HARNESS-FOLLOW-UP]` **O-A — handoff source SHA-256 boundary.** The
   accepted handoff contract needs one mechanical clarification: the source ends
   at the first line exactly equal to the complete `BOOKKEEPER_APPEND_ONLY`

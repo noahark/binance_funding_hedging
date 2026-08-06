@@ -21,11 +21,14 @@ from contextlib import contextmanager
 
 import pytest
 
-from backend.app.server import build_server
+from backend.app.server import _Handler, build_server
 from backend.config import Config
 from backend.hedge_open_tasks import domain as D
 from backend.hedge_open_tasks.executor import OutcomeSpec, RecordTransportExecutor
 from backend.hedge_open_tasks.service import HedgeOpenTaskService
+from backend.ledger_flow.service import LedgerFlowService
+from backend.ledger_flow.store import LedgerStore
+from backend.services.private_client import PrivateEndpointError
 
 # The exact frozen field sets the §3 contract pins. Asserting the full key set
 # (no more, no less) rejects any drift in the wire shape.
@@ -46,8 +49,11 @@ _TASK_KEYS = {
     "worker_active",
     "last_worker_exit_reason",
     "created_at", "updated_at",
+    # 功能三（2026-08）：任务类型（'open'=开仓 / 'close'=平仓）。
+    "task_type",
 }
-_SETTINGS_KEYS = {"executor_mode", "start_gate", "interval_seconds", "version"}
+_SETTINGS_KEYS = {"executor_mode", "start_gate", "interval_seconds", "version",
+                  "close_gate"}
 _ERROR_KEYS = {"error", "detail"}
 _POSITION_KEYS = {
     # aggregate_positions bucket fields (D15 added spot_qty / perp_qty /
@@ -66,14 +72,28 @@ _POSITION_KEYS = {
     # G1 (fix-merged-positions-mismatch-labels-v1): explicit UM-vs-task match
     # status so the UI never infers 'no task' / 'no UM' from all-zero fields.
     "match_status",
+    # 持仓周期（设计 v1 §5.2，功能一剩余块）：周期 UUID + ISO 起止时间（活跃周期
+    # cycle_closed_at=null；no_task 行全为 None）。aggregate 与 merge 均透传。
+    "cycle_id", "cycle_opened_at", "cycle_closed_at",
+    # 功能二（stage3 §3.3）：统计窗口未被账本完整覆盖（含中间缺口）→ true，
+    # 三列非真值；无统计行三列为 None（前端「暂无」）。
+    "stats_incomplete",
+    # Human 2026-08-05：利息按币（asset）计，此为按 price_map 换算的 U 值
+    # （null=无法换算/无统计；真零为 "0"）。net_pnl = 资金费(U) + 利息(U)。
+    "borrow_interest_usdt",
 }
 
 
 class _StubSnapshotService:
-    """Snapshot stub so build_server's ``service`` arg is satisfied with no I/O."""
+    """Snapshot stub so build_server's ``service`` arg is satisfied with no I/O.
+    rows 形如公开行情行：{"symbol": "BTCUSDT", "opening_quotes": {"status":
+    "fresh", "spot_bid_price": "60000"}}——server 接线从 opening_quotes 取价。"""
+
+    def __init__(self, rows=None):
+        self._rows = rows or []
 
     def get_snapshot(self):
-        return {"rows": []}
+        return {"rows": self._rows}
 
 
 class _Clock:
@@ -98,11 +118,11 @@ def _svc(tmp_path, *, executor=None, mode="disabled", clock=None):
 
 
 @contextmanager
-def _server(hedge_service):
+def _server(hedge_service, *, snapshot_service=None):
     """A hedge-open server with NO borrow wiring (borrow_service=None) to prove
     hedge-open stands on its own and does not shadow existing routes."""
     cfg = Config(bind_port=0)
-    server = build_server(cfg, _StubSnapshotService(), None, hedge_service)
+    server = build_server(cfg, snapshot_service or _StubSnapshotService(), None, hedge_service)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     host, port = server.server_address[:2]
@@ -711,3 +731,172 @@ def test_hedge_routes_503_when_service_not_wired(tmp_path):
     finally:
         server.shutdown()
         server.server_close()
+
+
+# ===========================================================================
+# 功能二：持仓周期费率/利息统计（stage3 §3.2/§3.3）——server 接线
+# ===========================================================================
+class _StubLedgerClient:
+    """最小 ledger client stub：仅暴露两个单页 fetcher，供 run_once 灌数据。"""
+
+    enabled = True
+
+    def __init__(self, interest_rows=None, income_rows=None):
+        self.interest_pages = [{"total": len(interest_rows or []), "rows": interest_rows or []}]
+        self.income_pages = [income_rows or []]
+
+    def fetch_interest_history_page(self, *, start_time, end_time, current, size):
+        idx = current - 1
+        return self.interest_pages[idx] if idx < len(self.interest_pages) else {"total": 0, "rows": []}
+
+    def fetch_um_income_page(self, *, start_time, end_time, page, limit):
+        idx = page - 1
+        return self.income_pages[idx] if idx < len(self.income_pages) else []
+
+
+class _StubLedgerClientInterestFail:
+    """interest 源恒失败 → coverage 中 interest 缺失 → 窗口判定不完整。"""
+
+    enabled = True
+
+    def __init__(self):
+        self.income_pages = [[]]
+
+    def fetch_interest_history_page(self, **kw):
+        raise PrivateEndpointError("/sapi/v1/margin/interestHistory", 500, "HTTP 500")
+
+    def fetch_um_income_page(self, *, start_time, end_time, page, limit):
+        idx = page - 1
+        return self.income_pages[idx] if idx < len(self.income_pages) else []
+
+
+def _make_ledger_svc(tmp_path, client, now_ms):
+    store = LedgerStore(str(tmp_path / "l.sqlite3"))
+    svc = LedgerFlowService(store, client, now_ms=lambda: now_ms)
+    svc.run_once("backfill")  # 灌数据 + 建立 coverage
+    return svc
+
+
+def _fill_one_position(host, port):
+    """创建 BTCUSDT 任务并 fill-all，返回 positions 端点首行。"""
+    tid = _create_task(host, port, _create_body(target_n=1))["id"]
+    _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-all")
+    status, _, payload = _req(host, port, "GET", "/api/hedge-open-positions")
+    assert status == 200
+    positions = _json(payload)["positions"]
+    assert len(positions) == 1
+    return positions[0]
+
+
+def test_positions_stats_true_values_with_ledger(tmp_path):
+    """活跃周期行三列 = 窗口内 FUNDING_FEE 之和 / 利息之和 / 两者之和。"""
+    import time
+    now_ms = int(time.time() * 1000)
+    t0_ms = now_ms - 3600 * 1000  # 1 小时前：窗口起点（coverage 30 天内，完整覆盖）
+    client = _StubLedgerClient(
+        interest_rows=[
+            {"txId": 1, "interestAccuredTime": t0_ms + 1000, "asset": "BTC", "interest": "0.2"},
+        ],
+        income_rows=[
+            {"symbol": "BTCUSDT", "incomeType": "FUNDING_FEE", "income": "0.1",
+             "asset": "USDT", "info": "FUNDING_FEE", "time": t0_ms + 1000, "tranId": 1, "tradeId": ""},
+            {"symbol": "BTCUSDT", "incomeType": "FUNDING_FEE", "income": "0.3",
+             "asset": "USDT", "info": "FUNDING_FEE", "time": t0_ms + 2000, "tranId": 2, "tradeId": ""},
+        ],
+    )
+    ledger_svc = _make_ledger_svc(tmp_path, client, now_ms)
+    exe = RecordTransportExecutor()
+    clock = _Clock(t0_ms * 1000)  # 注入 wall_us：cycle_opened_at 固定在 t0
+    try:
+        _Handler.ledger_flow_service = ledger_svc
+        # Human 2026-08-05：利息按币计，net_pnl 需价格换算（BTC 现货盘口价 60000 USDT）
+        snap = _StubSnapshotService(rows=[
+            {"symbol": "BTCUSDT", "opening_quotes": {"status": "fresh", "spot_bid_price": "60000"}},
+        ])
+        with _server(_svc(tmp_path, executor=exe, clock=clock), snapshot_service=snap) as (host, port):
+            p = _fill_one_position(host, port)
+            assert p["cycle_id"] is not None          # 前置依赖：positions 输出含周期字段
+            assert p["cycle_opened_at"] == D.us_to_iso(t0_ms * 1000)
+            assert p["stats_incomplete"] is False
+            # 窗口 = [t0, now]：BTCUSDT FUNDING_FEE 0.1+0.3=0.4（U）；
+            # BTC 利息 0.2（币）× 60000 = 12000（U）
+            assert p["accrued_funding"] == "0.4"
+            assert p["borrow_interest"] == "0.2"
+            assert p["borrow_interest_usdt"] == "12000.0"          # 0.2 × 60000（Decimal 保留精度）
+            assert p["net_pnl"] == "12000.4"                     # 0.4 + 12000，单位一致
+    finally:
+        _Handler.ledger_flow_service = None
+
+
+def test_positions_stats_none_when_ledger_missing(tmp_path):
+    """ledger 未注入 → 三列 None（前端「暂无」），不渲染真值。"""
+    exe = RecordTransportExecutor()
+    try:
+        _Handler.ledger_flow_service = None
+        with _server(_svc(tmp_path, executor=exe)) as (host, port):
+            p = _fill_one_position(host, port)
+            assert p["cycle_id"] is not None
+            assert p["accrued_funding"] is None
+            assert p["borrow_interest"] is None
+            assert p["net_pnl"] is None
+            assert p["stats_incomplete"] is False
+    finally:
+        _Handler.ledger_flow_service = None
+
+
+def test_positions_stats_incomplete_when_coverage_missing(tmp_path):
+    """interest 源 coverage 缺失 → 窗口判定不完整 → stats_incomplete，三列 None。"""
+    import time
+    now_ms = int(time.time() * 1000)
+    ledger_svc = _make_ledger_svc(tmp_path, _StubLedgerClientInterestFail(), now_ms)
+    exe = RecordTransportExecutor()
+    try:
+        _Handler.ledger_flow_service = ledger_svc
+        with _server(_svc(tmp_path, executor=exe)) as (host, port):
+            p = _fill_one_position(host, port)
+            assert p["cycle_id"] is not None
+            assert p["stats_incomplete"] is True
+            assert p["accrued_funding"] is None
+            assert p["borrow_interest"] is None
+            assert p["net_pnl"] is None
+    finally:
+        _Handler.ledger_flow_service = None
+
+
+def test_positions_stats_closed_cycle_window_excludes_after_close(tmp_path):
+    """已平仓周期窗口 = [opened, closed]：closed 之后到账的费率不计入。"""
+    import time
+    now_ms = int(time.time() * 1000)
+    t0_ms = now_ms - 3600 * 1000  # 窗口起点（coverage 内）
+    closed_ms = t0_ms + 3000      # 平仓时刻
+    client = _StubLedgerClient(
+        interest_rows=[],
+        income_rows=[
+            {"symbol": "BTCUSDT", "incomeType": "FUNDING_FEE", "income": "0.1",
+             "asset": "USDT", "info": "FUNDING_FEE", "time": t0_ms + 1000, "tranId": 1, "tradeId": ""},
+            {"symbol": "BTCUSDT", "incomeType": "FUNDING_FEE", "income": "0.5",
+             "asset": "USDT", "info": "FUNDING_FEE", "time": t0_ms + 5000, "tranId": 2, "tradeId": ""},
+        ],
+    )
+    ledger_svc = _make_ledger_svc(tmp_path, client, now_ms)
+    exe = RecordTransportExecutor()
+    clock = _Clock(t0_ms * 1000)
+    try:
+        _Handler.ledger_flow_service = ledger_svc
+        with _server(_svc(tmp_path, executor=exe, clock=clock)) as (host, port):
+            tid = _create_task(host, port, _create_body(target_n=1))["id"]
+            _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-all")
+            # 关闭该周期的活跃 cycle：周期进入已平仓
+            svc = _svc(tmp_path, executor=exe, clock=clock)
+            cycles = svc._store.list_cycles()
+            assert len(cycles) == 1
+            svc._store.close_cycle(cycles[0]["id"], closed_ms * 1000, "manual_verify")
+            svc.close()
+            status, _, payload = _req(host, port, "GET", "/api/hedge-open-positions")
+            assert status == 200
+            # Human 2026-08：持仓表只显示「未平仓周期」——已完全平仓的周期从后端
+            # 查询排除（已平仓标的只在历史仓位页 close_log 呈现）。
+            positions = _json(payload)["positions"]
+            assert len(positions) == 0, f"已平仓周期不应出现在持仓表: {positions}"
+    finally:
+        _Handler.ledger_flow_service = None

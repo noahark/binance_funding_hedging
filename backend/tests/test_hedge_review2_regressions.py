@@ -113,7 +113,7 @@ class _FakeProvider:
     def __init__(self, snapshot=None):
         self.snapshot = snapshot
 
-    def get_snapshot(self, coin, direction):
+    def get_snapshot(self, coin, direction, task_type="open"):
         return self.snapshot
 
 

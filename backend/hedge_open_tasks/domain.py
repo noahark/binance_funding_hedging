@@ -67,6 +67,16 @@ DIR_FORWARD = "forward"  # funding > 0: buy spot + open short perp
 DIR_REVERSE = "reverse"  # funding < 0: sell spot + open long perp
 ALL_DIRECTIONS = (DIR_FORWARD, DIR_REVERSE)
 
+# task_type（功能三 2026-08）：开仓 / 平仓。平仓任务：方向反转 + 合约腿 reduceOnly，
+# 完成判定以合约无仓为准；平仓腿绝不进开仓成本基（aggregate 按 task_type 过滤）。
+TASK_TYPE_OPEN = "open"
+TASK_TYPE_CLOSE = "close"
+ALL_TASK_TYPES = (TASK_TYPE_OPEN, TASK_TYPE_CLOSE)
+
+# close_reason 枚举（设计 v1 §4.2 / §3.2）：功能三自动平仓完成 / 人工核实纠偏。
+CLOSE_REASON_AUTO_CLOSE = "auto_close"
+CLOSE_REASON_MANUAL_VERIFY = "manual_verify"
+
 # mode (ADR-6): immediate this round; smooth (a streaming push channel) is
 # reserved for a later round and is NOT wired here.
 MODE_IMMEDIATE = "immediate"
@@ -141,6 +151,11 @@ PAUSE_REASON_INSUFFICIENT_AVAILABLE_QTY = "insufficient_available_qty"
 # fact (adding funds does nothing) — deliberately its own pause reason so the
 # display never renders the false "保证金不足" wording of insufficient_margin.
 PAUSE_REASON_COLLATERAL_CAP_FULL = "collateral_cap_full"
+# 功能三（2026-08）：close 完成核实查仓失败——「查不到」绝不当作「已平完」。
+PAUSE_REASON_CLOSE_VERIFY_FAILED = "close_verify_failed"
+# 平仓现货卖出重设计（2026-08）：forward close 发单前现货余额检查/划转/复检失败
+# → 任务暂停（fail-closed，不重试、不发单），错误原因随 pause_reason 展示。
+PAUSE_REASON_CLOSE_SPOT_BALANCE = "close_spot_balance"
 # Retry-counter task (fix-review1-retry-counter): an order-detail query that
 # stayed inconclusive (5xx / timeout / malformed 2xx) for all LEG_QUERY_MAX_RETRIES
 # attempts. The worker could neither confirm acceptance nor absence, so it pauses
@@ -226,6 +241,7 @@ WORKER_EXIT_STOPPED_EVENT = "stopped_event"  # woken by service stop() / a hard 
 WORKER_EXIT_TASK_MISSING = "task_missing"
 WORKER_EXIT_TASK_NOT_RUNNING = "task_not_running"  # done / paused / stopped / deleted
 WORKER_EXIT_START_GATE_OFF = "start_gate_off"
+WORKER_EXIT_CLOSE_GATE_OFF = "close_gate_off"  # 功能三：平仓闸门关闭（close 任务）
 WORKER_EXIT_TARGET_REACHED = "target_reached"
 WORKER_EXIT_PREFLIGHT_INCOMPLETE = "preflight_incomplete"  # fail-closed retry
 WORKER_EXIT_PREFLIGHT_FATAL = "preflight_fatal"
@@ -431,6 +447,9 @@ ALL_SPOT_ROUTES = (SPOT_ROUTE_PAPI_MARGIN, SPOT_ROUTE_REGULAR_SPOT)
 ROUTE_REASON_PAPI_DEFAULT = "papi_default"
 ROUTE_REASON_TRADIFI_REGULAR_SPOT = "tradifi_regular_spot"
 ROUTE_REASON_COLLATERAL_CAP_PRECHECK = "collateral_cap_precheck"
+# 平仓现货卖出重设计（2026-08）：forward 平仓卖现货固定走普通现货账户（单一出口，
+# 根治 collateral-cap 预检把卖出误导到普通账户的 -2010 事故；cap 语义只对买入有意义）。
+ROUTE_REASON_CLOSE_SELL_REGULAR = "close_sell_regular_spot"
 
 # Per-product business-code tables — ONLY product-specific codes live here. Codes
 # whose margin/UM semantics are identical (insufficient balance/margin, filter /
@@ -654,11 +673,16 @@ class LegActions:
     spot_side_effect: str  # always NO_SIDE_EFFECT
 
 
-def direction_to_leg_actions(direction: str, position_side_mode: str) -> LegActions:
+def direction_to_leg_actions(
+    direction: str, position_side_mode: str, task_type: str = TASK_TYPE_OPEN,
+) -> LegActions:
     """Map a hedge direction + position-mode snapshot to per-leg order actions.
 
     forward: spot BUY + perp SELL (BOTH one-way / SHORT hedge).
     reverse: spot SELL + perp BUY (BOTH one-way / LONG hedge).
+    ``task_type='close'`` 反转双腿方向（平仓）：forward 平仓 = 现货 SELL 卖回 +
+    合约 BUY 平空；reverse 平仓 = 现货 BUY 买回 + 合约 SELL 平多。
+    ``perp_position_side`` 不变（BOTH / LONG|SHORT 随持仓模式）。
     The spot leg is always ``NO_SIDE_EFFECT``; reduceOnly is never set on opens.
     """
     if direction == DIR_FORWARD:
@@ -671,6 +695,8 @@ def direction_to_leg_actions(direction: str, position_side_mode: str) -> LegActi
         spot_side = "SELL"
     else:  # pragma: no cover - validated upstream
         raise invalid_field("direction", f"unknown direction {direction!r}")
+    if task_type == TASK_TYPE_CLOSE:
+        spot_side, perp_side = perp_side, spot_side  # 反转：卖回/买回
     return LegActions(
         spot_side=spot_side,
         perp_side=perp_side,
@@ -922,30 +948,42 @@ def decide_spot_route(
     contract_type: str,
     spot_base_asset: str | None,
     cap_exceeded: bool | None,
+    task_type: str = TASK_TYPE_OPEN,
 ) -> tuple:
-    """Pure spot-leg route decision (design §3 step 4 — the ONLY routing rule).
+    """Pure spot-leg route decision (design §3 step 4 + 平仓现货卖出重设计).
 
     Returns ``(route, reason)``:
 
-    * negative funding (``reverse`` / spot SELL) -> ``(papi_margin, papi_default)``.
-      The restricted-asset list is NOT consulted and ``regular_spot`` is never
-      selected, even when the asset would hit the list or is a bStock (decision
-      §E-1). The provider therefore never reads the list for this direction.
-    * positive funding (``forward`` / spot BUY):
-      - ``cap_exceeded is True`` (the resolved spot base asset is on the platform
-        collateral-cap list) -> ``(regular_spot, collateral_cap_precheck)``;
-      - else ``contract_type == "TRADIFI_PERPETUAL"`` (bStock) ->
-        ``(regular_spot, tradifi_regular_spot)``;
-      - else -> ``(papi_margin, papi_default)``.
+    * ``task_type='close'``（平仓，Human 已拍板）：
+      - close + forward（平仓卖现货）→ ``(regular_spot, close_sell_regular_spot)``
+        固定普通现货账户——**不再走 collateral-cap 预检**（cap 只对买入有意义；
+        卖出在普通账户是唯一出口，根治 COOKIEUSDT -2010 事故）；
+      - close + reverse（平仓买现货还币）→ ``(papi_margin, papi_default)``
+        统一杠杆账户（与开仓 reverse 一致）。
+    * ``task_type='open'``（开仓，行为逐字不变）：
+      - negative funding (``reverse`` / spot SELL) -> ``(papi_margin, papi_default)``.
+        The restricted-asset list is NOT consulted and ``regular_spot`` is never
+        selected, even when the asset would hit the list or is a bStock (decision
+        §E-1). The provider therefore never reads the list for this direction.
+      - positive funding (``forward`` / spot BUY):
+        - ``cap_exceeded is True`` (the resolved spot base asset is on the platform
+          collateral-cap list) -> ``(regular_spot, collateral_cap_precheck)``;
+        - else ``contract_type == "TRADIFI_PERPETUAL"`` (bStock) ->
+          ``(regular_spot, tradifi_regular_spot)``;
+        - else -> ``(papi_margin, papi_default)``.
 
     ``cap_exceeded`` is ``True``/``False`` for a fresh successful list read and
     ``None`` only when the read could not be completed — the caller MUST treat
-    ``None`` on a forward direction as preflight-incomplete (never guess a route);
-    this function is reached for forward directions ONLY with a decisive bool.
-    ``spot_base_asset`` is carried for API symmetry / future auditing; the
-    cap-membership decision itself is made by the caller (the matched asset is the
-    resolved spot base, e.g. ``TSLAB`` for a bStock — never the contract base).
+    ``None`` on a forward open direction as preflight-incomplete (never guess a
+    route); close+forward 不再读取 cap 列表。``spot_base_asset`` is carried for
+    API symmetry / future auditing; the cap-membership decision itself is made
+    by the caller (the matched asset is the resolved spot base, e.g. ``TSLAB``
+    for a bStock — never the contract base).
     """
+    if task_type == TASK_TYPE_CLOSE:
+        if direction == DIR_FORWARD:
+            return SPOT_ROUTE_REGULAR_SPOT, ROUTE_REASON_CLOSE_SELL_REGULAR
+        return SPOT_ROUTE_PAPI_MARGIN, ROUTE_REASON_PAPI_DEFAULT
     if direction != DIR_FORWARD:
         return SPOT_ROUTE_PAPI_MARGIN, ROUTE_REASON_PAPI_DEFAULT
     if cap_exceeded is True:
@@ -1305,6 +1343,12 @@ def validate_direction(value) -> str:
     return value
 
 
+def validate_task_type(value) -> str:
+    if value not in ALL_TASK_TYPES:
+        raise invalid_field("task_type", f"must be one of {', '.join(ALL_TASK_TYPES)}")
+    return value
+
+
 def validate_mode(value) -> str:
     if value not in ALL_MODES:
         raise invalid_field("mode", f"must be one of {', '.join(ALL_MODES)}")
@@ -1505,6 +1549,8 @@ _PAUSE_REASON_ZH = {
     PAUSE_REASON_INSUFFICIENT_MARGIN: "保证金不足，任务已暂停，请补充后手动恢复",
     PAUSE_REASON_INSUFFICIENT_AVAILABLE_QTY: "可用数量不足，任务已暂停，请补充后手动恢复",
     PAUSE_REASON_ORDER_STATE_UNKNOWN: "订单状态经 10 次重试查询仍不明，无法确认是否已被交易所接受，任务已暂停。请到交易所核对订单后手动恢复（恢复后仅按既有 clientOrderId 重查，不重发下单）",
+    PAUSE_REASON_CLOSE_VERIFY_FAILED: "平仓完成核实失败（查交易所合约持仓未成功），任务已暂停。请到交易所核对该币种合约仓位后手动恢复——「查不到」绝不视为「已平完」",
+    PAUSE_REASON_CLOSE_SPOT_BALANCE: "平仓现货余额检查/划转失败，任务已暂停（fail-closed，未发单）。详情见任务卡日志，请人工核对后手动恢复",
 }
 
 # 51169 operator message — FROZEN verbatim (10-design §2(d) / ADR-T3). Only the
@@ -1622,6 +1668,10 @@ def _merge_empty_bucket_row(coin, direction):
         "accrued_funding": "0",
         "borrow_interest": "0",
         "net_pnl": "0",
+        # 持仓周期（设计 v1 §5.2）：no_task 行无本地账本，周期字段为 None。
+        "cycle_id": None,
+        "cycle_opened_at": None,
+        "cycle_closed_at": None,
     }
 
 
@@ -1780,14 +1830,15 @@ def merge_positions(positions, private_account):
         if isinstance(row, dict) and row.get("asset"):
             unified_row_by_asset[row["asset"]] = row
 
-    bucket_by_key = {}
-    for p in positions or []:
-        bucket_by_key.setdefault((p.get("coin"), p.get("direction")), p)
-
+    # P0-1（设计 v1 §5.4）：桶键与匹配都以周期为粒度。同一 (coin, direction)
+    # 存在多个周期桶（场景 B：全平再开）时，二元组 setdefault 会静默丢弃其余
+    # 周期桶、matched 也会连带跳过同键所有桶——必须按桶身份记账，不丢任何周期。
     merged = []
     matched_buckets = set()
 
-    # 1. UM skeleton rows (the real exchange positions).
+    # 1. UM skeleton rows (the real exchange positions). 只匹配「活跃周期」桶
+    #    （cycle_closed_at 为 null）；同键多个活跃周期（异常）取最近 opened 者，
+    #    其余按未匹配处理（step 2 各自独立 no_um 输出）。
     for u in um_positions or []:
         if not isinstance(u, dict):
             continue
@@ -1795,10 +1846,18 @@ def merge_positions(positions, private_account):
         direction = _merge_direction_for_side(u.get("position_side"))
         bucket = None
         if direction is not None and symbol is not None:
-            key = (symbol, direction)
-            bucket = bucket_by_key.get(key)
-            if bucket is not None:
-                matched_buckets.add(key)
+            active = [
+                p for p in positions or []
+                if p.get("coin") == symbol and p.get("direction") == direction
+                and p.get("cycle_closed_at") is None
+            ]
+            if active:
+                bucket = max(
+                    active, key=lambda p: p.get("cycle_opened_at") or "",
+                )
+                matched_buckets.add(
+                    (symbol, direction, bucket.get("cycle_id"))
+                )
         merged.append(
             _merge_build_row(
                 symbol, direction, bucket, u, spot_by_asset,
@@ -1806,11 +1865,11 @@ def merge_positions(positions, private_account):
             )
         )
 
-    # 2. Task buckets whose symbol has no matching UM position ('no_um': the
-    #    exchange has no position — possibly liquidated / manually closed). Their
-    #    cost basis still shows (D15).
+    # 2. 未被 UM 骨架消费的周期桶各自作为独立 no_um 行输出——已平仓周期行带
+    #    cycle_closed_at（标「已平仓」）、无对应交易所仓位的活跃周期行照常展示；
+    #    不合并、不丢弃（D15 精神从「币种行」细化为「周期行」）。
     for p in positions or []:
-        key = (p.get("coin"), p.get("direction"))
+        key = (p.get("coin"), p.get("direction"), p.get("cycle_id"))
         if key in matched_buckets:
             continue
         merged.append(
@@ -1820,5 +1879,10 @@ def merge_positions(positions, private_account):
             )
         )
 
-    merged.sort(key=lambda r: ((r.get("coin") or ""), (r.get("direction") or "")))
+    merged.sort(
+        key=lambda r: (
+            (r.get("coin") or ""), (r.get("direction") or ""),
+            (r.get("cycle_opened_at") or ""),
+        )
+    )
     return merged, account_meta

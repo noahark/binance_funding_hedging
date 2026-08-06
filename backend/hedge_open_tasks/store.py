@@ -28,6 +28,7 @@ import os
 import sqlite3
 import threading
 import time
+import uuid
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -162,6 +163,40 @@ CREATE TABLE IF NOT EXISTS hedge_open_raw_response (
 );
 CREATE INDEX IF NOT EXISTS idx_hedge_open_raw_attempt
     ON hedge_open_raw_response (attempt_id, leg, id);
+CREATE TABLE IF NOT EXISTS hedge_open_cycle (
+    id            TEXT PRIMARY KEY,      -- 周期 UUID（稳定关联键，不删除）
+    symbol        TEXT NOT NULL,         -- 币种（带 USDT 后缀，与任务 coin 一致）
+    direction     TEXT NOT NULL,         -- forward / reverse
+    opened_at_us  INTEGER NOT NULL,      -- 周期起点 = 首次开仓派发时间（us）
+    closed_at_us  INTEGER,               -- NULL=活跃中；全平观察后补写
+    close_reason  TEXT,                  -- auto_close（功能三）/ manual_verify（人工纠偏）
+    first_task_id TEXT,                  -- 起始任务 id（追溯）
+    last_task_id  TEXT                   -- 最后贡献成功腿的任务 id（追溯）
+);
+CREATE INDEX IF NOT EXISTS idx_cycle_active
+    ON hedge_open_cycle (symbol, direction, closed_at_us);
+CREATE TABLE IF NOT EXISTS hedge_open_cycle_close_log (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    cycle_id        TEXT NOT NULL,      -- 关联 hedge_open_cycle.id
+    symbol          TEXT NOT NULL,
+    direction       TEXT NOT NULL,
+    opened_at_us    INTEGER NOT NULL,   -- 周期起点（首次开仓派发时间）
+    closed_at_us    INTEGER NOT NULL,   -- 平仓观察时间（近似）
+    close_reason    TEXT,               -- auto_close / manual_verify（结算日志写入时记录）
+    open_avg_price  TEXT,               -- 开单均价快照（周期成本基，关闭时现算写入）
+    open_qty        TEXT,               -- 开单累计数量快照
+    close_avg_price TEXT,               -- 平单均价：本轮有真值（close 任务成交加权）
+    funding_fee     TEXT,               -- 周期内资金费合计（关闭时窗口现算）
+    borrow_interest TEXT,               -- 周期内利息合计（资产维度近似）
+    spot_open_avg   TEXT,               -- 现货买入均价（2026-08 补充：open 现货腿加权）
+    spot_open_qty   TEXT,               -- 现货买入累计数量
+    spot_close_avg  TEXT,               -- 现货卖出均价（close 现货腿加权）
+    spot_close_qty  TEXT,               -- 现货卖出累计数量
+    open_slippage   TEXT,               -- 开单滑点（USDT，成交均价 vs 开仓 est_price 加权，合约腿）
+    close_slippage  TEXT,               -- 平单滑点（USDT，成交均价 vs 平仓 est_price 加权，合约腿）
+    settled_at_us   INTEGER NOT NULL    -- 结算写入时间
+);
+CREATE INDEX IF NOT EXISTS idx_close_log_cycle ON hedge_open_cycle_close_log (cycle_id);
 """
 
 
@@ -207,6 +242,8 @@ def _row_to_task(row: sqlite3.Row) -> dict:
         "pause_reason_zh": row["pause_reason_zh"],
         "stop_reason": row["stop_reason"],
         "last_worker_exit_reason": row["last_worker_exit_reason"],
+        # 功能三（2026-08）：任务类型（'open'=开仓 / 'close'=平仓）；旧行迁移默认 'open'。
+        "task_type": row["task_type"],
     }
 
 
@@ -381,6 +418,8 @@ class HedgeOpenStore:
             ("pause_reason_zh", "TEXT"),
             ("stop_reason", "TEXT"),
             ("last_worker_exit_reason", "TEXT"),
+            # 功能三（2026-08）：任务类型——'open'=开仓（默认，现有行不回填）/ 'close'=平仓。
+            ("task_type", "TEXT NOT NULL DEFAULT 'open'"),
         )
         for col, decl in additions:
             if col not in task_cols:
@@ -397,6 +436,18 @@ class HedgeOpenStore:
         for col, decl in attempt_additions:
             if col not in attempt_cols:
                 self._conn.execute(f"ALTER TABLE hedge_open_attempt ADD COLUMN {col} {decl}")
+        # 持仓周期（2026-08 功能 2 阶段 1）：attempt 增加 cycle_id 列 + 索引。
+        # 建表在 _SCHEMA（CREATE TABLE IF NOT EXISTS 随 executescript 幂等执行），
+        # _migrate 只做 ADD COLUMN + CREATE INDEX IF NOT EXISTS，不重复建表
+        # （docs/planning/hedge-open-cycle-stage2-cycle-dev.md §3.2 核对点）。
+        if "cycle_id" not in attempt_cols:
+            self._conn.execute(
+                "ALTER TABLE hedge_open_attempt ADD COLUMN cycle_id TEXT"
+            )
+        self._conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_attempt_cycle"
+            " ON hedge_open_attempt (cycle_id)"
+        )
         leg_cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(hedge_open_leg)")}
         leg_additions = (
             ("error_code", "TEXT"),
@@ -478,6 +529,32 @@ class HedgeOpenStore:
             self._conn.execute(
                 "ALTER TABLE hedge_open_raw_response"
                 " ADD COLUMN decisive INTEGER NOT NULL DEFAULT 0"
+            )
+        # 功能三（2026-08 补充）：close_log 加现货买/卖均价 4 列（历史仓位页现货列）。
+        # 幂等 ADD COLUMN；已存在的结算日志行现货列为 NULL（回填见修正脚本）。
+        clog_cols = {
+            r["name"] for r in self._conn.execute("PRAGMA table_info(hedge_open_cycle_close_log)")
+        }
+        for col, decl in (
+            ("spot_open_avg", "TEXT"),
+            ("spot_open_qty", "TEXT"),
+            ("spot_close_avg", "TEXT"),
+            ("spot_close_qty", "TEXT"),
+            ("open_slippage", "TEXT"),
+            ("close_slippage", "TEXT"),
+        ):
+            if col not in clog_cols:
+                self._conn.execute(
+                    f"ALTER TABLE hedge_open_cycle_close_log ADD COLUMN {col} {decl}"
+                )
+        # 功能三（2026-08）：平仓闸门独立于开单闸门，默认开（Human 已拍板）。
+        settings_cols = {
+            r["name"] for r in self._conn.execute("PRAGMA table_info(hedge_open_settings)")
+        }
+        if "close_gate" not in settings_cols:
+            self._conn.execute(
+                "ALTER TABLE hedge_open_settings"
+                " ADD COLUMN close_gate INTEGER NOT NULL DEFAULT 1"
             )
         # T5(d) M2 (§6): a leg_exposure ts rendered as the 1970 epoch (a forgotten
         # 0) is rewritten to the accepting leg's dispatched_at_us ISO — the real
@@ -568,6 +645,7 @@ class HedgeOpenStore:
         now_us: int,
         *,
         failure_pause_threshold: int = D.DEFAULT_FAILURE_PAUSE_THRESHOLD,
+        task_type: str = D.TASK_TYPE_OPEN,
     ) -> dict:
         with self._lock, self._conn:
             creation_seq = self._conn.execute(
@@ -583,9 +661,9 @@ class HedgeOpenStore:
                 "  creation_seq, created_at_us, updated_at_us,"
                 "  scheduled_attempt_count, accepted_pair_count,"
                 "  consecutive_submission_failures, failure_pause_threshold,"
-                "  pause_reason)"
+                "  pause_reason, task_type)"
                 " VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, NULL, ?, ?, ?, ?,"
-                "         0, 0, 0, ?, NULL)",
+                "         0, 0, 0, ?, NULL, ?)",
                 (
                     task_id,
                     coin,
@@ -601,6 +679,7 @@ class HedgeOpenStore:
                     now_us,
                     now_us,
                     failure_pause_threshold,
+                    task_type,
                 ),
             )
             row = self._conn.execute(
@@ -758,7 +837,8 @@ class HedgeOpenStore:
         """
         with self._lock, self._conn:
             task = self._conn.execute(
-                "SELECT status, scheduled_attempt_count, target_n FROM hedge_open_task"
+                "SELECT status, scheduled_attempt_count, target_n, coin, direction"
+                " FROM hedge_open_task"
                 " WHERE id = ?",
                 (task_id,),
             ).fetchone()
@@ -788,12 +868,21 @@ class HedgeOpenStore:
                 " WHERE task_id = ?",
                 (task_id,),
             ).fetchone()[0]
+            # 持仓周期分配（stage2 §3.4）：cycle 写入与 attempt 写入同一事务。
+            # 有活跃周期（closed_at_us IS NULL）→ 复用其 id；无 → 新建
+            # （opened_at_us = 本次派发时间 now_us，first/last_task_id = 当前
+            # task_id）。用内部无锁版，不嵌套 ``with self._conn:``。
+            cycle = self._get_active_cycle_locked(task["coin"], task["direction"])
+            if cycle is None:
+                cycle = self._create_cycle_locked(
+                    task["coin"], task["direction"], now_us, task_id,
+                )
             cur = self._conn.execute(
                 "INSERT INTO hedge_open_attempt"
                 " (task_id, attempt_uuid, attempt_seq, direction, q_common,"
                 "  preflight_fingerprint, position_side_mode, pair_outcome,"
-                "  log_ref, created_at_us)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?)",
+                "  log_ref, created_at_us, cycle_id)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)",
                 (
                     task_id,
                     attempt_uuid,
@@ -803,6 +892,7 @@ class HedgeOpenStore:
                     json.dumps(preflight_fingerprint, ensure_ascii=False),
                     position_side_mode or D.POS_MODE_BOTH,
                     now_us,
+                    cycle["id"],
                 ),
             )
             attempt_id = cur.lastrowid
@@ -1038,6 +1128,18 @@ class HedgeOpenStore:
             # attempt (``pair_outcome is None``), and any non-running status are
             # left untouched.
             new_status = D.STATUS_DONE
+        elif (
+            suppress_done
+            and pair_outcome is not None
+            and new_status == D.STATUS_DONE
+        ):
+            # 功能三（2026-08 修复）：close 任务 success 达标时
+            # ``resolve_status_after_attempt`` 会直接返回 DONE（不经本函数的
+            # suppress_done 分支）——这里回退为 RUNNING，由 worker 的合约无仓
+            # 核实接管完成判定（Human：close 任务从 running 变其他状态必须先
+            # 核实合约；flat → done+close_cycle+close_log，open+次数用完 →
+            # 部分平 done）。仅 close 任务传 suppress_done，开单任务不受影响。
+            new_status = D.STATUS_RUNNING
         self._conn.execute(
             "UPDATE hedge_open_task SET accepted_pair_count = ?,"
             " success_count = ?, fail_count = ?,"
@@ -2019,6 +2121,251 @@ class HedgeOpenStore:
 
     # ------------------------------------------------------------- positions
 
+    # ---- 持仓周期（功能一剩余块，stage2 §3.3）----
+    # 双版本模式沿用 `_apply_task_counters`（:930）先例：`_*_locked` 内部无锁版
+    # MUST run inside the caller's ``with self._lock, self._conn:`` transaction
+    # （不得自带 ``with self._conn:``——sqlite3 Connection.__exit__ 会对已执行
+    # 语句提前 commit，破坏「cycle 写入与 attempt 写入同一事务」的原子性）；
+    # 对外加锁版供非事务调用方（后续任务/人工工具）使用。
+
+    def _get_active_cycle_locked(self, symbol: str, direction: str) -> dict | None:
+        """活跃周期 = closed_at_us IS NULL 的最新一条。内部无锁版。"""
+        row = self._conn.execute(
+            "SELECT * FROM hedge_open_cycle"
+            " WHERE symbol = ? AND direction = ? AND closed_at_us IS NULL"
+            " ORDER BY opened_at_us DESC LIMIT 1",
+            (symbol, direction),
+        ).fetchone()
+        return dict(row) if row is not None else None
+
+    def _create_cycle_locked(
+        self, symbol: str, direction: str, opened_at_us: int, task_id: str,
+    ) -> dict:
+        """新建周期：id=uuid4()；first_task_id=last_task_id=task_id。内部无锁版。"""
+        cycle_id = str(uuid.uuid4())
+        self._conn.execute(
+            "INSERT INTO hedge_open_cycle"
+            " (id, symbol, direction, opened_at_us, closed_at_us, close_reason,"
+            "  first_task_id, last_task_id)"
+            " VALUES (?, ?, ?, ?, NULL, NULL, ?, ?)",
+            (cycle_id, symbol, direction, opened_at_us, task_id, task_id),
+        )
+        row = self._conn.execute(
+            "SELECT * FROM hedge_open_cycle WHERE id = ?", (cycle_id,)
+        ).fetchone()
+        return dict(row)
+
+    def get_active_cycle(self, symbol: str, direction: str) -> dict | None:
+        with self._lock, self._conn:
+            return self._get_active_cycle_locked(symbol, direction)
+
+    def create_cycle(
+        self, symbol: str, direction: str, opened_at_us: int, task_id: str,
+    ) -> dict:
+        with self._lock, self._conn:
+            return self._create_cycle_locked(symbol, direction, opened_at_us, task_id)
+
+    def close_cycle(
+        self, cycle_id: str, closed_at_us: int, close_reason: str,
+    ) -> None:
+        """关闭周期：closed_at_us 只允许 NULL→值 的单向写入；幂等（重复调用不覆盖）。
+
+        供功能三平仓任务（close_reason='auto_close'）与人工纠偏（'manual_verify'）
+        调用；本阶段只定义方法本身，不接线任何触发逻辑（设计 v1 §4.2）。
+        """
+        with self._lock, self._conn:
+            self._conn.execute(
+                "UPDATE hedge_open_cycle SET closed_at_us = ?, close_reason = ?"
+                " WHERE id = ? AND closed_at_us IS NULL",
+                (closed_at_us, close_reason, cycle_id),
+            )
+
+    def get_cycle_by_id(self, cycle_id: str) -> dict | None:
+        """周期行映射（含 opened_at_us/closed_at_us）。只读；供回填验证与后续任务。"""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM hedge_open_cycle WHERE id = ?", (cycle_id,)
+            ).fetchone()
+            return dict(row) if row is not None else None
+
+    # ---- 周期结算日志（功能三 ③a，设计 v1 §3.2）----
+
+    def insert_close_log(self, row: dict) -> int:
+        """写一条周期结算日志（平仓完成时，与 close_cycle 同事务调用方负责）。"""
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "INSERT INTO hedge_open_cycle_close_log"
+                " (cycle_id, symbol, direction, opened_at_us, closed_at_us,"
+                "  close_reason, open_avg_price, open_qty, close_avg_price,"
+                "  funding_fee, borrow_interest, spot_open_avg, spot_open_qty,"
+                "  spot_close_avg, spot_close_qty, open_slippage, close_slippage,"
+                "  settled_at_us)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    row["cycle_id"], row["symbol"], row["direction"],
+                    row["opened_at_us"], row["closed_at_us"], row["close_reason"],
+                    row.get("open_avg_price"), row.get("open_qty"),
+                    row.get("close_avg_price"), row.get("funding_fee"),
+                    row.get("borrow_interest"),
+                    row.get("spot_open_avg"), row.get("spot_open_qty"),
+                    row.get("spot_close_avg"), row.get("spot_close_qty"),
+                    row.get("open_slippage"), row.get("close_slippage"),
+                    row["settled_at_us"],
+                ),
+            )
+            return cur.lastrowid
+
+    def list_close_logs(self, limit: int = 100) -> list[dict]:
+        """结算日志，按 closed_at_us 倒序（历史仓位页数据源）。只读。"""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM hedge_open_cycle_close_log"
+                " ORDER BY closed_at_us DESC, id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def append_log(self, task_id: str, ts_us: int, kind: str, payload: dict,
+                   attempt_id=None) -> None:
+        """通用任务卡日志写入（平仓现货卖出重设计的 close_transfer 等 kind）。"""
+        with self._lock, self._conn:
+            self._conn.execute(
+                "INSERT INTO hedge_open_log (task_id, ts_us, attempt_id, kind, payload)"
+                " VALUES (?, ?, ?, ?, ?)",
+                (task_id, ts_us, attempt_id, kind,
+                 json.dumps(payload, ensure_ascii=False)),
+            )
+
+    def close_task_spot_quote_total(self, task_id: str) -> Decimal | None:
+        """close 任务全部现货腿成交额（cumulative_quote_amt）合计（USDT 回流统计）。
+
+        任一成交腿 quote 不可解析 → None（不拼部分和）。"""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT l.cumulative_quote_amt FROM hedge_open_leg l"
+                " JOIN hedge_open_attempt a ON a.id = l.attempt_id"
+                " WHERE a.task_id = ? AND l.leg = 'spot'"
+                " AND CAST(l.cumulative_base_qty AS REAL) > 0",
+                (task_id,),
+            ).fetchall()
+        total = Decimal(0)
+        for r in rows:
+            q = _num_or_none(r["cumulative_quote_amt"])
+            if q is None:
+                return None
+            total += q
+        return total
+
+    def cycle_perp_basis(self, cycle_id: str, task_type: str) -> dict:
+        """该周期内指定 task_type 的合约腿加权均价/累计数量（带锁，供结算日志）。"""
+        return self.cycle_leg_basis(cycle_id, task_type, "perp")
+
+    def cycle_spot_basis(self, cycle_id: str, task_type: str) -> dict:
+        """该周期内指定 task_type 的现货腿加权均价/累计数量（2026-08：历史页现货列）。"""
+        return self.cycle_leg_basis(cycle_id, task_type, "spot")
+
+    def cycle_leg_basis(self, cycle_id: str, task_type: str, leg: str) -> dict:
+        """该周期内指定 task_type + 腿的加权均价/累计数量（带锁）。"""
+        with self._lock, self._conn:
+            return self._cycle_leg_basis_locked(cycle_id, task_type, leg)
+
+    def _cycle_leg_basis_locked(self, cycle_id: str, task_type: str, leg: str) -> dict:
+        """该周期内指定 task_type + 腿的加权均价/累计数量（G5：仅已知 notional
+        参与均价分母；未知不拖价）。内部无锁版，MUST run inside caller's transaction。
+        返回 ``{"avg_price": str|None, "qty": str|None}``。leg='perp' 合约腿 /
+        'spot' 现货腿（2026-08 补充）。"""
+        rows = self._conn.execute(
+            "SELECT l.cumulative_base_qty, l.cumulative_quote_amt"
+            " FROM hedge_open_leg l"
+            " JOIN hedge_open_attempt a ON a.id = l.attempt_id"
+            " JOIN hedge_open_task t ON t.id = a.task_id"
+            " WHERE a.cycle_id = ? AND t.task_type = ? AND l.leg = ?"
+            " AND CAST(l.cumulative_base_qty AS REAL) > 0",
+            (cycle_id, task_type, leg),
+        ).fetchall()
+        qty = Decimal(0)
+        notional = Decimal(0)
+        priced = Decimal(0)
+        for r in rows:
+            q = _num(r["cumulative_base_qty"])
+            if q is None:
+                continue
+            qty += q
+            quote = _num_or_none(r["cumulative_quote_amt"])
+            if quote is not None and quote != 0:
+                notional += quote
+                priced += q
+        avg = notional / priced if priced > 0 else None
+        return {
+            "avg_price": D.fmt_decimal(avg) if avg is not None else None,
+            "qty": D.fmt_decimal(qty) if qty != 0 else None,
+        }
+
+    def cycle_slippage_pct(self, cycle_id: str, task_type: str) -> str | None:
+        """该周期内指定 task_type 的合约腿滑点率（%，2026-08 新增；Human 要求）。
+
+        滑点率 = Σ((成交均价 − est_price)×数量) / Σ(est_price×数量) × 100
+        ——加权价差率（成交均价 vs 开/平仓 est_price 的偏离百分比）。est_price 为
+        preflight 保守估价（task.preflight_snapshot.est_price）。负 = 成交优于估价，
+        正 = 劣于估价。无 est_price / 无成交 → None（参考价缺失不臆造）。
+        Human 2026-08：滑点列从 USDT 金额改为百分比展示，保留两位小数。"""
+        with self._lock, self._conn:
+            rows = self._conn.execute(
+                "SELECT t.preflight_snapshot, l.cumulative_base_qty,"
+                " l.cumulative_quote_amt, l.avg_price"
+                " FROM hedge_open_leg l"
+                " JOIN hedge_open_attempt a ON a.id = l.attempt_id"
+                " JOIN hedge_open_task t ON t.id = a.task_id"
+                " WHERE a.cycle_id = ? AND t.task_type = ? AND l.leg = 'perp'"
+                " AND CAST(l.cumulative_base_qty AS REAL) > 0",
+                (cycle_id, task_type),
+            ).fetchall()
+        diff_sum = Decimal(0)
+        est_sum = Decimal(0)
+        priced = False
+        for r in rows:
+            try:
+                est = None
+                snap = json.loads(r["preflight_snapshot"] or "{}")
+                if isinstance(snap, dict) and snap.get("est_price"):
+                    est = Decimal(str(snap["est_price"]))
+                if est is None or est == 0:
+                    continue
+                q = Decimal(str(r["cumulative_base_qty"]))
+                price = None
+                if r["avg_price"]:
+                    try:
+                        price = Decimal(str(r["avg_price"]))
+                    except InvalidOperation:
+                        price = None
+                if price is None and r["cumulative_quote_amt"]:
+                    try:
+                        qq = Decimal(str(r["cumulative_quote_amt"]))
+                        if qq > 0:
+                            price = qq / q
+                    except (InvalidOperation, ZeroDivisionError):
+                        price = None
+                if price is not None:
+                    diff_sum += (price - est) * q
+                    est_sum += est * q
+                    priced = True
+            except (InvalidOperation, TypeError, ValueError):
+                continue
+        if not priced or est_sum == 0:
+            return None
+        pct = diff_sum / est_sum * 100
+        # 保留两位小数（Human 要求）
+        return f"{pct:.2f}"
+
+    def list_cycles(self) -> list[dict]:
+        """全部周期行，按 (symbol, direction, opened_at_us) 排序。只读。"""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM hedge_open_cycle"
+                " ORDER BY symbol, direction, opened_at_us"
+            ).fetchall()
+            return [dict(r) for r in rows]
+
     def aggregate_positions(self) -> list[dict]:
         """Aggregate open positions from both the legacy fill rows and the
         attempt/leg rows (breakdown §3.4). avg = Σ(qty*price)/Σqty per leg.
@@ -2031,7 +2378,7 @@ class HedgeOpenStore:
         makes auto-delete routine). ``spot_qty``/``perp_qty`` are emitted so the
         merge layer can compare recorded vs real quantities (P2 drift, single-leg).
         """
-        with self._lock:
+        with self._lock, self._conn:
             fill_rows = self._conn.execute(
                 "SELECT f.spot_status, f.spot_filled_qty, f.spot_avg_price,"
                 " f.perp_status, f.perp_filled_qty, f.perp_avg_price,"
@@ -2041,18 +2388,51 @@ class HedgeOpenStore:
             ).fetchall()
             leg_rows = self._conn.execute(
                 "SELECT l.leg, l.exchange_status, l.cumulative_base_qty,"
-                " l.cumulative_quote_amt, t.coin, t.direction, t.status"
+                " l.cumulative_quote_amt, t.coin, t.direction, t.status,"
+                " a.cycle_id,"
+                " c.opened_at_us AS cycle_opened_at_us,"
+                " c.closed_at_us AS cycle_closed_at_us"
                 " FROM hedge_open_leg l"
                 " JOIN hedge_open_attempt a ON a.id = l.attempt_id"
                 " JOIN hedge_open_task t ON t.id = a.task_id"
+                " LEFT JOIN hedge_open_cycle c ON c.id = a.cycle_id"
+                " WHERE t.task_type = ?"  # 功能三：平仓腿绝不进开仓成本基
+                # Human 2026-08：持仓表只显示「未平仓周期」——已完全平仓的周期
+                # 从根源（后端查询）排除，避免已平仓标的回显（如 COOKIE 全平后
+                # 仍显示 -5000）；已平仓周期只在历史仓位页（close_log）呈现。
+                # 无周期腿（cycle_id NULL，fill 兜底/旧数据）保留不误伤。
+                " AND (a.cycle_id IS NULL OR c.closed_at_us IS NULL)"
                 " ORDER BY a.created_at_us ASC, l.id ASC",
+                (D.TASK_TYPE_OPEN,),
             ).fetchall()
+            # P2-1（stage2 §3.5）：SQL-A（hedge_open_fill legacy 空壳）本应恒为
+            # 0 行——fill 行没有 cycle_id，落入含 None 的兜底桶永远无法归入周期，
+            # merge 也无法正确处理。非零行数视为异常并落审计告警，而非静默并入聚合。
+            if fill_rows:
+                self._conn.execute(
+                    "INSERT INTO hedge_open_log"
+                    " (task_id, ts_us, attempt_id, kind, payload)"
+                    " VALUES (?, ?, NULL, ?, ?)",
+                    (
+                        "aggregate-positions",
+                        int(time.time() * 1_000_000),
+                        "aggregate_sql_a_nonzero",
+                        json.dumps(
+                            {
+                                "table": "hedge_open_fill",
+                                "row_count": len(fill_rows),
+                                "reason": "P2-1: SQL-A 非零行（fill 行无 cycle_id，无法归入周期）",
+                            },
+                            ensure_ascii=False,
+                        ),
+                    ),
+                )
 
-        buckets: dict[tuple[str, str], dict] = {}
+        buckets: dict[tuple[str, str, str | None], dict] = {}
 
-        def _bucket(coin: str, direction: str) -> dict:
+        def _bucket(coin: str, direction: str, cycle_id: str | None) -> dict:
             return buckets.setdefault(
-                (coin, direction),
+                (coin, direction, cycle_id),
                 {
                     "spot_qty": Decimal(0),
                     "spot_notional": Decimal(0),
@@ -2072,11 +2452,13 @@ class HedgeOpenStore:
                     "spot_incomplete": False,
                     "perp_incomplete": False,
                     "includes_deleted": False,
+                    "cycle_opened_at_us": None,
+                    "cycle_closed_at_us": None,
                 },
             )
 
         for row in fill_rows:
-            b = _bucket(row["coin"], row["direction"])
+            b = _bucket(row["coin"], row["direction"], None)
             if row["status"] == D.STATUS_DELETED:
                 b["includes_deleted"] = True
             if row["spot_status"] == D.LEG_FILLED:
@@ -2109,7 +2491,11 @@ class HedgeOpenStore:
             # filled partially still contributes real base/quote to the position.
             if _num(row["cumulative_base_qty"]) <= 0:
                 continue
-            b = _bucket(row["coin"], row["direction"])
+            b = _bucket(row["coin"], row["direction"], row["cycle_id"])
+            # 周期戳记取组内一致值（同桶所有腿属于同一 cycle；旧数据 cycle_id
+            # NULL 时两者均为 None，输出行保持 null，前端不渲染）。
+            b["cycle_opened_at_us"] = row["cycle_opened_at_us"]
+            b["cycle_closed_at_us"] = row["cycle_closed_at_us"]
             if row["status"] == D.STATUS_DELETED:
                 b["includes_deleted"] = True
             q = _num(row["cumulative_base_qty"])
@@ -2146,7 +2532,7 @@ class HedgeOpenStore:
                 b["position_qty"] += sign * q
 
         positions = []
-        for (coin, direction), b in buckets.items():
+        for (coin, direction, cycle_id), b in buckets.items():
             # G5: the avg denominator is the PRICED qty (legs with a known
             # notional), not the full display qty — so an unknown-notional leg
             # can never drag the avg. When every leg on a side is unknown the
@@ -2174,6 +2560,10 @@ class HedgeOpenStore:
                     "perp_avg_price_incomplete": b["perp_incomplete"],
                     # D15: true when any contributing leg belongs to a deleted task.
                     "includes_deleted_task": b["includes_deleted"],
+                    # 持仓周期（设计 v1 §5.2）：桶键第三元 + ISO 起止时间；NULL=无周期。
+                    "cycle_id": cycle_id,
+                    "cycle_opened_at": D.us_to_iso(b["cycle_opened_at_us"]),
+                    "cycle_closed_at": D.us_to_iso(b["cycle_closed_at_us"]),
                     "open_basis_rate": "0",
                     "price_pnl": "0",
                     "accrued_funding": "0",
@@ -2181,7 +2571,12 @@ class HedgeOpenStore:
                     "net_pnl": "0",
                 }
             )
-        positions.sort(key=lambda p: (p["coin"], p["direction"]))
+        positions.sort(
+            key=lambda p: (
+                p["coin"], p["direction"],
+                p.get("cycle_opened_at") or "", p.get("cycle_id") or "",
+            )
+        )
         return positions
 
     # --------------------------------------------------------------- settings
@@ -2199,6 +2594,8 @@ class HedgeOpenStore:
                 "rate_limit_order": row["rate_limit_order"],
                 "version": row["version"],
                 "updated_at_us": row["updated_at_us"],
+                # 功能三：平仓闸门（默认开，Human 已拍板）
+                "close_gate": row["close_gate"],
             }
 
     def get_interval_us(self) -> int:
@@ -2261,6 +2658,47 @@ class HedgeOpenStore:
                     "start-gate",
                     now_us,
                     "start_gate_changed",
+                    json.dumps(
+                        {
+                            "enabled": bool(enabled),
+                            "previous_enabled": previous_enabled,
+                            "version": expected_version + 1,
+                            "source": "api",
+                        },
+                        ensure_ascii=False,
+                    ),
+                ),
+            )
+            return self.get_settings()
+
+    def set_close_gate_cas(
+        self, enabled: bool, expected_version: int, now_us: int,
+    ) -> dict | None:
+        """Compare-and-swap the close gate with a same-transaction audit row
+        （功能三，镜像 set_start_gate_cas ADR-H2）。Returns the updated settings
+        doc on hit, or ``None`` on a version mismatch. Audit kind
+        ``close_gate_changed``，sentinel ``task_id="close-gate"``。"""
+        with self._lock, self._conn:
+            prev = self._conn.execute(
+                "SELECT close_gate, version FROM hedge_open_settings WHERE id = 1"
+            ).fetchone()
+            if prev is None or prev["version"] != expected_version:
+                return None
+            previous_enabled = bool(prev["close_gate"])
+            cur = self._conn.execute(
+                "UPDATE hedge_open_settings SET close_gate = ?, version = version + 1,"
+                " updated_at_us = ? WHERE id = 1 AND version = ?",
+                (1 if enabled else 0, now_us, expected_version),
+            )
+            if cur.rowcount == 0:
+                return None
+            self._conn.execute(
+                "INSERT INTO hedge_open_log (task_id, ts_us, attempt_id, kind, payload)"
+                " VALUES (?, ?, NULL, ?, ?)",
+                (
+                    "close-gate",
+                    now_us,
+                    "close_gate_changed",
                     json.dumps(
                         {
                             "enabled": bool(enabled),

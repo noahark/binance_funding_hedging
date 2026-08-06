@@ -48,6 +48,7 @@ class AttemptContext:
     filter_versions: dict  # spot/perp filter values read for this attempt
     target_n: int
     ts_us: int
+    task_type: str = "open"  # 功能三：'open'=开仓 / 'close'=平仓（合约腿 reduceOnly）
 
 
 @dataclass(frozen=True)
@@ -136,16 +137,18 @@ def build_spot_order_params(
 
 
 def build_perp_order_params(
-    coin: str, actions: D.LegActions, quantity: Decimal, client_order_id: str
+    coin: str, actions: D.LegActions, quantity: Decimal, client_order_id: str,
+    task_type: str = D.TASK_TYPE_OPEN,
 ) -> dict:
     """The exact signed-body params for POST /papi/v1/um/order (no secrets).
 
     ``positionSide`` is BOTH one-way / LONG|SHORT hedge from the preflight
-    snapshot; ``reduceOnly`` is never set on opens (ADR-3). Only the approved
-    wire keys are present — the endpoint path is metadata recorded on the leg
-    row, never signed (A-4).
+    snapshot; ``reduceOnly`` is never set on opens (ADR-3) but IS set on close
+    legs (``task_type='close'``) so a close order never over-closes. Only the
+    approved wire keys are present — the endpoint path is metadata recorded on
+    the leg row, never signed (A-4).
     """
-    return {
+    params = {
         "symbol": coin,
         "side": actions.perp_side,
         "type": D.ORDER_TYPE_MARKET,
@@ -154,6 +157,9 @@ def build_perp_order_params(
         "newClientOrderId": client_order_id,
         "newOrderRespType": D.ORDER_RESP_RESULT,
     }
+    if task_type == D.TASK_TYPE_CLOSE:
+        params["reduceOnly"] = "true"
+    return params
 
 
 def _client_order_ids(attempt_id: str) -> tuple[str, str]:
@@ -272,7 +278,8 @@ class RecordTransportExecutor:
 
     def execute(self, ctx: AttemptContext) -> AttemptOutcome:
         actions = D.direction_to_leg_actions(
-            ctx.direction, ctx.position_side_mode or D.POS_MODE_BOTH
+            ctx.direction, ctx.position_side_mode or D.POS_MODE_BOTH,
+            task_type=ctx.task_type,
         )
         # q_common is None only when preflight had no snapshot (dry-run). The
         # record still logs the would-send quantity using single_amount as the
@@ -286,7 +293,9 @@ class RecordTransportExecutor:
             send_qty,
             spot_cid,
         )
-        perp_params = build_perp_order_params(ctx.coin, actions, send_qty, perp_cid)
+        perp_params = build_perp_order_params(
+            ctx.coin, actions, send_qty, perp_cid, task_type=ctx.task_type,
+        )
         record_payload = {
             "transport": "dry_run_record",
             "posted": False,  # never a real POST on this path
