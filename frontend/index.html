@@ -703,6 +703,46 @@
       line-height: 1.5;
     }
 
+    /* 资产互转（统一账户 ⇄ 普通现货账户）：单行交互，窄屏换行不挤压 */
+    .asset-transfer {
+      margin-bottom: var(--space-5);
+      padding: var(--space-3) var(--space-4);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .asset-transfer .transfer-head {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-3);
+    }
+    .asset-transfer .transfer-head h3 { margin: 0; }
+    .asset-transfer-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    .asset-transfer-row label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .asset-transfer-row select,
+    .asset-transfer-row input {
+      min-height: 36px;
+      font-size: 13px;
+    }
+    /* 资产项含「币种 · 可用 · 净价值」三段，需要更宽 */
+    .asset-transfer-row .transfer-asset { min-width: 260px; max-width: 100%; }
+    .asset-transfer-row .transfer-amount { width: 150px; font-family: var(--mono); }
+    .asset-transfer-hint {
+      margin-top: var(--space-2);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
     /* 隐私开关 */
     .privacy-toggle {
       display: inline-flex;
@@ -1598,9 +1638,14 @@
         hedgeModal: null,
         // live-hardening v1（10-design §2.3）：待确认的闸门变更方向（pending 期间未发请求）。
         hedgeGatePending: null,
-        // 市场表创建确认（借币 / 立即开单）：pending 期间未发 POST。
+        // 市场表创建确认（借币 / 立即开单 / 资产互转预览）：pending 期间未发 POST。
         // 形状：{ kind:'borrow_create', symbol } | { kind:'hedge_open', symbol, direction, mode }
+        //     | { kind:'asset_transfer', from, to, asset, amount }
         marketActionPending: null,
+        // 资产互转（前端 fake 预览，零请求）：私有面板 60s 重渲染会重建这一行的 DOM，
+        // 选择与输入必须存在 state 里回填，否则自动刷新会清空用户填了一半的表单。
+        // from: 'unified' | 'spot'（转入账户恒为另一个）；notice 为提交后的行内回显。
+        assetTransfer: { from: 'unified', asset: null, amount: '', notice: null },
         // 立即开单创建中：导航徽标显示转圈，计数可叠加（并发创建）。
         hedgeTaskNavLoading: 0,
         // attempt 时间线（2026-07-hedge-open-real-api-v1，12-breakdown §3.4）：
@@ -1854,6 +1899,16 @@
         if (net === null) return '≈ — USDT';
         const formatted = formatUsdt2(net);
         return formatted === null ? '≈ — USDT' : `≈ ${formatted} USDT`;
+      }
+
+      // 资产卡过滤：abs(净价值 USDT) < 10 的资产不展示（统一账户余额与现货账户余额
+      // 一致）。netUsdt 为带符号十进制字符串（sub8 输出或 value_usdt 原样）；
+      // 未知/非法（净价值不可得）→ 不过滤，保留展示。BigInt 精确比较，无浮点。
+      function isNetValueBelowTenUsdt(netUsdt) {
+        const p = parseDecimalParts(netUsdt);
+        if (!p) return false;
+        const frac8 = (p.frac + '00000000').slice(0, 8);
+        return BigInt(p.intPart + frac8) < 1000000000n; // 10 × 1e8
       }
 
       function formatBeijing(ms) {
@@ -2912,9 +2967,12 @@
         `;
       }
 
-      // bStock / 仅合约排除行：无可用现货借币腿，操作列不展示创建控件（留 —）。
+      // 无可用现货借币腿的行，操作列不展示创建控件（留 —）：
+      // bStock（DISABLED_BSTOCK）/ 仅合约（PERP_ONLY_EXCLUDED）/
+      // 仅现货无杠杆（DISABLED_SPOT_ONLY）。后者的借币列效果与 bStock 一致。
       function isBorrowOpDisabledRow(row) {
-        return row.route_class === 'PERP_ONLY_EXCLUDED' || row.asset_tag === 'BSTOCK';
+        return row.route_class === 'PERP_ONLY_EXCLUDED' || row.asset_tag === 'BSTOCK' ||
+          row.negative_funding_status === 'DISABLED_SPOT_ONLY';
       }
 
       function renderBorrowOpCell(row) {
@@ -3298,6 +3356,179 @@
         els.sortBasisBadge.title = '后端已按此基准排好序，前端按 payload 顺序渲染（零客户端排序）';
       }
 
+      // ---- 资产互转（统一账户 ⇄ 普通现货账户）：前端 fake 预览，零请求 ----
+      // 资产回显只读 state.snapshot.private_account 的余额缓存（约 60s 旧），不额外拉取。
+      // 「划转」按钮当前不发任何请求，只弹二次确认 + 行内回显；真实实现需要后端
+      // 新增划转端点（能力已有：hedge_open_live_client.universal_transfer 的
+      // PORTFOLIO_MARGIN_MAIN / MAIN_PORTFOLIO_MARGIN 双向枚举）。
+      const TRANSFER_ACCOUNTS = ['unified', 'spot'];
+      const TRANSFER_ACCOUNT_LABELS = { unified: '统一账户', spot: '现货账户' };
+
+      function transferOtherAccount(account) {
+        return account === 'unified' ? 'spot' : 'unified';
+      }
+
+      // 「从」账户的可划转资产：{ asset, available, netUsdt }，全部取自快照真实字段。
+      // 统一账户 available = cross_margin_free（PAPI crossMarginFree，与 preflight /
+      // executor 判定「统一账户能动多少」同源）；现货账户 available = free。
+      // cross_margin_free 是**可用额而非最大可划转额**：转出还要过账户 uniMMR /
+      // 抵押约束，交易所可能拒绝一笔看似在可用额内的划转，最终以服务端校验为准。
+      // 缺失 → null → 显示 —（不回退到总量，绝不把「不知道」显示成一个数）。
+      // 资产卡的「净价值 < 10 USDT 不展示」过滤不套用到这里：小额资产也要能转走。
+      function transferAssetRows(pa, from) {
+        if (!pa) return [];
+        if (from === 'spot') {
+          const rows = Array.isArray(pa.balances_spot) ? pa.balances_spot : [];
+          return rows.filter(b => b && b.asset).map(b => ({
+            asset: b.asset,
+            available: b.free,
+            netUsdt: b.value_usdt
+          }));
+        }
+        const rows = Array.isArray(pa.balances_unified) ? pa.balances_unified : [];
+        return rows.filter(b => b && b.asset).map(b => ({
+          asset: b.asset,
+          available: b.cross_margin_free,
+          netUsdt: sub8(b.value_usdt, b.cross_margin_borrowed_value_usdt)
+        }));
+      }
+
+      function transferSelectedRow(pa) {
+        const t = state.assetTransfer;
+        if (!t.asset) return null;
+        return transferAssetRows(pa, t.from).find(r => r.asset === t.asset) || null;
+      }
+
+      // 提交条件与提示文案的唯一判定点（渲染与局部刷新共用，避免两处口径漂移）。
+      // available 未知（null/非法）时不拦超额，交由后端/真实实现兜底。
+      function evaluateTransfer(pa) {
+        const t = state.assetTransfer;
+        const row = transferSelectedRow(pa);
+        if (!row) return { ok: false, hint: '请选择要划转的资产', hintCls: 'muted' };
+        const amount = String(t.amount == null ? '' : t.amount).trim();
+        if (amount === '') return { ok: false, hint: '请输入划转数量', hintCls: 'muted' };
+        if (!/^\d+\.?\d*$/.test(amount)) {
+          return { ok: false, hint: '数量需为正数（不支持负号或科学计数法）', hintCls: 'negative' };
+        }
+        if (/^0*\.?0*$/.test(amount)) {
+          return { ok: false, hint: '数量需大于 0', hintCls: 'negative' };
+        }
+        const remain = sub8(row.available, amount);
+        if (remain !== null && remain.startsWith('-')) {
+          return {
+            ok: false,
+            hint: `超出可用数量（${escapeHtml(row.asset)} 可用 ${formatBalanceAmount(row.available)}）`,
+            hintCls: 'negative'
+          };
+        }
+        return { ok: true, hint: '', hintCls: 'muted', row, amount };
+      }
+
+      function transferAssetOptionLabel(row) {
+        return `${row.asset} · 可用 ${formatBalanceAmount(row.available)} · 净值 ${approximateUsdtLine(row.netUsdt)}`;
+      }
+
+      function renderAssetTransfer(pa) {
+        const t = state.assetTransfer;
+        const from = TRANSFER_ACCOUNTS.includes(t.from) ? t.from : 'unified';
+        const to = transferOtherAccount(from);
+        const rows = transferAssetRows(pa, from);
+        const accountOptions = (selectedValue) => TRANSFER_ACCOUNTS.map(a =>
+          `<option value="${a}"${a === selectedValue ? ' selected' : ''}>${TRANSFER_ACCOUNT_LABELS[a]}</option>`
+        ).join('');
+        const assetOptions = [
+          `<option value=""${t.asset ? '' : ' selected'}>选择资产</option>`,
+          ...rows.map(r => `<option value="${escapeHtml(r.asset)}"${r.asset === t.asset ? ' selected' : ''}>${escapeHtml(transferAssetOptionLabel(r))}</option>`)
+        ].join('');
+        const verdict = evaluateTransfer(pa);
+        // 提交回显（陈述上一次提交的事实）保留到下一次提交或切换转出账户；
+        // 编辑表单时不清，避免为移除一行文字重建输入框而打断输入焦点。
+        const notice = t.notice
+          ? `<div class="asset-transfer-hint positive">${escapeHtml(t.notice)}</div>`
+          : '';
+        // 可用额口径随转出账户变化，写在界面上而不是只留在代码注释里。
+        // 措辞刻意中性：卡片「总量」(totalWalletBalance) 含 UM/CM 合约子钱包，
+        // 「可用」(crossMarginFree) 只是全仓杠杆钱包的可动用额，两者基数不同，
+        // 实测两个方向的偏差都出现过（2026-08-06 实盘 USDT 可用 > 总量），
+        // 不能承诺谁大谁小。
+        const availabilityNote = from === 'unified'
+          ? '可用 = 统一账户全仓可用余额（crossMarginFree），与卡片「总量」口径不同（总量含合约子钱包），两者不一致属正常'
+          : '可用 = 现货账户可用余额（free），不含冻结部分';
+        return `
+          <div class="asset-transfer">
+            <div class="transfer-head">
+              <h3>资产互转</h3>
+              <span class="badge warn compact">数据真实 · 划转未接后端</span>
+            </div>
+            <div class="asset-transfer-row">
+              <label for="transfer-from">从</label>
+              <select id="transfer-from" data-transfer-account="from">${accountOptions(from)}</select>
+              <label for="transfer-to">转到</label>
+              <select id="transfer-to" data-transfer-account="to">${accountOptions(to)}</select>
+              <select id="transfer-asset" class="transfer-asset" data-transfer-asset>${assetOptions}</select>
+              <input id="transfer-amount" class="transfer-amount" type="text" inputmode="decimal"
+                     placeholder="划转数量" autocomplete="off" data-transfer-amount
+                     value="${escapeHtml(String(t.amount == null ? '' : t.amount))}"/>
+              <button class="btn compact primary" id="transfer-submit" type="button"
+                      data-transfer-submit${verdict.ok ? '' : ' disabled'}>划转</button>
+            </div>
+            <div class="asset-transfer-hint muted">${escapeHtml(availabilityNote)}；数据为约 60 秒的账户快照缓存，实际可划转量还受统一账户保证金占用限制</div>
+            <div class="asset-transfer-hint ${verdict.hintCls}" id="transfer-hint">${escapeHtml(verdict.hint)}</div>
+            ${notice}
+          </div>
+        `;
+      }
+
+      // 资产/数量改动只刷新按钮与提示，不重建整块 DOM——重建会打断正在输入的光标。
+      function updateTransferValidity() {
+        const btn = document.getElementById('transfer-submit');
+        const hint = document.getElementById('transfer-hint');
+        if (!btn || !hint) return;
+        const pa = state.snapshot && state.snapshot.private_account;
+        const verdict = evaluateTransfer(pa);
+        btn.disabled = !verdict.ok;
+        hint.className = `asset-transfer-hint ${verdict.hintCls}`;
+        hint.textContent = verdict.hint;
+      }
+
+      // 两个账户下拉自动反转：无论改哪个，转出/转入恒为不同账户，选不出无效组合。
+      function setTransferFrom(nextFrom) {
+        const from = TRANSFER_ACCOUNTS.includes(nextFrom) ? nextFrom : 'unified';
+        if (from === state.assetTransfer.from) return;
+        state.assetTransfer.from = from;
+        state.assetTransfer.asset = null;  // 两账户资产集合不同，切换后必须重选
+        state.assetTransfer.notice = null;
+        renderPrivatePanel();
+      }
+
+      function requestAssetTransferConfirm() {
+        const pa = state.snapshot && state.snapshot.private_account;
+        const verdict = evaluateTransfer(pa);
+        if (!verdict.ok) return;
+        const from = state.assetTransfer.from;
+        const to = transferOtherAccount(from);
+        state.marketActionPending = {
+          kind: 'asset_transfer',
+          from, to, asset: verdict.row.asset, amount: verdict.amount
+        };
+        showHedgeConfirm(
+          '确认资产划转',
+          `将把 ${verdict.amount} 个 ${verdict.row.asset} 从${TRANSFER_ACCOUNT_LABELS[from]}划转到${TRANSFER_ACCOUNT_LABELS[to]}。`,
+          '确认划转'
+        );
+      }
+
+      // fake 提交：不发请求、不改余额，只写一条行内回显并清空数量。
+      function submitAssetTransferPreview(pending) {
+        state.assetTransfer.amount = '';
+        state.assetTransfer.notice =
+          `（预览）划转请求已提交：${pending.amount} 个 ${pending.asset}，` +
+          `${TRANSFER_ACCOUNT_LABELS[pending.from]} → ${TRANSFER_ACCOUNT_LABELS[pending.to]}；` +
+          `本次未调用任何接口，账户余额不变。`;
+        renderPrivatePanel();
+        return { ok: true, preview: true };
+      }
+
       function renderPrivatePanel() {
         const pa = state.snapshot && state.snapshot.private_account;
         // R1 (fix-merged-positions-n2-ui-v1): the merged positions table is local
@@ -3377,7 +3608,10 @@
         const maintMarginText = maskAmount(pm.account_maint_margin_usdt);
 
         const unifiedBalances = Array.isArray(pa.balances_unified) && pa.balances_unified.length > 0
-          ? pa.balances_unified.map(b => {
+          ? pa.balances_unified
+              // 过滤 abs(净价值 USDT) < 10 的资产；净价值未知（估值缺失）时保留。
+              .filter(b => !isNetValueBelowTenUsdt(sub8(b.value_usdt, b.cross_margin_borrowed_value_usdt)))
+              .map(b => {
               const borrowedPositive = isPositiveBorrowedAmount(b.cross_margin_borrowed);
               const borrowedCls = borrowedPositive ? 'borrowed-debt' : 'locked';
               // Hold + borrowed values on their amount rows; net value replaces
@@ -3393,7 +3627,10 @@
           : '<span class="muted small">无数据</span>';
 
         const spotBalances = Array.isArray(pa.balances_spot) && pa.balances_spot.length > 0
-          ? pa.balances_spot.map(b => `
+          ? pa.balances_spot
+              // 过滤 abs(净价值 USDT) < 10 的资产；净价值未知（value_usdt 缺失）时保留。
+              .filter(b => !isNetValueBelowTenUsdt(b.value_usdt))
+              .map(b => `
               <div class="balance-card">
                 <div class="asset">${escapeHtml(b.asset || '—')}</div>
                 <div class="amount">${formatBalanceAmount(b.free)} ${approximateUsdtLine(b.value_usdt)}</div>
@@ -3457,6 +3694,8 @@
             ${sourceCheckedAtHtml(unifiedTimeLine)}
             <div class="balance-grid">${unifiedBalances}</div>
           </div>
+
+          ${renderAssetTransfer(pa)}
 
           <div class="account-section">
             <h3>现货账户余额</h3>
@@ -4707,6 +4946,9 @@
         }
         if (pending.kind === 'borrow_clear_logs') {
           return clearBorrowLogs();
+        }
+        if (pending.kind === 'asset_transfer') {
+          return submitAssetTransferPreview(pending);
         }
         return { ok: false, error: 'unknown_pending' };
       }
@@ -6702,16 +6944,47 @@
         els.navBorrowTasks.addEventListener('click', () => setActiveView('borrow-tasks'));
         els.navHedgeTasks.addEventListener('click', () => setActiveView('hedge-tasks'));
         if (els.navHistory) els.navHistory.addEventListener('click', () => setActiveView('history'));
-        // 立即平仓列（功能三 UI 预览）：私有面板容器事件委托，渲染替换不丢绑定。
+        // 立即平仓列（功能三 UI 预览）+ 资产互转（fake 预览）：私有面板容器事件
+        // 委托，60s 自动刷新重建 innerHTML 也不丢绑定。
         if (els.privatePanelBody) {
           els.privatePanelBody.addEventListener('click', (e) => {
-            const btn = e.target && typeof e.target.closest === 'function' ? e.target.closest('[data-hedge-close]') : null;
+            const closest = (sel) =>
+              (e.target && typeof e.target.closest === 'function') ? e.target.closest(sel) : null;
+            const transferBtn = closest('[data-transfer-submit]');
+            if (transferBtn) {
+              if (transferBtn.disabled) return;
+              e.stopPropagation();
+              requestAssetTransferConfirm();
+              return;
+            }
+            const btn = closest('[data-hedge-close]');
             if (!btn || btn.disabled) return;
             e.stopPropagation();
             requestHedgeCloseConfirm(
               btn.getAttribute('data-hedge-close'),
               btn.getAttribute('data-hedge-close-dir')
             );
+          });
+          els.privatePanelBody.addEventListener('change', (e) => {
+            const el = e.target;
+            if (!el || typeof el.closest !== 'function') return;
+            if (el.closest('[data-transfer-account]')) {
+              // 「从」直接取值，「转到」取反：两框恒互斥（自动反转）。
+              const which = el.getAttribute('data-transfer-account');
+              setTransferFrom(which === 'to' ? transferOtherAccount(el.value) : el.value);
+              return;
+            }
+            if (el.closest('[data-transfer-asset]')) {
+              state.assetTransfer.asset = el.value || null;
+              updateTransferValidity();
+            }
+          });
+          els.privatePanelBody.addEventListener('input', (e) => {
+            const el = e.target;
+            if (!el || typeof el.closest !== 'function') return;
+            if (!el.closest('[data-transfer-amount]')) return;
+            state.assetTransfer.amount = el.value;
+            updateTransferValidity();
           });
         }
         els.hedgeModalClose.addEventListener('click', closeHedgeModal);
@@ -6904,6 +7177,20 @@
         requestBorrowCreateConfirm,
         confirmMarketAction,
         onHedgeModalConfirm,
+        // ---- 资产互转（统一 ⇄ 现货，fake 预览接缝） ----
+        setTransferFrom,
+        requestAssetTransferConfirm,
+        transferAssetRows,
+        evaluateTransfer: () => evaluateTransfer(state.snapshot && state.snapshot.private_account),
+        setTransferAsset: (asset) => {
+          state.assetTransfer.asset = asset;
+          updateTransferValidity();
+        },
+        setTransferAmount: (amount) => {
+          state.assetTransfer.amount = amount;
+          updateTransferValidity();
+        },
+        getAssetTransfer: () => state.assetTransfer,
         pauseHedgeTask,
         startHedgeTask,
         deleteHedgeTask,

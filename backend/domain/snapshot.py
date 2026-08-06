@@ -1283,10 +1283,18 @@ def assemble_private_account(
         # crossMarginBorrowed = PM full-cross (全仓) margin liability for this asset
         # (from GET /papi/v1/balance). Raw string | null; not added into total_value_usdt.
         borrowed_raw = x.get("crossMarginBorrowed")
+        # crossMarginFree = unencumbered full-cross balance for this asset — the
+        # same field every "how much can the unified account actually move" gate
+        # already reads (hedge_preflight_provider / live_hedge_executor). Raw
+        # string | null, display-only: it is NOT a max-transferable quote (a
+        # transfer out also has to clear the account's uniMMR / collateral
+        # constraints), and it is NOT added into total_value_usdt —
+        # totalWalletBalance already covers this asset (§1.4 anti-double-count).
         unified_out.append(
             {
                 "asset": asset,
                 "total_balance": x.get("totalWalletBalance"),
+                "cross_margin_free": x.get("crossMarginFree"),
                 "cross_margin_borrowed": borrowed_raw,
                 "value_usdt": _quantize_rate(value) if value is not None else None,
                 "cross_margin_borrowed_value_usdt": _cross_margin_borrowed_value_usdt(

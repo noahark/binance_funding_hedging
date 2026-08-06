@@ -717,6 +717,18 @@ into `total_value_usdt` (liability is not an asset). Frontend balance cards show
 `已借: <amount>` and highlight in red when the amount is strictly greater than
 zero (2026-07-22 ops patch).
 
+Each item also carries additive **`cross_margin_free`** (raw decimal string |
+null): the unencumbered full-cross balance from `GET /papi/v1/balance` field
+`crossMarginFree` — the same field the hedge preflight and the live executor
+already read to size what the unified account can actually move. Additive and
+optional: frozen pre-2026-08 samples omit the key (absent ≠ zero). Display-only,
+never counted into `total_value_usdt` (`totalWalletBalance` already covers this
+asset). **It is an availability figure, not a max-transferable quote:** a
+transfer out of the unified account must additionally clear the account's
+uniMMR / collateral constraints, so the exchange may reject an amount that fits
+within `cross_margin_free`. Sizing a real transfer must be validated
+server-side, never from this cached display value alone.
+
 **Anti-double-count hard rule (test-asserted):** `total_value_usdt = Σ(unified
 totalWalletBalance priced) + Σ(spot free+locked priced)`, priced via the P5 price
 map (full, fetched once; `futures.*/spot.*` HTTP never fires in the row loop).

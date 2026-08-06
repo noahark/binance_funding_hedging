@@ -543,6 +543,13 @@
                   { "type": "null" }
                 ]
               },
+              "cross_margin_free": {
+                "description": "Unencumbered PM full-cross balance from papi balance.crossMarginFree (raw decimal string | null). Additive/optional: frozen pre-2026-08 samples omit it. Display-only availability — NOT a max-transferable quote (a transfer out must also clear uniMMR / collateral constraints) and never added into total_value_usdt.",
+                "anyOf": [
+                  { "$ref": "#/$defs/decimal_string" },
+                  { "type": "null" }
+                ]
+              },
               "cross_margin_borrowed": {
                 "description": "PM full-cross margin liability from papi balance.crossMarginBorrowed (raw decimal string | null).",
                 "anyOf": [

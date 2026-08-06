@@ -436,12 +436,40 @@ def test_assemble_private_account_maps_cross_margin_borrowed():
     by_asset = {b["asset"]: b for b in block["balances_unified"]}
     assert by_asset["CETUS"]["cross_margin_borrowed"] == "1"
     assert by_asset["USDT"]["cross_margin_borrowed"] == "0"
+    # crossMarginFree absent in this sample -> null (absent is NOT zero).
+    assert by_asset["CETUS"]["cross_margin_free"] is None
+    assert by_asset["USDT"]["cross_margin_free"] is None
     # No equity: total falls back to unified wallet + spot.
     assert block["unified_wallet_value_usdt"] == "10.05000000"
     assert block["spot_value_usdt"] == "0.00000000"
     assert block["total_value_usdt"] == "10.05000000"
     # Debt sum is priced separately under pm_account.total_debt_usdt.
     assert block["pm_account"]["total_debt_usdt"] == "0.05000000"
+
+
+def test_assemble_private_account_maps_cross_margin_free():
+    """``crossMarginFree`` -> ``cross_margin_free``: raw passthrough, absent is
+    null (not zero), and it never moves ``total_value_usdt`` (totalWalletBalance
+    already covers the asset — §1.4 anti-double-count)."""
+    unified = [
+        # free < total: the rest is encumbered (borrowed against / locked).
+        {"asset": "BTC", "totalWalletBalance": "1.5", "crossMarginFree": "0.40000000"},
+        # A real zero is distinct from an absent key.
+        {"asset": "USDT", "totalWalletBalance": "100", "crossMarginFree": "0"},
+        # Absent key (frozen pre-2026-08 shape) -> null.
+        {"asset": "ETH", "totalWalletBalance": "2"},
+    ]
+    block, _ = assemble_private_account(
+        unified, [], [], {"BTCUSDT": "60000", "USDTUSDT": "1", "ETHUSDT": "3000"},
+        checked_at="t", error=None,
+    )
+    by_asset = {b["asset"]: b for b in block["balances_unified"]}
+    assert by_asset["BTC"]["cross_margin_free"] == "0.40000000"  # raw string, no requantize
+    assert by_asset["USDT"]["cross_margin_free"] == "0"
+    assert by_asset["ETH"]["cross_margin_free"] is None
+    # Anti-double-count: total = Σ(totalWalletBalance priced) only.
+    # 1.5*60000 + 100*1 + 2*3000 = 96100
+    assert block["total_value_usdt"] == "96100.00000000"
 
 
 def test_assemble_private_account_pm_account_equity_and_leverage():
@@ -523,6 +551,7 @@ def test_assemble_private_account_anti_double_count():
         {
             "asset": "BTC",
             "total_balance": "1.5",
+            "cross_margin_free": None,
             "cross_margin_borrowed": None,
             "value_usdt": "90000.00000000",
             "cross_margin_borrowed_value_usdt": "0.00000000",
@@ -530,6 +559,7 @@ def test_assemble_private_account_anti_double_count():
         {
             "asset": "USDT",
             "total_balance": "100",
+            "cross_margin_free": None,
             "cross_margin_borrowed": None,
             "value_usdt": "100.00000000",
             "cross_margin_borrowed_value_usdt": "0.00000000",

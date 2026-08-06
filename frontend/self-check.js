@@ -196,7 +196,9 @@ const ids = [
   'hedge-modal', 'hedge-modal-backdrop', 'hedge-modal-title', 'hedge-modal-body', 'hedge-modal-close',
   'hedge-modal-confirm', 'hedge-modal-cancel', 'hedge-start-gate-toggle',
   // 历史仓位 fake 原型（2026-08 hedge-open-position-cycle-v1）：新增静态元素，须注册。
-  'nav-history', 'history-view', 'history-list'
+  'nav-history', 'history-view', 'history-list',
+  // 资产互转 fake 预览：随私有面板重渲染的按钮与提示（局部刷新按 id 取用）。
+  'transfer-submit', 'transfer-hint'
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
 
@@ -2235,7 +2237,8 @@ setTimeout(async () => {
     helpers.ingestSnapshot(designFixture);
     console.log('[PASS] value_usdt null 显示占位');
 
-    // 37. 合法零：统一/现货持有与净价值均可显示 ≈ 0.00 USDT
+    // 37. 资产卡过滤：abs(净价值 USDT) < 10 的资产卡不展示（统一/现货一致）。
+    // 零值资产被过滤；同区其余 ≥10 资产保留。formatUsdt2 零值格式化已由 14b 直接覆盖。
     const zeroValueFixture = JSON.parse(JSON.stringify(designFixture));
     zeroValueFixture.private_account.balances_unified[0].value_usdt = '0.00000000';
     zeroValueFixture.private_account.balances_unified[0].cross_margin_borrowed_value_usdt = '0.00000000';
@@ -2246,21 +2249,54 @@ setTimeout(async () => {
     const zeroUStart = zeroValueBody.indexOf('统一账户余额');
     const zeroSStart = zeroValueBody.indexOf('现货账户余额');
     const zeroUnified = zeroValueBody.slice(zeroUStart, zeroSStart > zeroUStart ? zeroSStart : undefined);
-    if (!zeroUnified.includes('≈ 0.00 USDT')) {
-      throw new Error('value_usdt "0.00000000" 时统一账户未显示 "≈ 0.00 USDT"');
-    }
-    if (!zeroUnified.includes('净价值 ≈ 0.00 USDT')) {
-      throw new Error('无借款零持有时净价值应为 ≈ 0.00 USDT');
+    if (zeroUnified.includes('净价值 ≈ 0.00 USDT')) {
+      throw new Error('净价值 0（<10 USDT）的统一账户资产卡应被过滤: ' + zeroUnified);
     }
     const zeroSpot = zeroValueBody.slice(zeroSStart);
-    if (!zeroSpot.includes('≈ 0.00 USDT')) {
-      throw new Error('现货 value_usdt 零值未显示 ≈ 0.00 USDT');
+    if (zeroSpot.includes('净价值 ≈ 0.00 USDT')) {
+      throw new Error('净价值 0（<10 USDT）的现货资产卡应被过滤: ' + zeroSpot);
     }
-    if (!zeroSpot.includes('净价值 ≈ 0.00 USDT')) {
-      throw new Error('现货零值净价值应为 ≈ 0.00 USDT');
+    // 同区其它 ≥10 资产保留（fixture 注入 123.45 / 67.89）
+    if (!zeroUnified.includes('净价值 ≈ 123.45 USDT')) {
+      throw new Error('过滤后统一账户其余资产卡应保留: ' + zeroUnified);
+    }
+    if (!zeroSpot.includes('净价值 ≈ 67.89 USDT')) {
+      throw new Error('过滤后现货账户其余资产卡应保留: ' + zeroSpot);
+    }
+    // 边界与负值：|net| < 10 过滤（9.99999999、-9.99）；|net| ≥ 10 保留
+    // （10.00000001、净 -10.00、-10.01）。按 asset 卡存在性断言（9.99999999
+    // 显示会进位为 10.00，但过滤按原始精确值）。
+    {
+      const edgeFx = JSON.parse(JSON.stringify(designFixture));
+      const eu = edgeFx.private_account.balances_unified;
+      const es = edgeFx.private_account.balances_spot;
+      eu[0].value_usdt = '9.99999999'; eu[0].cross_margin_borrowed_value_usdt = '0.00000000'; // BTC 过滤
+      eu[1].value_usdt = '10.00000001'; eu[1].cross_margin_borrowed_value_usdt = '0.00000000'; // ETH 保留
+      eu[2].value_usdt = '10.00000000'; eu[2].cross_margin_borrowed_value_usdt = '20.00000000'; // USDT 净 -10.00 保留
+      es[0].value_usdt = '-9.99000000';  // 现货 USDT 过滤
+      es[1].value_usdt = '-10.01000000'; // 现货 USDC 保留
+      helpers.ingestSnapshot(edgeFx);
+      if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
+      const edgeBody = elements['private-panel-body'].innerHTML;
+      const euStart = edgeBody.indexOf('统一账户余额');
+      const esStart = edgeBody.indexOf('现货账户余额');
+      const edgeUnified = edgeBody.slice(euStart, esStart);
+      const edgeSpot = edgeBody.slice(esStart);
+      if (edgeUnified.includes('<div class="asset">BTC</div>')) {
+        throw new Error('净价值 9.99999999（<10）的 BTC 卡应被过滤: ' + edgeUnified);
+      }
+      if (!edgeUnified.includes('<div class="asset">ETH</div>') || !edgeUnified.includes('<div class="asset">USDT</div>')) {
+        throw new Error('净价值 10.00000001 / -10.00 的卡应保留: ' + edgeUnified);
+      }
+      if (edgeSpot.includes('<div class="asset">USDT</div>')) {
+        throw new Error('净价值 -9.99（|·|<10）的现货 USDT 卡应被过滤: ' + edgeSpot);
+      }
+      if (!edgeSpot.includes('<div class="asset">USDC</div>')) {
+        throw new Error('净价值 -10.01（|·|≥10）的现货 USDC 卡应保留: ' + edgeSpot);
+      }
     }
     helpers.ingestSnapshot(designFixture);
-    console.log('[PASS] value_usdt 合法零显示占位');
+    console.log('[PASS] 净价值 <10 USDT 资产卡过滤（统一/现货一致，含边界与负值）');
 
     // 37b. 余额数量仅整数部分加千分位，小数部分原样保留（不四舍五入/不裁剪尾零）
     const amountFixture = JSON.parse(JSON.stringify(designFixture));
@@ -3212,10 +3248,12 @@ setTimeout(async () => {
     // 恢复默认 fixture
     helpers.ingestSnapshot(designFixture);
 
-    // 62. 操作列：每行第 13 格恰好两个可编辑输入 + 一个确认按钮，且事件隔离
+    // 62. 操作列：每行第 13 格恰好两个可编辑输入 + 一个确认按钮，且事件隔离。
+    // FUSDT 为 DISABLED_SPOT_ONLY（仅现货: 无杠杆借币）行：借币列与 bStock 一致
+    // 显示「—」，无创建控件，单独断言。
     {
       const opTbody = elements['market-table-body'].innerHTML;
-      for (const sym of ['AUSDT', 'BUSDT', 'CUSDT', 'DUSDT', 'EUSDT', 'FUSDT']) {
+      for (const sym of ['AUSDT', 'BUSDT', 'CUSDT', 'DUSDT', 'EUSDT']) {
         const cell = getRowCell(opTbody, sym, 12);
         const inputCount = (cell.match(/<input/g) || []).length;
         if (inputCount !== 2) {
@@ -3239,10 +3277,22 @@ setTimeout(async () => {
           throw new Error(`${sym} 操作单元格缺少创建前预览容器: ${cell}`);
         }
       }
+      // DISABLED_SPOT_ONLY 行：借币列用「—」代替创建控件（与 bStock 一致）
+      const fusdtCell = getRowCell(opTbody, 'FUSDT', 12);
+      const fusdtInputCount = (fusdtCell.match(/<input/g) || []).length;
+      if (fusdtInputCount !== 0 || fusdtCell.includes('borrow-amount-FUSDT')) {
+        throw new Error('FUSDT（DISABLED_SPOT_ONLY）借币列不应有创建输入: ' + fusdtCell);
+      }
+      if ((fusdtCell.match(/<button/g) || []).length !== 0 || fusdtCell.includes('data-borrow-confirm')) {
+        throw new Error('FUSDT（DISABLED_SPOT_ONLY）借币列不应有确认按钮: ' + fusdtCell);
+      }
+      if (!fusdtCell.includes('borrow-op-cell muted') || !fusdtCell.includes('—')) {
+        throw new Error('FUSDT（DISABLED_SPOT_ONLY）借币列应显示「—」: ' + fusdtCell);
+      }
       if (!script.includes('stopPropagation')) {
         throw new Error('操作控件缺少事件隔离 stopPropagation');
       }
-      console.log('[PASS] 操作单元格两输入一按钮、标签与事件隔离');
+      console.log('[PASS] 操作单元格两输入一按钮、标签与事件隔离；DISABLED_SPOT_ONLY 行借币列显示 —');
     }
 
     // 62b. 创建前预览（F2/ADR-001）：输入数量×次数后展示资产/单次数量/成功次数/目标总量/当前全局间隔
@@ -6891,6 +6941,138 @@ setTimeout(async () => {
       };
       helpers.ingestSnapshot(designFixture);
       console.log('[PASS] frontend-position-balance-display-v1：双行现货/杠杆、缺失/真零/隐私、徽标列、标题区时间与 PM 位置');
+    }
+
+    // 75z. 资产互转（统一 ⇄ 现货）：真实可用额回显（统一账户取 cross_margin_free，
+    // 现货取 free）、位置、账户自动反转、资产跟随转出账户、不套用 <10 USDT 卡片过滤、
+    // 数量校验按可用额、二次确认、确认前后均零请求（划转接口本轮未接）
+    {
+      const transferFixture = JSON.parse(JSON.stringify(designFixture));
+      transferFixture.private_account = {
+        verified: true,
+        balances_unified: [
+          // 可用(cross_margin_free) < 总量(total_balance)：其余被借贷/合约保证金占用
+          { asset: 'USDT', total_balance: '12500.4321', cross_margin_free: '9800.1000',
+            cross_margin_borrowed: '0', value_usdt: '12500.43',
+            cross_margin_borrowed_value_usdt: '0.00' },
+          // 净值 5.36 < 10：资产卡过滤掉，划转下拉必须保留
+          { asset: 'DOGE', total_balance: '35.7', cross_margin_free: '35.7',
+            cross_margin_borrowed: '0', value_usdt: '5.36',
+            cross_margin_borrowed_value_usdt: '0.00' },
+          // 估值缺失 → 净值 —；cross_margin_free 缺失 → 可用 —（不回退到总量）
+          { asset: 'MUUU', total_balance: '1500', cross_margin_borrowed: null,
+            value_usdt: null, cross_margin_borrowed_value_usdt: null }
+        ],
+        balances_spot: [
+          { asset: 'BNB', free: '1.2', locked: '0.8', value_usdt: '1240.00' }
+        ],
+        um_positions: [],
+        total_value_usdt: '13745.79',
+        valuation: { price_source: 'api_v3_ticker_price', priced_at: '2026-08-06T09:30:00Z' },
+        checked_at: '2026-08-06T09:30:00Z',
+        error: null
+      };
+      helpers.ingestSnapshot(transferFixture);
+      if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
+      helpers.renderPrivatePanel();
+      let tBody = elements['private-panel-body'].innerHTML;
+
+      // 位置：统一账户余额之后、现货账户余额之前
+      const idxUnified = tBody.indexOf('统一账户余额');
+      const idxTransfer = tBody.indexOf('资产互转');
+      const idxSpot = tBody.indexOf('现货账户余额');
+      if (idxUnified < 0 || idxTransfer < 0 || idxSpot < 0) throw new Error('互转行或余额区块缺失');
+      if (!(idxUnified < idxTransfer && idxTransfer < idxSpot)) {
+        throw new Error(`互转行位置错误: unified=${idxUnified} transfer=${idxTransfer} spot=${idxSpot}`);
+      }
+      // fake 标记必须可见（本轮不真实划转）
+      if (!tBody.includes('数据真实 · 划转未接后端')) throw new Error('缺少「划转未接后端」徽标');
+      if (!tBody.includes('>从<') || !tBody.includes('>转到<')) throw new Error('缺少「从」/「转到」标签');
+
+      // 默认转出=统一账户，资产下拉展示统一账户资产（含币种/可用/净值三段）
+      if (helpers.getAssetTransfer().from !== 'unified') throw new Error('默认转出账户应为统一账户');
+      // 可用取 cross_margin_free，不是 total_balance（12,500.4321）
+      if (!tBody.includes('USDT · 可用 9,800.1000 · 净值 ≈ 12500.43 USDT')) {
+        throw new Error('统一账户可用应取 cross_margin_free: ' + tBody.slice(idxTransfer, idxTransfer + 900));
+      }
+      if (tBody.includes('可用 12,500.4321')) throw new Error('可用不应回退到 total_balance');
+      // 净值 < 10 的资产：卡片被过滤，下拉仍在
+      if (!tBody.includes('DOGE · 可用 35.7 ·')) throw new Error('小额资产不应被划转下拉过滤');
+      // 可用额口径说明必须出现在界面上（统一账户可用 < 卡片总量是正常现象）
+      if (!tBody.includes('crossMarginFree')) throw new Error('缺少可用额口径说明');
+      if (tBody.includes('<div class="asset">DOGE</div>')) throw new Error('小额资产卡应仍被过滤（既有行为）');
+      // 估值缺失 → 净值 —，不编零
+      // cross_margin_free 缺失 → 可用 —（absent 不是 0，也不回退到总量）
+      if (!tBody.includes('MUUU · 可用 — · 净值 ≈ — USDT')) {
+        throw new Error('可用/估值缺失须各自显示 —: ' + tBody.slice(idxTransfer, idxTransfer + 1400));
+      }
+      // 转入账户自动取反
+      const rowsFrom = tBody.slice(idxTransfer);
+      if (!/id="transfer-from"[\s\S]*?<option value="unified" selected>/.test(rowsFrom)) {
+        throw new Error('转出下拉应选中统一账户');
+      }
+      if (!/id="transfer-to"[\s\S]*?<option value="spot" selected>/.test(rowsFrom)) {
+        throw new Error('转入下拉应自动取反为现货账户');
+      }
+
+      // 未选资产 → 按钮禁用
+      if (helpers.evaluateTransfer().ok) throw new Error('未选资产不应可提交');
+      if (!tBody.includes('data-transfer-submit disabled')) throw new Error('未选资产时按钮应 disabled');
+
+      // 选资产 + 合法数量 → 可提交
+      helpers.setTransferAsset('USDT');
+      helpers.setTransferAmount('100');
+      if (!helpers.evaluateTransfer().ok) throw new Error('合法输入应可提交');
+      // 超额按 cross_margin_free(9800.1) 判，不是 total_balance(12500.4321)
+      helpers.setTransferAmount('10000');
+      if (helpers.evaluateTransfer().ok) throw new Error('超出 cross_margin_free 应被拦截');
+      helpers.setTransferAmount('99999');
+      let verdict = helpers.evaluateTransfer();
+      if (verdict.ok || !verdict.hint.includes('超出可用数量')) throw new Error('超额应被拦截: ' + verdict.hint);
+      // 零 / 负 / 非法
+      helpers.setTransferAmount('0');
+      if (helpers.evaluateTransfer().ok) throw new Error('0 不应可提交');
+      helpers.setTransferAmount('-5');
+      if (helpers.evaluateTransfer().ok) throw new Error('负数不应可提交');
+      helpers.setTransferAmount('abc');
+      if (helpers.evaluateTransfer().ok) throw new Error('非数字不应可提交');
+
+      // 切换转出账户 → 资产选择清空（两账户资产集合不同，不静默转错币种）
+      helpers.setTransferAsset('USDT');
+      helpers.setTransferFrom('spot');
+      if (helpers.getAssetTransfer().asset !== null) throw new Error('切换转出账户后资产应清空');
+      tBody = elements['private-panel-body'].innerHTML;
+      if (!tBody.includes('BNB · 可用 1.2 ·')) throw new Error('转出=现货时应展示现货可用(free)');
+      if (tBody.includes('DOGE · 可用')) throw new Error('转出=现货时不应展示统一账户资产');
+      if (!/id="transfer-to"[\s\S]*?<option value="unified" selected>/.test(tBody.slice(tBody.indexOf('资产互转')))) {
+        throw new Error('转出改现货后转入应自动取反为统一账户');
+      }
+
+      // 二次确认：确认前零请求，文案含方向/数量/币种
+      helpers.setTransferAsset('BNB');
+      helpers.setTransferAmount('0.5');
+      const transferMark = fetchCallLog.length;
+      helpers.requestAssetTransferConfirm();
+      if (fetchCallLog.length !== transferMark) throw new Error('确认前不应有任何请求');
+      const tModal = helpers.getHedgeModal();
+      if (!tModal || tModal.title !== '确认资产划转') throw new Error('确认弹框标题错误: ' + JSON.stringify(tModal));
+      if (!tModal.body.includes('0.5 个 BNB') || !tModal.body.includes('现货账户划转到统一账户')) {
+        throw new Error('确认文案应含数量/币种/方向: ' + tModal.body);
+      }
+      if (elements['hedge-modal-confirm'].textContent !== '确认划转') throw new Error('确认词应为「确认划转」');
+      // 确认 → 仍然零请求（fake），出现预览回显，数量清空
+      await helpers.onHedgeModalConfirm();
+      if (fetchCallLog.length !== transferMark) throw new Error('fake 划转不应发出任何请求');
+      tBody = elements['private-panel-body'].innerHTML;
+      if (!tBody.includes('（预览）划转请求已提交：0.5 个 BNB')) throw new Error('缺少预览回显: ' + tBody.slice(tBody.indexOf('资产互转'), tBody.indexOf('资产互转') + 1200));
+      if (!tBody.includes('现货账户 → 统一账户')) throw new Error('预览回显应含方向');
+      if (helpers.getAssetTransfer().amount !== '') throw new Error('提交后数量应清空');
+
+      // 复位，不污染后续断言
+      helpers.setTransferFrom('unified');
+      helpers.setTransferAmount('');
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] 资产互转：cross_margin_free 真实回显（缺失=—不回退总量）/位置/自动反转/资产跟随转出账户/不过滤小额/按可用额校验/二次确认/零请求');
     }
 
     // 76. 无泄漏证明：fetch 同源白名单、无 Binance/外域、无新任务定时器、localStorage 白名单
