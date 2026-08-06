@@ -99,4 +99,20 @@ UUID、`confirm=true`、方向/币种/金额逐字）；成功 → 回显含交�
 
 ## Bookkeeper Verification (Bookkeeper append-only)
 
+- 核验时间: `2026-08-07 01:27:16 CST`（Bookkeeper: deepseek，本阶段兼任 review-1）
+- source_sha256: `3af7a28d7e625b3f1e5037606ea25ed5cbd8be01ce17b62589872d2884a16d0b`（marker 前 7501 字节）
+- 核对的 status revision: `3`（核验时 `current_task.state=verified`，delivery `1f91241`）
+- delivery_sha: `036fcd143ff436a879fe884082784af7a373bcbd`（`git rev-parse`；本任务为新交付范围 `00-intake.md` §5 T2）
+- 核验结论: **通过（T2 前端封存；新交付范围，`rework_count` 按 §8 重置为 0）**
+- 通过依据（可复现命令）:
+  - `git show 036fcd1 --name-status` → 恰含 `frontend/index.html`、`frontend/self-check.js` + 本证据目录 2 文件（check 1 边界一致）；`git diff 1f91241 036fcd1 -- backend/services/hedge_open_live_client.py` 为空（`universal_transfer` 本体零改动）
+  - 任务 3 落实：空态文案「系统不会执行交易或划转」已删除，徽标改「真实划转 · 点击即动钱」
+  - R2 落实：前端只认 `body.status`，`unknown` → 锁定表单 + 「我已核对」解锁（`acknowledgeTransferUnknown`，纯本地状态零请求）；self-check 正则断言无重试入口、锁定期间零请求
+  - 独立重跑 `node frontend/self-check.js` → **全部自检通过**（含 UUID 幂等键/confirm=true/恰一次 POST/成功刷缓存/failed 不当成功/unknown 锁定/同源白名单仅 POST）
+  - 后端回归持平：独立重跑 1518 passed（前端改动不触后端）
+- review-1 表态（check 10，两条实现判断）:
+  1. 划转客户端独立于 `APP_HEDGE_EXECUTOR`（T1 判断）——口径一致确认：R1 已按 Human 决定接受现状，`PROJECT_STATE.md` Live Risks `[OPEN][ACCEPTED][2026-08-07]` 已记录，T1 修复轮补启动提示（可见性非闸门），无新争议。
+  2. `unknown` 后锁定表单 + 人工点「我已核对」解锁（超出 `00-intake.md` §4.6「禁止重试按钮」的加强）——**接受**。理由：T2 幂等键由前端每次生成新 UUID，unknown 后若提供重试会以新编号再次外发，幂等表挡不住，真可能转两次；锁定把「结果未知」的处置明确交回人工（去币安核对），纯本地零请求，self-check 有断言钉死；与 R1 接受现状、R3 不修的口径一致（动钱路径以 Human 在场为最终闸门）。
+- 后续状态: `status.json` revision 4 封存 delivery `036fcd1`（阶段最终 delivery），`current_task` 置 `verified`，`next` 指向 Human 实盘验收
+
 ## Errata (append-only)

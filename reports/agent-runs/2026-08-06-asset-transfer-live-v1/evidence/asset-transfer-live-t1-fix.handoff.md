@@ -94,4 +94,18 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -p no:cacheprovider -q backend/tests
 
 ## Bookkeeper Verification (Bookkeeper append-only)
 
+- 核验时间: `2026-08-07 01:27:16 CST`（Bookkeeper: deepseek，本阶段兼任 review-1）
+- source_sha256: `9697f7c1f10ed45d9ff5450f5791af8c211702d2213a3176a2f61e14e76dac2c`（marker 前 7157 字节）
+- 核对的 status revision: `3`（核验时 `current_task.state=verified`，delivery `1f91241`）
+- delivery_sha: `ce2569ec7a23e75e25d26f24165c812c4d713c4c`（`git rev-parse`；本任务为响应 review-1 发现的再交付）
+- 核验结论: **通过（T1 修复轮封存；`rework_count` 0 → 1）**
+- 通过依据（可复现命令）:
+  - `git show ce2569e --name-status` → 恰含 `backend/app/server.py`、`backend/tests/test_asset_transfer.py` + 本证据目录 2 文件（check 1 边界一致）
+  - `grep -rn "transfer_gate\|TRANSFER_MAX_USDT" backend/ frontend/` → 零命中（O-1/O-2 保持）
+  - R1 落实：`run()` 启动两分支 print（启用/未启用）均 `file=sys.stderr`，纯可见性，无开关、无运行时行为分支；`git diff ce2569e^ ce2569e -- backend/asset_transfer/store.py` 为空（R3 确认未修，begin/resolve 间仍无中断保护，与 Human 决定及 handoff 声明一致）
+  - R5 落实：`_TRANSFER_RATE_LIMIT_STATUSES=(418, 429)` → `unknown`；`_TRANSFER_HTTP_MEANING` 覆盖 400/401/403/418/429/500/503，未收录码走 `HTTP <码>` 不编造（测试 `(451, "failed", "HTTP 451")` 固定）；币安原文经 `_transfer_error_message` 一字不改附后
+  - R4 落实：`_BlockingStubTransferClient` + `test_concurrent_same_id_sends_only_once`（首笔外发阻塞于未落终态窗口，第二笔同 id 返回 pending，断言外发恰 1 次）
+  - 独立重跑 `PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -p no:cacheprovider -q backend/tests` → **1518 passed in 117.37s**（handoff 声称 1518，新增 10 = 并发 1 + 状态码参数化 8 + 限流带 msg 1）
+- 后续状态: `status.json` revision 4 记录 T1 修复轮 `rework_count` 0→1 后随 T2 新交付范围重置为 0（两步分开记账）；`current_task` 推进至 T2
+
 ## Errata (append-only)

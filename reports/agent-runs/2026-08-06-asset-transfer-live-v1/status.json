@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 3,
+  "revision": 4,
   "stage_id": "2026-08-06-asset-transfer-live-v1",
   "bookkeeper": "deepseek",
-  "phase": "review-1",
-  "checkpoint": "T1 后端核验通过并封存：delivery_sha=1f91241（base_sha bb47d02..1f91241，含基线 8e17027 已由 Human 按 O-4 一次性提交，A/B 两组范围外）；独立重跑全量 1508 passed；边界实测（universal_transfer/frontend 零改动、恰 1 条新路由、无闸门无上限）通过。review-1（deepseek 兼任）verdict REWORK：5 条 in-range 发现，核心为「划转端点不受 APP_HEDGE_EXECUTOR 控制、默认配置即可真实动钱」（server.py:1244 仅查 offline/API key，对照 hedge 链路默认 disabled 安全态 + 启动警示）。Human 2026-08-07 决定：发现 R1 接受现状（暴露面已记 PROJECT_STATE.md Live Risks）；R2–R5 记录描述，由 Human 与 opus5 讨论解决；review-1 未关闭（非 ACCEPT 亦未开修复轮），rework_count 保持 0",
+  "phase": "human-verification",
+  "checkpoint": "两笔交付已核验封存（均无 dispatch，Human 直接指示 opus5 连续开工，越门见 blockers）：① T1 修复轮 ce2569e——R1 启动提示（纯可见性非闸门）、R4 并发测试（阻塞桩证明同 id 只外发一次）、R5 状态码人话映射且 418/429 归 unknown、未收录码不编造（451 用例）；rework_count 0→1（响应评审发现的再交付）。② T2 前端 036fcd1——空态文案改写（任务 3）、前端只认 body.status（R2 落实）、unknown 锁定表单+「我已核对」人工解锁（review-1 接受，超出 §4.6 的加强）、成功后刷快照缓存；新交付范围，rework_count 重置为 0。独立核验：全量 pytest 1518 passed（1508+10）、node self-check 全部自检通过、universal_transfer 本体零改动、O-1/O-2 零命中。review-1 两条实现判断均 ACCEPT（见 t2 handoff Verification block）。阶段 delivery 封存 base_sha bb47d02..036fcd1（含基线 8e17027 A/B 两组与控制提交，按 §8 三分类为范围外）。端点从未被真实调用；下一步 Human 实盘小额试划转验收，合并 main 另需授权",
   "base_sha": "bb47d0213cd98942dc12b91b562926ff848bfdee",
-  "delivery_sha": "1f91241bcc2eab61eb0b3e5727f9e2bffd88ee88",
-  "ledger_sha": "1f91241bcc2eab61eb0b3e5727f9e2bffd88ee88",
+  "delivery_sha": "036fcd143ff436a879fe884082784af7a373bcbd",
+  "ledger_sha": "036fcd143ff436a879fe884082784af7a373bcbd",
   "current_task": {
-    "id": "asset-transfer-live-t1-backend",
+    "id": "asset-transfer-live-t2-frontend",
     "state": "verified",
-    "dispatch": "reports/agent-runs/2026-08-06-asset-transfer-live-v1/20-opus5-t1-backend.dispatch.md"
+    "dispatch": null
   },
   "next": {
     "actor": "human_operator",
-    "action": "discuss-review1-findings-r2-r5-with-opus5"
+    "action": "live-acceptance-small-transfer-then-merge-decision"
   },
   "rework_count": 0,
   "blockers": [
@@ -41,6 +41,22 @@
       "rule": "AGENTS.md §8 计划评审：HIGH_RISK 任务在实现开始前须经一次独立的、跨 provider 的只读计划评审",
       "fact": "O-3=跳过（Human 2026-08-06 决定）；未评审 00-intake.md，未产出 11-deepseek-plan-review.md，verdict 未返回 Planner",
       "consequence": "实现前少一道设计把关；由实现后 review-1（deepseek）与 Human 实盘验收承担"
+    },
+    {
+      "id": "no-dispatch-gate-violation-t1fix-t2",
+      "type": "record-not-blocking",
+      "rule": "AGENTS.md §4：无 packet 时模型应等待；§3.2：模型不得自行启动下一个任务",
+      "fact": "T1 修复轮（ce2569e）与 T2 前端（036fcd1）均由 Human 在对话中直接指示 opus5 连续开工，未经 Bookkeeper 出具 dispatch 包",
+      "human_decision": "2026-08-07 Human 决定；原因：可用模型仅剩 opus5 与 deepseek，Human 选择减少终端往返",
+      "consequence": "文件边界由作者自我约束而非 packet 硬约束；已独立核验两笔 commit 文件清单均在预期范围内（check 1），交付本身未因此拒收"
+    },
+    {
+      "id": "r3-pending-stuck-open-gap",
+      "type": "record-not-blocking",
+      "rule": "review-1 R3：begin() 后、resolve() 前进程中断，asset_transfer 记录永久停在 pending",
+      "fact": "Human 2026-08-07 明确决定不修（概率低，以后遇到再说）；store.py 无改动，begin/resolve 之间仍无中断保护",
+      "consequence": "进程在划转途中被杀时该笔永久停在 pending；安全（幂等键已占用不会重复外发）但不可推进。人工处置方式：查 data/asset-transfer.sqlite3 中 status='pending' 的行并去币安核对实际结果",
+      "human_decision": "2026-08-07 Human 决定：不修，记录为开放缺口"
     }
   ]
 }
