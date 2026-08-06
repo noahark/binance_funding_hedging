@@ -2,20 +2,20 @@
   "stage_id": "2026-08-06-hedge-order-close-validation",
   "bookkeeper": "deepseek",
   "current_task": {
-    "task_id": "2026-08-06-hedge-order-close-validation-history-view-layout-fix",
-    "target_role": "Implementer",
-    "target_model": "deepseek",
-    "status": "verified",
-    "dispatch_path": "reports/agent-runs/2026-08-06-hedge-order-close-validation/07-history-view-layout-fix.dispatch.md"
+    "task_id": "2026-08-06-hedge-order-close-validation-review1-cache-close-balance-layout",
+    "target_role": "Reviewer",
+    "target_model": "opus5",
+    "status": "dispatched",
+    "dispatch_path": "reports/agent-runs/2026-08-06-hedge-order-close-validation/08-review1-cache-close-balance-layout.dispatch.md"
   },
-  "status_revision": 11,
-  "base_sha": "5388938",
-  "ledger_sha": "3006db3",
-  "delivery_sha": "3006db3",
+  "status_revision": 12,
+  "base_sha": "ee7ec4f",
+  "ledger_sha": "10f1f01",
+  "delivery_sha": "10f1f01",
   "next": {
     "actor": "human_operator",
-    "action": "visual-accept-then-low-risk-review"
+    "action": "start-prepared-task"
   },
   "rework_count": 1,
-  "note": "Human 2026-08-06 指定 Bookkeeper=deepseek；开 stage：验证下单/平仓核心链路 + 修复小 bug。任务 01/02/03 封存 ee7ec4f（review-1 ACCEPT）、任务 05 封存 e4d5464、任务 06 封存 5388938（close+forward 余额修复，rework_count 1）。任务 07（历史仓位视图滚动定位，LOW_RISK 纯前端）已核验封存：self-check 全绿、diff 仅 setActiveView 内 4 行，交付 3006db3。下一步：Human 目视验收（market 长页滚动后切历史仓位表单顶部立即可见），通过后按 LOW_RISK 走一次独立最终评审。"
+  "note": "Human 2026-08-06 指定 Bookkeeper=deepseek；开 stage：验证下单/平仓核心链路 + 修复小 bug。任务 01/02/03 封存 ee7ec4f（review-1 ACCEPT）。Human 实盘复测驱动的修复链已封存：task 05 e4d5464（preflight 缓存+平仓简化+预检可见暂停）、task 06 5388938（close+forward 余额路由感知，THE 误拦修复）、task 07 3006db3（视图滚动定位）、10f1f01（删除 hedge-task-view 多余 </section>——f153cdc 残留，致 #history-view 被浏览器解析器移出 main，历史仓位表单落页面底部，为 Human 显示验收问题的真正根因）。现派发 review-1（opus5）一次审 ee7ec4f..10f1f01 四个交付；Human 决定只做一轮 review，以显示验收为准，不安排 review-2。rework_count 1（task 06 修复交付）。"
 }
