@@ -5784,6 +5784,11 @@
         els.borrowTaskView.style.display = isBorrow ? '' : 'none';
         els.hedgeTaskView.style.display = isHedge ? '' : 'none';
         els.historyView.style.display = isHistory ? '' : 'none';
+        // 视图切换后滚动定位到页面顶部（task 07，LOW_RISK 纯前端）：历史仓位表单
+        // 是 market 长页之后的 panel，若不清滚动位置，切过去视口停在原处、表单在
+        // 底部不可见。统一 scrollTo(0,0) 覆盖全部四个视图（market/借币/开单/历史）。
+        // typeof 保护：self-check 的 node 环境无 window，浏览器环境正常滚动。
+        if (typeof window !== 'undefined') window.scrollTo(0, 0);
         // 侧栏四个入口；#nav-market 不随看板切换改变激活态
         const navEntries = [
           ['market', els.navMarket],
