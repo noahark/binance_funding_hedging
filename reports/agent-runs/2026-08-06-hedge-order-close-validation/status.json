@@ -5,17 +5,17 @@
     "task_id": "2026-08-06-hedge-order-close-validation-history-view-layout-fix",
     "target_role": "Implementer",
     "target_model": "deepseek",
-    "status": "dispatched",
+    "status": "verified",
     "dispatch_path": "reports/agent-runs/2026-08-06-hedge-order-close-validation/07-history-view-layout-fix.dispatch.md"
   },
-  "status_revision": 10,
+  "status_revision": 11,
   "base_sha": "5388938",
-  "ledger_sha": "5388938",
-  "delivery_sha": "pending",
+  "ledger_sha": "3006db3",
+  "delivery_sha": "3006db3",
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-task"
+    "action": "visual-accept-then-low-risk-review"
   },
   "rework_count": 1,
-  "note": "Human 2026-08-06 指定 Bookkeeper=deepseek；开 stage：验证下单/平仓核心链路 + 修复小 bug。任务 01/02/03 封存 ee7ec4f（review-1 ACCEPT）、任务 05 封存 e4d5464、任务 06 封存 5388938（close+forward 余额修复，THE 误拦实盘复测通过，rework_count 1）。Human 目视发现历史仓位视图切换后无滚动定位（表单落页面底部，LOW_RISK 纯前端），现派发任务 07（Implementer/deepseek，revision 10，base 5388938）修 setActiveView 滚动定位。"
+  "note": "Human 2026-08-06 指定 Bookkeeper=deepseek；开 stage：验证下单/平仓核心链路 + 修复小 bug。任务 01/02/03 封存 ee7ec4f（review-1 ACCEPT）、任务 05 封存 e4d5464、任务 06 封存 5388938（close+forward 余额修复，rework_count 1）。任务 07（历史仓位视图滚动定位，LOW_RISK 纯前端）已核验封存：self-check 全绿、diff 仅 setActiveView 内 4 行，交付 3006db3。下一步：Human 目视验收（market 长页滚动后切历史仓位表单顶部立即可见），通过后按 LOW_RISK 走一次独立最终评审。"
 }

@@ -92,7 +92,7 @@ if (typeof window !== 'undefined') window.scrollTo(0, 0);
 - verified_at: `2026-08-06 21:17:49 CST`
 - source_sha256: `3b398b385f06efcc790b3466fb59f3ba979b74ddd249ebb91eba067cfbcbced9`
 - status_revision: 10（核验时 `status.json` 指向本任务，state `dispatched`）
-- base_sha / delivery_sha: `538893849d6f831108c491d2d07c1b38a5287f94` .. 见下文交付提交
+- base_sha / delivery_sha: `538893849d6f831108c491d2d07c1b38a5287f94` .. `3006db3885dfc811a1ff1c6669d6c7f0c88c465d`（`git rev-parse` 直取）
 - verdict: **verified（通过）**；LOW_RISK（纯前端滚动定位，dispatch 已记录理由）
 - 依据（可复现）：
   - `git diff frontend/index.html` → 仅 `setActiveView` 内 +4 行（1 行逻辑 + 3 行注释），
