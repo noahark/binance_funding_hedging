@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 1,
+  "revision": 3,
   "stage_id": "2026-08-06-asset-transfer-live-v1",
   "bookkeeper": "deepseek",
-  "phase": "implementation",
-  "checkpoint": "开阶段基线核验：base_sha=bb47d02（git rev-parse HEAD 实测，与开发文稿 §6 一致）；Human 2026-08-06 决定——O-1/O-2 不设闸门与单笔上限、O-3 跳过计划评审、O-4 基线一次性提交（待 Human 执行）；T1 后端 dispatch 已备妥并指向本修订；越门两条与基线 blocker 见 blockers",
+  "phase": "review-1",
+  "checkpoint": "T1 后端核验通过并封存：delivery_sha=1f91241（base_sha bb47d02..1f91241，含基线 8e17027 已由 Human 按 O-4 一次性提交，A/B 两组范围外）；独立重跑全量 1508 passed；边界实测（universal_transfer/frontend 零改动、恰 1 条新路由、无闸门无上限）通过。review-1（deepseek 兼任）verdict REWORK：5 条 in-range 发现，核心为「划转端点不受 APP_HEDGE_EXECUTOR 控制、默认配置即可真实动钱」（server.py:1244 仅查 offline/API key，对照 hedge 链路默认 disabled 安全态 + 启动警示）。Human 2026-08-07 决定：发现 R1 接受现状（暴露面已记 PROJECT_STATE.md Live Risks）；R2–R5 记录描述，由 Human 与 opus5 讨论解决；review-1 未关闭（非 ACCEPT 亦未开修复轮），rework_count 保持 0",
   "base_sha": "bb47d0213cd98942dc12b91b562926ff848bfdee",
-  "delivery_sha": null,
-  "ledger_sha": "bb47d0213cd98942dc12b91b562926ff848bfdee",
+  "delivery_sha": "1f91241bcc2eab61eb0b3e5727f9e2bffd88ee88",
+  "ledger_sha": "1f91241bcc2eab61eb0b3e5727f9e2bffd88ee88",
   "current_task": {
     "id": "asset-transfer-live-t1-backend",
-    "state": "reported",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-08-06-asset-transfer-live-v1/20-opus5-t1-backend.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "exec-baseline-single-commit-then-start-t1-opus5"
+    "action": "discuss-review1-findings-r2-r5-with-opus5"
   },
   "rework_count": 0,
   "blockers": [
@@ -34,14 +34,6 @@
       "fact": "本阶段无 review-2",
       "human_decision": "2026-08-06 Human 决定；原因同上（配额耗尽，开发文稿 §3）",
       "consequence": "无独立核查「需求是否真被满足、实盘风险是否可接受、是否可发布」；由 Human 实盘小额试划转显示验收承担；开发文稿 §3 建议本阶段先不合并 main"
-    },
-    {
-      "id": "baseline-commit-pending",
-      "type": "blocking",
-      "rule": "开发文稿 §6：开阶段前 A/B 两组改动须经 Human 授权提交（「提交由 Human 授权后执行」）；本 dispatch 验收检查 1：存在未提交改动时 Bookkeeper 不得自行提交",
-      "fact": "git status --porcelain 显示未提交改动：A 组（本次互转交付，已 Human 显示验收）backend/domain/snapshot.py、schemas/api/public-market/snapshot.schema.json、docs/api/public-market-contract.md、backend/tests/test_private_account_v1.py、frontend/index.html、frontend/self-check.js；B 组（更早在途改动）资产卡 <10 USDT 过滤、DISABLED_SPOT_ONLY 借币操作列；两组混在同一工作区",
-      "human_decision": "O-4=一次性提交（Human 2026-08-06）；提交待 Human 授权执行",
-      "consequence": "T1 实现终端启动前若基线未提交，交付范围会与在途改动混杂；Human 执行一次性基线提交后即可启动 T1"
     },
     {
       "id": "plan-review-skipped-o3",

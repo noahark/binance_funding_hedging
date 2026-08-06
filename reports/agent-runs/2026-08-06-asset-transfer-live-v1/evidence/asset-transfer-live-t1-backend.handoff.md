@@ -127,4 +127,25 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -p no:cacheprovider -q backend/tests
 
 ## Bookkeeper Verification (Bookkeeper append-only)
 
+- 核验时间: `2026-08-07 00:34:38 CST`（Bookkeeper: deepseek，本阶段兼任 review-1）
+- source_sha256: `7192e7d4a8d9fbedc1b1f688ad3e221fe7737a44136f0afb0de7aa9c77f6fee3`（marker 前 9696 字节）
+- 核对的 status revision: `1`（核验时 `current_task.state=reported`）
+- delivery_sha: `1f91241bcc2eab61eb0b3e5727f9e2bffd88ee88`（`git rev-parse` 解析 handoff 的 `pending`；`git rev-parse HEAD` 一致）
+- 核验结论: **通过（状态推进 `reported` → `verified`，封存 `base_sha..delivery_sha` = `bb47d02..1f91241`）**
+- 通过依据（可复现命令）:
+  - `git show 1f91241 --name-status` → 7 个文件全部在 dispatch Allowed Files 内（server.py M、asset_transfer/ 两新建、test_asset_transfer.py 新建、handoff/pytest.txt/status.json 新建）
+  - `git diff 8e17027 1f91241 --stat -- backend/services/hedge_open_live_client.py` → 空（`universal_transfer` 本体零改动）；`-- frontend/` → 空（零前端改动）
+  - `git diff 8e17027 1f91241 -- backend/app/server.py | grep "^+.*/api/"` → 2 条命中：1 条路由 `if path == "/api/asset-transfer"` + 1 条 docstring 注释，实际新路由恰 1 条
+  - `grep -rn "transfer_gate\|TRANSFER_MAX_USDT" backend/ frontend/` → 零命中（Human O-1/O-2 落实）
+  - 独立重跑 `PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -p no:cacheprovider -q backend/tests` → **1508 passed in 111.76s**（与 handoff 声称一致，基线 1468 + 新增 40；原始输出见本目录 pytest.txt）
+  - 实现审读：幂等唯一约束 + `begin()/resolve()` 锁外不持锁外发；`unknown` 显式终态（异常/5xx/200 无 tranId）不重试；请求校验（UUID/方向/同账户/金额正则挡 1e3 与负号/白名单/confirm）无绕过路径；金额列 TEXT 无 SQL 聚合
+- review-1（deepseek 兼任，独立 review 工具交叉核验）: **verdict REWORK**，5 条发现全部 `in-range`（指向 1f91241 交付代码，无 pre-existing）：
+  1. **[high]** 划转端点不受 `APP_HEDGE_EXECUTOR` 控制（`server.py:1244` 仅查 `offline`/API key），默认配置即可真实动钱、无启动警示，与系统「executor=disabled 默认安全态」心智模型冲突（`config.py:108`）；修复形态涉产品决策，待 Human 定（见 status.json `next`）
+  2. **[medium]** 业务结果一律 HTTP 200，前端须只看 `body.status`；建议 `unknown` 响应加 `needs_review` 提示字段并写入 T2 验收契约
+  3. **[medium]** `pending` 卡死：begin 后 resolve 前进程中断则记录永久停在 pending（安全不重复转账，但不可推进）；建议运维文档 + 启动巡检告警，禁止自动重发
+  4. **[low]** handler 级同 id 并发测试缺口（现有幂等测试为串行）；建议补线程并发断言「只外发一次」
+  5. **[low]** 429 与 4xx 同归 `failed`；429 处于「可能未受理」灰色带，建议显式归 `unknown`
+- 后续状态: `status.json` revision 2 将 `current_task.state` 置 `verified`、写入 `delivery_sha`；review-1 REWORK 修复 dispatch 待 Human 决定修复形态后创建（`rework_count` 0→1）
+- 追加（2026-08-07，Human 决定落档）: Human 决定——R1（high，划转端点不受 executor 控制）**接受现状不修**，暴露面已记 `PROJECT_STATE.md` Live Risks `[OPEN][ACCEPTED][2026-08-07]`；R2–R5 由 Human 与 opus5 讨论处置；本阶段不创建修复 dispatch，review-1 未关闭（非 ACCEPT 亦未开修复轮），`status.json` revision 3 记录，`rework_count` 保持 0
+
 ## Errata (append-only)

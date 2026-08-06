@@ -3,8 +3,22 @@
 Cross-stage state, read at startup. Keep under 32 KB. Git history is not a runtime
 check.
 
-## Current Status (2026-08-06)
+## Current Status (2026-08-07)
 
+- **stage `2026-08-06-asset-transfer-live-v1`（HIGH_RISK 资产互转真实划转）T1 后端已交付并核验封存**：
+  delivery `1f91241`（base `bb47d02`；基线 `8e17027` 按 O-4 一次性提交，A/B 两组在
+  `bb47d02..1f91241` 区间内属范围外）；独立重跑全量 **1508 passed**（基线 1468 + 新增 40）。
+  `POST /api/asset-transfer` 复用 `universal_transfer`（本体零改动），`client_request_id`
+  唯一索引幂等（币安该端点无幂等键，重放零外发）、超时/5xx 记 `unknown` 不重试、按 Human
+  O-1/O-2 无闸门无上限。review-1（deepseek 兼任，Human 越门）verdict **REWORK** 共 5 条
+  `in-range` 发现（handoff Verification block 全录）：R1-high 划转端点不受
+  `APP_HEDGE_EXECUTOR` 控制（默认配置即可真实动钱、无启动警示）、R2 业务结果一律 HTTP 200
+  （前端须只看 `body.status`，unknown 建议加 `needs_review` 提示）、R3 `pending` 卡死
+  （begin 后 resolve 前中断则永久 pending，安全但不可推进）、R4 同 id 并发测试缺口、
+  R5 429 归 `failed` 建议归 `unknown`。**Human 2026-08-07 决定：R1 接受现状
+  （暴露面见 Live Risks）；R2–R5 记录描述，由 Human 与 opus5 讨论解决**（review-1 未关闭，
+  非 ACCEPT 亦未开修复轮，`rework_count` 0）。T2 前端未接线（划转按钮仍零请求预览）；
+  端点从未被真实调用。证据：`reports/agent-runs/2026-08-06-asset-transfer-live-v1/evidence/`。
 - **stage `2026-08-06-hedge-order-close-validation` 已归档（2026-08-06 合并 main + 手动重启）**：
   下单与平仓链路经 Human **实盘显示验收通过**；Human 授权合并 main（`f153cdc..64f0051`
   fast-forward）并手动重启服务（healthz ok，新代码已生效）。修复链
@@ -35,6 +49,18 @@ check.
 
 ## Live Risks
 
+- `[OPEN][ACCEPTED][2026-08-07]` **划转端点默认即可真实动钱，不受 `APP_HEDGE_EXECUTOR`
+  控制（review-1 R1，Human 决定接受现状）**。事实：`POST /api/asset-transfer`（T1
+  `1f91241`，`server.py:1244` `_build_asset_transfer_client`）启用条件仅为
+  `config.offline=False` + `binance_hedge_api_key` 非空；无独立开关、无启动警示；对照
+  hedge 链路 `hedge_executor` 默认 `disabled` 为系统默认安全态且有启动警示（B-4 事故教训）。
+  可能影响：进程以 disabled/离线启动（降级/测试）时，该端点是当时唯一会真实划转的通路；
+  `confirm: true` 是唯一门槛，任何能触达 `127.0.0.1:8787` 的本地进程可发起真实资金转移。
+  接受理由：Human 2026-08-07 决定接受现状（未选独立开关/跟随 executor/仅警示方案；生产
+  实际以 live 运行、start_gate 常开为既定前提，端点可用与现状一致）。临时限制/观察方式：
+  任何非离线启动均假定划转端点可用；实盘试划转须 Human 在场小额执行；全量划转落
+  `data/asset-transfer.sqlite3` 审计表可事后核查。后续复看条件：服务以 disabled/离线模式
+  启动前须先处置本暴露面；或 Human 与 opus5 讨论后决定加开关/警示。
 - `[BY-DESIGN]` **Standing operating premise: the Start gate is kept ON and the
   system runs live.** Human decided 2026-08-03 to leave it open permanently, so
   this is the intended steady state, not an open risk — do not file it as one
