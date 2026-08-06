@@ -5,17 +5,17 @@
     "task_id": "2026-08-06-hedge-order-close-validation-preflight-local-cache",
     "target_role": "Implementer",
     "target_model": "deepseek",
-    "status": "dispatched",
+    "status": "verified",
     "dispatch_path": "reports/agent-runs/2026-08-06-hedge-order-close-validation/05-preflight-local-cache-and-close-simplify.dispatch.md"
   },
-  "status_revision": 6,
+  "status_revision": 7,
   "base_sha": "ee7ec4f",
-  "ledger_sha": "ee7ec4f",
-  "delivery_sha": "pending",
+  "ledger_sha": "e4d5464",
+  "delivery_sha": "e4d5464",
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-task"
+    "action": "decide-review-and-live-retest"
   },
   "rework_count": 0,
-  "note": "Human 2026-08-06 指定 Bookkeeper=deepseek；开 stage：验证下单/平仓核心链路 + 修复小 bug。任务 01/02/03 已核验封存（交付 ee7ec4f，review-1 ACCEPT 已核验，rework_count 0）。现派发任务 05（Implementer/deepseek，revision 6）：preflight 改读本地缓存 + 平仓校验简化 + 预检失败可见暂停（问题 C），基线 ee7ec4f；Human 决定将前端执行模式徽标醒目化并入本任务（Goal 5，Allowed Files 已加 frontend/index.html）。05 取代未派发的 04 草稿（04 编号已被 review-1 占用）。"
+  "note": "Human 2026-08-06 指定 Bookkeeper=deepseek；开 stage：验证下单/平仓核心链路 + 修复小 bug。任务 01/02/03 已封存（ee7ec4f，review-1 ACCEPT）。任务 05（preflight 本地缓存 + 平仓简化 + 预检失败可见暂停 + 前端徽标醒目化）已核验封存：Bookkeeper 实测 1462 passed + self-check 全绿，解耦 grep 无 import，snapshot_service 仅 +14 行只读方法，交付 e4d5464。本任务 HIGH_RISK（平仓完成判定 + 划转资金动作），按 §8 需 review-1 + review-2；是否评审与实盘复测由 Human 决定。"
 }

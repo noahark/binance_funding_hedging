@@ -204,7 +204,7 @@ worker 静默退出（任务仍 running、卡片零提示）。建卡路径 `fap
 - verified_at: `2026-08-06 20:29:45 CST`
 - source_sha256: `f6710a4fb06fa45d23c59484a1275827d2b80931d46385b7067ba331a22578e3`
 - status_revision: 6（核验时 `status.json` 指向本任务，state `dispatched`）
-- base_sha / delivery_sha: `ee7ec4f3a41db8d896652101fcd1821972b381bc` .. 见下文交付提交
+- base_sha / delivery_sha: `ee7ec4f3a41db8d896652101fcd1821972b381bc` .. `e4d546435cb4684ec3f0b88a7c40a9b69567ba56`（`git rev-parse` 直取）
 - verdict: **verified（通过）**
 - 依据（可复现）：
   - `python3 -m pytest backend/tests -q` → **1462 passed**（本 Bookkeeper 实测，92.49s）
