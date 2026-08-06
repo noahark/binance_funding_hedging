@@ -4250,7 +4250,7 @@
       }
 
       // worker_active tri-state → 中文（10-design §2.4a）：true 运行中 / false 未运行 /
-      // null·undefined 缺失 → —。严格布尔判定，null/undefined 落在 — 一侧（dry-run 恒 —）。
+      // null·undefined 缺失 → —。严格布尔判定，null/undefined 落在 — 一侧（disabled 恒 —）。
       function hedgeWorkerActiveText(v) {
         if (v === true) return '运行中';
         if (v === false) return '未运行';
@@ -4489,23 +4489,33 @@
           </table></div>`;
       }
 
-      // 执行徽标（§3：GET /api/hedge-open-settings）：executor_mode disabled→dry-run；
+      // 执行徽标（§3：GET /api/hedge-open-settings）：executor_mode disabled→已禁用；
       // start_gate 为后端全局 Start 闸门只读投影，前端不提供开关。
       function renderHedgeExecutionStatus(doc) {
         state.hedgeSettings = doc || null;
         if (!els.hedgeExecutionBadge) return;
         if (!doc) {
           els.hedgeExecutionBadge.textContent = '执行状态：未加载';
+          // N-1（review-1）：settings 加载失败时重置模式配色，避免残留上一次
+          // 的警示/灰色。
+          els.hedgeExecutionBadge.classList.remove('warn');
+          els.hedgeExecutionBadge.classList.add('muted');
           if (els.hedgeExecutionDetail) els.hedgeExecutionDetail.textContent = '';
           if (els.hedgeStartGateToggle) els.hedgeStartGateToggle.style.display = 'none';
           return;
         }
-        const mode = doc.executor_mode === 'live' ? 'live' : 'dry-run';
+        // 后端只有 live / disabled 两态（config.py 校验，写错启动失败）；
+        // disabled 显示「已禁用」，不再用旧词 dry-run（任务 03 已删除假成交模拟器，
+        // dry-run 行为不存在，旧词会误导成「有模拟结果」）。
+        const mode = doc.executor_mode === 'live' ? 'live' : '已禁用';
         const liveMode = doc.executor_mode === 'live';
         els.hedgeExecutionBadge.textContent = `执行：模式 ${mode} · Start ${doc.start_gate ? '已开启' : '未开启'}`;
-        // Goal 5（stage 2026-08-06）：dry-run/disabled 模式徽标警示色，与 live
-        // 一眼可区分（数据源仍是进程实时 executor_mode，未新增提示通道）。
+        // Goal 5（stage 2026-08-06）+ F-1（review-1）：disabled 模式徽标警示色，
+        // 与 live 一眼可区分。class 同步互斥：live→muted（灰），disabled→warn（警示），
+        // 二者不同时存在（CSS .badge.muted 后声明会覆盖 .badge.warn，必须互斥）。
+        // 数据源仍是进程实时 executor_mode，未新增提示通道。
         els.hedgeExecutionBadge.classList.toggle('warn', !liveMode);
+        els.hedgeExecutionBadge.classList.toggle('muted', liveMode);
         if (els.hedgeExecutionDetail) {
           els.hedgeExecutionDetail.textContent = `调度间隔 ${doc.interval_seconds != null ? doc.interval_seconds : '—'} 秒（后端调度）`;
         }
@@ -5066,8 +5076,9 @@
         const modeLabel = task.mode === 'smooth' ? '平滑' : '立即';
         const statusLabel = HEDGE_TASK_STATUS_LABELS[task.status] || task.status;
         const statusBadge = HEDGE_TASK_STATUS_BADGE[task.status] || 'muted';
-        // Goal 5（stage 2026-08-06）：dry-run/disabled 模式下「成交」按钮标注演习——
-        // 点击不会真实发单，只是假成交推进（数据源仍为进程实时 executor_mode）。
+        // Goal 5（stage 2026-08-06）：disabled 模式下「成交」按钮标注演习——
+        // 点击不会真实发单，只推进 execution_disabled 的 attempt 记录
+        // （数据源仍为进程实时 executor_mode）。
         const drillMode = state.hedgeSettings && state.hedgeSettings.executor_mode !== 'live';
         // 15 号修正案：单腿敞口只是提示，任务除非后端 status 为 paused/stopped 否则继续调度；
         // 绝不再显示虚假的“任务已暂停”。

@@ -4815,8 +4815,14 @@ setTimeout(async () => {
         throw new Error(`执行设置应 GET /api/hedge-open-settings: ${JSON.stringify(settingsCall)}`);
       }
       const badgeDry = elements['hedge-execution-badge'].textContent;
-      if (!badgeDry.includes('dry-run') || !badgeDry.includes('未开启')) {
+      if (!badgeDry.includes('已禁用') || !badgeDry.includes('未开启')) {
         throw new Error(`disabled 模式徽标错误: ${badgeDry}`);
+      }
+      // F-1 防回归（review-1）：disabled 时警示色生效——class 含 warn 不含 muted
+      // （CSS .badge.muted 后声明会覆盖 .badge.warn，二者必须互斥）。
+      const clsDry = elements['hedge-execution-badge'].classList;
+      if (!clsDry.contains('warn') || clsDry.contains('muted')) {
+        throw new Error(`disabled 模式徽标 class 应含 warn 不含 muted: ${[...clsDry]}`);
       }
       hedgeSettingsGetResponse = { status: 200, body: { executor_mode: 'live', start_gate: true, interval_seconds: 1 } };
       await helpers.loadHedgeSettings();
@@ -4824,10 +4830,14 @@ setTimeout(async () => {
       if (!badgeLive.includes('live') || !badgeLive.includes('已开启')) {
         throw new Error(`live 模式徽标错误: ${badgeLive}`);
       }
+      const clsLive = elements['hedge-execution-badge'].classList;
+      if (!clsLive.contains('muted') || clsLive.contains('warn')) {
+        throw new Error(`live 模式徽标 class 应含 muted 不含 warn: ${[...clsLive]}`);
+      }
       if (!elements['hedge-execution-detail'].textContent.includes('1')) {
         throw new Error('执行详情应显示调度间隔');
       }
-      console.log('[PASS] 执行徽标：executor_mode disabled→dry-run / live + start_gate Start 状态');
+      console.log('[PASS] 执行徽标：executor_mode disabled→已禁用 / live + start_gate Start 状态 + F-1 class 互斥');
     }
 
     // 84. real-api-v1 任务卡新字段（§3.4）：调度/受理计数、连续失败 vs 阈值、暂停原因；
