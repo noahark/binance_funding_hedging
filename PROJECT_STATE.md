@@ -3,6 +3,21 @@
 Cross-stage state, read at startup. Keep under 32 KB. Git history is not a runtime
 check.
 
+## Current Status (2026-08-06)
+
+- **持仓周期三功能 + 平仓执行：全部开发完成，Human 验收通过，sonnet5 综合评审 ACCEPT**
+  （review-1+review-2 合一；首轮 REWORK 1 处真实 P0 → 修复 + live 回归测试 → 复评 ACCEPT）。
+  提交：`97ecb7f`（工作树后续改动见 git status）。
+- **数据已清理（从头测试起点，Human 2026-08-06 授权）**：三个库数据记录清空
+  （hedge-open-tasks 447 行 / borrow-tasks 1299 行 / ledger-flow 2285 行），保留表结构与
+  settings（start_gate/close_gate 配置）；备份 `data/*.sqlite3.bak-clean-20260806-120813`。
+  交易所仓位 Human 已全部手工平仓。**应用服务当前停止**（8787 无监听，Human 指示停服务，
+  从头测试时用 `scripts/run-server.sh` 重启，首次快照拉取约 3 分钟）。
+- **前端「假数据 · 预览」设计探针已删除**（真实功能已上线，探针无意义；frontend/index.html
+  + self-check.js，2026-08-06）。
+- 挂账 follow-up：本地数量口径（X/Y/Z 方案待定）、MUUUSDT 现货别名配对、close_log 利息 ≈U
+  （价格源注入 service 层）。
+
 ## Live Risks
 
 - `[BY-DESIGN]` **Standing operating premise: the Start gate is kept ON and the

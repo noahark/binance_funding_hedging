@@ -48,9 +48,10 @@ This file is the canonical approved roadmap.
 完成判定重构（running→其他状态先走合约无仓核实）、前端提前量检测、任务卡开平仓标记、导航徽标
 联动、历史页补全（现货均价/成交量/成交额/滑点 %）。持仓表口径：只显示未平仓周期
 （`closed_at_us IS NULL` 过滤）。本地数量口径保持现状（方案 B 已回退，整改方案待 Human 定）。
-四任务交付 + 全部修复在工作树**未提交**（`delivery_sha=pending`）。**下一步（Human 决策）**：
-提交代码 / 合并 / Bookkeeper 补记 status.json；**close_gate 实盘启用（平仓发单）需 Human 单独
-明确授权，评审 ACCEPT 不构成该授权**。挂账 follow-up：本地数量与交易所脱节（X/Y/Z 方案待定）、
+四任务交付 + 全部修复已提交 `97ecb7f`（评审 ACCEPT 后）。**2026-08-06 数据清理**
+（三库记录清空、保留表结构，备份 bak-clean-*，交易所全平）——**从头测试起点**；应用服务停止，
+重启用 `scripts/run-server.sh`。前端「假数据 · 预览」探针已删除。**close_gate 实盘启用
+（平仓发单）需 Human 单独明确授权，评审 ACCEPT 不构成该授权**。挂账 follow-up：本地数量与交易所脱节（X/Y/Z 方案待定）、
 MUUUSDT 现货别名配对、close_log 利息 ≈U（价格源注入 service 层）。
 
 设计权威：`docs/planning/hedge-open-position-cycle-v1.md`（周期设计 v1；五项口径 + 关闭触发决策已拍板——**不做自动归零观察，关闭由功能三平仓任务触发、人工核实作纠偏**）。

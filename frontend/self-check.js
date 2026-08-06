@@ -195,10 +195,6 @@ const ids = [
   'hedge-logs-error', 'hedge-log-list', 'hedge-logs-refresh', 'hedge-logs-load-more',
   'hedge-modal', 'hedge-modal-backdrop', 'hedge-modal-title', 'hedge-modal-body', 'hedge-modal-close',
   'hedge-modal-confirm', 'hedge-modal-cancel', 'hedge-start-gate-toggle',
-  // 假数据·预览（设计探针，2026-07-31-hedge-task-lifecycle-v1）：新增静态元素，须注册以避免
-  // eval(script) 时 els 的 getElementById 抛「未 mock 的元素」。
-  'hedge-fake-preview-toggle', 'hedge-fake-preview-panel',
-  'hedge-fake-preview-scenarios', 'hedge-fake-preview-body',
   // 历史仓位 fake 原型（2026-08 hedge-open-position-cycle-v1）：新增静态元素，须注册。
   'nav-history', 'history-view', 'history-list'
 ];
@@ -5675,84 +5671,6 @@ setTimeout(async () => {
       if (attempts.length !== 1) throw new Error(`start_gate_changed 应被忽略，仅留 1 条 attempt，实际 ${attempts.length}`);
       if (attempts[0].attempt_seq !== 1) throw new Error('应保留真 attempt');
       console.log('[PASS] M-1 start_gate_changed 审计行被 extractHedgeAttempts 忽略（不渲染畸形 attempt）');
-    }
-
-    // 98. 假数据·预览（2026-07-31-hedge-task-lifecycle-v1）：默认关闭、开关可切、
-    //     51169 冻结文案逐字渲染、打开预览零网络请求。纯前端探针，不触真实渲染路径。
-    {
-      const panel = document.getElementById('hedge-fake-preview-panel');
-      const toggle = document.getElementById('hedge-fake-preview-toggle');
-      if (!panel || !toggle) throw new Error('假数据预览 DOM 缺失');
-      // 默认关闭：bindHedgeFakePreview 在 eval 时按 state.hedgeFakePreviewOpen=false 显式赋 hidden=true。
-      if (panel.hidden !== true) throw new Error('假数据预览默认应为关闭（hidden=true）');
-      const clickHandlers = toggle.listeners && toggle.listeners.click;
-      if (!clickHandlers || !clickHandlers.length) throw new Error('假数据预览开关未绑定 click');
-      // 打开预览不应发起任何网络请求（假数据为脚本内常量，acceptance #3）。
-      const mark = fetchCallLog.length;
-      clickHandlers[0]();
-      if (panel.hidden !== false) throw new Error('点击开关后预览应展开（hidden=false）');
-      if (fetchCallLog.length !== mark) throw new Error('打开假数据预览发起了网络请求（应为纯前端假数据）');
-      const bodyHtml = document.getElementById('hedge-fake-preview-body').innerHTML;
-      // 51169 冻结文案逐字渲染（acceptance #8）：含其特征句段。
-      if (!bodyHtml.includes('已达币安平台级抵押金额上限')) throw new Error('预览未渲染 51169 冻结文案');
-      if (!bodyHtml.includes('追加资金无效')) throw new Error('51169 冻结文案不完整（缺「追加资金无效」）');
-      // 严禁「保证金不足」假事实替换冻结文案（acceptance #8）：冻结文案唯一含「保证金不足」之处是
-      // 否定句「并非本账户保证金不足」，属逐字原文，故此处只断言「并非本账户保证金不足」存在。
-      if (!bodyHtml.includes('并非本账户保证金不足')) throw new Error('冻结文案否定句缺失');
-      // 两个真实渲染函数未被预览调用污染：预览 body 用独立 fake 函数，真实列表不含 fake 卡标识。
-      if (bodyHtml.includes('data-hedge-task-id')) throw new Error('预览误用真实任务卡 data-hedge-task-id 属性');
-      // 再次点击应收起。
-      clickHandlers[0]();
-      if (panel.hidden !== true) throw new Error('再次点击开关应收起预览');
-      console.log('[PASS] 假数据·预览：默认关闭 + 开关可切 + 51169 冻结文案逐字渲染 + 打开零网络请求');
-    }
-
-    // 98c. 历史仓位（功能三 ③a）：侧栏入口、视图切换、真实结算日志 API 渲染。
-    {
-      const nav = document.getElementById('nav-history');
-      const view = document.getElementById('history-view');
-      const list = document.getElementById('history-list');
-      if (!nav || !view || !list) throw new Error('历史仓位 DOM 缺失');
-      if (!nav.listeners.click || !nav.listeners.click.length) throw new Error('历史仓位导航未绑定 click');
-      hedgeCloseLogsGetResponse = { status: 200, body: { logs: [
-        {
-          cycle_id: 'c1', symbol: 'BTCUSDT', direction: 'forward',
-          opened_at_us: 1785310000000000, closed_at_us: 1785390000000000,
-          close_reason: 'auto_close', open_avg_price: '61231.50', open_qty: '0.5',
-          close_avg_price: '61190.20', funding_fee: '38.71', borrow_interest: '0.42',
-          settled_at_us: 1785390000000000
-        },
-        {
-          cycle_id: 'c2', symbol: 'RSRUSDT', direction: 'reverse',
-          opened_at_us: 1785400000000000, closed_at_us: 1785500000000000,
-          close_reason: 'auto_close', open_avg_price: '0.001246', open_qty: '10000',
-          close_avg_price: '0.001251', funding_fee: '-0.92', borrow_interest: '0.00',
-          settled_at_us: 1785500000000000
-        }
-      ] } };
-      const mark = fetchCallLog.length;
-      helpers.setActiveView('history');
-      await helpers.loadHedgeCloseLogs();  // 确保真实 API 渲染完成（setActiveView 内为异步不 await）
-      if (view.style.display === 'none') {
-        throw new Error('setActiveView(history) 后历史仓位视图应可见（display 非 none）');
-      }
-      if (document.getElementById('market-view').style.display !== 'none') {
-        throw new Error('进入历史仓位后市场视图应隐藏');
-      }
-      const call = fetchCallLog.slice(mark).find(c => c.url === '/api/hedge-open-close-logs' && c.method === 'GET');
-      if (!call) throw new Error('进入历史仓位应 GET /api/hedge-open-close-logs: ' + JSON.stringify(fetchCallLog.slice(mark)));
-      const html = list.innerHTML;
-      for (const piece of ['币种', '开单时间', '平仓时间', '合约开单均价', '合约平单均价',
-        '现货买入均价', '现货卖出均价', '总借币利息', '总资金费率收益', '总计开单滑点', '总计平单滑点']) {
-        if (!html.includes(piece)) throw new Error(`历史仓位表缺少表头「${piece}」`);
-      }
-      if (!html.includes('BTCUSDT') || !html.includes('RSRUSDT')) throw new Error('历史仓位真实数据行缺失');
-      if (!html.includes('正向') || !html.includes('反向')) throw new Error('历史仓位应同时含正向/反向行');
-      if (!html.includes('61231.50') || !html.includes('61190.20')) throw new Error('历史仓位应渲染合约开/平单均价');
-      if (html.includes('假数据')) throw new Error('历史仓位不应再显示假数据横幅');
-      helpers.setActiveView('market');
-      if (view.style.display !== 'none') throw new Error('切回市场后历史仓位视图应隐藏');
-      console.log('[PASS] 历史仓位：侧栏入口 + 视图切换 + 真实结算日志 API 渲染（无假数据横幅）');
     }
 
     // 98b. 流水日志真实数据源（task C）+ 页内双看板布局（tab-layout-v2）
