@@ -3,6 +3,9 @@
 - 日期：2026-08-07
 - 执笔模型：**claude-opus-5**（Claude Opus 5）
 - 性质：P1/P2 为**已交付修复**（含测试）；Q1–Q4 为**摸排落档，未改代码**
+- **状态（2026-08-07 晚）**：Q1 已修复并实盘验证（见 PROJECT_STATE 的
+  symbol-identity-unification 条目）；Q2/Q3/Q4 未处理。本文 Q1「影响」第 2 条
+  含一处已订正的错误表述，详见该处订正块。
 - 环境证据取自本地运行中的服务（`127.0.0.1:8787`，进程启动 01:19:37）与 `data/*.sqlite3`
 
 ---
@@ -13,7 +16,7 @@
 |---|---|---|---|
 | P1 | 开单任务 `preflight_incomplete` | 缓存生产 1800s vs 消费 600s 错配，每周期 20 分钟死区 | ✅ 已修 |
 | P2 | 手动「更新缓存」对 cap 列表无效 | `force_account_panels` 不覆盖 `restricted_asset` | ✅ 已修 |
-| Q1 | bStock 现货展示不匹配 | `_merge_base_asset` 只剥 USDT，不加 bStock 的 `B` 后缀 | 📋 待修 |
+| Q1 | bStock 现货展示不匹配 | `_merge_base_asset` 只剥 USDT，不加 bStock 的 `B` 后缀 | ✅ 已修+实盘验证 |
 | Q2 | 流水勾选「划转」不回显 | 显示上限 20 条 + 全局时间序，TRANSFER 排在第 33 位 | 📋 待修 |
 | Q3 | 多任务卡同时启动回显异常 | 错误提示只写 DOM 不入 state，任何重渲染即抹除 | 📋 待修 |
 | Q4 | 统一账户可转出额不准 | `cross_margin_free` 非最大可转出，缺 `maxWithdraw` 数据源 | 📋 待修 |
@@ -134,7 +137,7 @@ node frontend/self-check.js    EXIT=0
 
 ## Q1 — 对冲开单持仓 bStock 现货展示不匹配
 
-### 结论：确认存在，且**不只是显示问题，裸腿风险检测对所有 bStock 失效**
+### 结论：确认存在——展示失真 + `drift` 监控盲区（**非**裸腿风险，见下方订正）
 
 ### 证据链
 
@@ -170,7 +173,16 @@ return symbol[:-4] if symbol.endswith("USDT") and len(symbol) > 4 else symbol
 ### 影响
 
 1. 现货余额/估值列对所有 bStock 恒为「暂无」
-2. **更严重**：`single_leg_exposure` 与 `drift` 两个风险标记基于同一匹配计算。现货余额恒 null ⇒ 二者恒 false ⇒ **bStock 若真出现「合约腿成交、现货腿被拒」的裸空，面板不会报警**。这与 `binance-papi-contract-traps` 记录的 51169 裸空机制是同一类风险的盲区。
+2. `drift`（「实际现货少于记账」的告警）失效：它的判定含 `real_spot is not None`，
+   现货余额恒 null ⇒ `drift` 恒 false ⇒ **bStock 上「操作员手动减少了现货腿」检测不到**。
+
+> **订正（2026-08-07，本文档执笔模型自校）**：本条原写「`single_leg_exposure` 与 `drift`
+> 二者恒 false ⇒ 裸空不报警」，**该表述有误**。核查 `_merge_build_row`：
+> `single_leg_exposure = bucket is not None and spot_qty > 0 and perp_qty == 0`，
+> 仅取自任务记账，**不读 `real_spot`**，因此不受本 bug 影响、一直正常工作。当时观察到
+> SNXX 行该标记为 false，是因为那笔任务两腿都已成交，并非失配所致。受影响的只有
+> `drift`。相应地，下方「优先级建议」中把 Q1 排第一的理由里「资金安全/裸空不报警」
+> 一半不成立——Q1 的真实性质是**监控盲区 + 展示失真**，而非裸空风险。
 
 ### 推荐修法
 
@@ -189,7 +201,7 @@ return symbol[:-4] if symbol.endswith("USDT") and len(symbol) > 4 else symbol
 
 ### 建议验收
 
-用现存的 `SNXXUSDT` 活跃周期直接验证：修复后 `spot_balance` 应为 `1.00000000`、`spot_balance_value_usdt` 约 `10.33`。另需补一条单测覆盖 bStock 的 `single_leg_exposure` 判定。
+用现存的 `SNXXUSDT` 活跃周期直接验证：修复后 `spot_balance` 应为 `1.00000000`、`spot_balance_value_usdt` 约 `10.33`。另需补一条单测覆盖 bStock 的 `drift` 判定（`single_leg_exposure` 不受本 bug 影响，见上方订正）。
 
 ---
 
@@ -363,9 +375,9 @@ if (remain !== null && remain.startsWith('-')) { ...超出可用数量... }
 
 | 序 | 项 | 理由 |
 |---|---|---|
-| 1 | **Q1** | 唯一带**资金安全**性质的（bStock 裸腿检测失效），且已有活跃 SNXX 周期正暴露在该盲区下 |
+| — | ~~**Q1**~~ | **已完成**。原排第一的理由「唯一带资金安全性质（裸腿检测失效）」经订正**不成立**——真实性质是展示失真 + `drift` 盲区。即便如此仍值得先做：它是当时唯一有活跃周期正暴露其中的项 |
 | 2 | **Q4** | 前端校验放行不可执行的划转，误导性强；但有服务端兜底，不会造成错误成交 |
 | 3 | **Q3** | 高频交互缺陷，失败信息静默丢失会掩盖真实错误（含 P1 那类暂停原因） |
 | 4 | **Q2** | 纯展示，有 workaround（只勾划转即可看到） |
 
-Q1 与 Q3 有耦合：Q1 修好后 `single_leg_exposure` 才会真实报警，而该报警要在 UI 上稳定可见又依赖 Q3 的错误/状态入 state。建议同批处理。
+Q1 与 Q3 有耦合：Q1 修好后 `drift` 才会真实报警（`single_leg_exposure` 本就正常，见上方订正），而该报警要在 UI 上稳定可见又依赖 Q3 的错误/状态入 state。建议同批处理。

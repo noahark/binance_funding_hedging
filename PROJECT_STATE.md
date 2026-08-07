@@ -36,16 +36,18 @@ check.
   系统把 auth 类判为 `UNKNOWN_QUERYING` 而非 REJECTED 是**有意的保守设计**（auth/签名/
   时间戳存在歧义 → 只按 clientOrderId 重查、绝不重发），行为正确不改；错的是文案让人
   去找一张从未存在的单。已改为点名 IP 白名单 + 「订单未发出」。
-  **本线遗留三项**：
-  1. `[OPEN][DOC-CORRECTION]` **`issue-triage-2026-08-07.opus5.md` 仍带已更正的错误**
+  **本线遗留三项（1/2 已于 2026-08-07 晚清理，见 `<PENDING>`）**：
+  1. `[RESOLVED][2026-08-07]` ~~**`issue-triage-2026-08-07.opus5.md` 仍带已更正的错误**
      （第 173/192/371 行）：称 bStock 失配导致 `single_leg_exposure` 失效、裸空不报警。
      实为**只有 `drift` 受影响**——`single_leg_exposure` 只读任务记账的 `spot_qty`/
      `perp_qty`，不读 `real_spot`，一直正常。更正已写在
      `unified-symbol-resolver-2026-08-07.review-opus5.md` §二，但**原文档未同步**，
-     单独阅读会被误导；该文档给 Q1 排的优先级理由也有一半不成立。
-  2. `[OPEN][FOLLOW-UP]` **前端持仓表尚未显示现货腿 symbol**（后端已提供 `spot_symbol`
-     字段，DeepSeek 步骤③评审要求记账）。这正是 Q1「看得见实际对冲的是 SNXXBUSDT」
-     的诉求，小改动。
+     单独阅读会被误导；该文档给 Q1 排的优先级理由也有一半不成立。~~ 已订正五处
+     （摘要表状态、结论标题、影响第 2 条 + 订正块、验收建议、优先级理由），并在文档
+     顶部加了状态头。
+  2. `[RESOLVED][2026-08-07]` ~~**前端持仓表尚未显示现货腿 symbol**~~ 已交付：币种列下
+     加「现货腿 SNXXBUSDT」子行，仅当与合约名不同才显示（同名不加噪音、`no_task` 行
+     无固化身份则不显示）。
   3. `[OPEN]` **launchd 托管仍未修**——见 Live Risks 同名条目（2026-08-03 记录，
      2026-08-07 补根因 TCC）。Human 尚未决定是否处置。
 - **[2026-08-07] 现货符号解析改显式映射表 + P1/P2 死区修复已提交（`8ee6d3c`）**：

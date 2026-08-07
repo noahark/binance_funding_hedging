@@ -4463,6 +4463,7 @@ setTimeout(async () => {
       const pausedExpTask = mockHedgeTask({
         id: 'h-exp-2', coin: 'FUSDT', direction: 'forward', status: 'paused',
         pause_reason: 'consecutive_submission_failure',
+        pause_reason_zh: '连续提交失败达到阈值，任务已暂停，请检查后手动恢复',
         leg_exposure: { leg: 'perp', qty: 0.3, price: 88.1, ts: '2026-07-22T08:02:00.000000Z' }
       });
       // stopped：致命错误终止，需人工修正后新建任务；不再由 fail_count > 3 推导。
@@ -4477,7 +4478,7 @@ setTimeout(async () => {
       for (const piece of ['运行', '暂停', '已终止', '单腿敞口：现货腿已成交 0.5 @ 123.45',
         '单腿敞口：合约腿已成交 0.3 @ 88.1', '任务仍继续调度下一组', '任务当前处于「暂停」',
         '任务已终止（致命错误，不再补发）：现货可用余额不足', '需人工修正原因后新建任务',
-        '计划尝试次数', '公共网格量', '暂停原因：连续提交失败达到阈值',
+        '计划尝试次数', '公共网格量', '暂停原因：连续提交失败达到阈值，任务已暂停，请检查后手动恢复',
         '删除', '成交1次']) {
         if (!cards.includes(piece)) throw new Error(`开单任务卡缺少「${piece}」`);
       }
@@ -4931,7 +4932,8 @@ setTimeout(async () => {
         id: 'h-new-1', coin: 'DUSDT', status: 'paused',
         scheduled_attempt_count: 7, accepted_pair_count: 6,
         consecutive_submission_failures: 5, failure_pause_threshold: 5,
-        pause_reason: 'consecutive_submission_failure'
+        pause_reason: 'consecutive_submission_failure',
+        pause_reason_zh: '连续提交失败达到阈值，任务已暂停，请检查后手动恢复'
       });
       // 旧后端文档：完全没有 real-api-v1 新字段
       const legacyTask = {
@@ -4952,7 +4954,7 @@ setTimeout(async () => {
       const legacyCard = cards.slice(legacyStart);
       for (const piece of ['已调度 <strong>7</strong> 组', '已受理 <strong>6</strong> 组',
         '连续提交失败 <strong>5</strong>', '暂停阈值 <strong>5</strong>',
-        '暂停原因：连续提交失败达到阈值']) {
+        '暂停原因：连续提交失败达到阈值，任务已暂停，请检查后手动恢复']) {
         if (!richCard.includes(piece)) throw new Error(`新字段任务卡缺少「${piece}」: ${richCard}`);
       }
       if (richCard.includes('暂停阈值 <strong>3</strong>')) {
@@ -7332,6 +7334,67 @@ setTimeout(async () => {
         }
       }
       console.log('[PASS] fetch 同源白名单（含开单 §3 路由）、零 Binance/外域、零新任务定时器、localStorage 白名单（仅隐私键）');
+    }
+
+    // ---- 暂停原因：直读后端 pause_reason_zh（不再查前端残缺映射表）----
+    {
+      // 后端有 11 种 PAUSE_REASON_*，前端旧表只收录 1 种，其余全部裸露英文枚举；
+      // 而完整中文（含 -2015 的 IP 白名单排查指引）一直躺在 pause_reason_zh 里没人读。
+      const zh = '预检数据不完整（collateral_cap），任务已暂停（fail-closed，未发单）；请检查网络后手动恢复';
+      const paused = mockHedgeTask({
+        id: 'h-pause-zh', status: 'paused',
+        pause_reason: 'preflight_incomplete', pause_reason_zh: zh,
+      });
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [paused] } };
+      helpers.setActiveView('hedge-tasks');
+      await helpers.loadHedgeTasks();
+      helpers.setHedgeTaskFilter('all');
+      const html = elements['hedge-task-list'].innerHTML;
+      if (!html.includes(zh)) {
+        throw new Error('任务卡应直接展示后端 pause_reason_zh 全文: ' + html);
+      }
+      if (html.includes('preflight_incomplete')) {
+        throw new Error('不应再裸露英文枚举 preflight_incomplete: ' + html);
+      }
+      // 后端未给中文时回退英文枚举，不至于空白
+      const bare = mockHedgeTask({
+        id: 'h-pause-bare', status: 'paused',
+        pause_reason: 'some_new_reason', pause_reason_zh: null,
+      });
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [bare] } };
+      await helpers.loadHedgeTasks();
+      helpers.setHedgeTaskFilter('all');
+      if (!elements['hedge-task-list'].innerHTML.includes('some_new_reason')) {
+        throw new Error('无中文时应回退展示原始 reason');
+      }
+      console.log('[PASS] 任务卡暂停原因直读 pause_reason_zh（缺失回退英文枚举）');
+    }
+
+    // ---- 持仓表展示现货腿 symbol（bStock 的 SNXXBUSDT ≠ 合约 SNXXUSDT）----
+    {
+      const pos = {
+        coin: 'SNXXUSDT', direction: 'forward', match_status: 'normal',
+        spot_symbol: 'SNXXBUSDT', spot_base_asset: 'SNXXB',
+        position_qty: '-3', spot_qty: '3', perp_qty: '3',
+        spot_avg: '10', perp_avg: '10',
+        spot_avg_price_incomplete: false, perp_avg_price_incomplete: false,
+        includes_deleted_task: false, open_basis_rate: '0', price_pnl: '0',
+        accrued_funding: '0', borrow_interest: '0', net_pnl: '0',
+        um_position_side: 'SHORT', um_position_amt: '-3', um_notional_usdt: '31',
+        um_entry_price: '10', um_mark_price: '10.5', um_liquidation_price: '0',
+        unrealized_profit: '-0.8', spot_balance: '3',
+        spot_balance_value_usdt: '31.56', unified_balance: null,
+        unified_balance_value_usdt: null, cross_margin_borrowed: null,
+        single_leg_exposure: false, drift: false,
+        cycle_id: 'c1', cycle_opened_at: null, cycle_closed_at: null,
+      };
+      hedgePositionsGetResponse = { status: 200, body: { positions: [pos], account: { verified: true } } };
+      await helpers.loadHedgePositions();
+      const posHtml = elements['private-panel-body'].innerHTML;
+      if (!posHtml.includes('SNXXBUSDT')) {
+        throw new Error('持仓表应显示现货腿 symbol SNXXBUSDT: ' + posHtml);
+      }
+      console.log('[PASS] 持仓表展示现货腿 symbol');
     }
 
     console.log('\n全部自检通过');

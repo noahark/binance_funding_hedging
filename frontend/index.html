@@ -4564,9 +4564,6 @@
       const HEDGE_PAIR_OUTCOME_BADGE = {
         accepted_pair: 'success', confirmed_failed: 'danger', single_leg: 'warn', querying: 'info'
       };
-      const HEDGE_PAUSE_REASON_LABELS = {
-        consecutive_submission_failure: '连续提交失败达到阈值'
-      };
       // live-hardening v1（10-design §2.4a）：last_worker_exit_reason 枚举中文映射；
       // 未收录取值原样展示，前端不发明后端语义。
       const HEDGE_WORKER_EXIT_REASON_LABELS = {
@@ -5467,8 +5464,12 @@
         const countersLine = `<div>已调度 <strong>${hedgeText(task.scheduled_attempt_count)}</strong> 组 · 已受理 <strong>${hedgeText(task.accepted_pair_count)}</strong> 组 · 连续提交失败 <strong>${hedgeText(task.consecutive_submission_failures)}</strong> / 暂停阈值 <strong>${hedgeText(task.failure_pause_threshold)}</strong></div>`;
         // live-hardening v1（10-design §2.4a）：worker 运行时事实行，恒展示；字段缺失降级 —。
         const workerLine = `<div>执行线程：<strong>${hedgeWorkerActiveText(task.worker_active)}</strong> · 上次退出原因：<strong>${escapeHtml(hedgeWorkerExitReasonText(task.last_worker_exit_reason))}</strong></div>`;
+        // 暂停原因直读后端 pause_reason_zh：后端有 11 种 PAUSE_REASON_*，且中文里带着
+        // 排查指引（如 -2015 会点名 IP 白名单与「订单未发出」）。前端不再维护映射表——
+        // 那张表只收录了 1 种，其余全部裸露英文枚举，且新增原因必然漏掉。
+        // 后端未给中文时回退原始枚举，至少不空白。
         const pauseReasonLine = task.pause_reason
-          ? `<div class="borrow-task-note">暂停原因：${escapeHtml(HEDGE_PAUSE_REASON_LABELS[task.pause_reason] || String(task.pause_reason))}</div>`
+          ? `<div class="borrow-task-note">暂停原因：${escapeHtml(task.pause_reason_zh || String(task.pause_reason))}</div>`
           : '';
         return `
           <div class="borrow-task-card" data-hedge-task-id="${idAttr}">
@@ -5673,6 +5674,14 @@
       // 后端 /api/hedge-open-positions 已把真实 UM 持仓（骨架）与任务记账成本、
       // 现货/借款、未实现盈亏合并好；前端只渲染。占位零三分类（P7）：真值 / 暂无 /
       // 拿不到(—)。标记：单腿敞口 / 本地记录与实际不一致 / 含已删除任务记录。
+      // 现货腿 symbol 子行：仅当它与合约名不同才显示（bStock SNXXUSDT -> SNXXBUSDT、
+      // 1000x 1000BONKUSDT -> BONKUSDT）。同名标的不加噪音。no_task 行无固化身份 -> 不显示。
+      function spotLegLine(p) {
+        const spot = p && p.spot_symbol;
+        if (typeof spot !== 'string' || !spot || spot === p.coin) return '';
+        return `<div class="muted small">现货腿 ${escapeHtml(spot)}</div>`;
+      }
+
       function renderHedgeMergedPositions() {
         const positions = state.hedgePositions;
         // account is absent until the first positions load; only an explicit
@@ -5784,7 +5793,7 @@
             ? ' title="部分成交金额未知，均价为不完整口径"' : '';
           return `
                       <tr>
-                        <td class="mono">${escapeHtml(p.coin)}</td>
+                        <td class="mono">${escapeHtml(p.coin)}${spotLegLine(p)}</td>
                         <td class="${dirCls}">${dirLabel}</td>
                         <td class="mono">${umCell(p.um_notional_usdt)}</td>
                         <td class="mono">${hasUm ? maskAmount(p.um_position_amt) : formatHedgeDecimal(p.position_qty)}</td>
