@@ -1,6 +1,6 @@
 # Project State
 
-Cross-stage state, read at startup. Keep under 32 KB. Git history is not a runtime
+Cross-stage state, read at startup. Keep under 64 KB. Git history is not a runtime
 check.
 
 ## Current Status (2026-08-07)
@@ -36,8 +36,18 @@ check.
   系统把 auth 类判为 `UNKNOWN_QUERYING` 而非 REJECTED 是**有意的保守设计**（auth/签名/
   时间戳存在歧义 → 只按 clientOrderId 重查、绝不重发），行为正确不改；错的是文案让人
   去找一张从未存在的单。已改为点名 IP 白名单 + 「订单未发出」。
-  **follow-up**：前端持仓表尚未显示现货腿 symbol（后端已提供 `spot_symbol` 字段），
-  这正是 Q1「看得见实际对冲的是 SNXXBUSDT」的诉求。
+  **本线遗留三项**：
+  1. `[OPEN][DOC-CORRECTION]` **`issue-triage-2026-08-07.opus5.md` 仍带已更正的错误**
+     （第 173/192/371 行）：称 bStock 失配导致 `single_leg_exposure` 失效、裸空不报警。
+     实为**只有 `drift` 受影响**——`single_leg_exposure` 只读任务记账的 `spot_qty`/
+     `perp_qty`，不读 `real_spot`，一直正常。更正已写在
+     `unified-symbol-resolver-2026-08-07.review-opus5.md` §二，但**原文档未同步**，
+     单独阅读会被误导；该文档给 Q1 排的优先级理由也有一半不成立。
+  2. `[OPEN][FOLLOW-UP]` **前端持仓表尚未显示现货腿 symbol**（后端已提供 `spot_symbol`
+     字段，DeepSeek 步骤③评审要求记账）。这正是 Q1「看得见实际对冲的是 SNXXBUSDT」
+     的诉求，小改动。
+  3. `[OPEN]` **launchd 托管仍未修**——见 Live Risks 同名条目（2026-08-03 记录，
+     2026-08-07 补根因 TCC）。Human 尚未决定是否处置。
 - **[2026-08-07] 现货符号解析改显式映射表 + P1/P2 死区修复已提交（`8ee6d3c`）**：
   d717595 的字符串猜测规则被纯表取代（`SPOT_SYMBOL_MAP` 71 条 = 65 bStock + 6 乘数，
   最新 exchangeInfo 实测生成）：d717595 放开 B 后缀 TRADIFI gate 的**全部影响面仅 1 条且是
@@ -72,7 +82,6 @@ check.
   `succeeded`。**后续项（开放缺口）**：R1 划转端点不受 `APP_HEDGE_EXECUTOR` 控制
   （接受现状，见 Live Risks）、R3 `pending` 卡死（不修，人工查库处置）、仅验证
   `unified→spot` 成功路径（`spot→unified`/`failed`/`unknown` 三路径仅离线证据）。
-- **stage `2026-08-06-hedge-order-close-validation` 已归档（2026-08-06 合并 main + 手动重启）**：
 - **stage `2026-08-06-hedge-order-close-validation` 已归档（2026-08-06 合并 main + 手动重启）**：
   下单与平仓链路经 Human **实盘显示验收通过**；Human 授权合并 main（`f153cdc..64f0051`
   fast-forward）并手动重启服务（healthz ok，新代码已生效）。修复链
@@ -134,8 +143,9 @@ check.
   `hedge_open_execution_mode mode=live start_gate=true` and
   `borrow_execution_mode mode=live execution_owner=true`, unchanged across
   restarts. **What follows from it, and still holds:** a task moved to `running`
-  can send real orders immediately, and **no close function exists** — the system
-  opens positions but cannot close them for you. No agent may create orders,
+  can send real orders immediately. （**订正 2026-08-07**：原文「no close function
+  exists」已过时——平仓功能早已交付，`close_gate` 默认开，2026-08-07 实盘用 close
+  任务完成过 SNXXUSDT 全平。仍然成立的是：任务一旦 `running` 就会真实下单。） No agent may create orders,
   touch credentials, control the service, or write the live task DB; an
   authorized read-only check must precede any live action.
 - `[OPEN][OPERATIONS][2026-08-03]` **The launchd service is broken and has been
@@ -271,53 +281,25 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
   neither paused nor is it resumable. Mild form of the family above.
 
 - `[CLOSED][2026-08-04]` **双栏流水日志 stage 交付完成，Human 决策：直接合并推送**。review-1（REWORK→修复→复审 ACCEPT）+ review-2（ACCEPT）全过，`rework_count` 1/3；Human 授权合并推送（未做前后端联调，推迟至后续 stage）。遗留后续项见下。
-- `[OPEN][2026-08-04]` **统一 review-1 REWORK，`rework_count` 0→1（F1/F2，修复轮进行中）**。F1（阻塞）：任务 B `server.py:954` 新增 `service.private_client` 依赖未同步 `test_service_health.py::_RunStubService`，破坏 5 个既有测试（实测全量 `1336 passed, 5 failed`；B 交接「194 回归全绿」未覆盖该文件，声明不实）；修复 = 补桩 `private_client=None` + 全量回归。F2（建议）：`scheduler.py` 无单测，新增 `test_ledger_flow_scheduler.py`（decide/catchup 全分支）。修复任务 `fix-review1-dual-ledger-flow-log-v1`（claude_glm）已路由；修复后 review-1 复审（deepseek）→ review-2（sonnet5）。
 - `[OPEN][FOLLOW-UP][2026-08-04]` **前后端联调未做（Human 决定先合并，推迟）**。真实 `POST /api/private-ledger/refresh` 连币安拉取从未执行过；review-2 判定联调可放在合并后，且 F-R2-2（fetcher→落库端到端路径未被活体数据验证）建议联调时重点核对 `truncated`/`gaps`/`unparsed_row_count`。Human 表示「后面看有什么问题我再单独开 stage 一并修复」——后续联调/修复 stage 待开。
 - `[OPEN][FOLLOW-UP][2026-08-04]` **微信通知、开单任务状态联动仍为后续项**（Human 2026-08-04 早先决定本轮不做）。
 - `[NOTE][2026-08-04]` **Human 已重启后端服务加载新代码（合并后部署）**。Human 计划在 2026-08-05 00:01（每小时整点后 1 分钟的定时刷新首触发点）观察流水日志页面数据是否自动拉取——这是 fetcher→落库端到端路径（review-2 F-R2-2）的首次活体验证。观察要点：页面「流水日志」看板数据是否出现、状态条「上次刷新」时间是否推进、两栏是否有 error 短码、`coverage` 是否正常（重点 `truncated`/`gaps`/`unparsed_row_count`）。观察结果若有异常，按 Human 决定开后续修复 stage。
 
 ## Open Follow-ups
 
-- `[OPEN][DIRECTION-CHANGE][2026-08-04]` **Human 决定暂停后端任务 A，前端先行（fake 原型确认制）**。`backend-ledger-store-fetch-v1`（glm）启动后被 Human 叫停：白名单 + 两个单页 fetcher + 8 个测试的初步改动**未验证、未提交、未建 `ledger_flow/` 包**，已按纪律还原（恢复 A 时从 dispatch 重做，改动要点见 A packet 与设计 §13.6）。改由 `frontend-fake-flow-log-v1`（grok/xai）先行：需求 1 按钮真实调整 + 流水日志面板 fake 假数据原型（形状按设计 §13.2 冻结契约），Human 目视确认后再恢复 A → B → C 真实开发。fake 原型为 LOW_RISK（纯 UI 探针、假数据无资金语义）。后续项：glm 终端若仍在运行需手动停止（Bookkeeper 不控制其他终端）。
 - `[CLOSED][2026-08-04]` **fake 原型阶段闭环，Human 目视验收通过**。v2 独立流水页（侧栏切换 + 每栏默认最新 20 条 + FAKE 护栏）已提交 `d46523d`。后端任务 A 已恢复路由（glm，从 dispatch 重做）；设计定稿 v1.3（§13.7 独立页布局 + 默认 20 条 + 修订记录）由 Planner 在 C 路由前落定；A → B → C 串行，每份交付后走 review-1 + review-2。
 - `[CLOSED][2026-08-04]` **前端布局定稿（Human 验收通过）**。tab-layout v2（panel-actions 双按钮、侧栏三项、market-view 内第二看板）+ 元数据卡片左右排微调（微调由 Human 直接安排 grok 完成，未走标准路由，Bookkeeper 已核验 self-check 全绿），前端最终交付提交 `5613c4e`。下一步：设计 v1.4（Planner）→ 前后端联调（真实 `POST /refresh` 须 Human 授权）→ 统一 review-1 + review-2（A+B+C，provider 隔离：review-1 避 `zhipu_glm`+`xai`，review-2 避两实现作者）。**review-2 模型决定（Human 2026-08-04）**：由默认 Opus 5 改为 **`sonnet5`（anthropic）**，理由为 Claude 额度考量；review-1 仍为 kimi（moonshot）。**kimi 额度（Human 2026-08-04 告知）**：`moonshot` 额度 **2026-08-07 之后可用**；在此之前 review-1 若需路由，改用 `deepseek`（`deepseek`）或 `codex`（`openai`），8 月 7 日后可切回 kimi。
-- `[OPEN][HUMAN-FEEDBACK][2026-08-04]` **流水日志改为费率行情页内双看板 tab（布局迭代，不触 rework_count）**。v1 实现（`frontend-flow-log-tab-layout-v1`）把「费率行情|流水日志」按钮误放 `.badge-row` 且未移除侧栏，Human 验收不合格，已回退至任务 C（f23368b）；根因是 packet 表述缺陷。按 Human 重述意图重新设计 v2（`frontend-flow-log-tab-layout-v2`，grok）：「费率行情」按钮放私有账户 `.panel-actions` 与 `#btn-flow-log` 紧邻、移除侧栏 `#nav-flow-log`、流水日志为 `#market-view` 内第二看板；功能硬规则零回退。确认后设计落 v1.4 → 前后端联调（真实 `POST /refresh` 须 Human 授权）→ 统一 review-1 + review-2（A+B+C）。
-- `[OPEN][PROCESS-ADJUSTMENT][2026-08-04]` **Human 决定：先前后端联调通过，再统一评审（review-1 暂缓）**。现状：任务 A 已交付（后端底座，`backend/ledger_flow/` 有 domain/store；`server.py` 无任何 `private-ledger` 路由），任务 B（service+scheduler+两条路由）与任务 C（前端接真实数据）未做，前端页面仍为 fake 演示数据——**前后端未打通**。按 Human 指示：review-1（kimi）暂缓（packet 保留于 stage 目录），先路由 B（glm，status_revision=11）→ C（前端接真实数据，路由前须由 Planner 落设计 v1.3 并对齐 C packet）→ 前后端联调（离线部分免授权；`POST /refresh` 连币安拉真实数据前须 Human 单独授权）→ 联调通过后统一 review-1 + review-2（覆盖 A+B+C）。
-- `[OPEN][FOLLOW-UP][2026-08-04]` **Borrow-interest cumulative accounting is still
-  unimplemented; live API recon is done.** Signed GET recon on the private
-  read-only key confirmed: ledger source =
-  `GET /papi/v1/margin/marginInterestHistory` ≡
-  `GET /sapi/v1/margin/interestHistory` (same `txId`/`interest`/`total`);
-  charge cadence 1h (`PERIODIC` + `ON_BORROW`); cumulative =
-  `Σ rows.interest` with `txId` idempotency; `balance.crossMarginInterest` is
-  outstanding unpaid only (not historical sum); `portfolio/interest-history`
-  empty while `negativeBalance=0`. Code still has E1/E1b whitelist-only (no
-  fetcher) and no sapi interestHistory whitelist. Evidence:
-  `reports/api-samples/2026-08-borrow-interest-history-recon-v1/20260804T0008Z/recon.md`.
-  Not a live money risk; blocks a future interest-ledger feature until scoped.
-- `[OPEN][FOLLOW-UP][2026-08-04]` **UM funding-fee / commission income ledger is
-  still unimplemented; live API recon is done.** Prototype
-  (`币安套费率策略，逐仓杠杆.js`) used `GET /fapi/v1/income`; PM path is
-  `GET /papi/v1/um/income` (this key gets fapi `-2015`). Same row shape:
-  `incomeType`/`income`/`asset`/`time`/`tranId`/`tradeId`. Live 30d mix:
-  FUNDING_FEE + COMMISSION (BNB, feeBurn=true) + REALIZED_PNL + TRANSFER.
-  Cumulative funding = `Σ income where incomeType=FUNDING_FEE`, idempotent on
-  `(incomeType, tranId)`; sort ascending; limit≤1000; weight ~30. Also probed
-  `um/commissionRate` and `um/feeBurn`. None are in `PrivateClient` whitelist.
-  Evidence:
-  `reports/api-samples/2026-08-um-income-funding-recon-v1/20260804T0015Z/recon.md`.
-  Not a live money risk; blocks a future funding-PnL feature until scoped.
-- `[OPEN][IN-PROGRESS][2026-08-04]` **Dual-column flow-log stage
-  `2026-08-04-dual-ledger-flow-log-v1` is open; design finalized v1.1, three
-  implementation packets ready, plan review pending.** Human answered all
-  §7 questions plus seven follow-ups (N1–N7): local SQLite dedup ledger,
-  hourly HH:01 refresh, "since last refresh" increment with honest-coverage
-  guardrails, contract `private-ledger/v2` (GET reads local DB only + POST
-  refresh), three serial packets A→B→C (store-fetch / schedule-api / frontend).
-  Plan review packet `plan-review-dual-ledger-flow-log-v1` (deepseek, read-only)
-  is prepared but not started. Authority:
-  `docs/planning/2026-08-04-dual-ledger-flow-log-design.md` (§11–§18);
-  packets under `reports/agent-runs/2026-08-04-dual-ledger-flow-log-v1/`.
+- `[RESOLVED][2026-08-07]` **借币利息流水已实现并在跑**（`ledger-flow.sqlite3`
+  `interest_rows` 91 行）。此前记录的「未实现」已过时。API 侦察结论仍有效：源 =
+  `GET /papi/v1/margin/marginInterestHistory` ≡ `sapi/v1/margin/interestHistory`
+  （同 `txId`/`interest`/`total`），1h 计息（`PERIODIC`+`ON_BORROW`），累计 =
+  `Σ rows.interest` 按 `txId` 幂等；`balance.crossMarginInterest` 只是未付欠息、
+  非历史累计。证据 `reports/api-samples/2026-08-borrow-interest-history-recon-v1/`。
+- `[RESOLVED][2026-08-07]` **UM 资金费/手续费流水已实现并在跑**（`um_income_rows`
+  94 行，实测含 FUNDING_FEE/COMMISSION/REALIZED_PNL/TRANSFER）。此前「未实现」已过时。
+  API 侦察结论仍有效：PM 路径是 `GET /papi/v1/um/income`（本 key 打 fapi 得 `-2015`），
+  按 `(incomeType, tranId)` 幂等、升序、limit≤1000、权重 ~30。证据
+  `reports/api-samples/2026-08-um-income-funding-recon-v1/`。
 - `[OPEN][FOLLOW-UP][2026-08-04]` **WeChat notification for new funding-fee
   increments was explicitly deferred by Human** (not part of this stage); the
   hourly refresh + increment stats land on-page only. Revisit as a separate
