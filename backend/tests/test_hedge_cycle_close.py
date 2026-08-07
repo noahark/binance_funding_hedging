@@ -1032,9 +1032,15 @@ def test_create_task_freezes_spot_identity_in_dry_run(tmp_path):
 
 
 def _allow_multiplier_open(monkeypatch):
-    """1000x 开单已被 P0 (2026-08-07) fail-closed（两腿量换算未实现）。身份固化与
-    平仓路径对乘数币的正确性仍然要守——那是「拦截生效前的历史仓位」必须能平掉的
-    逃生口。这里只关掉建单拦截，被测逻辑本身一行未改。"""
+    """1000x 开单已被 P0 (2026-08-07) fail-closed（两腿量换算未实现）。
+
+    身份固化与划转资产名仍必须守：**即使 close 的腿量同样错 1000 倍**（它走同一个
+    compute_preflight，自动平仓并不安全），资产名错了连人工处置都无从下手——拿
+    `1000BONK` 去账户里找一个不存在的资产，划转必然失败。所以守的是「叫什么」这一层，
+    不是「能不能自动平」。
+
+    这里只关掉建单拦截，被测逻辑本身一行未改；拦截若失效会让测试抛 400 而非静默通过。
+    """
     monkeypatch.setattr(service_mod, "SPOT_MATCH_MULTIPLIER", "__off_for_test__")
 
 

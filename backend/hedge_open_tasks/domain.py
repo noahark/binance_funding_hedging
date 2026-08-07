@@ -1966,6 +1966,11 @@ def _merge_build_row(coin, direction, bucket, um, spot_by_asset,
     # holding is invented, so a fired marker still means the account is genuinely
     # short of the record.
     #
+    # 具体的假阴性来源（review 2026-08-07 指出）：``unified_balance`` 是
+    # ``totalWalletBalance``，**含 UM/CM 合约子钱包**，所以同资产被当作合约保证金
+    # 占用的部分也会被算进「持有」。这使本标记比旧版更弱——**它是「有报警必真少」
+    # 的弱告警，不是「无报警即相符」的强保证**。别把它当对账用。
+    #
     # An unreadable account (verified=false -> both balance lists empty) must NOT
     # sum to zero and paint every row — that is the F4 mistake ("claimed without
     # checking"), so it fails to False.
