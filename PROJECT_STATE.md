@@ -5,6 +5,35 @@ check.
 
 ## Current Status (2026-08-07)
 
+- **[2026-08-07 进行中] symbol-identity-unification（现货腿身份统一；Human 直接驱动，无 stage）**：
+  方案 `docs/planning/symbol-identity-unification-2026-08-07.opus5.md`（r2）经 DeepSeek 复审
+  ACCEPT（D1「创建时拒绝」撤销——实证表明拒绝已由现有 `check_symbol_legs` 覆盖，身份与
+  存在性分离：身份查静态表可固化，存在性必须实时探测，`KORUUSDT` 为活证据）。
+  **步骤① 完成（`ee35b5e`，1545 passed + self-check EXIT=0 + verify 退出码 0）**：
+  任务表加 `spot_symbol / spot_base_asset / symbol_match_type` 三列（additive-forward +
+  ALTER 守卫）；`normalize.resolve_spot_identity` 纯查表零 IO、永不返回 None（表内映射、
+  表外同名 exact）；`create_task` 在 `check_symbol_legs` 探测后固化三列（不新增拒绝分支，
+  零行为变化）；回填 `store.backfill_spot_identity()` 幂等（只写 NULL 行），**生产库已回填
+  16/16**——含方案 §1.1 实盘缺陷任务 `7f1836fe`（原解析为 SNXXUSDT）修正为 SNXXBUSDT，
+  备份 `data/hedge-open-tasks.sqlite3.bak-spotidentity-20260807-130158`。
+  DeepSeek 步骤① 评审 ACCEPT：偏差 1/2 接受（回填入 store 可单测、测试 9 挪②步）；
+  存疑点 1/4/5/6 接受（close 中间态可接受、冗余列无 DB 约束可接受、store 依赖
+  domain.normalize 无环、固化时机正确），存疑点 2/3 建议 1 行修改并入②（identity 输入
+  fail-fast、回填判定补 `OR spot_symbol = ''`）。**第②步前置要求**：D3 一致性告警提前到②、
+  删 `spot_order_symbol` 前核对 6 处调用点（含 `tests/fakes.py:155`）、close 平单环
+  （service.py:1639/1742）切 `spot_base_of(task)` 后 dry-run/live 两态测试。
+  **步骤② 进行中**（opus5）：六个消费点切任务列 + 删 `spot_order_symbol` + 停写
+  `preflight_snapshot.spot_symbol`（domain.py:1151 整段删）。
+- **[2026-08-07] 现货符号解析改显式映射表 + P1/P2 死区修复已提交（`8ee6d3c`）**：
+  d717595 的字符串猜测规则被纯表取代（`SPOT_SYMBOL_MAP` 71 条 = 65 bStock + 6 乘数，
+  最新 exchangeInfo 实测生成）：d717595 放开 B 后缀 TRADIFI gate 的**全部影响面仅 1 条且是
+  错的**（合约 BUSDT/base=B 会误配到 BounceBit 的 BBUSDT，两个独立币种，误配贯穿预检/开单/
+  展示/平单——真实裸敞口风险）；`base[4:]` 对 `1000000MOG` 剥成 `000MOG` 同样被纯表消除。
+  同一提交含 P1/P2 修复（collateral-cap 开单死区：缓存超龄实时重读 + 手动刷新覆盖
+  restricted_asset）。**注意：`8ee6d3c` 起服务仍未重启，运行中的服务没有上述修复**（含
+  P1/P2 与纯表方案），重启需 Human 授权且避开在跑任务。issue-triage Q1 已随本线解决；
+  Q2（流水划转回显）、Q3（多任务卡回显）、Q4（maxWithdraw）未处理，建议顺序 Q3→Q4→Q2。
+
 - **stage `2026-08-06-asset-transfer-live-v1` 已收尾归档（2026-08-07）**：Human 实盘验收通过并
   授权合并推送（`bb47d02..b98ad4f` + 记录提交 `4d0fd44` 均已推送 origin）；证据归档
   `archive/2026-08-06-asset-transfer-live-v1`（archive 分支已推送 origin，含全部
