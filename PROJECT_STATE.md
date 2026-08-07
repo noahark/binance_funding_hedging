@@ -5,6 +5,21 @@ check.
 
 ## Current Status (2026-08-07)
 
+- **[2026-08-07 晚 已收口]「展示层诚实性」整族修复（Human 直接驱动，无 stage）**。
+  贯穿本轮的一条线：**界面在声称它其实不知道的事**。四项全部收口 —— 单腿敞口判定
+  （漏报裸空 + 部分失衡）、drift 账户口径（对多数币恒假阴性）、终态任务结算文案
+  （对已删任务说「已暂停、请恢复」）、F4 交易所无仓假声明（三条路径 + `no_um` 措辞）。
+  同族的展示口径修正还有：划转「可用/可转」措辞按数据来源分开、任务卡暂停原因直读
+  后端中文、持仓表显示现货腿 symbol。
+  **一条可复用的判断**：修「假声明」时最容易犯的错，是**把一个假声明换成另一个**。
+  三次踩到同一形状——`[]`（真空仓）当失败信号会在真空仓时误报；`unavailable_sources`
+  缺失当故障会让每个旧调用方平白报警；用可用额冒充可转出额显示。共同解法是
+  **区分「不知道」与「知道没有」，且缺省一侧永远倒向「已知」**。
+  **过程中另有两项非展示交付**：1000x 乘数币 fail-closed 拦截（资金安全，见 Live
+  Risks）、前后端字段名绑定检查（E4，沉默型故障的护栏）。
+  **测试基线 1601 passed + self-check EXIT=0**；本轮新增 ~30 条断言，其中多条
+  **注入回退验证过会红**（字段改名、条件移除），不是写完就算。
+
 - **[2026-08-07 已收口] symbol-identity-unification（现货腿身份统一；Human 直接驱动，无 stage）**：
   方案 `docs/planning/symbol-identity-unification-2026-08-07.opus5.md`（r2）+ 三轮 DeepSeek
   评审全部 ACCEPT。**现货腿身份自此是任务的第一等属性**：建任务时由静态表解析一次并
@@ -275,7 +290,8 @@ check.
 
 All three are the same class: **the display asserting something it does not
 know.** None costs money directly; each can mislead an operating decision.
-**A 与 B 已于 2026-08-07 修复（见下）；F4 仍 OPEN。**
+**A / B / F4 已于 2026-08-07 全部修复——本段三项至此清零。**
+展示层诚实性这一族（单腿敞口、drift、终态文案、交易所无仓）本轮收口完毕。
 
 - `[RESOLVED][2026-08-07]` **A** — ~~the single-leg marker only fires when the perp
   leg is entirely absent, so a partial imbalance (spot 2.0 / perp 1.0) reads as
@@ -301,21 +317,36 @@ know.** None costs money directly; each can mislead an operating decision.
   **2026-08-03 (v4.1) 的旧注记仍成立且仍需警惕**：持仓表加了「杠杆」行让统一账户
   余额可见（合并日实测 `COOKIEUSDT` 统一账户 `2997.0`、普通现货侧 `null`），但那次
   **没有**改 `drift` 本身。展示变丰富 ≠ 一致性检查修好了——这次才是。
-- `[OPEN][ACCEPTED]` **F4 — "exchange has no position" is claimed without
-  checking.** Whenever the account cannot be read (`SnapshotNotReady`, or
-  `verified: false` from an expired key / changed IP / Binance error), every row
-  still reports `no_um` and prints 交易所无仓 with a liquidation hint — verified to
-  do so even when the account block *does* contain that position.
-  **Re-decided 2026-08-02**: Task 2 was to fix it, Task 2 is deferred, and F4
-  **stays accepted**. An exchange outage can trigger both
-  `order_state_unknown` (pause and verify) and this false claim, so the table is
-  least trustworthy when it matters most. **Operator rule: 「交易所无仓」本身
-  永远不足以证明仓位没了 —— 去币安核实。横幅只覆盖三条路径中的两条，
-  它不出现，什么也证明不了。**
-  Opus5 identified a third path: `verified=true` can hide
-  a missing UM-side read. A task bucket plus no matching UM is `no_um` only
-  after a successful UM-granular read; the reported root cause is
-  `backend/domain/snapshot.py` near `:1098` and `:1120`. This remains deferred.
+- `[RESOLVED][2026-08-07]` ~~**F4 — "exchange has no position" is claimed without
+  checking.** 账户读不到时每行仍报 `no_um` 并印「交易所无仓」+ 爆仓暗示——已验证
+  账户块里明明含有该持仓时也照印。~~ **已收口**（`184d76e` + `44ab175`）。
+  **根因**：`fetch_um_positions` 用 `[]` 表示「读到了，确实空仓」、`None` 表示
+  「没读到」，而 `assemble_private_account` 的 `or []` 降级把这个区别抹平了。降级
+  本身是对的（UM 挂了不该让余额一起消失），错在丢掉了降级这个事实。
+  （原记录说根因在 `snapshot.py:1098/1120` —— 那两个行号已漂且指向无关代码，
+  实际在 `assemble_private_account` 的入参降级处。）
+  **修法**（Human 定稿的简化方案，比原计划的行级状态更直观）：
+  契约层新增 `private_account.unavailable_sources`（判据是**入参 `is None`**，
+  不是数组为空——`[]` 恰是「确实空仓」的真值表示，拿它当失败信号会在真正空仓时
+  误报，等于把一个假声明换成另一个）；组装根透传进 `account_meta`；持仓表**保留
+  表格**、只在标题后加一行红字「未获取到交易所持仓数据，仅展示本地缓存记录」。
+  表格保留是关键——本地记账在故障时刻恰恰最有用，它告诉你该去核对哪几个币。
+  **三条路径全部收口**：快照未就绪 / `verified=false` / UM 单源失败（第三条此前
+  完全无提示）。前端判据含 `verified === false`，因为 merge 在该状态下会**主动
+  忽略** UM 数据，哪怕那一路其实读到了。
+  **连带修正 `no_um` 自身**（`44ab175`）：已平仓周期行本来就该没有交易所仓位，
+  此前它会与「已完全平仓」标记并排印出红色「交易所无仓（可能已强平）」——对正常
+  平完的周期是纯误导。现在只对**活跃周期**警示；文案降调为「可能已强平、手工平仓，
+  或本地记账与交易所不同步——请到币安核实」，不把推测说成结论。
+  **双评审**：kimi ACCEPT；DeepSeek REWORK（三条修复要求已全部收编）。两位**独立
+  抓到同一个缺口**（`account_meta` 未桥接），确认那是原计划的硬伤。DeepSeek 另
+  独立确认：无第四条路径、两个判据否决站得住、`no_task` 推理成立，并逐条核对 5 处
+  `no_um` 回归断言全属真空仓场景（故**原样未动**）。
+  计划与评审留档：`docs/planning/f4-exchange-no-position-claim-2026-08-07.opus5.md`
+  （含 r3 简化方案与一处立场变更的记录）。
+  **操作规矩可以放松但建议保留**：「『交易所无仓』永远不足以证明仓位没了」技术上
+  不再必要，但**陈旧数据是未覆盖的独立维度**（10 分钟前的快照 vs 5 分钟前被强平），
+  `source_checked_at` 只把时间摆出来供判断。
 - `[VOID][2026-08-07]` ~~The read-only smoke run was never executed. Checklist:
   archive `49-`; it is a **hard prerequisite** for the next live activation.~~
   **该门禁经 Human 决定正式作废——实盘启用不再需要任何前置检查。**
