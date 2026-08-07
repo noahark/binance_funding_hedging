@@ -139,6 +139,10 @@ def _is_hedge_open_path(path: str) -> bool:
     )
 
 
+# 一次批量 max-withdraw 的资产数上限（Q4）。币安该接口无批量版，N 个资产 = N 次签名
+# 请求，上限防止一个畸形 query 把 IP 权重池打空。实测统一账户 18 个资产，30 留了余量。
+_MAX_WITHDRAW_ASSET_CAP = 30
+
 # ---- 资产互转（stage 2026-08-06-asset-transfer-live-v1）----
 # 方向映射只在服务端做：请求体不接受币安 transfer type，杜绝外部注入。
 _TRANSFER_ACCOUNTS = ("unified", "spot")
@@ -488,21 +492,30 @@ class _Handler(BaseHTTPRequestHandler):
         self._send_ledger(200, payload)
 
     def _handle_max_withdraw(self):
-        """GET /api/private-account/max-withdraw?asset=USDT — 统一账户单资产的
-        最大可转出额（Q4, 2026-08-07）。
+        """GET /api/private-account/max-withdraw?assets=USDT,BNB,... — 统一账户
+        各资产的最大可转出额（Q4, 2026-08-07；2026-08-07 晚改为批量）。
 
-        按需读，不进快照：per-asset 一次请求（快照要为每个资产各调一次），且该值
-        随价格波动，缓存住就会在转出那一刻给出过期的数。
+        按需读，不进快照：币安的 `maxWithdraw` **没有批量版**，一个资产一次签名请求，
+        且该值随价格波动，缓存住就会在转出那一刻给出过期的数。改批量是为了让前端发
+        **一个**请求而不是 N 个并发——循环放在后端，对交易所的节奏由这里控制。
 
-        取不到时回 200 + ``max_withdraw: null``，而不是错误码——调用方（转出界面）
-        要能区分「读不到」和「是 0」，并把前者显示成「未知」。
+        单个资产读失败**不影响**其余资产：每个资产各自带 ``error``，整体仍 200。
+        取不到时该资产 ``max_withdraw: null`` 而非错误码——调用方要能区分「读不到」
+        和「是 0」（后者在满仓抵押时是合法且重要的答案）。
         """
         query = parse_qs(urlparse(self.path).query)
-        asset = (query.get("asset", [""])[0] or "").strip().upper()
-        if not asset or not asset.isalnum():
+        raw = (query.get("assets", [""])[0] or "").strip()
+        assets = [a.strip().upper() for a in raw.split(",") if a.strip()]
+        if not assets or not all(a.isalnum() for a in assets):
             self._send_ledger(
                 400, {"error": "invalid_asset",
-                      "detail": "asset query param is required (alphanumeric)"})
+                      "detail": "assets query param is required "
+                                "(comma-separated, alphanumeric)"})
+            return
+        if len(assets) > _MAX_WITHDRAW_ASSET_CAP:
+            self._send_ledger(
+                400, {"error": "too_many_assets",
+                      "detail": f"at most {_MAX_WITHDRAW_ASSET_CAP} assets per request"})
             return
         client = getattr(self.service, "private_client", None)
         if client is None or not getattr(client, "enabled", False):
@@ -510,12 +523,19 @@ class _Handler(BaseHTTPRequestHandler):
                 503, {"error": "private_account_unavailable",
                       "detail": "private client not configured"})
             return
-        result = client.fetch_max_withdraw(asset, force=True)
-        self._send_ledger(200, {
-            "asset": asset,
-            "max_withdraw": (result or {}).get("max_withdraw"),
-            "error": None if result else (client.last_error or "max_withdraw_failed"),
-        })
+        results = []
+        seen = set()
+        for asset in assets:
+            if asset in seen:  # 去重：同一资产不重复打交易所
+                continue
+            seen.add(asset)
+            result = client.fetch_max_withdraw(asset, force=True)
+            results.append({
+                "asset": asset,
+                "max_withdraw": (result or {}).get("max_withdraw"),
+                "error": None if result else (client.last_error or "max_withdraw_failed"),
+            })
+        self._send_ledger(200, {"results": results})
 
     def _handle_flow_refresh(self):
         # No request body field is read (§13.4); any posted body is drained.

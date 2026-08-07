@@ -1648,14 +1648,16 @@
         // result 为后端返回的划转记录（含 status 四态）或请求层错误；
         // locked 在 status=unknown 后置真——结果未知时钱可能已经转了，必须先人工
         // 核对再解锁，否则换个新编号重来就会转第二次。
-        // maxWithdraw：统一账户选中资产的**最大可转出额**，按需实时读（Q4）。
-        // 不放进 60s 快照：它是 per-asset 请求，且随价格波动——缓存住就会在按
-        // 「划转」那一刻给出过期的数。asset 记录这份结果属于哪个资产，防止切换
-        // 资产后旧结果贴到新资产上。
+        // maxWithdraw：统一账户各资产的**最大可转出额**，按需实时批量读（Q4）。
+        // 不放进 60s 快照：币安该接口无批量版（N 资产 = N 次签名请求），且值随价格
+        // 波动——缓存住就会在按「划转」那一刻给出过期的数。
+        // byAsset: {资产: 可转出额字符串|null}；fetchedKey/fetchedAt 供 20s 节流判定
+        // （面板 60s 自动重渲染，不节流就是每分钟 18 次打交易所）。
         assetTransfer: {
           from: 'unified', asset: null, amount: '',
           submitting: false, result: null, locked: false,
-          maxWithdraw: { asset: null, value: null, error: null, loading: false },
+          maxWithdraw: { byAsset: {}, fetchedKey: null, fetchedAt: 0,
+                         error: null, loading: false },
         },
         // 立即开单创建中：导航徽标显示转圈，计数可叠加（并发创建）。
         hedgeTaskNavLoading: 0,
@@ -3380,11 +3382,15 @@
       }
 
       // 「从」账户的可划转资产：{ asset, available, netUsdt }，全部取自快照真实字段。
-      // 统一账户 available = cross_margin_free（PAPI crossMarginFree，与 preflight /
-      // executor 判定「统一账户能动多少」同源）；现货账户 available = free。
-      // cross_margin_free 是**可用额而非最大可划转额**：转出还要过账户 uniMMR /
-      // 抵押约束，交易所可能拒绝一笔看似在可用额内的划转，最终以服务端校验为准。
-      // 缺失 → null → 显示 —（不回退到总量，绝不把「不知道」显示成一个数）。
+      // 「从」账户每个资产能转走多少，直接进下拉标签（2026-08-07 晚，Human 要求）。
+      //
+      // 统一账户：**真实最大可转出额**（PAPI maxWithdraw，按需实时批量读）。此前这里
+      // 用 cross_margin_free 冒充，两者在有借款时必然不等——可用额只说这些钱没被挂单
+      // 占用，可转出额还扣掉了维持全仓抵押所必需的部分。读不到就是 null → 显示 —，
+      // **绝不回退 cross_margin_free 顶替**（那正是要修的毛病）。
+      //
+      // 现货账户：free 本身就是可转出额（无抵押约束），不需要额外接口。
+      //
       // 资产卡的「净价值 < 10 USDT 不展示」过滤不套用到这里：小额资产也要能转走。
       function transferAssetRows(pa, from) {
         if (!pa) return [];
@@ -3397,11 +3403,22 @@
           }));
         }
         const rows = Array.isArray(pa.balances_unified) ? pa.balances_unified : [];
-        return rows.filter(b => b && b.asset).map(b => ({
-          asset: b.asset,
-          available: b.cross_margin_free,
-          netUsdt: sub8(b.value_usdt, b.cross_margin_borrowed_value_usdt)
-        }));
+        const mw = state.assetTransfer.maxWithdraw.byAsset;
+        return rows.filter(b => b && b.asset).map(b => {
+          const maxWithdraw = Object.prototype.hasOwnProperty.call(mw, b.asset)
+            ? mw[b.asset] : null;
+          return {
+            asset: b.asset,
+            // 显示：只认真实可转出额，不知道就是 null（→ 显示 —）。
+            available: maxWithdraw,
+            // 校验：有可转出额就用它（更准），没有就退回 cross_margin_free。
+            // 显示与校验目的不同，故口径可以不同——显示要诚实（不知道就说不知道），
+            // 校验要尽力（有什么用什么，至少挡住离谱的输入）。用可用额冒充可转出额
+            // 显示是错的，用它当校验上界只是保守，不会误导人。
+            limit: maxWithdraw != null ? maxWithdraw : b.cross_margin_free,
+            netUsdt: sub8(b.value_usdt, b.cross_margin_borrowed_value_usdt)
+          };
+        });
       }
 
       function transferSelectedRow(pa) {
@@ -3432,84 +3449,100 @@
         if (/^0*\.?0*$/.test(amount)) {
           return { ok: false, hint: '数量需大于 0', hintCls: 'negative' };
         }
-        const remain = sub8(row.available, amount);
+        // 校验用 limit（可转出额优先，缺失时退回可用额），不是显示用的 available——
+        // 见 transferAssetRows 里两者分开的理由。
+        const limit = row.limit != null ? row.limit : row.available;
+        const remain = sub8(limit, amount);
         if (remain !== null && remain.startsWith('-')) {
           return {
             ok: false,
-            hint: `超出可用数量（${escapeHtml(row.asset)} 可用 ${formatBalanceAmount(row.available)}）`,
+            hint: `超出可用数量（${escapeHtml(row.asset)} 可用 ${formatBalanceAmount(limit)}）`,
             hintCls: 'negative'
           };
         }
         return { ok: true, hint: '', hintCls: 'muted', row, amount };
       }
 
-      function transferAssetOptionLabel(row) {
-        return `${row.asset} · 可用 ${formatBalanceAmount(row.available)} · 净值 ${approximateUsdtLine(row.netUsdt)}`;
+      // 统一账户说「可转」（真实 maxWithdraw），现货账户说「可用」（free 即可转出额，
+      // 无抵押约束）。两个词对应两个不同的事实，不合并。
+      function transferAssetOptionLabel(row, from) {
+        const label = from === 'unified' ? '可转' : '可用';
+        return `${row.asset} · ${label} ${formatBalanceAmount(row.available)} · 净值 ${approximateUsdtLine(row.netUsdt)}`;
       }
 
-      // Q4（2026-08-07）：统一账户的「最多可转出」。
+      function transferAssetOptionsHtml(pa, from) {
+        const t = state.assetTransfer;
+        const rows = transferAssetRows(pa, from);
+        return [
+          `<option value=""${t.asset ? '' : ' selected'}>选择资产</option>`,
+          ...rows.map(r => `<option value="${escapeHtml(r.asset)}"${r.asset === t.asset ? ' selected' : ''}>${escapeHtml(transferAssetOptionLabel(r, from))}</option>`)
+        ].join('');
+      }
+
+      // Q4（2026-08-07）：统一账户各资产的**最大可转出额**，直接进下拉标签。
       //
-      // 此前界面拿 crossMarginFree 当可转出额，代码注释里也已承认它不准：可用额
-      // 只说这些钱没被挂单占用，可转出额还要扣掉维持全仓抵押所必需的部分——有借款
-      // 时两者必然不等。真值只有交易所知道（GET /papi/v1/margin/maxWithdraw）。
+      // 币安 maxWithdraw **没有批量版**，一个资产一次签名请求（实测统一账户 18 个）。
+      // 所以循环放在后端，前端只发一个请求——否则就是 18 个并发。
       //
-      // 现货账户不需要这个：free 本身就是可转出额，没有抵押约束。
+      // 节流：整块面板 60s 自动重渲染一次，若每次重渲染都重拉，就是每分钟 18 次打
+      // 交易所。同一组资产 20 秒内复用上次结果；选中某个资产时**单独强制重拉那一个**
+      // （真正要转的那个数必须新鲜，这是这个值存在的意义）。
+      const MAX_WITHDRAW_TTL_MS = 20000;
       let maxWithdrawSeq = 0;
-      async function loadMaxWithdraw(asset) {
+      async function loadMaxWithdrawBatch(assets, { force = false } = {}) {
         const mw = state.assetTransfer.maxWithdraw;
-        if (!asset || state.assetTransfer.from !== 'unified') {
-          Object.assign(mw, { asset: null, value: null, error: null, loading: false });
-          renderMaxWithdrawLine();
-          return;
-        }
+        const list = (assets || []).filter(Boolean);
+        if (!list.length || state.assetTransfer.from !== 'unified') return;
+        const key = list.slice().sort().join(',');
+        // 失败也计入节流（负缓存）：端点持续 503 时，不能每次点开下拉都再打一轮。
+        const fresh = mw.fetchedKey === key
+          && (Date.now() - mw.fetchedAt) < MAX_WITHDRAW_TTL_MS;
+        if (fresh && !force) return;
         const seq = ++maxWithdrawSeq;
-        Object.assign(mw, { asset, value: null, error: null, loading: true });
-        renderMaxWithdrawLine();
+        mw.loading = true;
+        renderTransferAssetOptions();
         let body = null;
         let ok = false;
         try {
           const res = await fetch(
-            '/api/private-account/max-withdraw?asset=' + encodeURIComponent(asset)
+            '/api/private-account/max-withdraw?assets=' +
+            encodeURIComponent(list.join(','))
           );
           ok = res.ok;
           try { body = await res.json(); } catch (e) { body = null; }
         } catch (e) {
           body = null;
         }
-        // 慢响应竞态：切走资产后旧请求才回来，结果必须丢弃，绝不贴到新资产上。
+        // 慢响应竞态：切走账户/换了资产集合后旧请求才回来，结果必须丢弃。
         if (seq !== maxWithdrawSeq) return;
         mw.loading = false;
-        if (ok && body && body.max_withdraw != null) {
-          mw.value = body.max_withdraw;
+        if (ok && body && Array.isArray(body.results)) {
+          // 逐资产合并：单个失败只让那一个变 null，不连累其余（后端已隔离）。
+          for (const row of body.results) {
+            if (row && row.asset) mw.byAsset[row.asset] = row.max_withdraw;
+          }
+          mw.fetchedKey = key;
+          mw.fetchedAt = Date.now();
           mw.error = null;
         } else {
-          mw.value = null;
+          // 整体失败（503 / 网络）：清空而非留旧值——过期的可转出额比没有更危险。
+          // 但仍记 key+时间，让负缓存生效，避免持续失败时每次点开都打一轮。
+          mw.byAsset = {};
+          mw.fetchedKey = key;
+          mw.fetchedAt = Date.now();
           mw.error = (body && (body.detail || body.error)) || '读取失败';
         }
-        renderMaxWithdrawLine();
+        renderTransferAssetOptions();
       }
 
-      // 「不知道」必须显示成不知道：读不到时给出 —— 与失败原因，绝不回退到
-      // crossMarginFree 顶替，那正是本项要修的毛病。
-      function maxWithdrawText() {
-        const t = state.assetTransfer;
-        const mw = t.maxWithdraw;
-        if (t.from !== 'unified' || !t.asset) return '';
-        if (mw.asset !== t.asset) return '';
-        if (mw.loading) return `最多可转出：读取中…`;
-        if (mw.value != null) {
-          return `最多可转出：${formatBalanceAmount(mw.value)} ${t.asset}（交易所实时口径，已扣除维持抵押所需部分）`;
-        }
-        return `最多可转出：—（读取失败：${mw.error}）。上方「可用」不等于可转出额，请以交易所为准`;
-      }
-
-      // 局部更新，不重建整块 DOM——重建会打断正在输入的光标（与 updateTransferValidity 同因）。
-      function renderMaxWithdrawLine() {
-        const node = document.getElementById('transfer-max-withdraw');
-        if (!node) return;
-        const text = maxWithdrawText();
-        node.textContent = text;
-        node.style.display = text ? '' : 'none';
+      // 只重建下拉的 <option>，不动整块 DOM——重建会打断正在输入的光标
+      // （与 updateTransferValidity 同因）。
+      function renderTransferAssetOptions() {
+        const sel = document.getElementById('transfer-asset');
+        if (!sel) return;
+        const pa = state.snapshot && state.snapshot.private_account;
+        sel.innerHTML = transferAssetOptionsHtml(pa, state.assetTransfer.from);
+        updateTransferValidity();
       }
 
       // 后端对业务结果一律返回 HTTP 200，真实结论只在 body.status 里（四态）。
@@ -3555,10 +3588,7 @@
         const accountOptions = (selectedValue) => TRANSFER_ACCOUNTS.map(a =>
           `<option value="${a}"${a === selectedValue ? ' selected' : ''}>${TRANSFER_ACCOUNT_LABELS[a]}</option>`
         ).join('');
-        const assetOptions = [
-          `<option value=""${t.asset ? '' : ' selected'}>选择资产</option>`,
-          ...rows.map(r => `<option value="${escapeHtml(r.asset)}"${r.asset === t.asset ? ' selected' : ''}>${escapeHtml(transferAssetOptionLabel(r))}</option>`)
-        ].join('');
+        const assetOptions = transferAssetOptionsHtml(pa, from);
         const verdict = evaluateTransfer(pa);
         // 结果回显（陈述上一次提交的事实）保留到下一次提交或切换转出账户；
         // 编辑表单时不清，避免为移除一行文字重建输入框而打断输入焦点。
@@ -3569,7 +3599,7 @@
         // 实测两个方向的偏差都出现过（2026-08-06 实盘 USDT 可用 > 总量），
         // 不能承诺谁大谁小。
         const availabilityNote = from === 'unified'
-          ? '可用 = 统一账户全仓可用余额（crossMarginFree），与卡片「总量」口径不同（总量含合约子钱包），两者不一致属正常；能转多少以下方「最多可转出」为准'
+          ? '可转 = 交易所实时最大可转出额（已扣除维持全仓抵押所需部分），与卡片「总量」口径不同（总量含合约子钱包），两者不一致属正常；显示 — 表示该资产暂时读不到，不代表可转 0'
           : '可用 = 现货账户可用余额（free），不含冻结部分';
         return `
           <div class="asset-transfer">
@@ -3582,7 +3612,7 @@
               <select id="transfer-from" data-transfer-account="from">${accountOptions(from)}</select>
               <label for="transfer-to">转到</label>
               <select id="transfer-to" data-transfer-account="to">${accountOptions(to)}</select>
-              <select id="transfer-asset" class="transfer-asset" data-transfer-asset>${assetOptions}</select>
+              <select id="transfer-asset" class="transfer-asset" data-transfer-asset data-transfer-asset-focus>${assetOptions}</select>
               <input id="transfer-amount" class="transfer-amount" type="text" inputmode="decimal"
                      placeholder="划转数量" autocomplete="off" data-transfer-amount
                      value="${escapeHtml(String(t.amount == null ? '' : t.amount))}"/>
@@ -3590,7 +3620,6 @@
                       data-transfer-submit${verdict.ok ? '' : ' disabled'}>划转</button>
             </div>
             <div class="asset-transfer-hint muted">${escapeHtml(availabilityNote)}；数据为约 60 秒的账户快照缓存，实际可划转量还受统一账户保证金占用限制</div>
-            <div class="asset-transfer-hint muted" id="transfer-max-withdraw"${maxWithdrawText() ? '' : ' style="display:none"'}>${escapeHtml(maxWithdrawText())}</div>
             <div class="asset-transfer-hint ${verdict.hintCls}" id="transfer-hint">${escapeHtml(verdict.hint)}</div>
             ${notice}
           </div>
@@ -3616,8 +3645,11 @@
         state.assetTransfer.from = from;
         state.assetTransfer.asset = null;  // 两账户资产集合不同，切换后必须重选
         state.assetTransfer.result = null;
-        // 资产已清空 -> 连带清掉上一个资产的可转出额，别让它挂在新账户下。
-        loadMaxWithdraw(null);
+        // 切换账户即作废上一次的可转出额：现货侧根本不用这个口径，留着只会在切回来时
+        // 先闪一帧过期数据。
+        Object.assign(state.assetTransfer.maxWithdraw, {
+          byAsset: {}, fetchedKey: null, fetchedAt: 0, error: null, loading: false,
+        });
         renderPrivatePanel();
       }
 
@@ -7182,10 +7214,26 @@
               return;
             }
             if (el.closest('[data-transfer-asset]')) {
-              state.assetTransfer.asset = el.value || null;
+              const picked = el.value || null;
+              state.assetTransfer.asset = picked;
               updateTransferValidity();
-              loadMaxWithdraw(state.assetTransfer.asset);
+              // 选中的这一个必须新鲜——它就是马上要转的那个数，绕开 20s 节流单独重拉。
+              if (picked && state.assetTransfer.from === 'unified') {
+                loadMaxWithdrawBatch([picked], { force: true });
+              }
             }
+          });
+          // 「可转」在用户点开资产下拉时才向交易所问（focusin 冒泡，select 的 focus 不冒泡）。
+          // **不放在渲染函数里**：面板 60s 自动重渲染、隐私开关等纯本地操作也会重渲染，
+          // 那样每次都会打交易所（self-check 有「隐私切换不得 fetch」守卫盯着）。
+          els.privatePanelBody.addEventListener('focusin', (e) => {
+            const el = e.target;
+            if (!el || typeof el.closest !== 'function') return;
+            if (!el.closest('[data-transfer-asset-focus]')) return;
+            if (state.assetTransfer.from !== 'unified') return;
+            const pa = state.snapshot && state.snapshot.private_account;
+            const assets = transferAssetRows(pa, 'unified').map(r => r.asset);
+            if (assets.length) loadMaxWithdrawBatch(assets);
           });
           els.privatePanelBody.addEventListener('input', (e) => {
             const el = e.target;
@@ -7396,9 +7444,18 @@
         setTransferAsset: (asset) => {
           state.assetTransfer.asset = asset;
           updateTransferValidity();
-          return loadMaxWithdraw(asset);  // 与 change 事件同路径；返回 promise 便于自检 await
+          // 与 change 事件同路径（选中项强制重拉）；返回 promise 便于自检 await
+          return state.assetTransfer.from === 'unified' && asset
+            ? loadMaxWithdrawBatch([asset], { force: true })
+            : Promise.resolve();
         },
-        getMaxWithdrawText: () => maxWithdrawText(),
+        loadMaxWithdrawBatch,
+        getTransferAssetOptionLabels: () => {
+          const pa = state.snapshot && state.snapshot.private_account;
+          const from = state.assetTransfer.from;
+          return transferAssetRows(pa, from)
+            .map(r => transferAssetOptionLabel(r, from));
+        },
         setTransferAmount: (amount) => {
           state.assetTransfer.amount = amount;
           updateTransferValidity();
