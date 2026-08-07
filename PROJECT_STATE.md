@@ -344,6 +344,13 @@ know.** None costs money directly; each can mislead an operating decision.
   `no_um` 回归断言全属真空仓场景（故**原样未动**）。
   计划与评审留档：`docs/planning/f4-exchange-no-position-claim-2026-08-07.opus5.md`
   （含 r3 简化方案与一处立场变更的记录）。
+  **实盘验证（Human 2026-08-08 重启并目视通过）**：服务进程 `33757` 启动于
+  08-08 00:13:19（晚于末次提交），只读核实 `GET /api/hedge-open-positions` 的
+  `account.unavailable_sources` 字段已存在、值为 `[]`，`verified=true`，
+  4 行持仓全部 `normal`，`source_checked_at.um_positions` 正常推进 →
+  **标题红字按预期不出现**。这正是修好的样子：正常状态下它沉默，只在 UM 那一路
+  真读不到时才说话。**「读不到时出现」这一侧尚未经实盘触发**（需要真实的 UM 单源
+  故障），目前由 self-check 的 5 项断言覆盖。
   **操作规矩可以放松但建议保留**：「『交易所无仓』永远不足以证明仓位没了」技术上
   不再必要，但**陈旧数据是未覆盖的独立维度**（10 分钟前的快照 vs 5 分钟前被强平），
   `source_checked_at` 只把时间摆出来供判断。
