@@ -7073,25 +7073,25 @@ setTimeout(async () => {
 
       // 默认转出=统一账户，资产下拉展示统一账户资产（含币种/可转/净值三段）
       if (helpers.getAssetTransfer().from !== 'unified') throw new Error('默认转出账户应为统一账户');
-      // 2026-08-07 晚（Human 要求）：统一账户这一列由 cross_margin_free 改为**真实
-      // 最大可转出额**（maxWithdraw，点开下拉时实时批量读）。未读取时显示 —，
-      // **绝不回退 cross_margin_free / total_balance 顶替**——用一个"能用的数"冒充
-      // "能转的数"正是这次要修的毛病。真实值的展示由下方 Q4 断言组覆盖。
-      if (!tBody.includes('USDT · 可转 — · 净值 ≈ 12500.43 USDT')) {
-        throw new Error('统一账户未读取时应显示「可转 —」: ' + tBody.slice(idxTransfer, idxTransfer + 900));
+      // 2026-08-07 晚（Human 定稿）：全部走快照，前端零请求。本 fixture 无 pm_account，
+      // 故 USDT 也退回 cross_margin_free 并说「可用」——措辞必须跟着数据来源降级，
+      // 不能保留「可转」的说法却给一个不是可转出额的数。
+      // 有 pm_account 时 USDT 说「可转」的行为由下方 Q4 断言组覆盖。
+      if (!tBody.includes('USDT · 可用 9,800.1000 · 净值 ≈ 12500.43 USDT')) {
+        throw new Error('无账户级字段时统一账户应显示「可用 + crossMarginFree」: ' + tBody.slice(idxTransfer, idxTransfer + 900));
       }
-      // 只查互转区块：资产卡本来就展示总量/可用，那里出现这两个数是合法的。
-      const transferBlock = tBody.slice(idxTransfer);
-      if (transferBlock.includes('9,800.1000')) throw new Error('不得回退到 cross_margin_free');
-      if (transferBlock.includes('12,500.4321')) throw new Error('不得回退到 total_balance');
+      // 只查互转区块：资产卡本来就展示总量，那里出现这个数是合法的。
+      if (tBody.slice(idxTransfer).includes('12,500.4321')) {
+        throw new Error('可用不应回退到 total_balance');
+      }
       // 净值 < 10 的资产：卡片被过滤，下拉仍在
-      if (!tBody.includes('DOGE · 可转 — ·')) throw new Error('小额资产不应被划转下拉过滤');
-      // 口径说明必须出现在界面上（可转 < 卡片总量是正常现象）
-      if (!tBody.includes('最大可转出额')) throw new Error('缺少可转出额口径说明');
+      if (!tBody.includes('DOGE · 可用 35.7 ·')) throw new Error('小额资产不应被划转下拉过滤');
+      // 口径说明必须出现在界面上（可用 ≠ 可转出额，这句话本身就是护栏）
+      if (!tBody.includes('crossMarginFree')) throw new Error('缺少可用额口径说明');
       if (tBody.includes('<div class="asset">DOGE</div>')) throw new Error('小额资产卡应仍被过滤（既有行为）');
-      // 估值缺失 → 净值 —，不编零
-      if (!tBody.includes('MUUU · 可转 — · 净值 ≈ — USDT')) {
-        throw new Error('可转/估值缺失须各自显示 —: ' + tBody.slice(idxTransfer, idxTransfer + 1400));
+      // 估值缺失 → 净值 —，不编零；cross_margin_free 缺失 → 可用 —（不回退总量）
+      if (!tBody.includes('MUUU · 可用 — · 净值 ≈ — USDT')) {
+        throw new Error('可用/估值缺失须各自显示 —: ' + tBody.slice(idxTransfer, idxTransfer + 1400));
       }
       // 转入账户自动取反
       const rowsFrom = tBody.slice(idxTransfer);
@@ -7279,9 +7279,10 @@ setTimeout(async () => {
         /^\/api\/private-ledger\/flow-log\?/,
         /^\/api\/private-ledger\/refresh$/,
         // 资产互转（stage 2026-08-06-asset-transfer-live-v1 T2）：同源、POST。
-        /^\/api\/asset-transfer$/,
-        // Q4（2026-08-07）：统一账户单资产最大可转出额，同源、GET、按需读。
-        /^\/api\/private-account\/max-withdraw\?/
+        /^\/api\/asset-transfer$/
+        // 注：`/api/private-account/max-withdraw` 端点仍在后端，但前端**不再调用**
+        //（Human 2026-08-07 定稿：沿用快照，零请求）。故不列入白名单——若哪天前端
+        // 又发起该请求，这条守卫会立刻抓到，那必须是一次显式决定而非悄悄回潮。
       ];
       for (const c of fetchCallLog) {
         if (/binance/i.test(c.url)) {
@@ -7387,7 +7388,7 @@ setTimeout(async () => {
       console.log('[PASS] 任务卡暂停原因直读 pause_reason_zh（缺失回退英文枚举）');
     }
 
-    // ---- Q4：下拉直接显示真实「可转」（maxWithdraw），读不到显示 —（绝不回退可用额）----
+    // ---- Q4：可转出额全部走快照，前端零请求（USDT 用账户级字段，其余用可用余额）----
     {
       const mwFixture = JSON.parse(JSON.stringify(designFixture));
       mwFixture.private_account = {
@@ -7396,121 +7397,88 @@ setTimeout(async () => {
           { asset: 'USDT', total_balance: '12500.4321', cross_margin_free: '9800.1000',
             cross_margin_borrowed: '5000', value_usdt: '12500.43',
             cross_margin_borrowed_value_usdt: '5000.00' },
-          { asset: 'WLD', total_balance: '300', cross_margin_free: '300',
+          { asset: 'WLD', total_balance: '300', cross_margin_free: '250',
             cross_margin_borrowed: '0', value_usdt: '450.00',
             cross_margin_borrowed_value_usdt: '0.00' }
         ],
         balances_spot: [{ asset: 'BNB', free: '1.2', locked: '0', value_usdt: '1240.00' }],
         um_positions: [], total_value_usdt: '13745.79',
+        // USDT 的可转出额来自这个账户级字段（实测与 maxWithdraw(USDT) 等价）。
+        pm_account: { total_available_balance_usdt: '209.18482141', account_status: 'NORMAL' },
         valuation: { price_source: 'api_v3_ticker_price', priced_at: '2026-08-06T09:30:00Z' },
         checked_at: '2026-08-06T09:30:00Z', error: null
-      };
-      // USDT 的可转出额来自快照里现成的账户级字段（实测与 maxWithdraw(USDT) 等价）。
-      mwFixture.private_account.pm_account = {
-        total_available_balance_usdt: '209.18482141', account_status: 'NORMAL'
       };
       helpers.ingestSnapshot(mwFixture);
       if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
       helpers.setTransferFrom('unified');
 
-      // 1) 打开面板/渲染下拉 **零请求**。18 个资产串行实测 9.68s，点开干等 10 秒
-      //    不可接受；只有选中某个资产才去问交易所。
+      // 1) 整条链路零网络请求：渲染、切账户、选资产都不得打后端。
+      //    (Human 2026-08-07 定稿：18 个资产串行实测 9.68s，改为全部沿用快照。)
       const before = fetchCallLog.length;
       helpers.renderPrivatePanel();
+      helpers.setTransferAsset('USDT');
+      helpers.setTransferFrom('spot');
+      helpers.setTransferFrom('unified');
       if (fetchCallLog.slice(before).some(c => c.url.includes('max-withdraw'))) {
-        throw new Error('渲染下拉不得发起 max-withdraw 请求');
+        throw new Error('可转出额链路不得发起任何请求');
       }
 
-      // 2) USDT 零请求就有真实可转出额（走 total_available_balance_usdt），
-      //    且不是 cross_margin_free(9800.1)——两个数不等正是本项存在的理由。
+      // 2) USDT 说「可转」并给账户级 total_available_balance_usdt，
+      //    不是 cross_margin_free(9800.1)——两个数不等正是本项存在的理由。
       let labels = helpers.getTransferAssetOptionLabels();
       const usdtLabel = labels.find(l => l.startsWith('USDT'));
-      if (!usdtLabel.includes('可转')) throw new Error('统一账户应说「可转」: ' + usdtLabel);
-      if (!usdtLabel.includes('209.18482141')) {
-        throw new Error('USDT 应直接用账户级可用余额: ' + usdtLabel);
+      if (!usdtLabel.includes('可转 209.18482141')) {
+        throw new Error('USDT 应说「可转」并用账户级可转出额: ' + usdtLabel);
       }
-      if (usdtLabel.includes('9800.1')) throw new Error('不得把可用额当可转出额: ' + usdtLabel);
+      if (usdtLabel.includes('9,800.1000')) throw new Error('不得把可用额当可转出额: ' + usdtLabel);
 
-      // 3) 其他币未查询前显示 —，**不得**把账户级 USDT 数值套到它们头上（转走它们
-      //    会一并抽走抵押贡献，按折算率而非市值，总额÷币价必然偏大）。
-      let wldLabel = labels.find(l => l.startsWith('WLD'));
-      if (!wldLabel.includes('可转 —')) throw new Error('未查询的币应显示 —: ' + wldLabel);
+      // 3) 其余币说「可用」给 cross_margin_free——它**不是**可转出额，措辞必须区分。
+      //    也不得把账户级 USDT 数值套到它们头上（转走它们会一并抽走抵押贡献，
+      //    按折算率而非市值，总额÷币价必然偏大）。
+      const wldLabel = labels.find(l => l.startsWith('WLD'));
+      if (!wldLabel.includes('可用 250')) {
+        throw new Error('非 USDT 应说「可用」并给 cross_margin_free: ' + wldLabel);
+      }
+      if (wldLabel.includes('可转')) throw new Error('可用余额不得标成「可转」: ' + wldLabel);
       if (wldLabel.includes('209.18')) throw new Error('账户级 USDT 数不得套到其他币: ' + wldLabel);
-      if (wldLabel.includes('300')) throw new Error('不得回退到余额顶替: ' + wldLabel);
 
-      // 4) 选中某个币 -> 恰好一次请求，只问它自己。
-      const pickMark = fetchCallLog.length;
-      maxWithdrawGetResponse = { status: 200, body: { results: [
-        { asset: 'WLD', max_withdraw: '200.0', error: null } ] } };
-      await helpers.setTransferAsset('WLD');
-      const picks = fetchCallLog.slice(pickMark).filter(c => c.url.includes('max-withdraw'));
-      if (picks.length !== 1) throw new Error('选中应恰一次请求，实际 ' + picks.length);
-      if (!picks[0].url.includes('assets=WLD')) {
-        throw new Error('只应查询选中的那一个: ' + picks[0].url);
+      // 4) 账户级字段缺失时 USDT 退回可用余额，措辞同步降级为「可用」——
+      //    不能保留「可转」的说法却给一个不是可转出额的数。
+      const noPm = JSON.parse(JSON.stringify(mwFixture));
+      delete noPm.private_account.pm_account;
+      helpers.ingestSnapshot(noPm);
+      const degraded = helpers.getTransferAssetOptionLabels().find(l => l.startsWith('USDT'));
+      if (!degraded.includes('可用 9,800.1000')) {
+        throw new Error('缺账户级字段时应退回可用余额并改口「可用」: ' + degraded);
       }
-      wldLabel = helpers.getTransferAssetOptionLabels().find(l => l.startsWith('WLD'));
-      if (!wldLabel.includes('200')) throw new Error('选中后应显示真实可转出额: ' + wldLabel);
+      helpers.ingestSnapshot(mwFixture);
 
-      // 5) 请求失败（503）清空接口来源的值而非留旧值——过期的可转出额比没有更危险。
-      //    USDT 例外且是**设计如此**：它走快照的账户级字段，不依赖这个接口，接口挂了
-      //    照样准。这是把 USDT 挪到快照字段的附带收益。
-      maxWithdrawGetResponse = { status: 503, body: {
-        error: 'private_account_unavailable', detail: '私有客户端未配置' } };
-      await helpers.loadMaxWithdrawBatch(['WLD'], { force: true });
-      labels = helpers.getTransferAssetOptionLabels();
-      if (!labels.find(l => l.startsWith('WLD')).includes('可转 —')) {
-        throw new Error('503 后接口来源的币应回到 —（不留旧值）: ' + labels.join(' | '));
+      // 5) 校验跟着同一个数走：USDT 按 209.18 拦（而非按可用额 9800.1 放行）。
+      helpers.setTransferAsset('USDT');
+      helpers.setTransferAmount('500');
+      let v = helpers.evaluateTransfer();
+      if (v.ok) throw new Error('超出真实可转出额应被拦，不能按可用额放行');
+      if (!v.hint.includes('可转') || !v.hint.includes('209.18482141')) {
+        throw new Error('拦截提示应说「可转」并给出该数: ' + v.hint);
       }
-      if (!labels.find(l => l.startsWith('USDT')).includes('209.18482141')) {
-        throw new Error('USDT 不依赖该接口，503 时仍应可用: ' + labels.join(' | '));
+      // 非 USDT 按可用余额拦，提示措辞相应说「可用」。
+      helpers.setTransferAsset('WLD');
+      helpers.setTransferAmount('999');
+      v = helpers.evaluateTransfer();
+      if (v.ok || !v.hint.includes('可用') || !v.hint.includes('250')) {
+        throw new Error('非 USDT 应按可用余额拦并说「可用」: ' + v.hint);
       }
+      helpers.setTransferAmount('');
 
-      // 5) 节流：同一组资产 20s 内不重复打交易所（面板 60s 自动重渲染）。
-      maxWithdrawGetResponse = { status: 200, body: { results: [
-        { asset: 'USDT', max_withdraw: '1', error: null }] } };
-      await helpers.loadMaxWithdrawBatch(['USDT'], { force: true });
-      const mark = fetchCallLog.length;
-      await helpers.loadMaxWithdrawBatch(['USDT']);  // 不 force -> 应命中节流
-      if (fetchCallLog.length !== mark) throw new Error('20s 内同组资产不应重复请求');
-
-      // 6) 现货账户说「可用」（free 本身就是可转出额），且不发 max-withdraw 请求。
+      // 6) 现货账户说「可用」（free 本身就是可转出额，无抵押约束）。
       helpers.setTransferFrom('spot');
-      const spotMark = fetchCallLog.length;
       helpers.renderPrivatePanel();
       const spotLabels = helpers.getTransferAssetOptionLabels();
       if (!spotLabels.every(l => l.includes('可用'))) {
         throw new Error('现货账户应说「可用」: ' + spotLabels.join(' | '));
       }
-      const spotCalls = fetchCallLog.slice(spotMark).filter(c => c.url.includes('max-withdraw'));
-      if (spotCalls.length !== 0) throw new Error('现货账户不应发起 max-withdraw 请求');
       helpers.setTransferFrom('unified');
-
-      // 7) 校验用真实可转出额（比可用额准）：USDT 有 209.18，超它即拦，
-      //    而不是按 cross_margin_free 的 9800.1 放行。
-      helpers.setTransferAsset('USDT');
-      helpers.setTransferAmount('500');   // < cross_margin_free 9800.1，但 > 可转 209.18
-      let v = helpers.evaluateTransfer();
-      if (v.ok) throw new Error('超出真实可转出额应被拦，不能按可用额放行');
-      if (!v.hint.includes('209.18482141')) {
-        throw new Error('拦截提示应给出实际用于校验的数: ' + v.hint);
-      }
-
-      // 8) 显示与校验口径分离：可转出额读不到时，显示仍是 —（绝不用可用额冒充），
-      //    但校验退回 cross_margin_free，否则「读不到」会连超额拦截一起失效。
-      //    用可用额冒充可转出额去**显示**是错的，拿它当校验上界只是保守。
-      maxWithdrawGetResponse = { status: 503, body: { error: 'x', detail: 'y' } };
-      await helpers.setTransferAsset('WLD');       // WLD 无快照兜底 -> 可转出额缺失
-      helpers.setTransferAmount('99999');          // 远超 cross_margin_free 300
-      v = helpers.evaluateTransfer();
-      if (v.ok) throw new Error('可转出额读不到时仍应按可用额拦超额');
-      if (!v.hint.includes('300')) {
-        throw new Error('拦截提示应给出实际用于校验的数: ' + v.hint);
-      }
-      if (!helpers.getTransferAssetOptionLabels().find(l => l.startsWith('WLD')).includes('可转 —')) {
-        throw new Error('校验退回可用额，不代表显示也能退回');
-      }
-      helpers.setTransferAmount('');
-      console.log('[PASS] Q4 可转出额：打开下拉零请求 / USDT 走账户级字段(接口挂了也准) / 选中才查且只查一个 / 不把 USDT 数套到别的币 / 显示与校验口径分离');
+      console.log('[PASS] Q4 可转出额全走快照零请求：USDT 用账户级字段说「可转」/ 其余用可用余额说「可用」/ 缺字段降级改口 / 校验与显示同源 / 不把 USDT 数套到别的币');
     }
 
     // ---- 持仓表展示现货腿 symbol（bStock 的 SNXXBUSDT ≠ 合约 SNXXUSDT）----
