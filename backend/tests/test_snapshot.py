@@ -207,6 +207,7 @@ def test_bstock_alias_classification(bstock_raw_inputs):
     assert tsla["positive_funding_enabled"] is True
     assert tsla["negative_funding_status"] == "DISABLED_BSTOCK"
     assert tsla["spot"]["symbol"] == "TSLABUSDT"
+    assert tsla["spot"]["base_asset"] == "TSLAB"
     assert tsla["spot"]["match_type"] == "bstock_b_suffix_alias"
     assert tsla["spot"]["exists"] is True
 
@@ -226,7 +227,8 @@ def test_bstock_negative_rate_still_disabled(bstock_raw_inputs):
 
 
 def test_crypto_exact_match_not_aliased(bstock_raw_inputs):
-    # Normal crypto must use exact_symbol; the alias never fires for PERPETUAL.
+    # Normal crypto must use exact_symbol; exact matching wins before any alias
+    # fallback (the alias is no longer TRADIFI-gated since 2026-08-07).
     rows, _ = _build_snapshot(bstock_raw_inputs)
     by_sym = {r["symbol"]: r for r in rows}
     btc = by_sym["BTCUSDT"]

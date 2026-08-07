@@ -111,9 +111,59 @@ def test_resolve_spot_leg_bstock_alias_for_tradifi():
 
 
 def test_resolve_spot_leg_alias_not_triggered_for_perpetual():
-    # A normal PERPETUAL must NOT fall back to the B-suffix alias; only exact or none.
-    spot = {"TSLABUSDT": {"symbol": "TSLABUSDT"}}
+    # A normal PERPETUAL falls back to the B-suffix alias only when a tradable
+    # spot pair actually exists (MUUUSDT -> MUBUSDT case, 2026-08-05 follow-up);
+    # an untradable B-suffix record must NOT be matched.
+    spot = {"TSLABUSDT": {"symbol": "TSLABUSDT", "status": "BREAK"}}
     obj, match_type = resolve_spot_leg("PERPETUAL", "TSLA", "USDT", spot)
+    assert obj is None
+    assert match_type is None
+
+
+def test_resolve_spot_leg_bstock_alias_for_perpetual_when_tradable():
+    # The alias fallback is no longer gated on TRADIFI_PERPETUAL (2026-08-07
+    # unified-resolver): a plain PERPETUAL whose spot pair carries the B suffix
+    # resolves when the pair is tradable. (Real MUUSDT is TRADIFI — see
+    # test_resolve_spot_leg_bstock_alias_mu_case; this asserts the general rule.)
+    spot = {"FOOBUSDT": {"symbol": "FOOBUSDT", "status": "TRADING"}}
+    obj, match_type = resolve_spot_leg("PERPETUAL", "FOO", "USDT", spot)
+    assert obj["symbol"] == "FOOBUSDT"
+    assert match_type == "bstock_b_suffix_alias"
+
+
+def test_resolve_spot_leg_bstock_alias_mu_case():
+    # Real 2026-08-05 follow-up case: futures MUUSDT (TRADIFI, baseAsset MU) ->
+    # spot MUBUSDT. PROJECT_STATE's "MUUUSDT" spelling was a typo; the
+    # exchangeInfo sample (public-market-bstock-alias-v1) confirms MU + "B".
+    spot = {"MUBUSDT": {"symbol": "MUBUSDT", "status": "TRADING"}}
+    obj, match_type = resolve_spot_leg("TRADIFI_PERPETUAL", "MU", "USDT", spot)
+    assert obj["symbol"] == "MUBUSDT"
+    assert match_type == "bstock_b_suffix_alias"
+
+
+def test_resolve_spot_leg_multiplier_strip():
+    # 1000BONKUSDT futures -> spot BONKUSDT via the literal "1000" prefix strip.
+    spot = {"BONKUSDT": {"symbol": "BONKUSDT", "status": "TRADING"}}
+    obj, match_type = resolve_spot_leg("PERPETUAL", "1000BONK", "USDT", spot)
+    assert obj["symbol"] == "BONKUSDT"
+    assert match_type == "multiplier_strip_alias"
+
+
+def test_resolve_spot_leg_multiplier_exact_beats_strip():
+    # If a spot pair literally named 1000BONKUSDT exists (it does not today),
+    # exact matching wins; the strip is a fallback, never a replacement.
+    spot = {
+        "1000BONKUSDT": {"symbol": "1000BONKUSDT", "status": "TRADING"},
+        "BONKUSDT": {"symbol": "BONKUSDT", "status": "TRADING"},
+    }
+    obj, match_type = resolve_spot_leg("PERPETUAL", "1000BONK", "USDT", spot)
+    assert obj["symbol"] == "1000BONKUSDT"
+    assert match_type == "exact_symbol"
+
+
+def test_resolve_spot_leg_multiplier_no_spot_none():
+    # Strip yields no tradable spot pair -> (None, None), never a guess.
+    obj, match_type = resolve_spot_leg("PERPETUAL", "1000BONK", "USDT", {})
     assert obj is None
     assert match_type is None
 

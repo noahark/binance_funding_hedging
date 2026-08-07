@@ -1017,7 +1017,19 @@ class _Handler(BaseHTTPRequestHandler):
             snapshot = None
         if isinstance(snapshot, dict) and isinstance(snapshot.get("private_account"), dict):
             private_account = snapshot["private_account"]
-        merged, account_meta = hedge_open_domain.merge_positions(positions, private_account)
+        # 统一解析器（2026-08-07 unified-resolver）：从快照 rows 的已解析现货真值
+        # （resolve_spot_leg 的 spot.base_asset，如 bStock 的 SNXXB、1000x 的 BONK）
+        # 构造 {合约 symbol: 现货 base asset} 映射传入 merge，展示层不再自己剥字符串；
+        # 快照未就绪/无 spot 时映射为空 → merge 回退旧规则（现状不变）。
+        asset_map = {}
+        if isinstance(snapshot, dict):
+            for _r in snapshot.get("rows") or []:
+                _spot = _r.get("spot") if isinstance(_r, dict) else None
+                if isinstance(_spot, dict) and _spot.get("base_asset"):
+                    asset_map[_r.get("symbol")] = _spot["base_asset"]
+        merged, account_meta = hedge_open_domain.merge_positions(
+            positions, private_account, asset_map
+        )
         # Stage 2026-08-03-hedge-status-account-refresh-v1 (design §3.5): pass the
         # full fixed five-key source_checked_at object through the positions
         # account meta, so the open-positions panel can show the same per-source
@@ -1041,8 +1053,8 @@ class _Handler(BaseHTTPRequestHandler):
         # 窗口起点不可解析 → 三列保持占位；coverage 不足（含窗口内 gaps）→ 三列
         # 置 None + stats_incomplete 标记，绝不把覆盖率不足的窗口当成真值；
         # 任一源不可解析 → net_pnl = None（「暂无」，绝不部分相加）。
-        # base_asset 推导复用 hedge_open_domain._merge_base_asset 规则（1000x
-        # 资产不自动对齐），在组合根本地推导，不改 domain.py。
+        # base_asset 推导优先用统一解析器的快照真值（asset_map，bStock/1000x
+        # 对齐），缺失时回退 _merge_base_asset 旧规则（1000x 不对齐），组合根推导。
         lsvc = self.ledger_flow_service
         # Human 2026-08-05：利息按币（asset）计，资金费按 USDT 计——net_pnl 必须把
         # 利息换算成 U 再相加，否则单位不一致。价格源 = 公开行情缓存 rows 的
@@ -1082,7 +1094,7 @@ class _Handler(BaseHTTPRequestHandler):
             funding = lsvc.sum_funding_by_symbol(
                 row.get("coin"), start_ms, end_ms,
             )
-            base_asset = hedge_open_domain._merge_base_asset(row.get("coin"))
+            base_asset = asset_map.get(row.get("coin")) or hedge_open_domain._merge_base_asset(row.get("coin"))
             interest = (
                 lsvc.sum_interest_by_asset(base_asset, start_ms, end_ms)
                 if base_asset else None

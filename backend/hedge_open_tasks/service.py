@@ -1631,7 +1631,16 @@ class HedgeOpenTaskService:
         if q_spot is None or xfer is None:
             return None  # dry-run：模拟余额足够
         sell_amount = D.Decimal(task["single_amount"])
-        base_asset = D._merge_base_asset(task["coin"]) or task["coin"].replace("USDT", "")
+        # 统一解析器（2026-08-07 unified-resolver）：平仓侧不再剥合约 coin 字符串，
+        # 而是消费开单预检时 resolve_spot_leg 已解析并落库的现货 symbol 真值
+        # （preflight_snapshot.spot_symbol，如 bStock SNXXUSDT -> SNXXBUSDT、
+        # 1000x 1000BONKUSDT -> BONKUSDT），取其 baseAsset 做余额/划转资产名；
+        # 无快照时回退旧规则（行为不变）。
+        spot_sym = D.spot_order_symbol(task["coin"], task.get("preflight_snapshot"))
+        if isinstance(spot_sym, str) and spot_sym.endswith(D.QUOTE_ASSET):
+            base_asset = D.base_asset(spot_sym)
+        else:
+            base_asset = D._merge_base_asset(task["coin"]) or task["coin"].replace("USDT", "")
         # §4.2 缓存放行：新鲜 spot_balances 缓存显示充足 → 直接放行（0 请求，
         # 覆盖绝大多数情况）；缓存不足/未知 → 实时确认。
         cached_free = self._cached_spot_free(base_asset)
@@ -1728,7 +1737,13 @@ class HedgeOpenTaskService:
                 opened_ms = cycle["opened_at_us"] // 1000
                 closed_ms = closed_at_us // 1000
                 funding = lsvc.sum_funding_by_symbol(task["coin"], opened_ms, closed_ms)
-                base_asset = D._merge_base_asset(task["coin"])
+                # 利息按现货 base asset 记账（bStock SNXXUSDT -> SNXXB、1000x ->
+                # BONK），统一解析器消费开单时的现货真值；无快照回退旧规则。
+                spot_sym = D.spot_order_symbol(task["coin"], task.get("preflight_snapshot"))
+                if isinstance(spot_sym, str) and spot_sym.endswith(D.QUOTE_ASSET):
+                    base_asset = D.base_asset(spot_sym)
+                else:
+                    base_asset = D._merge_base_asset(task["coin"])
                 if base_asset:
                     interest = lsvc.sum_interest_by_asset(base_asset, opened_ms, closed_ms)
             except Exception:

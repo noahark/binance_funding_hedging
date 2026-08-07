@@ -1720,14 +1720,19 @@ def _merge_empty_bucket_row(coin, direction):
 
 
 def _merge_build_row(coin, direction, bucket, um, spot_by_asset,
-                     spot_value_by_asset, unified_row_by_asset):
+                     spot_value_by_asset, unified_row_by_asset, asset_map=None):
     """Build one merged row: bucket fields + matched UM position + the four
     account-derived balance fields (v4.1 §9.2) + unrealized PnL + the
     single-leg / drift markers.
 
     The four account fields are pure projections of the SAME published
-    ``private_account`` rows, looked up by the row's base asset (the existing
-    ``_merge_base_asset`` rule — 1000x assets do NOT auto-align, by design):
+    ``private_account`` rows, looked up by the row's base asset. The base asset
+    comes from the composition root's ``asset_map`` ({coin: spot base asset} —
+    the snapshot rows' resolved spot ``base_asset``, the single-point truth of
+    ``resolve_spot_leg``: ``TSLAB`` for bStock ``TSLAUSDT``, ``BONK`` for
+    ``1000BONKUSDT``) when present; otherwise it falls back to the
+    ``_merge_base_asset`` rule (which only strips the USDT quote suffix —
+    1000x assets do NOT auto-align without the map, by design).
     ``spot_balance`` (free+locked), ``spot_balance_value_usdt`` (that spot row's
     existing ``value_usdt``), ``unified_balance`` (the unified row's
     ``total_balance`` — the full-cross leveraged balance, NOT the borrow), and
@@ -1735,7 +1740,8 @@ def _merge_build_row(coin, direction, bucket, um, spot_by_asset,
     ``cross_margin_borrowed`` stays borrow-only. No price is recomputed and the
     source snapshot is never mutated; null vs a real decimal-string zero is
     preserved on both sides independently (a missing asset on one side leaves
-    only that side's amount/value null)."""
+    only that side's amount/value null).
+    """
     row = dict(bucket) if bucket else _merge_empty_bucket_row(coin, direction)
     if coin is not None:
         row["coin"] = coin
@@ -1767,7 +1773,7 @@ def _merge_build_row(coin, direction, bucket, um, spot_by_asset,
         row["um_liquidation_price"] = None
         row["unrealized_profit"] = None
 
-    base_asset = _merge_base_asset(row.get("coin"))
+    base_asset = (asset_map or {}).get(row.get("coin")) or _merge_base_asset(row.get("coin"))
     real_spot = spot_by_asset.get(base_asset) if base_asset else None
     row["spot_balance"] = fmt_decimal(real_spot) if real_spot is not None else None
     row["spot_balance_value_usdt"] = (
@@ -1820,7 +1826,7 @@ def _merge_build_row(coin, direction, bucket, um, spot_by_asset,
     return row
 
 
-def merge_positions(positions, private_account):
+def merge_positions(positions, private_account, asset_map=None):
     """Merge task-record position buckets with the snapshot's private_account.
 
     ``positions`` is the list from :func:`HedgeOpenStore.aggregate_positions`
@@ -1843,6 +1849,14 @@ def merge_positions(positions, private_account):
 
     Pure: takes plain dicts, returns plain dicts, holds no service reference and
     performs no I/O — directly unit-testable.
+
+    ``asset_map`` (optional) is ``{coin: spot base asset}`` built by the
+    composition root from the snapshot rows' resolved spot ``base_asset`` — the
+    single-point truth of ``resolve_spot_leg`` (``SNXXB`` for bStock
+    ``SNXXUSDT``, ``BONK`` for ``1000BONKUSDT``). When it is absent or lacks the
+    coin, the merge falls back to the local ``_merge_base_asset`` rule (only
+    strips the USDT quote suffix), preserving today's behaviour for a cold
+    snapshot / tests.
     """
     pa = private_account or {}
     verified = bool(pa.get("verified"))
@@ -1905,7 +1919,7 @@ def merge_positions(positions, private_account):
         merged.append(
             _merge_build_row(
                 symbol, direction, bucket, u, spot_by_asset,
-                spot_value_by_asset, unified_row_by_asset,
+                spot_value_by_asset, unified_row_by_asset, asset_map,
             )
         )
 
@@ -1919,7 +1933,7 @@ def merge_positions(positions, private_account):
         merged.append(
             _merge_build_row(
                 p.get("coin"), p.get("direction"), p, None, spot_by_asset,
-                spot_value_by_asset, unified_row_by_asset,
+                spot_value_by_asset, unified_row_by_asset, asset_map,
             )
         )
 

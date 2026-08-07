@@ -125,18 +125,23 @@ def _find_symbol(symbols: list, coin: str) -> Optional[dict]:
     return None
 
 
-def _bstock_spot_alias(coin: str, perp_symbol: Optional[dict]) -> Optional[str]:
-    """Return the B-suffix spot pair only for a TRADIFI perpetual."""
+def _spot_alias_candidates(coin: str, perp_symbol: Optional[dict]) -> list:
+    """Spot-symbol candidates mirroring ``resolve_spot_leg``'s fallback chain:
+    the B-suffix alias (``TSLAUSDT`` -> ``TSLABUSDT``) and, for a ``1000``-
+    prefixed base, the stripped multiplier pair (``1000BONKUSDT`` ->
+    ``BONKUSDT``). Never returns ``coin`` itself; existence/tradability is
+    checked by the caller (probe) or by ``resolve_spot_leg`` (filters).
+    """
     if not isinstance(perp_symbol, dict):
-        return None
-    if perp_symbol.get("contractType") != "TRADIFI_PERPETUAL":
-        return None
+        return []
     base = perp_symbol.get("baseAsset")
     quote = perp_symbol.get("quoteAsset")
     if not isinstance(base, str) or not isinstance(quote, str) or not base or not quote:
-        return None
-    alias = f"{base}B{quote}"
-    return alias if alias != coin else None
+        return []
+    cands = [f"{base}B{quote}"]
+    if base.startswith("1000"):
+        cands.append(f"{base[4:]}{quote}")
+    return [c for c in cands if c != coin]
 
 
 # S4b (ADR-H5): three-state leg existence from a public read result. True =
@@ -416,9 +421,9 @@ class HedgePreflightProvider:
         ``None`` only when no candidate record could be read.
         """
         candidates = [coin]
-        alias = _bstock_spot_alias(coin, perp_symbol)
-        if alias is not None:
-            candidates.append(alias)
+        for _alias in _spot_alias_candidates(coin, perp_symbol):
+            if _alias not in candidates:
+                candidates.append(_alias)
         spot_by_sym: dict[str, dict] = {}
         read_ok = False
         for sym in candidates:
@@ -949,9 +954,10 @@ class HedgePreflightProvider:
                 perp = coin in perp_set
                 if not spot:
                     perp_symbol = _find_symbol(perp_symbols, coin)
-                    alias = _bstock_spot_alias(coin, perp_symbol)
-                    if alias is not None and alias in spot_set:
-                        spot = True
+                    for alias in _spot_alias_candidates(coin, perp_symbol):
+                        if alias in spot_set:
+                            spot = True
+                            break
                 return {"spot": spot, "perp": perp}
             self._degrade_note("group_b_public.check_symbol_legs", "bad shape")
         spot_status, spot_body = self._read_public_with_status(
@@ -964,11 +970,11 @@ class HedgePreflightProvider:
         perp = _perp_leg_exists(perp_status, perp_body, coin)
         if spot is False and isinstance(perp_body, dict):
             perp_symbol = _find_symbol(perp_body.get("symbols", []), coin)
-            alias = _bstock_spot_alias(coin, perp_symbol)
-            if alias is not None:
+            for alias in _spot_alias_candidates(coin, perp_symbol):
                 alias_status, alias_body = self._read_public_with_status(
                     f"{_SPOT_API_BASE}/api/v3/exchangeInfo?symbol={alias}"
                 )
                 if _spot_leg_exists(alias_status, alias_body, alias) is True:
                     spot = True
+                    break
         return {"spot": spot, "perp": perp}

@@ -84,6 +84,11 @@ def _tradable_spot(spot_by_sym: dict, symbol: str) -> Optional[dict]:
     return None
 
 
+SPOT_MATCH_EXACT = "exact_symbol"
+SPOT_MATCH_BSTOCK = "bstock_b_suffix_alias"
+SPOT_MATCH_MULTIPLIER = "multiplier_strip_alias"
+
+
 def resolve_spot_leg(
     contract_type: str,
     base_asset: str,
@@ -92,31 +97,39 @@ def resolve_spot_leg(
 ) -> tuple:
     """Resolve the public spot leg for a futures symbol.
 
-    Returns ``(spot_obj|None, match_type|None)``:
+    Returns ``(spot_obj|None, match_type|None)``. Candidates are tried in
+    priority order, each gated on ``status == "TRADING"`` via
+    :func:`_tradable_spot` (a non-trading exact record is skipped before the
+    alias is tried):
 
     1. ``exact_symbol`` — ``spot_by_sym[base_asset + quote_asset]`` (normal
-       crypto; futures symbol equals spot symbol), but only when that spot record
-       is currently tradable (``status == "TRADING"``).
-    2. ``bstock_b_suffix_alias`` — only when ``contract_type ==
-       "TRADIFI_PERPETUAL"``: ``spot_by_sym[base_asset + "B" + quote_asset]``,
-       again only when tradable. Binance bStocks use a "B"-suffixed spot/margin
-       symbol, e.g. futures ``TSLAUSDT`` -> spot ``TSLABUSDT``.
-    3. ``(None, None)`` — no currently tradable public spot leg.
+       crypto; futures symbol equals spot symbol).
+    2. ``bstock_b_suffix_alias`` — ``spot_by_sym[base_asset + "B" + quote_asset]``
+       (Binance bStocks use a "B"-suffixed spot/margin symbol, e.g. futures
+       ``TSLAUSDT`` -> spot ``TSLABUSDT``). Not gated on ``TRADIFI_PERPETUAL``
+       any more (2026-08-07 unified-resolver): exact-first plus the TRADING
+       truth check keep normal crypto exact matching unpolluted, and a
+       non-TRADIFI perpetual whose spot pair genuinely carries the B suffix
+       (MUUUSDT -> MUBUSDT) resolves too.
+    3. ``multiplier_strip_alias`` — when ``base_asset`` starts with the literal
+       ``"1000"`` (1000BONK/FLOKI/LUNC/PEPE/SHIB/XEC family):
+       ``spot_by_sym[base_asset[4:] + quote_asset]`` (futures ``1000BONKUSDT``
+       -> spot ``BONKUSDT``). Only the literal ``1000`` is stripped, never a
+       general numeric prefix; the TRADING gate means a coin whose spot pair
+       does not exist stays ``(None, None)``.
+    4. ``(None, None)`` — no currently tradable public spot leg.
 
-    Both candidates gate on ``status == "TRADING"`` via :func:`_tradable_spot`, so
-    a non-trading exact record (``BREAK``/``HALT``/missing/unknown) is skipped
-    before the alias is tried; the alias is then used only if it is itself
-    tradable. The alias is also gated on ``TRADIFI_PERPETUAL`` so normal crypto
-    exact-symbol matching is never polluted. ``asset_tag_for`` already marks
-    TRADIFI as ``BSTOCK``; the existing ``negative_funding_status`` priority then
-    yields ``DISABLED_BSTOCK`` for a bStock even when its route is
-    ``MARGIN_SPOT_CANDIDATE`` — no classifier change is needed.
+    ``contract_type`` is retained for callers that classify routes (asset tags
+    etc.); the alias itself no longer depends on it.
     """
     exact = _tradable_spot(spot_by_sym, base_asset + quote_asset)
     if exact is not None:
-        return exact, "exact_symbol"
-    if contract_type == "TRADIFI_PERPETUAL":
-        alias = _tradable_spot(spot_by_sym, base_asset + "B" + quote_asset)
-        if alias is not None:
-            return alias, "bstock_b_suffix_alias"
+        return exact, SPOT_MATCH_EXACT
+    alias = _tradable_spot(spot_by_sym, base_asset + "B" + quote_asset)
+    if alias is not None:
+        return alias, SPOT_MATCH_BSTOCK
+    if isinstance(base_asset, str) and base_asset.startswith("1000"):
+        stripped = _tradable_spot(spot_by_sym, base_asset[4:] + quote_asset)
+        if stripped is not None:
+            return stripped, SPOT_MATCH_MULTIPLIER
     return None, None

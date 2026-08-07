@@ -274,6 +274,7 @@ def build_rows(
                 },
                 "spot": {
                     "symbol": spot["symbol"] if spot else None,
+                    "base_asset": spot.get("baseAsset") if spot else None,
                     "status": spot["status"] if spot else None,
                     "exists": spot is not None,
                     "match_type": match_type,

@@ -223,6 +223,13 @@
                 "null"
               ]
             },
+            "base_asset": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "Resolved spot leg's base asset (SNXXB for a bStock, BONK for 1000BONKUSDT) — single-point truth shared with the positions merge (2026-08-07 unified-resolver)."
+            },
             "status": {
               "type": [
                 "string",
@@ -234,7 +241,7 @@
             },
             "match_type": {
               "type": ["string", "null"],
-              "enum": ["exact_symbol", "bstock_b_suffix_alias", null]
+              "enum": ["exact_symbol", "bstock_b_suffix_alias", "multiplier_strip_alias", null]
             },
             "min_notional": {
               "anyOf": [

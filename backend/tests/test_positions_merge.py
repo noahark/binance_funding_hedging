@@ -71,8 +71,11 @@ def test_merge_normal_matched_um_and_task():
 
 
 def test_merge_no_task_1000x_honest_non_match():
-    # (b) a manual 1000x UM position with no task; its base asset (1000PEPE) does
-    # NOT auto-align to the spot asset PEPE — honest 'no automatic alignment'.
+    # (b) a manual 1000x UM position with no task; without an asset_map its base
+    # asset (1000PEPE) does NOT auto-align to the spot asset PEPE — honest
+    # 'no automatic alignment' (the snapshot-derived asset_map, when provided by
+    # the composition root, does align it — see
+    # test_merge_1000x_asset_map_aligns).
     pa = _pa(
         ums=[_um("1000PEPEUSDT", "LONG", "1000")],
         spots=[{"asset": "PEPE", "free": "100", "locked": "0"}],
@@ -331,8 +334,9 @@ def test_merge_four_account_fields_true_zero_stays_string_not_null():
 
 
 def test_merge_four_account_fields_1000x_not_auto_aligned():
-    # 1000PEPEUSDT does NOT align to the PEPE spot/unified asset (non-goal #5):
-    # all four account fields are null for the 1000x row.
+    # Without an asset_map, 1000PEPEUSDT does NOT align to the PEPE spot/unified
+    # asset (legacy non-goal #5): all four account fields are null for the 1000x
+    # row. With the asset_map they align (test_merge_1000x_asset_map_aligns).
     pa = _pa(
         ums=[_um("1000PEPEUSDT", "LONG", "1000")],
         spots=[{"asset": "PEPE", "free": "100", "locked": "0", "value_usdt": "1"}],
@@ -343,6 +347,62 @@ def test_merge_four_account_fields_1000x_not_auto_aligned():
     assert r["spot_balance_value_usdt"] is None
     assert r["unified_balance"] is None
     assert r["unified_balance_value_usdt"] is None
+
+
+def test_merge_1000x_asset_map_aligns():
+    # The composition root passes the snapshot's resolved spot base_asset
+    # (1000BONKUSDT -> BONK) as asset_map; the 1000x row then aligns to the
+    # BONK spot/unified balances.
+    pa = _pa(
+        ums=[_um("1000BONKUSDT", "LONG", "1000")],
+        spots=[{"asset": "BONK", "free": "100", "locked": "0", "value_usdt": "1"}],
+        unifieds=[{"asset": "BONK", "total_balance": "100", "value_usdt": "1"}],
+    )
+    r = D.merge_positions([], pa, asset_map={"1000BONKUSDT": "BONK"})[0][0]
+    assert r["spot_balance"] == "100"
+    assert r["spot_balance_value_usdt"] == "1"
+    assert r["unified_balance"] == "100"
+    assert r["unified_balance_value_usdt"] == "1"
+
+
+def test_merge_bstock_asset_map_aligns_spot():
+    # Q1 case: SNXXUSDT (bStock) with a real active cycle; the snapshot's
+    # resolved spot base_asset SNXXB aligns the row to the SNXXB spot balance.
+    positions = [_bucket("SNXXUSDT", D.DIR_FORWARD, spot_qty="1.0", perp_qty="1.0")]
+    pa = _pa(
+        ums=[_um("SNXXUSDT", "SHORT", "-1.0")],
+        spots=[{"asset": "SNXXB", "free": "1.0", "locked": "0",
+                "value_usdt": "10.33"}],
+        unifieds=[{"asset": "SNXXB", "total_balance": "1.0", "value_usdt": "10.33"}],
+    )
+    merged, _ = D.merge_positions(positions, pa, asset_map={"SNXXUSDT": "SNXXB"})
+    r = merged[0]
+    assert r["spot_balance"] == "1"          # fmt_decimal(Decimal('1.0'))
+    assert r["spot_balance_value_usdt"] == "10.33"
+    assert r["unified_balance"] == "1.0"     # total_balance passed through verbatim
+    assert r["cross_margin_borrowed"] is None
+
+
+def test_merge_asset_map_missing_coin_falls_back():
+    # A coin absent from the asset_map falls back to the local rule (today's
+    # behaviour) — a cold snapshot / missing spot row introduces no new state.
+    pa = _pa(
+        ums=[_um("PEPEUSDT", "LONG", "100")],
+        spots=[{"asset": "PEPE", "free": "100", "locked": "0"}],
+    )
+    r = D.merge_positions([], pa, asset_map={"BTCUSDT": "BTC"})[0][0]
+    assert r["spot_balance"] == "100"  # PEPEUSDT -> PEPE via the local rule
+
+
+def test_merge_asset_map_normal_coin_unchanged():
+    # A normal coin with an asset_map entry behaves identically to the fallback.
+    positions = [_bucket("BTCUSDT", D.DIR_FORWARD, spot_qty="0.5", perp_qty="0.5")]
+    pa = _pa(ums=[_um("BTCUSDT", "SHORT", "-0.5")],
+             spots=[{"asset": "BTC", "free": "0.5", "locked": "0"}])
+    r = D.merge_positions(positions, pa, asset_map={"BTCUSDT": "BTC"})[0][0]
+    assert r["spot_balance"] == "0.5"
+    assert r["single_leg_exposure"] is False
+    assert r["drift"] is False
 
 
 def test_merge_does_not_mutate_source_private_account():

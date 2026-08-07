@@ -324,15 +324,19 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
 - `[OPEN][HARNESS]` ~41 completed stage dirs in `reports/agent-runs/`, vs §9.5.
   v2 findings: batch A merged; batch B + R3/R4 wait for a real problem, G1/G14
   OPEN by decision (Human 2026-07-31). Detail: archive `22-`.
-- `[OPEN][FOLLOW-UP][2026-08-05]` **现货/合约 symbol 别名未配对（MUUUSDT 案例）。**
-  MUUUSDT 合约对应现货是 **MUBUSDT**（B 后缀现货），持仓列表现货数量/余额未配对：
-  实测 `MUUUSDT` 行 `spot_qty=0, perp_qty=1, spot_balance=None`——`_merge_base_asset`
-  （`backend/hedge_open_tasks/domain.py:1559`）只处理 1000x 倍数前缀（BONK/FLOKI 等），
-  **不处理 B 后缀现货别名**，`spot_by_asset.get('MUU')` 查不到 MUBUSDT 余额 → None。
-  影响：该行现货余额列显示「—」、现货配对/drift 判定失真。`hedge_preflight_provider.py:117`
-  已有 `_bstock_spot_alias` 处理 bStock 别名（另一条路径），此处未复用。记录为已知缺陷，
-  **以后解决**（Human 2026-08-05 拍板：记录，暂不修）；修复方向：merge 层按 B 后缀别名
-  对齐现货余额，或复用 `_bstock_spot_alias` 规则。
+- `[RESOLVED][2026-08-07]` **现货/合约 symbol 别名已统一（bStock / 1000x / B 后缀）。**
+  原「MUUUSDT 案例」记录经 exchangeInfo 样本核实为**笔误**：真实合约是 **MUUSDT**
+  （TRADIFI_PERPETUAL，baseAsset=`MU`），`MU+"B"+"USDT" = MUBUSDT` 符合 base+"B" 规则，
+  且为 TRADIFI（原 gate 本可覆盖）——展示侧失配才是根因。统一解析器改造
+  （`docs/planning/unified-symbol-resolver-2026-08-07.md`，Human 直接指示）：
+  `resolve_spot_leg` 候选链扩展为 exact → B 后缀（放开 TRADIFI gate）→ 1000x 字面剥离
+  （`1000BONKUSDT → BONKUSDT`，match_type `multiplier_strip_alias`）；快照 rows `spot.base_asset`
+  输出真值；merge 层经组合根 asset_map 对齐（bStock `SNXXB`/1000x `BONK`）；平单环
+  （close 划转资产名、利息资产名）消费开单落库的 `preflight_snapshot.spot_symbol`；
+  预检 filters/探测候选链同步统一。**行为变更**：1000x「诚实不对齐」（non-goal #5）改为
+  快照真值对齐（asset_map 缺失时仍回退旧规则）；B 后缀不再限 TRADIFI。测试：后端全量
+  1529 passed + self-check EXIT=0。**注意**：本次改动与 opus5 的 P1/P2 修复同处工作树
+  （`hedge_preflight_provider.py` 同文件不同区域），P1/P2 仍未提交、服务未重启。
 - `[RESOLVED][OPERATIONS][2026-08-05]` **COOKIEUSDT 平仓单腿事故（已修复并实盘验证）。**
   事件：首次实盘平仓时，forward close 现货 SELL 被 `decide_spot_route` 的
   collateral-cap 预检误导到**普通现货账户**（`/api/v3/order`），而现货实际在**统一账户**
