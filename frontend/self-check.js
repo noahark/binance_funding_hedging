@@ -2303,8 +2303,31 @@ setTimeout(async () => {
         throw new Error('净价值 -10.01（|·|≥10）的现货 USDC 卡应保留: ' + edgeSpot);
       }
     }
+    // 纯借入（持有价值 = 已借价值）：净价值恒为 0，但持有价值 ≥10 时资产卡必须展示。
+    // 借币成功且未动用时净值精确为 0，若按净价值过滤则该资产永不可见（INJ 实盘故障）。
+    {
+      const borrowFx = JSON.parse(JSON.stringify(designFixture));
+      const bu = borrowFx.private_account.balances_unified;
+      bu[0].value_usdt = '46.46000000';
+      bu[0].cross_margin_borrowed_value_usdt = '46.46000000'; // 净 0、持有 46.46
+      // 反向：借入后几乎全部划走——持有价值 <10 但净负债 -95，不得因改判定而隐藏。
+      bu[1].value_usdt = '5.00000000';
+      bu[1].cross_margin_borrowed_value_usdt = '100.00000000'; // 净 -95、持有 5
+      helpers.ingestSnapshot(borrowFx);
+      if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
+      const borrowBody = elements['private-panel-body'].innerHTML;
+      const bStart = borrowBody.indexOf('统一账户余额');
+      const bEnd = borrowBody.indexOf('现货账户余额');
+      const borrowUnified = borrowBody.slice(bStart, bEnd > bStart ? bEnd : undefined);
+      if (!borrowUnified.includes('<div class="asset">BTC</div>')) {
+        throw new Error('纯借入（净价值 0、持有价值 46.46）的统一账户资产卡应展示: ' + borrowUnified);
+      }
+      if (!borrowUnified.includes('<div class="asset">ETH</div>')) {
+        throw new Error('低持有高负债（持有 5、净价值 -95）的统一账户资产卡应展示: ' + borrowUnified);
+      }
+    }
     helpers.ingestSnapshot(designFixture);
-    console.log('[PASS] 净价值 <10 USDT 资产卡过滤（统一/现货一致，含边界与负值）');
+    console.log('[PASS] 持有价值 <10 USDT 资产卡过滤（统一/现货一致，含边界、负值与纯借入）');
 
     // 37b. 余额数量仅整数部分加千分位，小数部分原样保留（不四舍五入/不裁剪尾零）
     const amountFixture = JSON.parse(JSON.stringify(designFixture));
