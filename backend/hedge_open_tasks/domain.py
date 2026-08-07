@@ -1634,6 +1634,33 @@ def pause_reason_zh(reason: str | None) -> str | None:
     return _PAUSE_REASON_ZH.get(reason, "任务已暂停，请检查后手动恢复")
 
 
+def order_state_unknown_pause_reason_zh(business_code, business_msg):
+    """``order_state_unknown`` 的精准中文原因；无法精准时返回 ``None`` 用通用文案。
+
+    通用文案说「无法确认是否已被交易所接受，请到交易所核对订单」——对超时/5xx
+    这类真·状态不明是对的。但 ``-2015``（API-key/IP/权限）是**网关层**拒绝，订单
+    压根没到撮合：按通用文案去交易所核对，只会发现根本没有这张单（2026-08-07
+    实盘：出口 IP 变更后平仓两腿被 401 拒，账户零变化）。
+
+    币安在 ``-2015`` 的 msg 里回带 ``request ip: x.x.x.x``，直接点名它能把排查
+    从「核对订单」引向「加 IP 白名单」。
+    """
+    if business_code is None or str(business_code).strip() != "-2015":
+        return None
+    msg = str(business_msg or "")
+    match = re.search(r"request ip[:\s]+([0-9a-fA-F.:]+)", msg)
+    if match:
+        return (
+            f"交易所以 -2015 拒绝了本次下单（API-key / IP / 权限），请求来源 IP 为 "
+            f"{match.group(1)}。**订单未发出**，无需到交易所核对订单；请确认该 IP 是否"
+            f"在 API key 的白名单内（出口 IP 变更是常见原因），修正后手动恢复任务。"
+        )
+    return (
+        "交易所以 -2015 拒绝了本次下单（API-key / IP / 权限问题）。**订单未发出**，"
+        "无需到交易所核对订单；请检查 API key 的权限与 IP 白名单，修正后手动恢复任务。"
+    )
+
+
 _PAUSE_REASON_ZH = {
     PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE: "连续提交失败达到阈值，任务已暂停，请检查后手动恢复",
     PAUSE_REASON_RATE_LIMITED: "触发交易所限频（429），任务已暂停，请等待限频解除后手动恢复",

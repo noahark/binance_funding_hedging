@@ -1451,3 +1451,29 @@ def test_aggregate_positions_flags_identity_conflict_within_bucket(tmp_path):
     payload = json.loads(conflicts[0]["payload"])
     assert payload["coin"] == "SNXXUSDT"
     assert {payload["kept"], payload["ignored"]} == {"SNXXBUSDT", "SNXXCUSDT"}
+
+
+def test_latest_auth_error_returns_code_and_msg(tmp_path):
+    """暂停时要能取回导致 order_state_unknown 的 auth 错误，才能生成精准文案。"""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store)
+    attempt = store.prepare_attempt(
+        "t1", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH, {"est_price": "1"},
+        "cid-s", {"side": "BUY"}, D.SPOT_ORDER_PATH, "cid-p", {"side": "SELL"}, 1_000,
+    )
+    store.append_raw_response(
+        attempt["id"], "spot", "cid-s", "order_post", D.SPOT_ORDER_PATH,
+        {"http_status": 401, "transport_error": None, "code": "-2015",
+         "msg": "Invalid API-key, IP, or permissions for action, request ip: 1.2.3.4",
+         "body": '{"code":-2015}'},
+        2_000, decisive=True,
+    )
+    code, msg = store.latest_auth_error("t1")
+    assert code == "-2015"
+    assert "1.2.3.4" in msg
+
+
+def test_latest_auth_error_none_when_absent(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store)
+    assert store.latest_auth_error("t1") == (None, None)

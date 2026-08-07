@@ -41,8 +41,22 @@ check.
   - ④：`_merge_base_asset` 已无散落调用，仅剩两处合法回退（三级链末端），docstring
     写明私有约束。桶内身份分裂加 `identity_conflict` 审计事件（生产实证：THEUSDT 一个
     周期有 5 个任务贡献腿，桶内多任务是常态）。
-  **实盘验证**：② 已验（关闸门建 SNXX/THE 任务→三列固化正确→删任务→恢复闸门，
-  0 attempt 无副作用）；③ 只读实证如上；**⑤ close 继承尚未实盘验证**。
+  **实盘验证（2026-08-07 17:00–17:40，SNXXUSDT 完整开平仓闭环，真实成交）**：
+  - 开仓 `feeaf73f`（2/2 成功）：现货腿实发 `/api/v3/order` **SNXXBUSDT** BUY、合约腿
+    `/papi/v1/um/order` **SNXXUSDT** SELL，均 FILLED，`transport=live posted=true`。
+  - 展示（③）：持仓面板 `spot_qty=3 / spot_balance=3 / value=31.56`，记账与实际余额
+    一致，`drift=false` 为真值（此前 bStock 上因读不到余额而恒 false，是假阴性）。
+  - 平仓（⑤ close 继承）：`ac93dcab`(1/1) + `a745c7d0`(2/2) 均真实成交，close 任务
+    `spot_symbol=SNXXBUSDT` **继承自开仓任务**而非重新查表；现货 SELL 正确路由到
+    `/api/v3/order`（SNXXB 在普通现货账户——正是 COOKIE 单腿事故的判定点，本次无误）。
+    全平后周期 `8bc56030` 自动关闭（`auto_close`），USDT 20.92 划回，现货/合约均归零。
+  - 全程无 `identity_drift` / `identity_conflict` 事件。
+  **插曲（与本线无关，已转化为改进）**：中途一次平仓 `c54d1c6a` 因出口 IP 变更被币安
+  以 401 `-2015` 拒绝（`request ip: 61.221.79.190` 不在 API key 白名单）。两腿均未发出、
+  账户零变化、**无裸腿**。系统把 auth 类判为 `UNKNOWN_QUERYING` 而非 REJECTED 是**有意的
+  保守设计**（auth/签名/时间戳存在歧义 → 只按 clientOrderId 重查、绝不重发），行为正确；
+  但通用文案「请到交易所核对订单」会让人去找一张从未存在的单。已改：`-2015` 现在直接
+  点名 IP 白名单与「订单未发出」（`order_state_unknown_pause_reason_zh`）。
   **follow-up**：前端持仓表尚未显示现货腿 symbol（后端已提供 `spot_symbol` 字段），
   DeepSeek 建议记账——这正是 Q1「看得见实际对冲的是 SNXXBUSDT」的诉求。
 - **[2026-08-07] 现货符号解析改显式映射表 + P1/P2 死区修复已提交（`8ee6d3c`）**：

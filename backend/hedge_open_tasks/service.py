@@ -2147,9 +2147,14 @@ class HedgeOpenTaskService:
         tasks are sticky: their status is NOT rewritten to paused (F2); the same
         visible manual-verification event is recorded and the legs stay
         non-terminal for manual verification (never resent)."""
+        # -2015（API-key/IP/权限）是网关层拒绝，订单未发出——通用文案让人去交易所
+        # 核对订单会白跑一趟（2026-08-07 实盘：出口 IP 变更）。能精准就精准。
+        _code, _msg = self._store.latest_auth_error(task["id"])
+        precise_zh = D.order_state_unknown_pause_reason_zh(_code, _msg)
         if task["status"] in (D.STATUS_RUNNING, D.STATUS_PAUSED):
             self._pause_task_local(
                 task, D.PAUSE_REASON_ORDER_STATE_UNKNOWN, drain_signal, now_us,
+                pause_zh=precise_zh,
             )
             return
         self._store.record_task_event(
@@ -2157,7 +2162,7 @@ class HedgeOpenTaskService:
             "task_paused",
             {
                 "reason": D.PAUSE_REASON_ORDER_STATE_UNKNOWN,
-                "reason_zh": D.pause_reason_zh(D.PAUSE_REASON_ORDER_STATE_UNKNOWN),
+                "reason_zh": precise_zh or D.pause_reason_zh(D.PAUSE_REASON_ORDER_STATE_UNKNOWN),
                 "coin": task["coin"],
                 "direction": task["direction"],
                 "signal": drain_signal,

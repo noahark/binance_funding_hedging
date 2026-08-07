@@ -2098,6 +2098,27 @@ class HedgeOpenStore:
             )
             return cur.lastrowid
 
+    def latest_auth_error(self, task_id: str) -> tuple:
+        """该任务最近一次带业务码的原始响应 ``(business_code, business_msg)``。
+
+        供 ``order_state_unknown`` 暂停时生成精准中文原因：``-2015`` 这类网关层
+        拒绝其实**订单未发出**，通用文案让人去交易所核对订单会白跑一趟
+        （2026-08-07 实盘：出口 IP 变更导致平仓两腿被 401 拒）。
+        无记录时返回 ``(None, None)``。
+        """
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT r.business_code, r.business_msg"
+                " FROM hedge_open_raw_response r"
+                " JOIN hedge_open_attempt a ON a.id = r.attempt_id"
+                " WHERE a.task_id = ? AND r.business_code IS NOT NULL"
+                " ORDER BY r.id DESC LIMIT 1",
+                (task_id,),
+            ).fetchone()
+        if row is None:
+            return None, None
+        return row["business_code"], row["business_msg"]
+
     def list_raw_responses_for_attempt(self, attempt_id: int) -> list[dict]:
         """All raw-response rows for an attempt, oldest-first (T3 verification)."""
         with self._lock:

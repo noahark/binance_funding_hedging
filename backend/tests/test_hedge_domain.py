@@ -801,3 +801,32 @@ def test_identity_drift_event_recorded_once_per_task(tmp_path):
         (tid,),
     ).fetchone()[0]
     assert events == 1, f"漂移告警应每任务只记一次，实际 {events} 条"
+
+
+# ---------------------------------------------------------------------------
+# order_state_unknown 的精准文案（2026-08-07 实盘：-2015 IP 白名单）
+# ---------------------------------------------------------------------------
+
+def test_order_state_unknown_zh_names_ip_whitelist_for_2015():
+    # 实盘案例：出口 IP 变更后平仓两腿被 401/-2015 拒绝。通用文案让人去交易所
+    # 「核对订单」，但订单从未存在——白等一场。精准文案直接点名 IP 白名单。
+    zh = D.order_state_unknown_pause_reason_zh(
+        "-2015",
+        "Invalid API-key, IP, or permissions for action, request ip: 61.221.79.190",
+    )
+    assert zh is not None
+    assert "61.221.79.190" in zh
+    assert "白名单" in zh
+    assert "未发出" in zh  # 明确告知订单没到交易所，不必去核对
+
+
+def test_order_state_unknown_zh_without_ip_still_names_auth():
+    zh = D.order_state_unknown_pause_reason_zh(
+        "-2015", "Invalid API-key, IP, or permissions for action.")
+    assert zh is not None and "API" in zh
+
+
+def test_order_state_unknown_zh_none_for_other_causes():
+    # 其他原因（超时、5xx、-1021 时间戳）仍用通用文案——那些是真的状态不明。
+    assert D.order_state_unknown_pause_reason_zh("-1021", "timestamp ahead") is None
+    assert D.order_state_unknown_pause_reason_zh(None, None) is None
