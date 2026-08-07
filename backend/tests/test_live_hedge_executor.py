@@ -102,7 +102,7 @@ class _FakeClient:
         return self._perp_query or _resp(404)
 
 
-def _ctx(*, spot_symbol=None, spot_route=None) -> AttemptContext:
+def _ctx(*, spot_symbol="BTCUSDT", spot_route=None) -> AttemptContext:
     # 2026-08-07 身份统一：现货腿 symbol 走 AttemptContext.spot_symbol（由 service
     # 从任务固化列传入），不再藏在预检快照里。
     snapshot = {"est_price": "50000"}

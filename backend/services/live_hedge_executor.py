@@ -872,7 +872,7 @@ class LiveHedgeExecutor:
         )
         send_qty = ctx.q_common if ctx.q_common is not None else ctx.single_amount
         spot_cid, perp_cid = _client_order_ids(ctx.attempt_id)
-        spot_symbol = ctx.spot_symbol or ctx.coin
+        spot_symbol = ctx.spot_symbol
         spot_route = (ctx.preflight_snapshot or {}).get(
             "spot_route", D.SPOT_ROUTE_PAPI_MARGIN
         )

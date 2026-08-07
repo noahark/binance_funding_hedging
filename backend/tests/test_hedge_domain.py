@@ -778,3 +778,26 @@ def test_identity_drift_none_when_consistent():
     assert D.identity_drift(ok) is None
     # 未回填的旧行不算漂移（回退查表本就等于当前值）。
     assert D.identity_drift({"coin": "SNXXUSDT", "spot_symbol": None}) is None
+
+
+def test_identity_drift_event_recorded_once_per_task(tmp_path):
+    # 核查点 3：漂移是任务级事实，不是每次 attempt 的事实。target_n=10 的任务
+    # 不应刷出 10 条重复告警——已记过就不再记（stderr 同理）。
+    from backend.hedge_open_tasks.service import HedgeOpenTaskService
+    svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled")
+    svc.create_task({"coin": "SNXXUSDT", "direction": "forward", "mode": "immediate",
+                     "single_amount": "1", "target_n": 3})
+    tid = svc._store._conn.execute(
+        "SELECT id FROM hedge_open_task ORDER BY creation_seq DESC LIMIT 1"
+    ).fetchone()[0]
+    # 人为制造漂移：把固化身份改成与当前查表不同的值。
+    svc._store._conn.execute(
+        "UPDATE hedge_open_task SET spot_symbol = 'OLDSNXXUSDT' WHERE id = ?", (tid,)
+    )
+    svc._store._conn.commit()
+    svc.post_fill_all(tid)
+    events = svc._store._conn.execute(
+        "SELECT COUNT(*) FROM hedge_open_log WHERE task_id = ? AND kind = 'identity_drift'",
+        (tid,),
+    ).fetchone()[0]
+    assert events == 1, f"漂移告警应每任务只记一次，实际 {events} 条"

@@ -49,6 +49,7 @@ def _ctx(
         filter_versions={},
         target_n=3,
         ts_us=1_000_000,
+        spot_symbol="BTCUSDT",
     )
 
 
@@ -246,6 +247,7 @@ def _ctx_with_qty_filters(
         filter_versions={},
         target_n=3,
         ts_us=1_000_000,
+        spot_symbol="BTCUSDT",
     )
 
 

@@ -51,6 +51,7 @@ def _ctx(
         filter_versions={"spot_step": "0.00001", "perp_step": "0.001"},
         target_n=3,
         ts_us=1_000_000,
+        spot_symbol="BTCUSDT",
     )
 
 

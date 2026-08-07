@@ -474,6 +474,9 @@ class HedgeOpenTaskService:
         self._store = HedgeOpenStore(
             db_path, executor_mode_snapshot=mode, now_us=self._wall_us(),
         )
+        # 已告警过身份漂移的任务 id（D3 去重，评审核查点 3）。进程内即可——漂移
+        # 源于映射表变更，重启后重新提示一次是期望行为而非缺陷。
+        self._identity_drift_seen: set[str] = set()
         # Default executor is DisabledHedgeExecutor (zero I/O, zero fills): it
         # resolves every attempt to ATTEMPT_DISABLED with filled_qty=0 and
         # performs NO network POST and NO simulated fill. The dry-run
@@ -2545,8 +2548,13 @@ class HedgeOpenTaskService:
         spot_order_symbol = D.spot_symbol_of(task)
         # D3 一致性告警：固化身份与当前查表不一致 → 记录但不阻断（固化值是该任务
         # 的历史真值，平仓必须用它；静默切换会让两条腿对不上）。
+        # 漂移是任务级事实而非每次 attempt 的事实：已记过就不再记，避免
+        # target_n=10 的任务刷出 10 条重复告警（评审核查点 3）。
         drift = D.identity_drift(task)
+        if drift is not None and task["id"] in self._identity_drift_seen:
+            drift = None
         if drift is not None:
+            self._identity_drift_seen.add(task["id"])
             print(
                 f"[HEDGE-IDENTITY-DRIFT] task={task['id'][:8]} coin={drift['coin']} "
                 f"frozen={drift['frozen']} current={drift['current']} "

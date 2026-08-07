@@ -49,11 +49,11 @@ class AttemptContext:
     filter_versions: dict  # spot/perp filter values read for this attempt
     target_n: int
     ts_us: int
-    task_type: str = "open"  # 功能三：'open'=开仓 / 'close'=平仓（合约腿 reduceOnly）
     # 现货腿交易对（2026-08-07 身份统一）：由 service 从任务固化列取出后传入，
-    # executor 不再从 preflight_snapshot 现算。None 仅出现在未传该字段的旧构造
-    # （测试夹具），此时回退 coin。
-    spot_symbol: str | None = None
+    # executor 不再从 preflight_snapshot 现算。**必填**——给默认值会让任何漏传的
+    # 构造点对 bStock 静默用合约名下单买错币，且不留痕迹（方案 §1.3 的静默错答案）。
+    spot_symbol: str
+    task_type: str = "open"  # 功能三：'open'=开仓 / 'close'=平仓（合约腿 reduceOnly）
 
 
 @dataclass(frozen=True)

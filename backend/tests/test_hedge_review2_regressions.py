@@ -349,7 +349,7 @@ def test_4_executor_to_client_signed_body_exact_keys_no_endpoint(tmp_path):
         attempt_id="att1", task_id="t1", coin="BTCUSDT", direction=D.DIR_FORWARD,
         single_amount=Decimal("0.5"), q_common=Decimal("0.5"),
         position_side_mode=D.POS_MODE_BOTH, preflight_snapshot={"est_price": "50000"},
-        filter_versions={}, target_n=3, ts_us=1000,
+        filter_versions={}, target_n=3, ts_us=1000, spot_symbol="BTCUSDT",
     )
     exe.dispatch(ctx)
     bodies = dict(client.captured)
