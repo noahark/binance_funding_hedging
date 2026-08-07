@@ -138,12 +138,13 @@ check.
   **无实际损失**：实盘库 `hedge_open_task` 历史币种仅 SNXX/THE/XLM/XVG/WLD，**从未开过**。
   **止血（已实施）**：`create_task` 对 `symbol_match_type == multiplier_strip_alias`
   的 **open** 任务 fail-closed（`multiplier_contract_unsupported`，中文 detail 点明
-  「1 张 = 1000 个 X」与「999 倍裸空」）。**只拦 open，close 放行**——万一存在历史仓位，
-  平仓逃生口必须活着（三个乘数币的身份固化/平仓划转测试用 monkeypatch 关掉建单拦截
-  后继续守护那条路径）。
-  **未做**：正确的腿量换算。它要动下单数量这条资金路径，**须 Human 明确授权**后单开一轮；
-  届时要一次改齐四处——下单量、`est_price` 口径、`required`、以及持仓表
-  `single_leg_exposure` 的比较（后者已在代码注释里留了指针）。
+  「1 张 = 1000 个 X」与「999 倍裸空」）。**只拦 open，close 放行**（三个乘数币的身份
+  固化/平仓划转测试用 monkeypatch 关掉建单拦截后继续守护那条路径）。
+  **⚠️ 放行 close 不等于 close 安全**（2026-08-07 复核订正）：close 走**同一个**
+  `compute_preflight`、同样两腿发一个 `q_common`，自动平仓的腿量同样错 1000 倍。
+  放行只是不再额外添堵（历史库并无此类仓位），**真要处置这种仓位得人工去交易所平**。
+  最初写的「平仓逃生口必须活着」措辞不准，已订正。
+  **未做的资金路径改造见 Open Follow-ups 的「1000x 腿量换算」条**（须 Human 授权）。
 - `[RESOLVED][2026-08-07]` **资产互转端点已上线且前后端打通，并经 Human 实盘验收**。
   交付 `036fcd1`（T2 前端）+ `bbe81b0`（UUID 修复轮）后，`POST /api/asset-transfer`
   已完成**首次真实调用验证**：Human 实盘小额试划转成功（`data/asset-transfer.sqlite3`
@@ -334,6 +335,38 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
 - `[NOTE][2026-08-04]` **Human 已重启后端服务加载新代码（合并后部署）**。Human 计划在 2026-08-05 00:01（每小时整点后 1 分钟的定时刷新首触发点）观察流水日志页面数据是否自动拉取——这是 fetcher→落库端到端路径（review-2 F-R2-2）的首次活体验证。观察要点：页面「流水日志」看板数据是否出现、状态条「上次刷新」时间是否推进、两栏是否有 error 短码、`coverage` 是否正常（重点 `truncated`/`gaps`/`unparsed_row_count`）。观察结果若有异常，按 Human 决定开后续修复 stage。
 
 ## Open Follow-ups
+
+- `[OPEN][NEEDS-HUMAN-AUTHORIZATION][2026-08-07]` **1000x 腿量换算——未做的资金路径**。
+  P0 止血只是把 6 个乘数币（BONK/FLOKI/LUNC/PEPE/SHIB/XEC）挡在门外（见 Live Risks
+  同日条目），**换算本身一行未写**。恢复这 6 个币的对冲能力必须改下单数量这条真金
+  白银的路径，故须 Human 明确授权后单开一轮，不得顺手夹带。
+  **必须一次改齐的五处**（改一半比不改更危险——半套换算会造出一个「看起来对、
+  实际错」的敞口，而现在至少是显式拒绝）：
+  1. `backend/services/live_hedge_executor.py:873` `send_qty = ctx.q_common` ——
+     两腿共用一个数量。现货腿需 ×1000（或合约腿 ÷1000），方向别搞反：合约 1 张 =
+     1000 个现货币，故**现货腿的量 = 合约张数 × 1000**。
+  2. `backend/services/hedge_preflight_provider.py:832`
+     `est_price = self._read_est_price(spot_symbol)` —— 取的是**现货**价。合约腿的
+     minNotional 校验与 UM 保证金估算需要合约价（= 现货价 × 1000），两腿不能共用一个价。
+  3. `backend/hedge_open_tasks/domain.py:1183` `q_common = floor_to_grid(single_amount, grid)`
+     —— `grid = lcm(spot_step, perp_step)` 把两腿的 stepSize 当同一量纲取最小公倍数，
+     换算后这个 lcm 不再成立，两腿的取整格必须各算各的。
+  4. `backend/hedge_open_tasks/domain.py:1267/1273` `required = q_common * target_n * est_price`
+     —— USDT 需求按哪条腿的量纲算要重新定义。
+  5. `backend/hedge_open_tasks/domain.py:1952` 持仓表 `single_leg_exposure` 的
+     `abs(spot_qty - perp_qty)` —— 两腿记账量纲不同（个 vs 张），换算前它对乘数币
+     必然误报，换算后要按同一量纲比。代码注释已留指针。
+  **改完要一并移除**：`service.py:807` 的 `multiplier_contract_unsupported` 拦截
+  + `test_hedge_service.py` 的两条拦截测试 + `test_hedge_cycle_close.py` 的
+  `_allow_multiplier_open` monkeypatch（三处调用）。
+  **验收不能只靠单测**：这是量纲错误，单测很容易两边用同一个错误假设而全绿。
+  建议先用最小额度实盘开一笔再立刻平掉，核对交易所两腿的**实际持仓数量**是否对平
+  （而非只看系统自己的记账）。
+  **乘数来源**：币安不在 exchangeInfo 里给显式 multiplier 字段，倍率隐含在 symbol
+  前缀里，只能由 `SPOT_SYMBOL_MAP` 显式携带（当前表只存 symbol 映射，不存倍率，
+  需要扩表）。当前 6 条恰好全是 1000 倍，但**别把倍率写死成常量**：币安存在过
+  `1000000` 前缀（`1000000MOG`——d717595 的 `base[4:]` 正是在它上面剥成 `000MOG` 的），
+  倍率应随表逐条声明，新增条目时由 `scripts/check-spot-symbol-map.py` 一起校验。
 
 - `[CLOSED][2026-08-04]` **fake 原型阶段闭环，Human 目视验收通过**。v2 独立流水页（侧栏切换 + 每栏默认最新 20 条 + FAKE 护栏）已提交 `d46523d`。后端任务 A 已恢复路由（glm，从 dispatch 重做）；设计定稿 v1.3（§13.7 独立页布局 + 默认 20 条 + 修订记录）由 Planner 在 C 路由前落定；A → B → C 串行，每份交付后走 review-1 + review-2。
 - `[CLOSED][2026-08-04]` **前端布局定稿（Human 验收通过）**。tab-layout v2（panel-actions 双按钮、侧栏三项、market-view 内第二看板）+ 元数据卡片左右排微调（微调由 Human 直接安排 grok 完成，未走标准路由，Bookkeeper 已核验 self-check 全绿），前端最终交付提交 `5613c4e`。下一步：设计 v1.4（Planner）→ 前后端联调（真实 `POST /refresh` 须 Human 授权）→ 统一 review-1 + review-2（A+B+C，provider 隔离：review-1 避 `zhipu_glm`+`xai`，review-2 避两实现作者）。**review-2 模型决定（Human 2026-08-04）**：由默认 Opus 5 改为 **`sonnet5`（anthropic）**，理由为 Claude 额度考量；review-1 仍为 kimi（moonshot）。**kimi 额度（Human 2026-08-04 告知）**：`moonshot` 额度 **2026-08-07 之后可用**；在此之前 review-1 若需路由，改用 `deepseek`（`deepseek`）或 `codex`（`openai`），8 月 7 日后可切回 kimi。

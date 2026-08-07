@@ -797,8 +797,11 @@ class HedgeOpenTaskService:
         # 1000BONKUSDT = 1000 个 BONK——现货买 N 个、合约空 N 张，净裸空 999N。
         # SPOT_SYMBOL_MAP 让这 6 个币
         # 通过了上面的存在性探测，但腿量换算从未实现，故在此 fail-closed（「宁可
-        # 无腿，不可错腿」）。**只拦 open**：万一存在历史仓位，平仓必须放行。
-        # 换算实现后连同本拦截与其两个测试一起移除。
+        # 无腿，不可错腿」）。换算实现后连同本拦截与其两个测试一起移除。
+        #
+        # **只拦 open，但这不代表 close 安全**：close 走同一个 compute_preflight、
+        # 同样两腿发一个 q_common，自动平仓的腿量同样错 1000 倍。放行只是不再额外
+        # 添堵（历史库中并无此类仓位），真要处置这种仓位得人工去交易所平。
         if task_type == D.TASK_TYPE_OPEN:
             mult_spot_symbol, _, mult_match = resolve_spot_identity(coin)
             if mult_match == SPOT_MATCH_MULTIPLIER:
