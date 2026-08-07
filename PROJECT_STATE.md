@@ -22,16 +22,24 @@ check.
   fail-fast、回填判定补 `OR spot_symbol = ''`）。**第②步前置要求**：D3 一致性告警提前到②、
   删 `spot_order_symbol` 前核对 6 处调用点（含 `tests/fakes.py:155`）、close 平单环
   （service.py:1639/1742）切 `spot_base_of(task)` 后 dry-run/live 两态测试。
-  **步骤② 进行中**（opus5）：六个消费点切任务列 + 删 `spot_order_symbol` + 停写
-  `preflight_snapshot.spot_symbol`（domain.py:1151 整段删）。
+  存疑点 2/3 已提前落地（`683071f`，1548 passed）：`resolve_spot_identity` 输入
+  fail-fast（非 USDT 计价合约 symbol → `ValueError`）、回填判定补 `OR spot_symbol = ''`。
+  fail-fast 提前到②之前是有意为之——②要改六个消费点，护栏先就位才能让传错类别
+  当场抛错而非静默算出貌似合理的身份。
+  **步骤② 待开始**（opus5，Human 已批准）：六个消费点切任务列 + 删 `spot_order_symbol`
+  + 停写 `preflight_snapshot.spot_symbol`（domain.py:1151 整段删）+ D3 一致性告警。
 - **[2026-08-07] 现货符号解析改显式映射表 + P1/P2 死区修复已提交（`8ee6d3c`）**：
   d717595 的字符串猜测规则被纯表取代（`SPOT_SYMBOL_MAP` 71 条 = 65 bStock + 6 乘数，
   最新 exchangeInfo 实测生成）：d717595 放开 B 后缀 TRADIFI gate 的**全部影响面仅 1 条且是
   错的**（合约 BUSDT/base=B 会误配到 BounceBit 的 BBUSDT，两个独立币种，误配贯穿预检/开单/
   展示/平单——真实裸敞口风险）；`base[4:]` 对 `1000000MOG` 剥成 `000MOG` 同样被纯表消除。
   同一提交含 P1/P2 修复（collateral-cap 开单死区：缓存超龄实时重读 + 手动刷新覆盖
-  restricted_asset）。**注意：`8ee6d3c` 起服务仍未重启，运行中的服务没有上述修复**（含
-  P1/P2 与纯表方案），重启需 Human 授权且避开在跑任务。issue-triage Q1 已随本线解决；
+  restricted_asset）。**服务已于 2026-08-07 12:39 由 Human 重启并实测两项修复生效**：
+  手动「更新缓存」使 cap 的 `checked_at` 由 `04:42:45Z` 推进到 `04:44:28Z`（旧代码此处
+  纹丝不动）；注入超龄 10h 且谎称 THE 已打满的缓存后，实时重读得 `False`——既证明
+  死区消除，也证明陈旧清单未被采用。**注意：重启发生在本线后续提交之前，`ee35b5e` /
+  `683071f`（身份固化 + fail-fast）尚未载入运行中的服务**；下次重启同样需避开在跑任务。
+  issue-triage Q1 已随本线解决；
   Q2（流水划转回显）、Q3（多任务卡回显）、Q4（maxWithdraw）未处理，建议顺序 Q3→Q4→Q2。
 
 - **stage `2026-08-06-asset-transfer-live-v1` 已收尾归档（2026-08-07）**：Human 实盘验收通过并
