@@ -1005,3 +1005,59 @@ def test_close_insufficient_pause_zh_notes_transfer_in_flight(tmp_path):
     task2 = svc2._store.get_task(ctid2)
     assert svc2._ensure_close_spot_balance(task2, svc2._wall_us()) is None  # 充足未划转
     assert svc2._close_insufficient_pause_zh(task2, D.PAUSE_REASON_INSUFFICIENT_BALANCE) is None
+
+
+# ---------------------------------------------------------------------------
+# 现货腿身份固化（symbol-identity-unification 步骤①，测试 1）
+# ---------------------------------------------------------------------------
+
+def test_create_task_freezes_spot_identity_in_dry_run(tmp_path):
+    """dry-run（无 live preflight）建 bStock 任务，身份三列仍须正确固化。
+
+    复现库内实盘缺陷 7f1836fe：该任务 preflight 为 no_preflight_snapshot，
+    旧实现只在 live 预检成功时才写 spot_symbol，导致回退到合约 symbol
+    SNXXUSDT —— 而真值是 SNXXBUSDT。身份改由静态表解析后与 live 无关。
+    """
+    svc = _svc(tmp_path)
+    svc.create_task({"coin": "SNXXUSDT", "direction": "forward", "mode": "immediate",
+                     "single_amount": "1", "target_n": 1})
+    row = svc._store._conn.execute(
+        "SELECT spot_symbol, spot_base_asset, symbol_match_type"
+        " FROM hedge_open_task WHERE coin = 'SNXXUSDT'"
+    ).fetchone()
+    assert row["spot_symbol"] == "SNXXBUSDT"
+    assert row["spot_base_asset"] == "SNXXB"
+    assert row["symbol_match_type"] == "bstock_b_suffix_alias"
+
+
+def test_create_task_freezes_identity_for_multiplier_and_plain(tmp_path):
+    svc = _svc(tmp_path)
+    svc.create_task({"coin": "1000BONKUSDT", "direction": "forward", "mode": "immediate",
+                     "single_amount": "1", "target_n": 1})
+    svc.create_task({"coin": "BTCUSDT", "direction": "forward", "mode": "immediate",
+                     "single_amount": "0.5", "target_n": 1})
+    rows = {
+        r["coin"]: r for r in svc._store._conn.execute(
+            "SELECT coin, spot_symbol, spot_base_asset, symbol_match_type"
+            " FROM hedge_open_task"
+        )
+    }
+    assert rows["1000BONKUSDT"]["spot_symbol"] == "BONKUSDT"
+    assert rows["1000BONKUSDT"]["spot_base_asset"] == "BONK"
+    assert rows["1000BONKUSDT"]["symbol_match_type"] == "multiplier_strip_alias"
+    # 普通币：身份即同名，match_type 为 exact_symbol（显式存储，不留空）
+    assert rows["BTCUSDT"]["spot_symbol"] == "BTCUSDT"
+    assert rows["BTCUSDT"]["spot_base_asset"] == "BTC"
+    assert rows["BTCUSDT"]["symbol_match_type"] == "exact_symbol"
+
+
+def test_frozen_identity_base_always_derivable_from_symbol(tmp_path):
+    """测试 11：冗余列一致性——spot_base_asset 恒等于 spot_symbol 剥 USDT。"""
+    svc = _svc(tmp_path)
+    for coin in ("SNXXUSDT", "1000BONKUSDT", "BTCUSDT", "THEUSDT"):
+        svc.create_task({"coin": coin, "direction": "forward", "mode": "immediate",
+                         "single_amount": "1", "target_n": 1})
+    for r in svc._store._conn.execute(
+        "SELECT coin, spot_symbol, spot_base_asset FROM hedge_open_task"
+    ):
+        assert r["spot_symbol"] == r["spot_base_asset"] + "USDT", r["coin"]

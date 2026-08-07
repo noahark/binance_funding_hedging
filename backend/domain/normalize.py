@@ -88,6 +88,10 @@ SPOT_MATCH_EXACT = "exact_symbol"
 SPOT_MATCH_BSTOCK = "bstock_b_suffix_alias"
 SPOT_MATCH_MULTIPLIER = "multiplier_strip_alias"
 
+# 本表与 resolve_spot_identity 只处理 USDT 计价（全项目唯一计价资产）。
+# 与 hedge_open_tasks.domain.QUOTE_ASSET 同值，本地定义以免 domain 层反向依赖上层。
+_QUOTE_ASSET = "USDT"
+
 # 合约 symbol -> (现货 symbol, match_type) 的显式例外表（2026-08-07）。
 #
 # 只列「合约名 != 现货名」的标的；名字相同的走 exact，不进表。查不到就是查不到——
@@ -179,6 +183,34 @@ SPOT_SYMBOL_MAP = {
     "1000SHIBUSDT":        ("SHIBUSDT",            SPOT_MATCH_MULTIPLIER),
     "1000XECUSDT":         ("XECUSDT",             SPOT_MATCH_MULTIPLIER),
 }
+
+
+def resolve_spot_identity(contract_symbol: str) -> tuple:
+    """合约 symbol -> ``(spot_symbol, spot_base_asset, match_type)``。纯查表零 IO。
+
+    **永不返回 None** —— 它只回答「这个合约的现货腿叫什么」，不回答「有没有
+    现货腿」。后者是 ``check_symbol_legs`` 的职责：身份来自静态表（稳定、可随
+    任务固化），存在性必须实时探测（会变——``KORUUSDT`` 曾无现货腿，币安后来
+    上线了 ``KORUBUSDT``）。二者混为一谈会让「无腿」的判定退化成查表查不到，
+    而表外绝大多数恰恰是同名有腿的普通币。
+
+    表内取映射值；表外即同名（``BTCUSDT`` -> ``BTCUSDT``/``BTC``）。
+    ``spot_base_asset`` 由 ``spot_symbol`` 剥去 ``USDT`` 得到，因此恒满足
+    ``spot_symbol == spot_base_asset + "USDT"``。
+
+    设计见 ``docs/planning/symbol-identity-unification-2026-08-07.opus5.md`` §2.2。
+    """
+    entry = SPOT_SYMBOL_MAP.get(contract_symbol)
+    if entry is not None:
+        spot_symbol, match_type = entry
+    else:
+        spot_symbol, match_type = contract_symbol, SPOT_MATCH_EXACT
+    base = (
+        spot_symbol[: -len(_QUOTE_ASSET)]
+        if spot_symbol.endswith(_QUOTE_ASSET)
+        else spot_symbol
+    )
+    return spot_symbol, base, match_type
 
 
 def resolve_spot_leg(

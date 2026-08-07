@@ -3,12 +3,14 @@ from __future__ import annotations
 
 from backend.domain.normalize import (
     SPOT_MATCH_BSTOCK,
+    SPOT_MATCH_EXACT,
     SPOT_MATCH_MULTIPLIER,
     SPOT_SYMBOL_DENY,
     SPOT_SYMBOL_MAP,
     asset_tag_for,
     filter_of,
     iso_from_ms,
+    resolve_spot_identity,
     resolve_spot_leg,
 )
 
@@ -223,3 +225,34 @@ def test_resolve_spot_leg_exact_beats_alias_for_tradifi():
     obj, match_type = resolve_spot_leg("TRADIFI_PERPETUAL", "TSLA", "USDT", spot)
     assert obj["symbol"] == "TSLAUSDT"
     assert match_type == "exact_symbol"
+
+
+# --- resolve_spot_identity：现货腿身份（只答「叫什么」，不答「有没有」）---
+# 方案 docs/planning/symbol-identity-unification-2026-08-07.opus5.md §2.2：
+# 身份来自静态表（稳定、可固化），存在性由 check_symbol_legs 实时探测负责。
+
+
+def test_resolve_spot_identity_mapped_bstock():
+    assert resolve_spot_identity("SNXXUSDT") == ("SNXXBUSDT", "SNXXB", SPOT_MATCH_BSTOCK)
+
+
+def test_resolve_spot_identity_mapped_multiplier():
+    assert resolve_spot_identity("1000BONKUSDT") == ("BONKUSDT", "BONK", SPOT_MATCH_MULTIPLIER)
+
+
+def test_resolve_spot_identity_unmapped_is_same_name():
+    # 表外即同名：绝大多数普通币走这条路。
+    assert resolve_spot_identity("BTCUSDT") == ("BTCUSDT", "BTC", SPOT_MATCH_EXACT)
+
+
+def test_resolve_spot_identity_never_returns_none_for_legless_contract():
+    # BUSDT 实际无现货腿，但 identity 仍返回同名身份——「有没有腿」不归它答，
+    # 由 check_symbol_legs 拦截（方案 §2.2 / §2.3，r1 的 D1 已据此撤销）。
+    assert resolve_spot_identity("BUSDT") == ("BUSDT", "B", SPOT_MATCH_EXACT)
+
+
+def test_resolve_spot_identity_base_is_derivable_from_symbol():
+    # 测试 11 的纯函数部分：spot_base_asset 恒等于 spot_symbol 剥去 USDT。
+    for contract in SPOT_SYMBOL_MAP:
+        spot_symbol, base, _match = resolve_spot_identity(contract)
+        assert spot_symbol == base + "USDT", contract

@@ -32,6 +32,7 @@ import uuid
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from ..domain.normalize import resolve_spot_identity
 from . import domain as D
 from .executor import AttemptOutcome
 
@@ -244,6 +245,11 @@ def _row_to_task(row: sqlite3.Row) -> dict:
         "last_worker_exit_reason": row["last_worker_exit_reason"],
         # 功能三（2026-08）：任务类型（'open'=开仓 / 'close'=平仓）；旧行迁移默认 'open'。
         "task_type": row["task_type"],
+        # 现货腿身份（2026-08-07）：建任务时固化的真值，三环只读不算。旧行为 None
+        # （未回填），读取侧回退 resolve_spot_identity。
+        "spot_symbol": row["spot_symbol"],
+        "spot_base_asset": row["spot_base_asset"],
+        "symbol_match_type": row["symbol_match_type"],
     }
 
 
@@ -420,6 +426,12 @@ class HedgeOpenStore:
             ("last_worker_exit_reason", "TEXT"),
             # 功能三（2026-08）：任务类型——'open'=开仓（默认，现有行不回填）/ 'close'=平仓。
             ("task_type", "TEXT NOT NULL DEFAULT 'open'"),
+            # 现货腿身份（2026-08-07 symbol-identity-unification 步骤①）：建任务时
+            # 由 resolve_spot_identity 解析一次并固化，下单/平单/展示三环只读不算。
+            # 存量行为 NULL，由 scripts/backfill-spot-identity.py 回填。
+            ("spot_symbol", "TEXT"),
+            ("spot_base_asset", "TEXT"),
+            ("symbol_match_type", "TEXT"),
         )
         for col, decl in additions:
             if col not in task_cols:
@@ -646,6 +658,9 @@ class HedgeOpenStore:
         *,
         failure_pause_threshold: int = D.DEFAULT_FAILURE_PAUSE_THRESHOLD,
         task_type: str = D.TASK_TYPE_OPEN,
+        spot_symbol: str | None = None,
+        spot_base_asset: str | None = None,
+        symbol_match_type: str | None = None,
     ) -> dict:
         with self._lock, self._conn:
             creation_seq = self._conn.execute(
@@ -661,9 +676,10 @@ class HedgeOpenStore:
                 "  creation_seq, created_at_us, updated_at_us,"
                 "  scheduled_attempt_count, accepted_pair_count,"
                 "  consecutive_submission_failures, failure_pause_threshold,"
-                "  pause_reason, task_type)"
+                "  pause_reason, task_type,"
+                "  spot_symbol, spot_base_asset, symbol_match_type)"
                 " VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, NULL, ?, ?, ?, ?,"
-                "         0, 0, 0, ?, NULL, ?)",
+                "         0, 0, 0, ?, NULL, ?, ?, ?, ?)",
                 (
                     task_id,
                     coin,
@@ -680,12 +696,39 @@ class HedgeOpenStore:
                     now_us,
                     failure_pause_threshold,
                     task_type,
+                    spot_symbol,
+                    spot_base_asset,
+                    symbol_match_type,
                 ),
             )
             row = self._conn.execute(
                 "SELECT * FROM hedge_open_task WHERE id = ?", (task_id,)
             ).fetchone()
             return _row_to_task(row)
+
+    def backfill_spot_identity(self) -> dict:
+        """为身份三列为空的存量任务回填 :func:`resolve_spot_identity` 的结果。
+
+        幂等：只写 ``spot_symbol IS NULL`` 的行，已固化的身份是该任务的历史真值，
+        绝不覆盖（表若变动由 ``check-spot-symbol-map.py --verify`` 报 STALE +
+        人工处理，不在此处静默改写）。返回 ``{"updated": n, "total": n}``。
+        """
+        with self._lock, self._conn:
+            rows = self._conn.execute(
+                "SELECT id, coin FROM hedge_open_task WHERE spot_symbol IS NULL"
+            ).fetchall()
+            for row in rows:
+                spot_symbol, spot_base, match_type = resolve_spot_identity(row["coin"])
+                self._conn.execute(
+                    "UPDATE hedge_open_task"
+                    " SET spot_symbol = ?, spot_base_asset = ?, symbol_match_type = ?"
+                    " WHERE id = ?",
+                    (spot_symbol, spot_base, match_type, row["id"]),
+                )
+            total = self._conn.execute(
+                "SELECT COUNT(*) FROM hedge_open_task"
+            ).fetchone()[0]
+        return {"updated": len(rows), "total": total}
 
     def get_task(self, task_id: str) -> dict | None:
         with self._lock:

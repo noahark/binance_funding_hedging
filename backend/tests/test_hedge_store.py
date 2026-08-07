@@ -1332,3 +1332,69 @@ def test_avg_price_migration_idempotent_and_preserves_existing_rows(tmp_path):
             assert leg["order_id"] == want_oid
             assert leg["avg_price"] == "50000"      # 落库值跨重开保留
         s2.close()
+
+
+# ---------------------------------------------------------------------------
+# 现货腿身份固化（symbol-identity-unification 步骤①）
+# ---------------------------------------------------------------------------
+
+def test_create_task_persists_spot_identity(tmp_path):
+    # 身份三列随建任务落库，此后所有环节只读不算。
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    store.create_task(
+        "bstock", "SNXXUSDT", D.DIR_FORWARD, D.MODE_IMMEDIATE, "1", 1,
+        None, None, None, 1_000,
+        spot_symbol="SNXXBUSDT", spot_base_asset="SNXXB",
+        symbol_match_type="bstock_b_suffix_alias",
+    )
+    task = store.get_task("bstock")
+    assert task["spot_symbol"] == "SNXXBUSDT"
+    assert task["spot_base_asset"] == "SNXXB"
+    assert task["symbol_match_type"] == "bstock_b_suffix_alias"
+
+
+def test_create_task_without_identity_leaves_columns_null(tmp_path):
+    # 未传身份（旧调用方/回填前的行）→ 三列为 NULL，读取侧按「未固化」处理。
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store)
+    task = store.get_task("t1")
+    assert task["spot_symbol"] is None
+    assert task["spot_base_asset"] is None
+    assert task["symbol_match_type"] is None
+
+
+def test_backfill_spot_identity_fills_null_rows_and_is_idempotent(tmp_path):
+    """测试 8：存量行回填 + 幂等（重跑不再改动）。"""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    # 模拟回填前的存量行：建任务时不带身份，三列为 NULL。
+    for tid, coin in (("a", "SNXXUSDT"), ("b", "1000BONKUSDT"), ("c", "BTCUSDT")):
+        store.create_task(
+            tid, coin, D.DIR_FORWARD, D.MODE_IMMEDIATE, "1", 1,
+            None, None, None, 1_000,
+        )
+    assert store.get_task("a")["spot_symbol"] is None
+
+    first = store.backfill_spot_identity()
+    assert first["updated"] == 3
+    assert store.get_task("a")["spot_symbol"] == "SNXXBUSDT"
+    assert store.get_task("a")["spot_base_asset"] == "SNXXB"
+    assert store.get_task("b")["spot_symbol"] == "BONKUSDT"
+    assert store.get_task("c")["spot_symbol"] == "BTCUSDT"
+
+    # 幂等：已回填的行不再计入，也不改动既有值。
+    second = store.backfill_spot_identity()
+    assert second["updated"] == 0
+    assert store.get_task("a")["spot_symbol"] == "SNXXBUSDT"
+
+
+def test_backfill_spot_identity_never_overwrites_existing(tmp_path):
+    # 已固化的身份是任务的历史真值，回填绝不覆盖（表若变动应由 --verify 报警 + 人工处理）。
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    store.create_task(
+        "frozen", "SNXXUSDT", D.DIR_FORWARD, D.MODE_IMMEDIATE, "1", 1,
+        None, None, None, 1_000,
+        spot_symbol="LEGACYUSDT", spot_base_asset="LEGACY",
+        symbol_match_type="exact_symbol",
+    )
+    store.backfill_spot_identity()
+    assert store.get_task("frozen")["spot_symbol"] == "LEGACYUSDT"

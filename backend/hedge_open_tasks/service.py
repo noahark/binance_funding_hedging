@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Callable, Protocol
 
+from ..domain.normalize import resolve_spot_identity
 from . import domain as D
 from .executor import (
     AttemptContext,
@@ -819,6 +820,11 @@ class HedgeOpenTaskService:
             f"coin={coin} direction={direction} q={D.fmt_decimal(preflight.q_common)}",
             file=sys.stderr, flush=True,
         )
+        # 现货腿身份在建任务时解析一次并固化（symbol-identity-unification §3①）。
+        # 纯查表零 IO，与 live/dry-run 无关——修掉「身份是 live preflight 副产品」
+        # 导致的实盘缺陷（无预检的任务回退到合约 symbol，对 bStock/1000x 必错）。
+        # 它只答「叫什么」；「有没有现货腿」由上面的 check_symbol_legs 探测负责。
+        spot_symbol, spot_base_asset, symbol_match_type = resolve_spot_identity(coin)
         task = self._store.create_task(
             task_id,
             coin,
@@ -831,6 +837,9 @@ class HedgeOpenTaskService:
             preflight.snapshot_record,
             now_us,
             task_type=task_type,
+            spot_symbol=spot_symbol,
+            spot_base_asset=spot_base_asset,
+            symbol_match_type=symbol_match_type,
         )
         return 201, self._doc(task)
 
