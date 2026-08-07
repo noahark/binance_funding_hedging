@@ -2,7 +2,7 @@
 
 - 日期：2026-08-07
 - 作者：Opus 5
-- 状态：**review-1(kimi) ACCEPT**；review-2(DeepSeek) 待回。代码仍未动。
+- 状态：**双评审完成** — review-1(kimi) ACCEPT / review-2(DeepSeek) REWORK；**修复要求已全部收编（本文档 r2）**。代码仍未动，待 Human 授权开工。
 - 对应 PROJECT_STATE：Merged Position Table 段 `[OPEN][ACCEPTED]` **F4**
 - 基线提交：`3b7a6d2`
 
@@ -86,8 +86,11 @@ not None`。而 `um is None` 有两种截然不同的成因，代码不区分：
 ```
 
 - 判据是**入参是否为 `None`**，不是数组是否为空——`[]` 是合法答案（真的空仓/空钱包）。
-- 覆盖 `unified` / `spot` / `um_positions` / `pm_account` 四个可选源，一次把口径统一。
-- `verified=false` 时该字段仍照常填（此时通常是全部）。
+- **键名必须复用 `_SOURCE_CHECKED_AT_KEYS` 的正式名**（`snapshot.py:80-86`）：
+  `unified_balances` / `spot_balances` / `um_positions` / `pm_account`。
+  原计划写的「unified / spot」是口语化简称——同一个块里出现两套命名会让消费方
+  分不清该按哪套匹配（review-2 DeepSeek 指出）。`price_map` 不属于账户源，不收录。
+- `verified=false` 时该字段仍照常填（此时通常是全部四个）。
 
 **为何不用 `source_checked_at` 推断**：它记的是「最后一次成功的时间」。本次失败但
 曾经成功过的源，时间戳仍是旧值——要判定「本次是否失败」就得引入新鲜度阈值，那是**推断**
@@ -124,6 +127,17 @@ not None`。而 `um is None` 有两种截然不同的成因，代码不区分：
 - `unavailable_sources` 是 §4.2 的**判定依据**，merge 层必须读它。让判定与展示共用
   同一次读取，避免两处各读一次而漂移（本轮 drift 修复踩过的正是「同一事实两处各判一次」）。
 
+**与 review-2 的分歧（保留记录，Human 可推翻）**：DeepSeek 建议照搬 `source_checked_at`
+的组装根模式，在 `server.py:1093` 附近附加。两方案产出的 wire 形状**完全相同**，当下
+无优劣；分歧只在抗未来漂移：若某天 merge 的判定加了额外条件（例如「源虽可用但过旧
+也算不可用」），组装根那份展示值不会跟着变，横幅与行内标记就会各说各话。**我选择
+merge 内部写入以消除这个可能**。若评审坚持一致性优先，改回组装根只是搬一行，不影响
+本计划其余部分。
+
+**`private_account is None` / `verified=false` 时的取值**：`account_meta.unavailable_sources`
+填**全部四个源**（诚实——此时确实一个都没读到），而不是空列表。空列表在 §4.1.1 的
+语义下等同「全部可用」，在这里会是又一次假声明。
+
 ### 4.2 判定层：`match_status` 新增 `um_unknown`
 
 `backend/hedge_open_tasks/domain.py::merge_positions` / `_merge_build_row`
@@ -145,6 +159,11 @@ else:
 `um_readable` 沿用 §4.1 的事实，经 `merge_positions` 参数传入 `_merge_build_row`
 （与既有 `account_readable` 同一模式，不新增全局状态）。
 
+**读取必须对字段缺失容错**（review-2 DeepSeek 指出，§4.1.1 的语义在此落地）：
+写成 `pa.get("unavailable_sources") or []`，缺失/`None` 一律当空列表处理。旧缓存块与
+测试自造块都不带这个字段，直接下标或假定非空会让 `test_positions_merge.py:120/129`
+直接 `TypeError` —— 那不是「测试需要更新」，是实现没兜住向后兼容。
+
 **路径 1/2 一并收编**：`verified=false` 时 `um_readable` 也是 `false`，于是那两条路径
 的行内文案同样从「交易所无仓」变成「未知」——**三条路径在同一处收口**，不是打三个补丁。
 
@@ -154,8 +173,12 @@ else:
 
 | `match_status` | 标记 | 悬浮提示 |
 |---|---|---|
-| `no_um`（不变） | 交易所无仓 | 本地有任务记录，但交易所无对应持仓（可能已强平或手工平仓） |
+| `no_um`（文案降调） | 交易所无仓 | 本地有任务记录，但**交易所当前无对应持仓（可能已强平、手工平仓或周期已结束）** |
 | `um_unknown`（新） | **交易所仓位未知** | 本次未读到交易所持仓数据，**无法判断该仓位是否还在**；请到币安核实。本地任务记账仍展示在本行 |
+
+`no_um` 文案降调（§8-3）**纳入本轮**：两位评审都建议做，DeepSeek 给了措辞。理由是
+即便 UM 确实读到了、确实没这个仓位，「可能已强平」也只是三种成因之一（还有手工平仓、
+周期已结束、本地记账过期）。修完假声明却留半句推测，等于活儿只干一半。改动是一行文案。
 
 配色：`no_um` 现为 `risk-warn`；`um_unknown` 用中性/`muted` 色——它不是风险结论，是
 **没有结论**，不该和真实告警抢注意力。
@@ -185,6 +208,11 @@ else:
 6. `um_positions=None` → `unavailable_sources` 含 `"um_positions"`，且 `verified` 仍为 `true`
 7. `um_positions=[]` → `unavailable_sources` **不含** 它（空数组是合法答案）
 
+`test_positions_merge.py`（向后兼容，review-2 DeepSeek 建议）：
+7b. `private_account` **不带** `unavailable_sources` 字段（旧块/测试构造块）→
+    merge 不抛异常，按「无源不可用」处理，行仍判 `no_um`。
+    这条钉住的正是 §4.1.1 的隐含语义——目前没有任何测试守它。
+
 self-check：
 8. `um_unknown` 渲染为「交易所仓位未知」且**不含**「无仓」二字
 9. `unavailable_sources` 非空时横幅出现并点名源
@@ -206,6 +234,10 @@ self-check：
    本计划不覆盖，`source_checked_at` 已提供判断依据。
 2. **部分成功不存在**：`fetch_um_positions` 是整体成功或整体失败，无「读到一半」。
 3. `um_unknown` 是**展示状态**，不驱动任何闸门或自动动作。
+4. **非 list 返回未处理**（review-2 DeepSeek 提出，同意不处理）：若
+   `fetch_um_positions` 返回非 list（如 dict），`um_positions or []` 会把它当真值、
+   迭代出键字符串并被逐个滤掉，表现为「真空仓」。币安 `positionRisk` 恒返回 list，
+   风险极低；记录在案，本计划不加防御——为一个从未观测过的形状加分支，不值。
 
 ## 8. 想请评审判断的开放问题
 
@@ -223,8 +255,11 @@ self-check：
 
 ## 9. 预估
 
-- 后端 3 处（snapshot 组装、merge 判定、参数透传），前端 2 处（行内标记、横幅）
-- 新增测试 ~9 条，回归复核 5 条
+- 后端 **4 处**：snapshot 组装（新字段）、merge 判定（`um_unknown`）、
+  `_merge_build_row` 参数透传、`account_meta` 写入（原计划漏列，两位评审均指出）
+- 前端 2 处（行内标记、横幅）+ `no_um` 文案降调 1 处
+- 新增测试 **~11 条**（含向后兼容 1 条、字段恒存在 1 条），回归复核 5 条——
+  经两位评审逐条核对，**5 处全部属真空仓场景，应原样保留**
 - 无迁移、无 DB 变更、无资金路径改动
 
 ---
@@ -248,3 +283,45 @@ self-check：
 
 ### review-2 — DeepSeek：待回
 
+
+### review-2 — DeepSeek（2026-08-07）：**REWORK**（细节调整，方向与判据无需重写）
+
+七条事实核查全部 pass。**独立确认了三项我最担心的判断**：
+
+- **无第四条路径**：前端「交易所无仓」唯一输出在 `index.html:5804`，后端 `no_um` 唯一
+  判定在 `domain.py:1999`，三条路径全部收口于 `um is None and bucket is not None`。
+- **判据否决站得住**：「时间戳推断」（旧值 + 阈值耦合刷新节奏）与「数组为空」
+  （`[]` 是真空仓真值）两个否决理由均充分，`入参 is None` 是组装时刻的事实。
+- **`no_task` 推理成立**：`no_task` 只产生于 UM 骨架循环，UM 不可用时该循环为空。
+
+另外**逐条核对了全部 5 处回归断言**，结论比原计划的假设更强：
+`test_hedge_cycle_core.py:259/289/306` 的 `pa` 都带真实 `um_positions`，
+`test_positions_merge.py:120/129` 的 `_pa()` 构造 `um_positions=[]` 表达真空仓——
+**没有一处是「读不到」被固化，5 处全部应原样保留**。§8-5 那条担心没有发生。
+
+**阻塞项（横幅数据流断裂）**：与 review-1 的 contested 指向同一处缺口——
+**两位独立评审都抓到了同一个洞，说明那确实是原计划的硬伤**，不是过度谨慎。
+已在 §4.1.2 收编（含与 DeepSeek 建议方案的分歧记录）。
+
+**三条修复要求的收编位置**：
+
+| 修复要求 | 收编于 |
+|---|---|
+| `account_meta` 桥接 | §4.1.2（选 merge 内部写入，分歧与理由并存）+ §9 预估补第 4 处 |
+| 键名对齐 `_SOURCE_CHECKED_AT_KEYS` | §4.1（口语化的「unified / spot」改正式键名） |
+| 缺失字段兼容语义 + 对应测试 | §4.2（`pa.get(...) or []`）+ §5 新增 7b |
+
+**额外发现一并收编**：非 list 返回的边界记入 §7-4（同意不处理）；
+`no_um` 文案降调采纳其措辞并纳入本轮（§4.3）。
+
+### 双评审汇总
+
+| 开放问题 | kimi | DeepSeek | 采纳 |
+|---|---|---|---|
+| 1 字段形状 | list ✓ | list ✓ **+ 键名须对齐** | list + 正式键名 |
+| 2 路径 1/2 共用 | 共用 ✓ | 共用 ✓ | 共用 |
+| 3 爆仓暗示降调 | 建议做，不阻塞 | 建议做，给了措辞 | **纳入本轮** |
+| 4 抑制 single_leg | 不抑制 ✓ | 不抑制 ✓（并指出 drift 已有 `account_readable` 保护，两者层次不同） | 不抑制 |
+| 5 回归断言 | 原则 ✓ | **逐条核对：5 处全属真空仓，应保留** | 原样保留 |
+
+两位在五个开放问题上**结论一致**，唯一分歧是 `account_meta` 的写入位置（§4.1.2 已记录）。
