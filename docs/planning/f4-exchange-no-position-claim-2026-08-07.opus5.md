@@ -2,7 +2,7 @@
 
 - 日期：2026-08-07
 - 作者：Opus 5
-- 状态：**待评审**（未动代码）
+- 状态：**review-1(kimi) ACCEPT**；review-2(DeepSeek) 待回。代码仍未动。
 - 对应 PROJECT_STATE：Merged Position Table 段 `[OPEN][ACCEPTED]` **F4**
 - 基线提交：`3b7a6d2`
 
@@ -96,6 +96,34 @@ not None`。而 `um is None` 有两种截然不同的成因，代码不区分：
 **为何不用「数组为空」**：`[]` 恰恰是「确实没有任何 UM 持仓」这个重要真值的表示。
 拿它当失败信号，会在真正空仓时误报「未知」——把一个假声明换成另一个假声明。
 
+### 4.1.1 默认值语义：字段缺失 = 源可用（review-1 kimi 复核后钉死）
+
+`unavailable_sources` 缺失或为空时，**必须视为「该源可用」**，不得反过来 fail-loud。
+
+这不是图省事，是回归复核推出来的硬约束：五处既有 `no_um` 断言中，
+`test_hedge_cycle_core.py:259/289/306` 用的是 `um_positions: [_um()]`——**UM 列表有内容**，
+只是那些行没匹配上（已平仓周期 / 同键多周期只消费最近的）。这是最纯粹的 `no_um`。
+若默认按「不可用」处理，这五处会集体变成 `um_unknown`——**把一个假声明换成另一个**。
+
+**风险与缓解**：默认可用意味着任何忘记填该字段的组装路径会静默退回旧的假声明行为。
+故 `assemble_private_account` 必须**无条件**输出该字段（成功时为空列表，而非省略），
+并由测试钉死「该键恒存在」。这样「缺失」只可能出现在测试自造的 mock 里，不会出现在
+生产链路上。
+
+### 4.1.2 `account_meta` 透传（review-1 kimi 指出的缺口）
+
+前端横幅读的是 `state.hedgeAccountMeta`（`index.html:5728`），其来源是
+`merge_positions` 返回的 `account_meta`，当前只有 `verified` / `error` / `checked_at`
+（`domain.py:2042-2046`）。计划原文说横幅要读 `unavailable_sources` 却没交代它怎么
+进入前端视野——**这是原计划的缺口，kimi 复核时抓到。**
+
+已有先例可循：`server.py:1094` 在 merge 返回后于组装根追加 `source_checked_at`。
+但本字段**不照搬那个模式**，改为在 `merge_positions` 内部写进 `account_meta`：
+
+- `source_checked_at` 是**纯展示**数据，merge 层不消费，放组装根合理；
+- `unavailable_sources` 是 §4.2 的**判定依据**，merge 层必须读它。让判定与展示共用
+  同一次读取，避免两处各读一次而漂移（本轮 drift 修复踩过的正是「同一事实两处各判一次」）。
+
 ### 4.2 判定层：`match_status` 新增 `um_unknown`
 
 `backend/hedge_open_tasks/domain.py::merge_positions` / `_merge_build_row`
@@ -152,6 +180,8 @@ else:
 5. `um_unknown` 行的其余字段（任务记账、成本基）照常呈现——不因未知而清空
 
 `test_private_account_v1.py`：
+5b. `unavailable_sources` 键**恒存在**（成功路径为空列表，不得省略）——§4.1.1 的
+    默认值语义靠它兜底。
 6. `um_positions=None` → `unavailable_sources` 含 `"um_positions"`，且 `verified` 仍为 `true`
 7. `um_positions=[]` → `unavailable_sources` **不含** 它（空数组是合法答案）
 
@@ -196,3 +226,25 @@ self-check：
 - 后端 3 处（snapshot 组装、merge 判定、参数透传），前端 2 处（行内标记、横幅）
 - 新增测试 ~9 条，回归复核 5 条
 - 无迁移、无 DB 变更、无资金路径改动
+
+---
+
+## 10. 评审结论
+
+### review-1 — kimi（2026-08-07 23:22 CST）：**ACCEPT**，零阻塞
+
+六条事实核查全部 pass（含逐条行号复验）。对 §8 五个开放问题的结论：
+
+| # | 开放问题 | kimi 结论 |
+|---|---|---|
+| 1 | 字段形状 `list[str]` vs 四布尔 | ACCEPT 列表形状——更简洁、可扩展、四源口径统一 |
+| 2 | 路径 1/2 与 3 共用 `um_unknown` | ACCEPT 共用——成因不同但对操作者含义一致，应同处收口 |
+| 3 | `no_um` 爆仓暗示降调 | **建议做，但不阻塞本计划**；可改中性的「无对应持仓」 |
+| 4 | 抑制 `single_leg_exposure` | **不抑制**——二者语义独立（任务记账 vs 交易所可读性） |
+| 5 | 回归断言处置原则 | ACCEPT——5 处大多属真空仓场景；若有本属「读不到」的应改断言而非为绿而改 |
+
+**contested 项（已在本次修订收编）**：`account_meta` 未交代如何透传
+`unavailable_sources` → 见新增 §4.1.2；连带补出 §4.1.1 的默认值语义硬约束。
+
+### review-2 — DeepSeek：待回
+
