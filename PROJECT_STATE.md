@@ -26,8 +26,25 @@ check.
   fail-fast（非 USDT 计价合约 symbol → `ValueError`）、回填判定补 `OR spot_symbol = ''`。
   fail-fast 提前到②之前是有意为之——②要改六个消费点，护栏先就位才能让传错类别
   当场抛错而非静默算出貌似合理的身份。
-  **步骤② 待开始**（opus5，Human 已批准）：六个消费点切任务列 + 删 `spot_order_symbol`
-  + 停写 `preflight_snapshot.spot_symbol`（domain.py:1151 整段删）+ D3 一致性告警。
+  **步骤②③④⑤ 全部完成**（`8d23063` / `7d2a104` / `90edf0a` / `5105e4a`，1566 passed
+  + self-check EXIT=0），DeepSeek 步骤②③ 均 ACCEPT：
+  - ②：六个消费点切任务列（含 `tests/fakes.py`）+ 删 `spot_order_symbol` + 停写
+    `preflight_snapshot.spot_symbol` + D3 一致性告警（只报不拦）。评审后 `7d2a104`
+    追加 `AttemptContext.spot_symbol` 必填（消除静默回退 coin，改后立即暴露 7 处
+    漏传构造）与 D3 每任务去重。
+  - ③：`aggregate_positions` 带出身份进 bucket；merge base 三级优先（任务固化列 >
+    asset_map > `_merge_base_asset`），`asset_map` 降级为 `no_task` 行专用。**Q1 症状
+    消除**：生产库只读实证 `SNXXUSDT` 的 `spot_balance` 由 `null` → `1`（value 10.21），
+    且不依赖快照就绪。契约有意扩展：positions 响应新增 `spot_symbol`/`spot_base_asset`。
+  - ⑤（资金路径）：close 经 `cycle.first_task_id` 继承开仓身份，不重新查表——映射表
+    若在持仓期间变更，重查会让平仓腿与开仓腿对不上；origin 缺失则回退查表 + warning。
+  - ④：`_merge_base_asset` 已无散落调用，仅剩两处合法回退（三级链末端），docstring
+    写明私有约束。桶内身份分裂加 `identity_conflict` 审计事件（生产实证：THEUSDT 一个
+    周期有 5 个任务贡献腿，桶内多任务是常态）。
+  **实盘验证**：② 已验（关闸门建 SNXX/THE 任务→三列固化正确→删任务→恢复闸门，
+  0 attempt 无副作用）；③ 只读实证如上；**⑤ close 继承尚未实盘验证**。
+  **follow-up**：前端持仓表尚未显示现货腿 symbol（后端已提供 `spot_symbol` 字段），
+  DeepSeek 建议记账——这正是 Q1「看得见实际对冲的是 SNXXBUSDT」的诉求。
 - **[2026-08-07] 现货符号解析改显式映射表 + P1/P2 死区修复已提交（`8ee6d3c`）**：
   d717595 的字符串猜测规则被纯表取代（`SPOT_SYMBOL_MAP` 71 条 = 65 bStock + 6 乘数，
   最新 exchangeInfo 实测生成）：d717595 放开 B 后缀 TRADIFI gate 的**全部影响面仅 1 条且是
