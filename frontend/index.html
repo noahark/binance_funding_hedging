@@ -5819,7 +5819,14 @@
           // never infers 'no task' / 'no UM' from all-zero fields (the ambiguity
           // this stage kept tripping on). Short label; inferred cause in the title.
           if (p.match_status === 'no_task') markers.push('<span class="risk-warn small" title="交易所有持仓，但本地无对应任务记录（手工单或任务卡已删）">无任务记录</span>');
-          else if (p.match_status === 'no_um') markers.push('<span class="risk-warn small" title="本地有任务记录，但交易所无对应持仓（可能已强平或手工平仓）">交易所无仓</span>');
+          // 2026-08-07（F4 收尾）两处修正：
+          //  a. 已平仓周期（cycle_closed_at 非空）本来就该没有交易所仓位——那是预期
+          //     结果，不是异常。此前它会和「已完全平仓」标记并排印出红色「交易所无仓
+          //     （可能已强平）」，对一个正常平完的周期是纯误导。现在只有**活跃周期**
+          //     却在交易所找不到仓位才警示。
+          //  b. 文案降调：即便真读到了、确实没这个仓位，「强平」也只是成因之一，
+          //     还可能是手工平仓或本地记账与交易所不同步。不把推测说成结论。
+          else if (p.match_status === 'no_um' && !p.cycle_closed_at) markers.push('<span class="risk-warn small" title="本地有活跃周期记录，但交易所当前无对应持仓（可能已强平、手工平仓，或本地记账与交易所不同步）——请到币安核实">交易所无仓</span>');
           if (p.single_leg_exposure) markers.push('<span class="risk-warn small">单腿敞口</span>');
           // G5: surface the backend incomplete flags — the avg is averaged over a
           // partial (unknown-notional) fill set, so the reader knows it is partial.

@@ -7555,6 +7555,34 @@ setTimeout(async () => {
         throw new Error('字段缺失应按全部可用处理，不得误报');
       }
       console.log('[PASS] F4 交易所持仓读不到：标题直说 + 表格保留 / 正常时不误报 / 非 UM 源不触发 / verified=false 触发 / 缺失字段不误报');
+
+      // ---- 「交易所无仓」标记：只对活跃周期警示，文案不把推测说成结论 ----
+      const noUmActive = Object.assign({}, pos, {
+        match_status: 'no_um', um_position_side: null, um_position_amt: null,
+        cycle_closed_at: null,
+      });
+      hedgePositionsGetResponse = { status: 200, body: {
+        positions: [noUmActive], account: { verified: true, unavailable_sources: [] } } };
+      await helpers.loadHedgePositions();
+      html = elements['private-panel-body'].innerHTML;
+      if (!html.includes('交易所无仓')) throw new Error('活跃周期无仓应警示');
+      if (html.includes('可能已强平或手工平仓')) {
+        throw new Error('旧文案把推测说成结论，应已降调');
+      }
+      if (!html.includes('不同步')) throw new Error('新文案应列出记账不同步这一成因');
+
+      // 已平仓周期本来就该没仓——那是预期结果，不是异常。此前它会和「已完全平仓」
+      // 并排印出红色「交易所无仓（可能已强平）」，对正常平完的周期是纯误导。
+      const noUmClosed = Object.assign({}, noUmActive, { cycle_closed_at: '2026-08-07T00:00:00Z' });
+      hedgePositionsGetResponse = { status: 200, body: {
+        positions: [noUmClosed], account: { verified: true, unavailable_sources: [] } } };
+      await helpers.loadHedgePositions();
+      html = elements['private-panel-body'].innerHTML;
+      if (html.includes('交易所无仓')) {
+        throw new Error('已平仓周期不该警示「交易所无仓」——它就该没仓');
+      }
+      if (!html.includes('已完全平仓')) throw new Error('已平仓周期应保留「已完全平仓」标记');
+      console.log('[PASS] 「交易所无仓」只对活跃周期警示（已平仓周期不误报）+ 文案不把「强平」当结论');
     }
 
     console.log('\n全部自检通过');
