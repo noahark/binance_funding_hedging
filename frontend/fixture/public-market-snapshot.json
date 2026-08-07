@@ -541,6 +541,7 @@
       "spot_balances": "2026-07-03T05:17:38Z",
       "pm_account": null
     },
+    "unavailable_sources": [],
     "error": null
   }
 }

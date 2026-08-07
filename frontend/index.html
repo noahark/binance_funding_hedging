@@ -5729,6 +5729,24 @@
         const accountBanner = (account && account.verified === false)
           ? `<div class="empty-state"><span class="muted small">账户数据未就绪（${escapeHtml(account.error || 'snapshot_not_ready')}）：仅显示本地任务记录，交易所持仓与现货余额列暂缺</span></div>`
           : '';
+        // F4（2026-08-07）：本表的骨架是交易所 UM 持仓。这一路没读到时，表里剩下的
+        // 全是**本地记账**——此前它会对每一行印「交易所无仓（可能已强平）」，即便
+        // 账户里明明有仓。现在改为在标题上直说，表格照常保留（本地成本/数量在故障
+        // 时刻恰恰最有用，它告诉你该去交易所核对哪几个币）。
+        //
+        // 判据是「merge 层这一轮到底有没有用上 UM 数据」，两种情况都算没用上：
+        //   1. unavailable_sources 含 um_positions —— 该源本次读取失败/禁用；
+        //   2. verified === false —— merge_positions 在此状态下会**主动忽略** UM 数据
+        //      （domain.py `um_positions = pa.get(...) if verified else None`），
+        //      所以哪怕 UM 那一路其实读到了，表格也没在用它。
+        // 缺失按空列表处理：`[]` 语义是「全部可用」，旧块/测试块不带该键不该反报故障。
+        const unavailableSources = (account && account.unavailable_sources) || [];
+        const umUnavailable = !account
+          || account.verified === false
+          || unavailableSources.includes('um_positions');
+        const umStaleNotice = umUnavailable
+          ? ' <span class="negative">未获取到交易所持仓数据，仅展示本地缓存记录</span>'
+          : '';
         // 拿不到：真实契约缺失/币安 sentinel（强平价 "0"）→ —。
         const umCell = (v) => (v === null || v === undefined || v === '')
           ? '<span class="muted">—</span>'
@@ -5866,7 +5884,7 @@
         // 表头恒渲染（含「仓位价值」），即使空持仓也保留列结构。
         return `
           <div class="account-section">
-            <h3>对冲开单持仓 <span class="muted small">（UM 持仓为骨架）</span></h3>
+            <h3>对冲开单持仓 <span class="muted small">（UM 持仓为骨架）</span>${umStaleNotice}</h3>
             ${sourceCheckedAtHtml(positionsTimeLine)}
             ${accountBanner}
             <div class="table-wrap">

@@ -1090,8 +1090,16 @@ class _Handler(BaseHTTPRequestHandler):
         # not modified; this is a post-merge attachment in the composition root.
         # When the snapshot/private_account is absent the fixed all-null shape is
         # still emitted so the five keys are always present.
+        # F4（2026-08-07）：把「哪些账户源本次没读到」一并透传，供持仓表提示
+        # 「未获取到交易所持仓数据，仅展示本地缓存记录」。与 source_checked_at 同模式
+        # 放在组装根——它是**纯展示**数据，merge 层不消费（表格保留、只加一行红字，
+        # 没有行级判定）。缺失一律按空列表处理：`[]` 语义是「全部可用」，而旧块/
+        # 测试构造块不带该键，绝不能因此反过来报「读不到」。
         if isinstance(private_account, dict):
             account_meta["source_checked_at"] = private_account.get("source_checked_at")
+            account_meta["unavailable_sources"] = (
+                private_account.get("unavailable_sources") or []
+            )
         else:
             account_meta["source_checked_at"] = {
                 "price_map": None,
@@ -1100,6 +1108,11 @@ class _Handler(BaseHTTPRequestHandler):
                 "spot_balances": None,
                 "pm_account": None,
             }
+            # 快照整个不在 -> 四个账户源确实一个都没读到。这里**必须**列全，不能填
+            # 空列表：空列表的语义是「全部可用」，在这条路径上会是又一次假声明。
+            account_meta["unavailable_sources"] = [
+                "unified_balances", "um_positions", "spot_balances", "pm_account",
+            ]
         # 持仓周期费率/利息统计（功能二，stage3 §3.2/§3.3）：纯读、现算、不写库。
         # 对每个带周期字段的 merged row 现算三列（窗口 = [cycle_opened_at,
         # cycle_closed_at 或 now]，毫秒换算在查询层）；ledger 未注入 / 无周期 /

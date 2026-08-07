@@ -552,6 +552,49 @@ def test_positions_account_meta_carries_source_checked_at():
     assert meta["source_checked_at"] == pa["source_checked_at"]
 
 
+def test_positions_account_meta_carries_unavailable_sources():
+    """F4：持仓表要靠它决定是否提示「未获取到交易所持仓数据」，必须桥接到 account。
+
+    `merge_positions` 返回的 account_meta 只有 verified/error/checked_at；这个字段
+    在 private_account 块里，不透传的话前端永远读到 undefined——两位评审都抓到过
+    这个缺口。
+    """
+    pa = _private_account_block()
+    pa["unavailable_sources"] = ["um_positions"]
+    fake_hedge = type("H", (), {"get_positions": lambda self: (200, {"positions": []})})()
+    h = _CapHandler(_FakeService(worker_running=True, cmd=None, snapshot={"private_account": pa}),
+                    hedge_open_service=fake_hedge)
+    server_mod._Handler._hedge_open_positions(h)
+    assert h.calls[0][2]["account"]["unavailable_sources"] == ["um_positions"]
+
+
+def test_positions_account_meta_unavailable_sources_defaults_to_empty():
+    """字段缺失（旧块/测试构造块）→ 空列表，**不得**反过来报「读不到」。
+
+    空列表的语义是「全部可用」。若缺失被当成故障，每个不带该键的调用方都会平白
+    多出一条红字警告——那是把一个假声明换成另一个。
+    """
+    pa = _private_account_block()  # 不带 unavailable_sources
+    fake_hedge = type("H", (), {"get_positions": lambda self: (200, {"positions": []})})()
+    h = _CapHandler(_FakeService(worker_running=True, cmd=None, snapshot={"private_account": pa}),
+                    hedge_open_service=fake_hedge)
+    server_mod._Handler._hedge_open_positions(h)
+    assert h.calls[0][2]["account"]["unavailable_sources"] == []
+
+
+def test_positions_account_meta_unavailable_sources_when_snapshot_absent():
+    """快照整个不在 → 四个账户源全部列出，而不是空列表（空=全部可用，会是假声明）。"""
+    fake_hedge = type("H", (), {"get_positions": lambda self: (200, {"positions": []})})()
+    h = _CapHandler(
+        _FakeService(worker_running=True, cmd=None, snapshot=SnapshotNotReady("not ready")),
+        hedge_open_service=fake_hedge,
+    )
+    server_mod._Handler._hedge_open_positions(h)
+    assert h.calls[0][2]["account"]["unavailable_sources"] == [
+        "unified_balances", "um_positions", "spot_balances", "pm_account",
+    ]
+
+
 def test_positions_account_meta_all_null_when_snapshot_absent():
     fake_hedge = type("H", (), {"get_positions": lambda self: (200, {"positions": []})})()
     h = _CapHandler(

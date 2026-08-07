@@ -2,7 +2,7 @@
 
 - 日期：2026-08-07
 - 作者：Opus 5
-- 状态：**双评审完成** — review-1(kimi) ACCEPT / review-2(DeepSeek) REWORK；**修复要求已全部收编（本文档 r2）**。代码仍未动，待 Human 授权开工。
+- 状态：**已交付（r3 简化方案）**。Human 2026-08-07 定稿改用更简的做法，双评审对 r2 的判据/路径/回归结论仍全部适用，见 §11。
 - 对应 PROJECT_STATE：Merged Position Table 段 `[OPEN][ACCEPTED]` **F4**
 - 基线提交：`3b7a6d2`
 
@@ -325,3 +325,64 @@ self-check：
 | 5 回归断言 | 原则 ✓ | **逐条核对：5 处全属真空仓，应保留** | 原样保留 |
 
 两位在五个开放问题上**结论一致**，唯一分歧是 `account_meta` 的写入位置（§4.1.2 已记录）。
+
+---
+
+## 11. r3：Human 定稿的简化方案（已交付）
+
+Human 看过视觉预览后定稿：**保留表格，只在标题后加一行红字**，不做行级状态。
+
+```
+对冲开单持仓 （UM 持仓为骨架） 未获取到交易所持仓数据，仅展示本地缓存记录
+```
+
+### 为什么它比 r2 更好
+
+r2 要给每一行判 `um_unknown`，读者得逐行扫描才知道出事了；r3 把结论提到标题上，
+**一眼看到，且不可能误读**。更关键的是：**表格保留**，本地记账仍然可见——那在故障
+时刻恰恰最有用，它告诉你该去交易所核对哪几个币。
+
+### 相对 r2 砍掉的部分
+
+| r2 计划 | r3 实际 |
+|---|---|
+| `match_status` 新增 `um_unknown` | **不做**——没有行级状态 |
+| `_merge_build_row` 参数透传 `um_readable` | **不做** |
+| 行内标记 + 新配色 | **不做**——复用既有 `.negative`（红 + 粗） |
+| `no_um` 文案降调（§8-3） | **未做**，独立小项留待 Human 决定 |
+| §8-4「是否抑制 single_leg_exposure」 | **作废**——没有 `um_unknown` 状态了 |
+
+### 一处立场变更（诚实记录）
+
+§4.1.2 我曾坚持 `unavailable_sources` 由 `merge_positions` 内部写入，理由是「判定与
+展示同源、抗未来漂移」。**r3 下这个理由不成立了**——没有行级判定，该字段退化为纯展示
+数据，与 `source_checked_at` 完全同类。故改回 **review-2(DeepSeek) 建议的组装根附加**
+（`server.py`），与既有模式一致。他的方案在新前提下才是对的。
+
+### 判据与两位评审确认过的结论：全部沿用
+
+- 判据仍是**入参 `is None`**（否决时间戳推断与数组为空，理由见 §4.1）
+- 键名对齐 `_SOURCE_CHECKED_AT_KEYS`（DeepSeek 要求）
+- 缺失字段按「全部可用」处理（§4.1.1 硬约束）
+- 快照整个不在时列全四源，不填空列表
+- 5 处 `no_um` 回归断言**原样未动**（两位逐条核对过：全属真空仓场景）
+
+### 前端判据（两种情况都算「表格没在用 UM 数据」）
+
+1. `unavailable_sources` 含 `um_positions` —— 该源本次读取失败/禁用
+2. `verified === false` —— `merge_positions` 在此状态下**主动忽略** UM 数据
+   （`domain.py`: `um_positions = pa.get(...) if verified else None`），
+   哪怕 UM 那一路其实读到了，表格也没在用它
+
+### 实际改动
+
+| 层 | 位置 |
+|---|---|
+| 契约 | `snapshot.py::assemble_private_account` 两个返回分支各加 `unavailable_sources` |
+| 契约 | `schemas/api/public-market/snapshot.schema.json`（`additionalProperties:false` 守卫拦下了，必须显式声明——正是它该做的） |
+| 桥接 | `server.py` 组装根附加到 `account_meta`（两个分支） |
+| 展示 | `index.html` 标题后条件红字（复用 `.negative`） |
+| fixture | 两个 fixture 同步新字段 |
+
+**测试**：后端新增 7 条（4 条契约 + 3 条桥接），self-check 新增 1 组 5 项。
+**1601 passed + self-check EXIT=0**。

@@ -7506,6 +7506,55 @@ setTimeout(async () => {
         throw new Error('持仓表应显示现货腿 symbol SNXXBUSDT: ' + posHtml);
       }
       console.log('[PASS] 持仓表展示现货腿 symbol');
+
+      // ---- F4：读不到交易所持仓时，标题上直说，而不是对每行印「交易所无仓」----
+      const NOTICE = '未获取到交易所持仓数据，仅展示本地缓存记录';
+
+      // 1) 全部读到 -> 不出现。这条最要紧：误报会让红字变成背景噪音，人就不看了。
+      hedgePositionsGetResponse = { status: 200, body: {
+        positions: [pos], account: { verified: true, unavailable_sources: [] } } };
+      await helpers.loadHedgePositions();
+      if (elements['private-panel-body'].innerHTML.includes(NOTICE)) {
+        throw new Error('数据正常时不得提示未获取');
+      }
+
+      // 2) UM 源读不到 -> 出现，且**表格仍在**（本地记账在故障时刻恰恰最有用：
+      //    它告诉你该去交易所核对哪几个币）。
+      hedgePositionsGetResponse = { status: 200, body: {
+        positions: [pos],
+        account: { verified: true, unavailable_sources: ['um_positions'] } } };
+      await helpers.loadHedgePositions();
+      let html = elements['private-panel-body'].innerHTML;
+      if (!html.includes(NOTICE)) throw new Error('UM 源读不到时应提示: ' + html);
+      if (!html.includes('SNXXUSDT')) throw new Error('提示出现时表格必须保留');
+
+      // 3) 别的源读不到（余额/PM）不影响本表 —— 本表的骨架只有 UM。
+      hedgePositionsGetResponse = { status: 200, body: {
+        positions: [pos],
+        account: { verified: true, unavailable_sources: ['spot_balances', 'pm_account'] } } };
+      await helpers.loadHedgePositions();
+      if (elements['private-panel-body'].innerHTML.includes(NOTICE)) {
+        throw new Error('非 UM 源不可用不应触发本表提示');
+      }
+
+      // 4) verified=false -> 出现。此时 merge 会**主动忽略** UM 数据
+      //    （domain.py: um_positions = pa.get(...) if verified else None），
+      //    所以哪怕 UM 那一路其实读到了，表格也没在用它。
+      hedgePositionsGetResponse = { status: 200, body: {
+        positions: [pos], account: { verified: false, unavailable_sources: [] } } };
+      await helpers.loadHedgePositions();
+      if (!elements['private-panel-body'].innerHTML.includes(NOTICE)) {
+        throw new Error('verified=false 时应提示（merge 此时不用 UM 数据）');
+      }
+
+      // 5) 字段缺失（旧块）-> 不出现。缺失语义是「全部可用」，不得反过来报故障。
+      hedgePositionsGetResponse = { status: 200, body: {
+        positions: [pos], account: { verified: true } } };
+      await helpers.loadHedgePositions();
+      if (elements['private-panel-body'].innerHTML.includes(NOTICE)) {
+        throw new Error('字段缺失应按全部可用处理，不得误报');
+      }
+      console.log('[PASS] F4 交易所持仓读不到：标题直说 + 表格保留 / 正常时不误报 / 非 UM 源不触发 / verified=false 触发 / 缺失字段不误报');
     }
 
     console.log('\n全部自检通过');

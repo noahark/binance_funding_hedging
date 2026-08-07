@@ -532,7 +532,8 @@
         "valuation",
         "checked_at",
         "error",
-        "source_checked_at"
+        "source_checked_at",
+        "unavailable_sources"
       ],
       "properties": {
         "verified": { "type": "boolean" },
@@ -741,6 +742,15 @@
               "type": ["string", "null"],
               "format": "date-time"
             }
+          }
+        },
+        "unavailable_sources": {
+          "description": "Account sources this assembly did NOT obtain (F4, 2026-08-07). The judgement is the input being None -- the fetchers use None for disabled/failed and [] for 'read it, genuinely empty'. The `or []` degradation that follows would otherwise erase that distinction, leaving consumers unable to tell 'not read' from 'really nothing' -- which is how the positions table came to print an exchange-has-no-position claim over rows the account actually held. Always emitted; an empty array means every account source was obtained. Names mirror source_checked_at minus price_map (not an account source). An empty array must never be read as 'unknown'.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["unified_balances", "um_positions", "spot_balances", "pm_account"]
           }
         }
       }

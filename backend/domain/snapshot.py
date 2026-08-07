@@ -1266,10 +1266,29 @@ def assemble_private_account(
                 },
                 "checked_at": None,
                 "source_checked_at": dict(source_checked_at),
+                "unavailable_sources": list(_SOURCE_CHECKED_AT_KEYS[1:]),
                 "error": error or "private_channel_disabled",
             },
             warnings,
         )
+    # F4（2026-08-07）：哪些账户源**本次没读到**。判据是入参 ``is None``——
+    # ``fetch_*`` 用 ``None`` 表示禁用/失败、用 ``[]`` 表示「读到了，确实是空的」
+    # （``private_client.py`` 各 fetch 的契约）。下面的 ``or []`` 降级把这个区别抹平，
+    # 于是下游只见空列表，无从分辨「没读到」与「真的没有」——持仓表据此对每一行印出
+    # 「交易所无仓」，即便账户里明明有仓。降级本身是对的（UM 挂了不该让余额一起消失），
+    # 错在丢掉了降级这个事实，这里把它记下来。
+    #
+    # 键名复用 ``_SOURCE_CHECKED_AT_KEYS``（去掉非账户源 ``price_map``），避免同一个块
+    # 里出现两套命名。**不用数组为空当判据**：``[]`` 恰恰是「确实空仓/空钱包」这个
+    # 重要真值的表示，拿它当失败信号会在真正空仓时误报，等于把一个假声明换成另一个。
+    unavailable_sources = [
+        name for name, value in (
+            ("unified_balances", unified),
+            ("um_positions", um_positions),
+            ("spot_balances", spot),
+            ("pm_account", pm_account),
+        ) if value is None
+    ]
     unified_list = unified or []
     spot_list = spot or []
     um_list = um_positions or []
@@ -1389,6 +1408,7 @@ def assemble_private_account(
             },
             "checked_at": checked_at,
             "source_checked_at": dict(source_checked_at),
+            "unavailable_sources": unavailable_sources,
             "error": None,
         },
         warnings,

@@ -447,6 +447,63 @@ def test_assemble_private_account_maps_cross_margin_borrowed():
     assert block["pm_account"]["total_debt_usdt"] == "0.05000000"
 
 
+# ---------------------------------------------------------------------------
+# F4 (2026-08-07): unavailable_sources —— 区分「没读到」与「读到了，确实是空的」
+# ---------------------------------------------------------------------------
+
+def _assemble(**kw):
+    return assemble_private_account(
+        unified=kw.get("unified", []),
+        spot=kw.get("spot", []),
+        um_positions=kw.get("um_positions", []),
+        price_map={},
+        checked_at="2026-08-07T00:00:00Z",
+        error=None,
+        pm_account=kw.get("pm_account", {}),
+    )[0]
+
+
+def test_unavailable_sources_key_always_present():
+    """键恒存在（成功路径为空列表，不得省略）。
+
+    消费方按「缺失即全部可用」处理，所以生产链路必须无条件输出这个键——否则某条
+    忘了填的组装路径会静默退回旧的假声明行为，而没有任何测试会红。
+    """
+    assert _assemble()["unavailable_sources"] == []
+
+
+def test_unavailable_sources_flags_a_failed_source():
+    """``None`` 入参 = 该源本次没读到。"""
+    assert _assemble(um_positions=None)["unavailable_sources"] == ["um_positions"]
+    assert _assemble(pm_account=None)["unavailable_sources"] == ["pm_account"]
+
+
+def test_unavailable_sources_does_not_flag_a_genuinely_empty_source():
+    """``[]`` 是「读到了，确实没有」——**绝不能**被当成失败。
+
+    这是整个判据的关键：拿「数组为空」当失败信号，会在账户真的空仓时误报「读不到」，
+    等于把一个假声明换成另一个假声明。
+    """
+    block = _assemble(um_positions=[], unified=[], spot=[])
+    assert block["unavailable_sources"] == []
+    assert block["verified"] is True
+
+
+def test_unavailable_sources_lists_every_source_when_block_degrades():
+    """整块降级（两个余额源都没了）→ 四个账户源全部列出，而不是空列表。
+
+    空列表在消费侧等同「全部可用」，在这条路径上会是又一次假声明。
+    """
+    block, _ = assemble_private_account(
+        unified=None, spot=None, um_positions=None, price_map={},
+        checked_at=None, error="private_channel_disabled",
+    )
+    assert block["verified"] is False
+    assert block["unavailable_sources"] == [
+        "unified_balances", "um_positions", "spot_balances", "pm_account",
+    ]
+
+
 def test_assemble_private_account_maps_cross_margin_free():
     """``crossMarginFree`` -> ``cross_margin_free``: raw passthrough, absent is
     null (not zero), and it never moves ``total_value_usdt`` (totalWalletBalance
