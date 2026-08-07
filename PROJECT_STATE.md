@@ -146,6 +146,28 @@ check.
 
 ## Live Risks
 
+- `[OPEN][2026-08-07]` **reverse 方向余额检查用错资产名（bStock / 乘数币永远「余额不足」）**。
+  `backend/hedge_open_tasks/domain.py:1265` `base = base_asset(coin)` 只剥 USDT 后缀，
+  得到 `SNXX` / `1000BONK`；而 `snapshot.balances` 的键是币安返回的**真实资产名**
+  （`SNXXB` / `BONK`）。`balances.get(base, 0)` 查不到 → `available=0` →
+  `balance_ok=False` → `REJECT_INSUFFICIENT_BALANCE`。
+  **发现路径**：应 Human 要求核实 kimi 指出的清单遗漏时，系统重扫 `compute_preflight`
+  全流程扫出来的——**不属于 1000x 换算清单，是当前就存在的独立缺陷**。
+  **触发条件**：`open + reverse`（负费率开仓卖现货，走 papi_margin）+ bStock 或乘数币。
+  其余路径不受影响：`close + forward` 卖现货固定走 `regular_spot` 分支，读的是
+  `spot_account_base_free`（provider 用**正确**的 `spot_base_asset` 取的，见
+  `hedge_preflight_provider.py:904`）；forward 方向查 USDT 不查 base。
+  **这也是它至今没被实盘撞上的原因**——2026-08-07 的 SNXXUSDT 实盘闭环走的是
+  forward 开 + close/forward 平，两条都绕开了这一行。
+  **影响面**：65 个 bStock + 6 个乘数币的负费率开仓。**fail-closed**（误拒，
+  不会错单、不会裸腿），是功能不可用而非资金风险。
+  **修法（一行，未做）**：改用已解析好的现货资产名——`PreflightSnapshot` 已带
+  `spot_symbol`（可剥 USDT 得 base），或直接 `resolve_spot_identity(coin)[1]`
+  （纯查表零 IO，与建任务时固化身份同源，必然一致）。
+  **未擅自修的理由**：修好会让 bStock 负费率开仓从「永远被拒」变成「可以开」，
+  那是一条从未被实盘验证过的路径，属于放开资金准入，须 Human 决定。
+  乘数币那侧另有 P0 拦截，不受此修复影响。
+
 - `[RESOLVED-BY-BLOCKING][2026-08-07]` **1000x 乘数合约两腿数量口径错配（资金安全）**。
   执行链两腿发的是**同一个** `q_common`（实盘执行器 `dispatch` 里 `send_qty` 两腿共用），
   但 1 张 `1000BONKUSDT` = 1000 个 BONK：现货买 N 个、合约空 N 张 → **净裸空 999N**。
@@ -363,7 +385,7 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
   P0 止血只是把 6 个乘数币（BONK/FLOKI/LUNC/PEPE/SHIB/XEC）挡在门外（见 Live Risks
   同日条目），**换算本身一行未写**。恢复这 6 个币的对冲能力必须改下单数量这条真金
   白银的路径，故须 Human 明确授权后单开一轮，不得顺手夹带。
-  **必须一次改齐的五处**（改一半比不改更危险——半套换算会造出一个「看起来对、
+  **必须一次改齐的七处**（改一半比不改更危险——半套换算会造出一个「看起来对、
   实际错」的敞口，而现在至少是显式拒绝）：
   1. `backend/services/live_hedge_executor.py:873` `send_qty = ctx.q_common` ——
      两腿共用一个数量。现货腿需 ×1000（或合约腿 ÷1000），方向别搞反：合约 1 张 =
@@ -374,11 +396,23 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
   3. `backend/hedge_open_tasks/domain.py:1183` `q_common = floor_to_grid(single_amount, grid)`
      —— `grid = lcm(spot_step, perp_step)` 把两腿的 stepSize 当同一量纲取最小公倍数，
      换算后这个 lcm 不再成立，两腿的取整格必须各算各的。
-  4. `backend/hedge_open_tasks/domain.py:1267/1273` `required = q_common * target_n * est_price`
-     —— USDT 需求按哪条腿的量纲算要重新定义。
+  4. `backend/hedge_open_tasks/domain.py:1267/1273` `required` 的两个方向分支 ——
+     forward 是 `q_common * target_n * est_price`（USDT），reverse 是
+     `q_common * target_n`（**币的数量**）。reverse 分支尤其危险：若 `q_common` 是
+     合约张数，required 会少算 1000 倍，余额检查通过但实际卖出需要 1000 倍的币。
   5. `backend/hedge_open_tasks/domain.py:1952` 持仓表 `single_leg_exposure` 的
      `abs(spot_qty - perp_qty)` —— 两腿记账量纲不同（个 vs 张），换算前它对乘数币
      必然误报，换算后要按同一量纲比。代码注释已留指针。
+  6. **`backend/hedge_open_tasks/domain.py:1001-1027` `_check_common_quantity`**
+     （review-1 kimi 2026-08-07 指出，此前清单遗漏）——它是 `compute_preflight`
+     中间调用的**独立 helper**，极易被「preflight 一起改了」带过。两处都错：
+     (a) `for filters in (spot_filters, perp_filters)` 拿**同一个** `q_common` 去比
+     两腿各自的 min/max qty；(b) `notional = q_common * est_price` 用**同一个**数量
+     和**现货**价算出一个 notional，再拿它比两腿各自的 minNotional。
+     修法：每腿的数量边界和 minNotional 各按各的量纲与价格查。
+  7. `backend/hedge_open_tasks/domain.py:1189-1200` `snapshot_record` 的审计指纹
+     （`spot_min_qty`/`perp_min_qty`/`grid`/`est_price`）——**不影响计算正确性**，
+     但这份不可变记录当前隐含「两腿同量纲」，换算后不更新会让事后审计读错。
   **改完要一并移除**：`service.py:807` 的 `multiplier_contract_unsupported` 拦截
   + `test_hedge_service.py` 的两条拦截测试 + `test_hedge_cycle_close.py` 的
   `_allow_multiplier_open` monkeypatch（三处调用）。
