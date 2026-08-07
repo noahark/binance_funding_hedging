@@ -324,19 +324,17 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
 - `[OPEN][HARNESS]` ~41 completed stage dirs in `reports/agent-runs/`, vs §9.5.
   v2 findings: batch A merged; batch B + R3/R4 wait for a real problem, G1/G14
   OPEN by decision (Human 2026-07-31). Detail: archive `22-`.
-- `[RESOLVED][2026-08-07]` **现货/合约 symbol 别名已统一（bStock / 1000x / B 后缀）。**
-  原「MUUUSDT 案例」记录经 exchangeInfo 样本核实为**笔误**：真实合约是 **MUUSDT**
-  （TRADIFI_PERPETUAL，baseAsset=`MU`），`MU+"B"+"USDT" = MUBUSDT` 符合 base+"B" 规则，
-  且为 TRADIFI（原 gate 本可覆盖）——展示侧失配才是根因。统一解析器改造
-  （`docs/planning/unified-symbol-resolver-2026-08-07.md`，Human 直接指示）：
-  `resolve_spot_leg` 候选链扩展为 exact → B 后缀（放开 TRADIFI gate）→ 1000x 字面剥离
-  （`1000BONKUSDT → BONKUSDT`，match_type `multiplier_strip_alias`）；快照 rows `spot.base_asset`
-  输出真值；merge 层经组合根 asset_map 对齐（bStock `SNXXB`/1000x `BONK`）；平单环
-  （close 划转资产名、利息资产名）消费开单落库的 `preflight_snapshot.spot_symbol`；
-  预检 filters/探测候选链同步统一。**行为变更**：1000x「诚实不对齐」（non-goal #5）改为
-  快照真值对齐（asset_map 缺失时仍回退旧规则）；B 后缀不再限 TRADIFI。测试：后端全量
-  1529 passed + self-check EXIT=0。**注意**：本次改动与 opus5 的 P1/P2 修复同处工作树
-  （`hedge_preflight_provider.py` 同文件不同区域），P1/P2 仍未提交、服务未重启。
+- `[RESOLVED][2026-08-07]` **现货/合约 symbol 别名已统一（纯表方案：SPOT_SYMBOL_MAP）。**
+  原「MUUUSDT 案例」（2026-08-05）已由 opus5 纯表方案解决并推广：`normalize.py`
+  `SPOT_SYMBOL_MAP` 71 条（65 bStock + 6 乘数，2026-08-07 最新 exchangeInfo 实测生成），
+  `resolve_spot_leg` 改为 `exact → 查表 → (None,None)`（删除全部字符串猜测，fail-closed：
+  未收录即无现货腿，宁无腿不错腿）；预检 filters/探测、快照 spot.base_asset、展示
+  asset_map、平单环消费同源真值。**勘误**：MUUSDT 与 MUUUSDT 是两个**都真实存在**的合约
+  （→ MUBUSDT / → MUUBUSDT，verify 证实并存），此前「MUUUSDT 为笔误」判断有误；
+  旧规则两个真实缺陷已被纯表取代（`BUSDT` 合约 base=B 会被 B 后缀猜测误配到
+  BBUSDT/BounceBit；`base[4:]` 对 `1000000MOGUSDT` 剥成 `000MOG`）。维护：
+  `scripts/check-spot-symbol-map.py --verify/--emit`（STALE/MISSING/SUSPECT 三类，
+  SUSPECT 绝不自动收录）。测试：后端 1533 passed + self-check EXIT=0 + verify 退出码 0。
 - `[RESOLVED][OPERATIONS][2026-08-05]` **COOKIEUSDT 平仓单腿事故（已修复并实盘验证）。**
   事件：首次实盘平仓时，forward close 现货 SELL 被 `decide_spot_route` 的
   collateral-cap 预检误导到**普通现货账户**（`/api/v3/order`），而现货实际在**统一账户**

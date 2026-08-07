@@ -109,7 +109,14 @@ else:
 6. `hedge_preflight_provider.py`：`_bstock_spot_alias` 替换为 `_spot_alias_candidates`（B 后缀 + 1000x 剥离，与 resolve_spot_leg 候选链一致），开单 filters 读取与 `check_symbol_legs` 探测两处同步扩展。
 7. schema：`spot.base_asset` 字段（**可选**，不进 required，向后兼容旧校验数据）；`match_type` enum 增 `multiplier_strip_alias`。
 
-**实施中发现的事实修正**：PROJECT_STATE 挂账的「MUUUSDT」为笔误——exchangeInfo 样本（`reports/agent-runs/2026-07-public-market-bstock-alias-v1`）确认真实合约是 **MUUSDT**（TRADIFI_PERPETUAL，baseAsset=`MU`），`MU+"B"+"USDT" = MUBUSDT` 完全符合 base+"B" 规则；且它是 TRADIFI，原 gate 本可覆盖，展示侧失配才是根因。真实案例已加测试 `test_resolve_spot_leg_bstock_alias_mu_case`。
+**实施中发现的事实修正（2026-08-07 晚 opus5 纯表方案落地后再次修正）**：最初
+「MUUUSDT 为笔误」的判断有误——exchangeInfo 实测证实 **MUUSDT 与 MUUUSDT 是两个并存
+的真实合约**（`MU→MUBUSDT`、`MUU→MUUBUSDT`，均符合 base+"B"），二者都进了
+`SPOT_SYMBOL_MAP`（--verify 71/71 通过）。且本项目原「规则 + 真值确认」方案已被
+opus5 纯表方案取代（见 `unified-symbol-resolver-2026-08-07.review-opus5.md`）：
+旧规则的两个真实缺陷——`BUSDT`（base=B）会被 B 后缀猜测误配到 BounceBit 的
+`BBUSDT`；`base[4:]` 会把 `1000000MOGUSDT` 剥成 `000MOG`——正是纯表 fail-closed
+设计要消除的。本节中「规则链」相关表述以 opus5 实现为准（exact → 查表 → None）。
 
 **测试**：后端全量 1529 passed（原 1520 + 新增/更新 9 项）；`frontend/self-check.js` EXIT=0。
 
