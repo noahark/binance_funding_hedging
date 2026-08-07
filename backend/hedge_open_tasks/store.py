@@ -709,13 +709,14 @@ class HedgeOpenStore:
     def backfill_spot_identity(self) -> dict:
         """为身份三列为空的存量任务回填 :func:`resolve_spot_identity` 的结果。
 
-        幂等：只写 ``spot_symbol IS NULL`` 的行，已固化的身份是该任务的历史真值，
+        幂等：只写 ``spot_symbol`` 为 NULL 或空串的行，已固化的身份是该任务的历史真值，
         绝不覆盖（表若变动由 ``check-spot-symbol-map.py --verify`` 报 STALE +
         人工处理，不在此处静默改写）。返回 ``{"updated": n, "total": n}``。
         """
         with self._lock, self._conn:
             rows = self._conn.execute(
-                "SELECT id, coin FROM hedge_open_task WHERE spot_symbol IS NULL"
+                "SELECT id, coin FROM hedge_open_task"
+                " WHERE spot_symbol IS NULL OR spot_symbol = ''"
             ).fetchall()
             for row in rows:
                 spot_symbol, spot_base, match_type = resolve_spot_identity(row["coin"])

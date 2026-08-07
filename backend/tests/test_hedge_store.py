@@ -1398,3 +1398,14 @@ def test_backfill_spot_identity_never_overwrites_existing(tmp_path):
     )
     store.backfill_spot_identity()
     assert store.get_task("frozen")["spot_symbol"] == "LEGACYUSDT"
+
+
+def test_backfill_treats_empty_string_as_unfilled(tmp_path):
+    # 防御未来其他写入路径：空字符串与 NULL 同样视为「未固化」，否则该行会被
+    # 永久跳过、且读取侧拿到一个空身份。
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store)
+    store._conn.execute("UPDATE hedge_open_task SET spot_symbol = '' WHERE id = 't1'")
+    store._conn.commit()
+    assert store.backfill_spot_identity()["updated"] == 1
+    assert store.get_task("t1")["spot_symbol"] == "BTCUSDT"

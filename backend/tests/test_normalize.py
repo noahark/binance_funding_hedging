@@ -1,6 +1,8 @@
 """Unit tests for the pure normalization helpers."""
 from __future__ import annotations
 
+import pytest
+
 from backend.domain.normalize import (
     SPOT_MATCH_BSTOCK,
     SPOT_MATCH_EXACT,
@@ -256,3 +258,16 @@ def test_resolve_spot_identity_base_is_derivable_from_symbol():
     for contract in SPOT_SYMBOL_MAP:
         spot_symbol, base, _match = resolve_spot_identity(contract)
         assert spot_symbol == base + "USDT", contract
+
+
+def test_resolve_spot_identity_rejects_non_usdt_symbol():
+    # fail-fast：喂错类别的字符串（现货 base、非 USDT 计价对）必须当场炸，
+    # 而不是静默返回一个看似合理的身份——方案 §1.3 的类型混淆正是这样发生的。
+    for bad in ("SNXXB", "BTCBUSD", "", "USDT"):
+        with pytest.raises(ValueError):
+            resolve_spot_identity(bad)
+
+
+def test_resolve_spot_identity_rejects_non_string():
+    with pytest.raises(ValueError):
+        resolve_spot_identity(None)

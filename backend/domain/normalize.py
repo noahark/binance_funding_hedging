@@ -198,8 +198,18 @@ def resolve_spot_identity(contract_symbol: str) -> tuple:
     ``spot_base_asset`` 由 ``spot_symbol`` 剥去 ``USDT`` 得到，因此恒满足
     ``spot_symbol == spot_base_asset + "USDT"``。
 
+    输入必须是 ``USDT`` 计价的**合约** symbol；否则抛 ``ValueError``。这条 fail-fast
+    是针对方案 §1.3 那类「类型混淆」的护栏——把现货 base（``SNXXB``）或别的计价对
+    喂进来时当场炸，而不是静默返回一个看似合理的身份。
+
     设计见 ``docs/planning/symbol-identity-unification-2026-08-07.opus5.md`` §2.2。
     """
+    if not isinstance(contract_symbol, str) or not contract_symbol.endswith(_QUOTE_ASSET) \
+            or len(contract_symbol) <= len(_QUOTE_ASSET):
+        raise ValueError(
+            f"contract_symbol must be a {_QUOTE_ASSET}-margined contract symbol, "
+            f"got {contract_symbol!r}"
+        )
     entry = SPOT_SYMBOL_MAP.get(contract_symbol)
     if entry is not None:
         spot_symbol, match_type = entry
