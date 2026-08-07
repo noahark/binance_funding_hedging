@@ -3404,9 +3404,22 @@
         }
         const rows = Array.isArray(pa.balances_unified) ? pa.balances_unified : [];
         const mw = state.assetTransfer.maxWithdraw.byAsset;
+        // USDT 不必调接口：账户级的 total_available_balance_usdt 就是它的可转出额。
+        // 这只对 USDT 成立，因为 USDT **是计价单位**——「账户还能动 209 USDT 的价值」
+        // 对 USDT 资产而言就是「能转 209 个 USDT」。
+        // 实测同时刻对照（2026-08-07）：total_available_balance 209.18 vs
+        // maxWithdraw(USDT) 209.28，差 0.05%（快照 60s 缓存的时间差），是同一个数；
+        // 而 cross_margin_free 是 413.93，差一倍——那正是被替换掉的错口径。
+        // **不要推广到其他币**：转走 BNB 时它作为抵押品的贡献一并消失，而抵押品按
+        // 折算率计入保证金、不按市值，所以「总额 ÷ 币价」算出来的数会偏大，
+        // 偏大意味着以为能转、实际被交易所拒。其他币只能 per-asset 问。
+        const pmAvailable = (pa.pm_account || {}).total_available_balance_usdt;
         return rows.filter(b => b && b.asset).map(b => {
-          const maxWithdraw = Object.prototype.hasOwnProperty.call(mw, b.asset)
+          const cached = Object.prototype.hasOwnProperty.call(mw, b.asset)
             ? mw[b.asset] : null;
+          const maxWithdraw = cached != null
+            ? cached
+            : (b.asset === 'USDT' ? (pmAvailable != null ? pmAvailable : null) : null);
           return {
             asset: b.asset,
             // 显示：只认真实可转出额，不知道就是 null（→ 显示 —）。
@@ -3479,14 +3492,19 @@
         ].join('');
       }
 
-      // Q4（2026-08-07）：统一账户各资产的**最大可转出额**，直接进下拉标签。
+      // Q4（2026-08-07）：统一账户资产的**最大可转出额**。
       //
-      // 币安 maxWithdraw **没有批量版**，一个资产一次签名请求（实测统一账户 18 个）。
-      // 所以循环放在后端，前端只发一个请求——否则就是 18 个并发。
+      // 请求策略（2026-08-07 晚实测后定稿）：**只拉选中的那一个**。
+      //   - 币安 maxWithdraw 无批量版，一资产一次签名请求；实测单次往返 0.35~0.90s，
+      //     18 个资产串行 **9.68 秒**——点开下拉干等 10 秒不可接受。
+      //   - 权重不是瓶颈（18 次 ≈ 90，占 PAPI IP 池约 1.5%），延迟才是。
+      //   - USDT 走快照里现成的 total_available_balance_usdt（零请求零延迟，
+      //     见 transferAssetRows 里的等价性说明），其余币显示 — 直到被选中。
+      // 于是打开下拉 **0 请求**，选中某币 **1 请求**（约 0.5s），而真正要转的那个数
+      // 永远是刚取的——这正是这个值存在的意义。
       //
-      // 节流：整块面板 60s 自动重渲染一次，若每次重渲染都重拉，就是每分钟 18 次打
-      // 交易所。同一组资产 20 秒内复用上次结果；选中某个资产时**单独强制重拉那一个**
-      // （真正要转的那个数必须新鲜，这是这个值存在的意义）。
+      // 端点保留批量形状（assets=逗号列表），这里只传一个：形状统一，且后端已实现
+      // 逐资产失败隔离与去重。20s 节流对连点同一资产仍有意义。
       const MAX_WITHDRAW_TTL_MS = 20000;
       let maxWithdrawSeq = 0;
       async function loadMaxWithdrawBatch(assets, { force = false } = {}) {
@@ -3612,7 +3630,7 @@
               <select id="transfer-from" data-transfer-account="from">${accountOptions(from)}</select>
               <label for="transfer-to">转到</label>
               <select id="transfer-to" data-transfer-account="to">${accountOptions(to)}</select>
-              <select id="transfer-asset" class="transfer-asset" data-transfer-asset data-transfer-asset-focus>${assetOptions}</select>
+              <select id="transfer-asset" class="transfer-asset" data-transfer-asset>${assetOptions}</select>
               <input id="transfer-amount" class="transfer-amount" type="text" inputmode="decimal"
                      placeholder="划转数量" autocomplete="off" data-transfer-amount
                      value="${escapeHtml(String(t.amount == null ? '' : t.amount))}"/>
@@ -7222,18 +7240,6 @@
                 loadMaxWithdrawBatch([picked], { force: true });
               }
             }
-          });
-          // 「可转」在用户点开资产下拉时才向交易所问（focusin 冒泡，select 的 focus 不冒泡）。
-          // **不放在渲染函数里**：面板 60s 自动重渲染、隐私开关等纯本地操作也会重渲染，
-          // 那样每次都会打交易所（self-check 有「隐私切换不得 fetch」守卫盯着）。
-          els.privatePanelBody.addEventListener('focusin', (e) => {
-            const el = e.target;
-            if (!el || typeof el.closest !== 'function') return;
-            if (!el.closest('[data-transfer-asset-focus]')) return;
-            if (state.assetTransfer.from !== 'unified') return;
-            const pa = state.snapshot && state.snapshot.private_account;
-            const assets = transferAssetRows(pa, 'unified').map(r => r.asset);
-            if (assets.length) loadMaxWithdrawBatch(assets);
           });
           els.privatePanelBody.addEventListener('input', (e) => {
             const el = e.target;
