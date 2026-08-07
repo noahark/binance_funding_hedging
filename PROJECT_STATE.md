@@ -5,60 +5,39 @@ check.
 
 ## Current Status (2026-08-07)
 
-- **[2026-08-07 进行中] symbol-identity-unification（现货腿身份统一；Human 直接驱动，无 stage）**：
-  方案 `docs/planning/symbol-identity-unification-2026-08-07.opus5.md`（r2）经 DeepSeek 复审
-  ACCEPT（D1「创建时拒绝」撤销——实证表明拒绝已由现有 `check_symbol_legs` 覆盖，身份与
-  存在性分离：身份查静态表可固化，存在性必须实时探测，`KORUUSDT` 为活证据）。
-  **步骤① 完成（`ee35b5e`，1545 passed + self-check EXIT=0 + verify 退出码 0）**：
-  任务表加 `spot_symbol / spot_base_asset / symbol_match_type` 三列（additive-forward +
-  ALTER 守卫）；`normalize.resolve_spot_identity` 纯查表零 IO、永不返回 None（表内映射、
-  表外同名 exact）；`create_task` 在 `check_symbol_legs` 探测后固化三列（不新增拒绝分支，
-  零行为变化）；回填 `store.backfill_spot_identity()` 幂等（只写 NULL 行），**生产库已回填
-  16/16**——含方案 §1.1 实盘缺陷任务 `7f1836fe`（原解析为 SNXXUSDT）修正为 SNXXBUSDT，
-  备份 `data/hedge-open-tasks.sqlite3.bak-spotidentity-20260807-130158`。
-  DeepSeek 步骤① 评审 ACCEPT：偏差 1/2 接受（回填入 store 可单测、测试 9 挪②步）；
-  存疑点 1/4/5/6 接受（close 中间态可接受、冗余列无 DB 约束可接受、store 依赖
-  domain.normalize 无环、固化时机正确），存疑点 2/3 建议 1 行修改并入②（identity 输入
-  fail-fast、回填判定补 `OR spot_symbol = ''`）。**第②步前置要求**：D3 一致性告警提前到②、
-  删 `spot_order_symbol` 前核对 6 处调用点（含 `tests/fakes.py:155`）、close 平单环
-  （service.py:1639/1742）切 `spot_base_of(task)` 后 dry-run/live 两态测试。
-  存疑点 2/3 已提前落地（`683071f`，1548 passed）：`resolve_spot_identity` 输入
-  fail-fast（非 USDT 计价合约 symbol → `ValueError`）、回填判定补 `OR spot_symbol = ''`。
-  fail-fast 提前到②之前是有意为之——②要改六个消费点，护栏先就位才能让传错类别
-  当场抛错而非静默算出貌似合理的身份。
-  **步骤②③④⑤ 全部完成**（`8d23063` / `7d2a104` / `90edf0a` / `5105e4a`，1566 passed
-  + self-check EXIT=0），DeepSeek 步骤②③ 均 ACCEPT：
-  - ②：六个消费点切任务列（含 `tests/fakes.py`）+ 删 `spot_order_symbol` + 停写
-    `preflight_snapshot.spot_symbol` + D3 一致性告警（只报不拦）。评审后 `7d2a104`
-    追加 `AttemptContext.spot_symbol` 必填（消除静默回退 coin，改后立即暴露 7 处
-    漏传构造）与 D3 每任务去重。
-  - ③：`aggregate_positions` 带出身份进 bucket；merge base 三级优先（任务固化列 >
-    asset_map > `_merge_base_asset`），`asset_map` 降级为 `no_task` 行专用。**Q1 症状
-    消除**：生产库只读实证 `SNXXUSDT` 的 `spot_balance` 由 `null` → `1`（value 10.21），
-    且不依赖快照就绪。契约有意扩展：positions 响应新增 `spot_symbol`/`spot_base_asset`。
-  - ⑤（资金路径）：close 经 `cycle.first_task_id` 继承开仓身份，不重新查表——映射表
-    若在持仓期间变更，重查会让平仓腿与开仓腿对不上；origin 缺失则回退查表 + warning。
-  - ④：`_merge_base_asset` 已无散落调用，仅剩两处合法回退（三级链末端），docstring
-    写明私有约束。桶内身份分裂加 `identity_conflict` 审计事件（生产实证：THEUSDT 一个
-    周期有 5 个任务贡献腿，桶内多任务是常态）。
-  **实盘验证（2026-08-07 17:00–17:40，SNXXUSDT 完整开平仓闭环，真实成交）**：
-  - 开仓 `feeaf73f`（2/2 成功）：现货腿实发 `/api/v3/order` **SNXXBUSDT** BUY、合约腿
-    `/papi/v1/um/order` **SNXXUSDT** SELL，均 FILLED，`transport=live posted=true`。
-  - 展示（③）：持仓面板 `spot_qty=3 / spot_balance=3 / value=31.56`，记账与实际余额
-    一致，`drift=false` 为真值（此前 bStock 上因读不到余额而恒 false，是假阴性）。
-  - 平仓（⑤ close 继承）：`ac93dcab`(1/1) + `a745c7d0`(2/2) 均真实成交，close 任务
-    `spot_symbol=SNXXBUSDT` **继承自开仓任务**而非重新查表；现货 SELL 正确路由到
-    `/api/v3/order`（SNXXB 在普通现货账户——正是 COOKIE 单腿事故的判定点，本次无误）。
-    全平后周期 `8bc56030` 自动关闭（`auto_close`），USDT 20.92 划回，现货/合约均归零。
-  - 全程无 `identity_drift` / `identity_conflict` 事件。
-  **插曲（与本线无关，已转化为改进）**：中途一次平仓 `c54d1c6a` 因出口 IP 变更被币安
-  以 401 `-2015` 拒绝（`request ip: 61.221.79.190` 不在 API key 白名单）。两腿均未发出、
-  账户零变化、**无裸腿**。系统把 auth 类判为 `UNKNOWN_QUERYING` 而非 REJECTED 是**有意的
-  保守设计**（auth/签名/时间戳存在歧义 → 只按 clientOrderId 重查、绝不重发），行为正确；
-  但通用文案「请到交易所核对订单」会让人去找一张从未存在的单。已改：`-2015` 现在直接
-  点名 IP 白名单与「订单未发出」（`order_state_unknown_pause_reason_zh`）。
+- **[2026-08-07 已收口] symbol-identity-unification（现货腿身份统一；Human 直接驱动，无 stage）**：
+  方案 `docs/planning/symbol-identity-unification-2026-08-07.opus5.md`（r2）+ 三轮 DeepSeek
+  评审全部 ACCEPT。**现货腿身份自此是任务的第一等属性**：建任务时由静态表解析一次并
+  固化到 `hedge_open_task.spot_symbol / spot_base_asset / symbol_match_type`，下单/平单/
+  展示三环只读不算，取值统一走 `spot_symbol_of(task)` / `spot_base_of(task)`（接口守卫：
+  只接受 task 字典，传裸字符串 TypeError）。
+  交付：`ee35b5e`(①固化+回填) `8d23063`+`7d2a104`(②消费点+删 spot_order_symbol+必填)
+  `90edf0a`(③展示环) `5105e4a`(④⑤收尾+close 继承) `be3f583`(-2015 文案)。1571 passed。
+  **三条可复用的设计判断**：
+  1. **身份 ≠ 存在性**——身份来自静态表（稳定、可固化），存在性必须实时探测（会变：
+     `KORUUSDT` 曾无现货腿，币安后来上线 `KORUBUSDT`）。二者混同会让「无腿」退化成
+     「查表查不到」，而表外绝大多数恰是同名有腿的普通币。据此撤销了方案原定的 D1
+     「创建时拒绝」——该拒绝早已由 `check_symbol_legs` 完整覆盖（实测 BUSDT/1000000MOG
+     均被 missing_leg 拦下）。
+  2. **固化优于实时**——对冲是跨时间的持仓，平仓必须用开仓时的身份；映射表若在持仓
+     期间变更，重新解析会让两条腿对不上。close 经 `cycle.first_task_id` 继承开仓身份
+     （零迁移）；表变动由 D3 `identity_drift`（只报不拦、每任务去重）+ 桶内
+     `identity_conflict` 审计 + `--verify` 的 STALE 三处告警，绝不静默切换。
+  3. **静默默认值是类型混淆的温床**——`AttemptContext.spot_symbol` 一度给了默认 None +
+     回退 coin，评审要求改必填后**立即暴露 7 处漏传构造**（26 用例失败）。合约名/现货名/
+     资产名都是裸字符串，传错不报错只算错值。
+  **实盘闭环（17:00–17:40，SNXXUSDT 真实成交）**：开仓 `feeaf73f` 2/2——现货腿实发
+  **SNXXBUSDT**、合约腿 SNXXUSDT，均 FILLED；持仓面板 `spot_balance=3` 与实际余额一致
+  （Q1 症状消除，此前恒 null，连带 `drift` 是假阴性）；平仓 `ac93dcab`+`a745c7d0` 身份
+  **继承开仓任务**、现货 SELL 正确路由 `/api/v3/order`（SNXXB 在普通现货账户——正是
+  COOKIE 单腿事故的判定点，本次无误）；全平后周期 `8bc56030` auto_close、USDT 划回。
+  全程无 `identity_drift` / `identity_conflict`。
+  **插曲教训**：一次平仓因出口 IP 变更被币安 401 `-2015` 拒（两腿均未发出、无裸腿）。
+  系统把 auth 类判为 `UNKNOWN_QUERYING` 而非 REJECTED 是**有意的保守设计**（auth/签名/
+  时间戳存在歧义 → 只按 clientOrderId 重查、绝不重发），行为正确不改；错的是文案让人
+  去找一张从未存在的单。已改为点名 IP 白名单 + 「订单未发出」。
   **follow-up**：前端持仓表尚未显示现货腿 symbol（后端已提供 `spot_symbol` 字段），
-  DeepSeek 建议记账——这正是 Q1「看得见实际对冲的是 SNXXBUSDT」的诉求。
+  这正是 Q1「看得见实际对冲的是 SNXXBUSDT」的诉求。
 - **[2026-08-07] 现货符号解析改显式映射表 + P1/P2 死区修复已提交（`8ee6d3c`）**：
   d717595 的字符串猜测规则被纯表取代（`SPOT_SYMBOL_MAP` 71 条 = 65 bStock + 6 乘数，
   最新 exchangeInfo 实测生成）：d717595 放开 B 后缀 TRADIFI gate 的**全部影响面仅 1 条且是
@@ -68,10 +47,18 @@ check.
   restricted_asset）。**服务已于 2026-08-07 12:39 由 Human 重启并实测两项修复生效**：
   手动「更新缓存」使 cap 的 `checked_at` 由 `04:42:45Z` 推进到 `04:44:28Z`（旧代码此处
   纹丝不动）；注入超龄 10h 且谎称 THE 已打满的缓存后，实时重读得 `False`——既证明
-  死区消除，也证明陈旧清单未被采用。**注意：重启发生在本线后续提交之前，`ee35b5e` /
-  `683071f`（身份固化 + fail-fast）尚未载入运行中的服务**；下次重启同样需避开在跑任务。
-  issue-triage Q1 已随本线解决；
-  Q2（流水划转回显）、Q3（多任务卡回显）、Q4（maxWithdraw）未处理，建议顺序 Q3→Q4→Q2。
+  死区消除，也证明陈旧清单未被采用。服务其后于 **16:59:28 再次重启**，已载入身份统一
+  全部提交（`be3f583` 之前），并据此完成了 SNXXUSDT 开平仓实盘闭环。
+  issue-triage（`docs/planning/issue-triage-2026-08-07.opus5.md`）**Q1 已随本线解决并
+  实盘验证**；**Q2/Q3/Q4 未处理**，DeepSeek 建议顺序 Q3→Q4→Q2：
+  - Q3 多任务卡回显：错误提示只写 DOM 未入 state，任何重渲染（他卡操作 / 60s 自动
+    刷新）即抹除；按钮无 pending 态；每次 mutate 触发 3 个 GET + 2 次全量 DOM 重建。
+  - Q4 统一账户可转出额：划转界面用 `cross_margin_free` 当可用（393.22），而 PM
+    `total_available_balance_usdt` 是 192.51、币安界面「最多可转出」是 222.xx，三个数
+    互不相等——前端超额校验形同虚设。数据源缺 `GET /papi/v1/margin/maxWithdraw`
+    （未实现，白名单也未含），实现模式可照搬同族的 `maxBorrowable`。
+  - Q2 流水勾选「划转」不回显：数据在（2 条 TRANSFER），是显示上限 20 条 +
+    全局时间序把它挤到第 33 位；只勾划转能看到、默认基础上加勾看不到。
 
 - **stage `2026-08-06-asset-transfer-live-v1` 已收尾归档（2026-08-07）**：Human 实盘验收通过并
   授权合并推送（`bb47d02..b98ad4f` + 记录提交 `4d0fd44` 均已推送 origin）；证据归档
@@ -107,12 +94,13 @@ check.
 - **数据已清理（从头测试起点，Human 2026-08-06 授权）**：三个库数据记录清空
   （hedge-open-tasks 447 行 / borrow-tasks 1299 行 / ledger-flow 2285 行），保留表结构与
   settings（start_gate/close_gate 配置）；备份 `data/*.sqlite3.bak-clean-20260806-120813`。
-  交易所仓位 Human 已全部手工平仓。**应用服务当前停止**（8787 无监听，Human 指示停服务，
-  从头测试时用 `scripts/run-server.sh` 重启，首次快照拉取约 3 分钟）。
+  交易所仓位 Human 已全部手工平仓。（服务此后已恢复运行；当前由 Human 手动前台启动，
+  见 Live Risks 的 launchd 条目。）
 - **前端「假数据 · 预览」设计探针已删除**（真实功能已上线，探针无意义；frontend/index.html
   + self-check.js，2026-08-06）。
-- 挂账 follow-up：本地数量口径（X/Y/Z 方案待定）、MUUUSDT 现货别名配对、close_log 利息 ≈U
-  （价格源注入 service 层）。
+- 挂账 follow-up：本地数量口径（X/Y/Z 方案待定）、close_log 利息 ≈U（价格源注入 service
+  层）。（「MUUUSDT 现货别名配对」已随 `SPOT_SYMBOL_MAP` 解决：MUUSDT→MUBUSDT 与
+  MUUUSDT→MUUBUSDT 是两个并存的真实合约，均已收录；此前「MUUUSDT 系笔误」的判断有误。）
 
 ## Live Risks
 
@@ -160,6 +148,13 @@ check.
   `backend/config.py` never parses `.env` itself). Diagnose with
   `scripts/service-control.py doctor` (read-only); every repair subcommand needs
   `--confirm`. Not yet fixed by decision (Human 2026-08-03).
+  **2026-08-07 补充线索**：stderr 日志显示失败原因是
+  `/bin/bash: scripts/run-server.sh: Operation not permitted` + `getcwd: cannot
+  access parent directories` —— launchd 拉起的 bash 拿不到 `~/Desktop` 的 TCC 授权
+  （与 `env-zellij-tcc-desktop-block` 同源），故 exit 126。**另注意 `service-control.py
+  status` 具有误导性**：它报的 `health 200` 来自手动进程、`commit` 字段读的是当前
+  git HEAD 而非运行中进程加载的代码版本——据此判断「服务已是最新代码」会出错，
+  须以进程启动时间对比提交时间为准。
 - `[NOTE][2026-08-03]` The "no agent may control the service" rule above was
   waived once, explicitly and narrowly: Human directly ordered a restart
   (old PID `2494` → new PID `99045`, port `8787` unchanged, launched detached via
