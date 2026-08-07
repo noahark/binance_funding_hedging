@@ -1382,12 +1382,18 @@ def test_inconclusive_cap_drain_keeps_non_running_status_sticky(tmp_path, status
     legs = svc.store.list_legs_for_attempt(_attempt_id(svc, doc["id"]))
     assert all(l["terminal"] == 0 for l in legs)  # non-terminal, never resent
     assert exe.dispatch_calls == 1
-    # 可见人工核对事件仍被记录（F2：记录事件但不改状态、不重发）。
-    events = svc.store.list_task_event_logs(20, kinds=("task_paused",))
-    assert any(
-        json.loads(e["payload"]).get("reason") == D.PAUSE_REASON_ORDER_STATE_UNKNOWN
-        for e in events
-    )
+    # 可见人工核对事件仍被记录（F2：记录事件但不改状态、不重发），但它必须用
+    # 终态专属的 kind——终态任务既没暂停也不可恢复，沿用 task_paused 会让时间线
+    # 印出「任务暂停 / 已暂停」两个假声明（2026-08-07 修）。
+    assert svc.store.list_task_event_logs(20, kinds=("task_paused",)) == []
+    events = svc.store.list_task_event_logs(20, kinds=("order_state_unknown_final",))
+    payloads = [json.loads(e["payload"]) for e in events]
+    assert any(p.get("reason") == D.PAUSE_REASON_ORDER_STATE_UNKNOWN for p in payloads)
+    # 文案不得声称任务被暂停、也不得指示去做一个不存在的「手动恢复」；
+    # 必须点明去交易所核实 + 系统不会重发。（说「无法恢复」是诚实的，允许。）
+    zh = next(p["reason_zh"] for p in payloads if p.get("reason_zh"))
+    assert "暂停" not in zh and "手动恢复" not in zh
+    assert "核实" in zh and "不会重发" in zh
 
 
 # ---------------------------------------------------------------------------
@@ -1523,7 +1529,10 @@ def test_concurrent_delete_during_drain_order_state_unknown_keeps_deleted(tmp_pa
         _leg(LEG_UNKNOWN_QUERYING, name="perp"),
     ])
     exe.release.set()
-    _wait_for_event(svc, ("task_paused",), D.PAUSE_REASON_ORDER_STATE_UNKNOWN)
+    # 终态任务用 order_state_unknown_final（2026-08-07）：并发删除落在查询窗口内时，
+    # 这条并发路径与上面的静态 sticky 测试必须走同一个 kind——否则「已删任务不自称
+    # 暂停」这条修复只在慢路径成立，快路径仍印假声明。
+    _wait_for_event(svc, ("order_state_unknown_final",), D.PAUSE_REASON_ORDER_STATE_UNKNOWN)
     task = svc.store.get_task(doc["id"])
     assert task["status"] == D.STATUS_DELETED  # 粘性
     assert task["pause_reason"] is None

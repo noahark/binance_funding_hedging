@@ -1648,9 +1648,14 @@
         // result 为后端返回的划转记录（含 status 四态）或请求层错误；
         // locked 在 status=unknown 后置真——结果未知时钱可能已经转了，必须先人工
         // 核对再解锁，否则换个新编号重来就会转第二次。
+        // maxWithdraw：统一账户选中资产的**最大可转出额**，按需实时读（Q4）。
+        // 不放进 60s 快照：它是 per-asset 请求，且随价格波动——缓存住就会在按
+        // 「划转」那一刻给出过期的数。asset 记录这份结果属于哪个资产，防止切换
+        // 资产后旧结果贴到新资产上。
         assetTransfer: {
           from: 'unified', asset: null, amount: '',
           submitting: false, result: null, locked: false,
+          maxWithdraw: { asset: null, value: null, error: null, loading: false },
         },
         // 立即开单创建中：导航徽标显示转圈，计数可叠加（并发创建）。
         hedgeTaskNavLoading: 0,
@@ -3442,6 +3447,71 @@
         return `${row.asset} · 可用 ${formatBalanceAmount(row.available)} · 净值 ${approximateUsdtLine(row.netUsdt)}`;
       }
 
+      // Q4（2026-08-07）：统一账户的「最多可转出」。
+      //
+      // 此前界面拿 crossMarginFree 当可转出额，代码注释里也已承认它不准：可用额
+      // 只说这些钱没被挂单占用，可转出额还要扣掉维持全仓抵押所必需的部分——有借款
+      // 时两者必然不等。真值只有交易所知道（GET /papi/v1/margin/maxWithdraw）。
+      //
+      // 现货账户不需要这个：free 本身就是可转出额，没有抵押约束。
+      let maxWithdrawSeq = 0;
+      async function loadMaxWithdraw(asset) {
+        const mw = state.assetTransfer.maxWithdraw;
+        if (!asset || state.assetTransfer.from !== 'unified') {
+          Object.assign(mw, { asset: null, value: null, error: null, loading: false });
+          renderMaxWithdrawLine();
+          return;
+        }
+        const seq = ++maxWithdrawSeq;
+        Object.assign(mw, { asset, value: null, error: null, loading: true });
+        renderMaxWithdrawLine();
+        let body = null;
+        let ok = false;
+        try {
+          const res = await fetch(
+            '/api/private-account/max-withdraw?asset=' + encodeURIComponent(asset)
+          );
+          ok = res.ok;
+          try { body = await res.json(); } catch (e) { body = null; }
+        } catch (e) {
+          body = null;
+        }
+        // 慢响应竞态：切走资产后旧请求才回来，结果必须丢弃，绝不贴到新资产上。
+        if (seq !== maxWithdrawSeq) return;
+        mw.loading = false;
+        if (ok && body && body.max_withdraw != null) {
+          mw.value = body.max_withdraw;
+          mw.error = null;
+        } else {
+          mw.value = null;
+          mw.error = (body && (body.detail || body.error)) || '读取失败';
+        }
+        renderMaxWithdrawLine();
+      }
+
+      // 「不知道」必须显示成不知道：读不到时给出 —— 与失败原因，绝不回退到
+      // crossMarginFree 顶替，那正是本项要修的毛病。
+      function maxWithdrawText() {
+        const t = state.assetTransfer;
+        const mw = t.maxWithdraw;
+        if (t.from !== 'unified' || !t.asset) return '';
+        if (mw.asset !== t.asset) return '';
+        if (mw.loading) return `最多可转出：读取中…`;
+        if (mw.value != null) {
+          return `最多可转出：${formatBalanceAmount(mw.value)} ${t.asset}（交易所实时口径，已扣除维持抵押所需部分）`;
+        }
+        return `最多可转出：—（读取失败：${mw.error}）。上方「可用」不等于可转出额，请以交易所为准`;
+      }
+
+      // 局部更新，不重建整块 DOM——重建会打断正在输入的光标（与 updateTransferValidity 同因）。
+      function renderMaxWithdrawLine() {
+        const node = document.getElementById('transfer-max-withdraw');
+        if (!node) return;
+        const text = maxWithdrawText();
+        node.textContent = text;
+        node.style.display = text ? '' : 'none';
+      }
+
       // 后端对业务结果一律返回 HTTP 200，真实结论只在 body.status 里（四态）。
       // 前端**只认 status**，绝不把 HTTP 200 当成划转成功。
       function renderTransferResult(result) {
@@ -3499,7 +3569,7 @@
         // 实测两个方向的偏差都出现过（2026-08-06 实盘 USDT 可用 > 总量），
         // 不能承诺谁大谁小。
         const availabilityNote = from === 'unified'
-          ? '可用 = 统一账户全仓可用余额（crossMarginFree），与卡片「总量」口径不同（总量含合约子钱包），两者不一致属正常'
+          ? '可用 = 统一账户全仓可用余额（crossMarginFree），与卡片「总量」口径不同（总量含合约子钱包），两者不一致属正常；能转多少以下方「最多可转出」为准'
           : '可用 = 现货账户可用余额（free），不含冻结部分';
         return `
           <div class="asset-transfer">
@@ -3520,6 +3590,7 @@
                       data-transfer-submit${verdict.ok ? '' : ' disabled'}>划转</button>
             </div>
             <div class="asset-transfer-hint muted">${escapeHtml(availabilityNote)}；数据为约 60 秒的账户快照缓存，实际可划转量还受统一账户保证金占用限制</div>
+            <div class="asset-transfer-hint muted" id="transfer-max-withdraw"${maxWithdrawText() ? '' : ' style="display:none"'}>${escapeHtml(maxWithdrawText())}</div>
             <div class="asset-transfer-hint ${verdict.hintCls}" id="transfer-hint">${escapeHtml(verdict.hint)}</div>
             ${notice}
           </div>
@@ -3545,6 +3616,8 @@
         state.assetTransfer.from = from;
         state.assetTransfer.asset = null;  // 两账户资产集合不同，切换后必须重选
         state.assetTransfer.result = null;
+        // 资产已清空 -> 连带清掉上一个资产的可转出额，别让它挂在新账户下。
+        loadMaxWithdraw(null);
         renderPrivatePanel();
       }
 
@@ -4543,8 +4616,11 @@
       // 前端只消费 12-development-breakdown.md §3 冻结 API 契约：任务/持仓/设置全部来自
       // 后端（SQLite 持久化），浏览器不调度、不模拟、不签名、不请求 Binance。
       // stopped 为 15 号修正案新增 I-4：致命错误终止，与 paused（连续失败/手动暂停）区分展示。
-      const HEDGE_TASK_STATUS_LABELS = { running: '运行', paused: '暂停', stopped: '已终止', done: '完成', exposure_alert: '敞口告警', deleted: '已删除' };
-      const HEDGE_TASK_STATUS_BADGE = { running: 'success', paused: 'muted', stopped: 'danger', done: 'info', exposure_alert: 'danger', deleted: 'danger' };
+      // exposure_alert 已于 2026-08-07 移除：后端从无写入方（单腿敞口早已降级为
+      // advisory），这两张表里的条目永远匹配不到任何一行。敞口信号看持仓表的
+      // 「单腿敞口」标记与每次尝试的内联日志。
+      const HEDGE_TASK_STATUS_LABELS = { running: '运行', paused: '暂停', stopped: '已终止', done: '完成', deleted: '已删除' };
+      const HEDGE_TASK_STATUS_BADGE = { running: 'success', paused: 'muted', stopped: 'danger', done: 'info', deleted: 'danger' };
       // 状态筛选（对齐借币任务）：默认「执行中」；敞口告警无专属筛选，仅在「全部」可见。
       const HEDGE_TASK_FILTERS = [
         ['all', '全部'],
@@ -4581,15 +4657,18 @@
       // 与 next_action 中文标签；未收录取值原样展示，前端不发明后端语义。
       const HEDGE_LOG_OVERALL_RESULT_LABELS = {
         querying: '查询中', both_accepted: '双腿受理', filled: '已成交', single_leg: '单腿成交',
-        confirmed_failed: '确认失败', task_stopped: '任务终止', task_paused: '任务暂停'
+        confirmed_failed: '确认失败', task_stopped: '任务终止', task_paused: '任务暂停',
+        manual_verification: '待人工核实'
       };
       const HEDGE_LOG_OVERALL_RESULT_BADGE = {
         querying: 'info', both_accepted: 'success', filled: 'success', single_leg: 'warn',
-        confirmed_failed: 'danger', task_stopped: 'danger', task_paused: 'muted'
+        confirmed_failed: 'danger', task_stopped: 'danger', task_paused: 'muted',
+        manual_verification: 'warn'
       };
       const HEDGE_LOG_NEXT_ACTION_LABELS = {
         continue_next_attempt: '继续下一组', waiting_query: '等待查询终态',
-        paused: '已暂停', stopped: '已终止', completed: '已完成'
+        paused: '已暂停', stopped: '已终止', completed: '已完成',
+        verify_manually: '去交易所核实'
       };
 
       // 十进制字符串/计数原样展示（§3.4 Decimal 均为字符串）：不经过 JavaScript 浮点，
@@ -5444,11 +5523,10 @@
         const stopReasonLine = task.status === 'stopped'
           ? `<div class="borrow-task-note">任务已终止（致命错误，不再补发）：${escapeHtml(hedgeText(task.stop_reason))}；需人工修正原因后新建任务。</div>`
           : '';
-        const inactive = task.status === 'done' || task.status === 'deleted' || task.status === 'stopped' || task.status === 'exposure_alert';
+        const inactive = task.status === 'done' || task.status === 'deleted' || task.status === 'stopped';
         const pauseDisabled = task.status !== 'running' ? ' disabled' : '';
         const startDisabled = (
           task.status !== 'paused' &&
-          task.status !== 'exposure_alert' &&
           !(task.status === 'running' && task.worker_active === false)
         ) ? ' disabled' : '';
         const deleteDisabled = task.status === 'deleted' ? ' disabled' : '';
@@ -7106,6 +7184,7 @@
             if (el.closest('[data-transfer-asset]')) {
               state.assetTransfer.asset = el.value || null;
               updateTransferValidity();
+              loadMaxWithdraw(state.assetTransfer.asset);
             }
           });
           els.privatePanelBody.addEventListener('input', (e) => {
@@ -7317,7 +7396,9 @@
         setTransferAsset: (asset) => {
           state.assetTransfer.asset = asset;
           updateTransferValidity();
+          return loadMaxWithdraw(asset);  // 与 change 事件同路径；返回 promise 便于自检 await
         },
+        getMaxWithdrawText: () => maxWithdrawText(),
         setTransferAmount: (amount) => {
           state.assetTransfer.amount = amount;
           updateTransferValidity();

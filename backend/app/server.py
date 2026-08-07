@@ -279,6 +279,9 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/private-ledger/flow-log":
             self._handle_flow_log()
             return
+        if path == "/api/private-account/max-withdraw":
+            self._handle_max_withdraw()
+            return
         self._serve_static(path)
 
     def do_POST(self):
@@ -483,6 +486,36 @@ class _Handler(BaseHTTPRequestHandler):
             self._send_ledger(400, {"error": "invalid_window", "detail": str(exc)})
             return
         self._send_ledger(200, payload)
+
+    def _handle_max_withdraw(self):
+        """GET /api/private-account/max-withdraw?asset=USDT — 统一账户单资产的
+        最大可转出额（Q4, 2026-08-07）。
+
+        按需读，不进快照：per-asset 一次请求（快照要为每个资产各调一次），且该值
+        随价格波动，缓存住就会在转出那一刻给出过期的数。
+
+        取不到时回 200 + ``max_withdraw: null``，而不是错误码——调用方（转出界面）
+        要能区分「读不到」和「是 0」，并把前者显示成「未知」。
+        """
+        query = parse_qs(urlparse(self.path).query)
+        asset = (query.get("asset", [""])[0] or "").strip().upper()
+        if not asset or not asset.isalnum():
+            self._send_ledger(
+                400, {"error": "invalid_asset",
+                      "detail": "asset query param is required (alphanumeric)"})
+            return
+        client = getattr(self.service, "private_client", None)
+        if client is None or not getattr(client, "enabled", False):
+            self._send_ledger(
+                503, {"error": "private_account_unavailable",
+                      "detail": "private client not configured"})
+            return
+        result = client.fetch_max_withdraw(asset, force=True)
+        self._send_ledger(200, {
+            "asset": asset,
+            "max_withdraw": (result or {}).get("max_withdraw"),
+            "error": None if result else (client.last_error or "max_withdraw_failed"),
+        })
 
     def _handle_flow_refresh(self):
         # No request body field is read (§13.4); any posted body is drained.

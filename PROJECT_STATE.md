@@ -62,14 +62,25 @@ check.
   死区消除，也证明陈旧清单未被采用。服务其后于 **16:59:28 再次重启**，已载入身份统一
   全部提交（`be3f583` 之前），并据此完成了 SNXXUSDT 开平仓实盘闭环。
   issue-triage（`docs/planning/issue-triage-2026-08-07.opus5.md`）**Q1 已随本线解决并
-  实盘验证**；**Q2/Q3/Q4 未处理**，DeepSeek 建议顺序 Q3→Q4→Q2：
-  - Q3 多任务卡回显：错误提示只写 DOM 未入 state，任何重渲染（他卡操作 / 60s 自动
-    刷新）即抹除；按钮无 pending 态；每次 mutate 触发 3 个 GET + 2 次全量 DOM 重建。
-  - Q4 统一账户可转出额：划转界面用 `cross_margin_free` 当可用（393.22），而 PM
-    `total_available_balance_usdt` 是 192.51、币安界面「最多可转出」是 222.xx，三个数
-    互不相等——前端超额校验形同虚设。数据源缺 `GET /papi/v1/margin/maxWithdraw`
-    （未实现，白名单也未含），实现模式可照搬同族的 `maxBorrowable`。
-  - Q2 流水勾选「划转」不回显：数据在（2 条 TRANSFER），是显示上限 20 条 +
+  实盘验证**；**Q4 已于 2026-08-07 晚交付**；**Q2/Q3 仍未处理**：
+  - `[OPEN]` Q3 多任务卡回显：错误提示只写 DOM 未入 state，任何重渲染（他卡操作 /
+    60s 自动刷新）即抹除；按钮无 pending 态；每次 mutate 触发 3 个 GET + 2 次全量
+    DOM 重建。
+  - `[RESOLVED][2026-08-07]` Q4 统一账户可转出额：~~划转界面用 `cross_margin_free`
+    当可用（393.22），而 PM `total_available_balance_usdt` 是 192.51、币安界面
+    「最多可转出」是 222.xx，三个数互不相等。~~ 已接入
+    `GET /papi/v1/margin/maxWithdraw`（白名单 15→16，`fetch_max_withdraw`，
+    模式照搬同族 `maxBorrowable`）+ 新端点
+    `GET /api/private-account/max-withdraw?asset=X` + 前端「最多可转出」行。
+    **按需实时读，不进快照**：per-asset 一次请求（进快照要为每个资产各调一次），
+    且该值随价格波动，缓存住就会在按「划转」那一刻给出过期的数（`force=True` 绕开
+    client 缓存）。**读不到时显示「—（读取失败：…）」，绝不回退 `cross_margin_free`
+    顶替**——那正是本项要修的毛病；self-check 有一条断言专门守这个（失败文案中不得
+    出现任何数字）。现货账户不显示也不请求（`free` 本身就是可转出额，无抵押约束）。
+    切换资产的慢响应竞态用 seq 丢弃旧结果。
+    **未做**：`cross_margin_free` 仍是「可用」列的口径（它本身没错，错的是拿它冒充
+    可转出额），前端超额校验也仍按可用额拦——真正的拦截以服务端/交易所为准。
+  - `[OPEN]` Q2 流水勾选「划转」不回显：数据在（2 条 TRANSFER），是显示上限 20 条 +
     全局时间序把它挤到第 33 位；只勾划转能看到、默认基础上加勾看不到。
 
 - **stage `2026-08-06-asset-transfer-live-v1` 已收尾归档（2026-08-07）**：Human 实盘验收通过并
@@ -115,6 +126,24 @@ check.
 
 ## Live Risks
 
+- `[RESOLVED-BY-BLOCKING][2026-08-07]` **1000x 乘数合约两腿数量口径错配（资金安全）**。
+  执行链两腿发的是**同一个** `q_common`（实盘执行器 `dispatch` 里 `send_qty` 两腿共用），
+  但 1 张 `1000BONKUSDT` = 1000 个 BONK：现货买 N 个、合约空 N 张 → **净裸空 999N**。
+  全链路搜不到任何乘数换算；`est_price` 取的是**现货** symbol 的价格，故 `required`
+  与合约腿 minNotional 校验同样错 1000 倍，口径全面错乱。
+  **发现路径**：做 B3（两腿差额判定）时需要确认腿量口径，顺藤查出来的。
+  **是本轮上游改动打开的口子**：2026-08-07 早些时候加的 `SPOT_SYMBOL_MAP` 让这 6 个币
+  （BONK/FLOKI/LUNC/PEPE/SHIB/XEC）第一次通过 `check_symbol_legs` 的现货腿存在性探测，
+  在此之前它们建不了任务。
+  **无实际损失**：实盘库 `hedge_open_task` 历史币种仅 SNXX/THE/XLM/XVG/WLD，**从未开过**。
+  **止血（已实施）**：`create_task` 对 `symbol_match_type == multiplier_strip_alias`
+  的 **open** 任务 fail-closed（`multiplier_contract_unsupported`，中文 detail 点明
+  「1 张 = 1000 个 X」与「999 倍裸空」）。**只拦 open，close 放行**——万一存在历史仓位，
+  平仓逃生口必须活着（三个乘数币的身份固化/平仓划转测试用 monkeypatch 关掉建单拦截
+  后继续守护那条路径）。
+  **未做**：正确的腿量换算。它要动下单数量这条资金路径，**须 Human 明确授权**后单开一轮；
+  届时要一次改齐四处——下单量、`est_price` 口径、`required`、以及持仓表
+  `single_leg_exposure` 的比较（后者已在代码注释里留了指针）。
 - `[RESOLVED][2026-08-07]` **资产互转端点已上线且前后端打通，并经 Human 实盘验收**。
   交付 `036fcd1`（T2 前端）+ `bbe81b0`（UUID 修复轮）后，`POST /api/asset-transfer`
   已完成**首次真实调用验证**：Human 实盘小额试划转成功（`data/asset-transfer.sqlite3`
@@ -217,22 +246,29 @@ check.
 
 All three are the same class: **the display asserting something it does not
 know.** None costs money directly; each can mislead an operating decision.
+**A 与 B 已于 2026-08-07 修复（见下）；F4 仍 OPEN。**
 
-- `[OPEN][ACCEPTED]` **A** — the single-leg marker only fires when the perp leg is
-  entirely absent, so a partial imbalance (spot 2.0 / perp 1.0) reads as "no
-  exposure". Not the authoritative exposure verdict; the per-attempt inline log is.
-- `[OPEN][ACCEPTED]` **B** — spot balance and drift read the classic spot account
-  while the hedge buys into the unified account, so the **drift flag is
-  permanently inert**. An absent drift marker does not mean "records agree".
-  **Re-stated 2026-08-03 (v4.1 merged):** the positions table now shows the
-  unified-account balance on its own 「杠杆」 line, so the account the hedge leg
-  actually lands in is finally visible — real data on merge day: `COOKIEUSDT`
-  held `2997.0` in the unified account with the classic spot side `null`, a
-  holding the previous single 「现货余额」 column could not show at all. But
-  `drift` itself was NOT changed: it still compares the task record against the
-  classic spot balance (`backend/hedge_open_tasks/domain.py:1700-1709`), so it
-  stays permanently inert. **The richer display must not be read as evidence
-  that the consistency check was fixed.**
+- `[RESOLVED][2026-08-07]` **A** — ~~the single-leg marker only fires when the perp
+  leg is entirely absent, so a partial imbalance (spot 2.0 / perp 1.0) reads as
+  "no exposure".~~ 判定改为**两腿差额 > 较大腿的 1%**（`_EXPOSURE_IMBALANCE_TOLERANCE`）。
+  一并补上了此前**完全没报**的另一半：旧式子写死 `spot>0 且 perp==0`，只看裸多，
+  **裸空（合约腿在、现货腿没有）从来不亮**——那是风险上不封顶的一侧。1% 只吸收
+  精度/舍入（两腿发同一个 `q_common`，本应逐位相等），不是「允许 1% 敞口」。
+  仍不是权威裁决：per-attempt 内联日志才是。
+  **已知边界**：1000x 乘数币两腿单位不同（张 vs 个）会在此误报；开单侧已 fail-closed
+  （见 Live Risks 同日 P0 条），腿量换算落地时这里要跟着换算。
+- `[RESOLVED][2026-08-07]` **B** — ~~spot balance and drift read the classic spot
+  account while the hedge buys into the unified account, so the **drift flag is
+  permanently inert**.~~ `drift` 改为**两账户余额求和**后再与任务记账比较。
+  根因比原记录更准确：现货腿落哪个账户是 `decide_spot_route` 动态决定的
+  （bStock / cap 打满 → 普通现货，其余 → 统一杠杆），所以旧判定对**大多数**币恒为
+  假阴性，而非全部。求和是保守方向——同资产的无关持仓可能掩盖真实减少（假阴性），
+  但绝不凭空造出持仓，故**一旦报警就说明账户确实少于记账**。
+  `verified=false` 时不求和、直接 False：两张余额表在那种状态下都是空的，照常求和
+  会把「读不到」算成 0 给每一行印假告警——正是 F4 那类错误。
+  **2026-08-03 (v4.1) 的旧注记仍成立且仍需警惕**：持仓表加了「杠杆」行让统一账户
+  余额可见（合并日实测 `COOKIEUSDT` 统一账户 `2997.0`、普通现货侧 `null`），但那次
+  **没有**改 `drift` 本身。展示变丰富 ≠ 一致性检查修好了——这次才是。
 - `[OPEN][ACCEPTED]` **F4 — "exchange has no position" is claimed without
   checking.** Whenever the account cannot be read (`SnapshotNotReady`, or
   `verified: false` from an expired key / changed IP / Binance error), every row
@@ -270,17 +306,27 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
   error, no resend). Accepted because all three `ensure_worker` entries are manual
   clicks and the window is milliseconds. **Re-review the moment any non-manual
   path to `ensure_worker` appears.** Five elements: archive `32-` §7.3.
-- `[OPEN][FOLLOW-UP]` Task-card pause reasons render **1 of 7** in Chinese — the
-  frontend never reads the `pause_reason_zh` the backend already returns. The log
-  timeline *is* wired (via `error_reason_zh`), so the frozen 51169 text and the
-  new `order_state_unknown` guidance are reachable there, just not on the card.
-  `pre-existing-independent` (`d873699`). Two-line frontend fix; should not wait
-  for the deferred Task 2.
-- `[OPEN][FOLLOW-UP]` `exposure_alert` is a **dead status** — nothing writes it,
-  so the frontend badge can never appear. `pre-existing-independent` (`d90f2f1`).
-- `[OPEN][FOLLOW-UP]` A deleted task's `order_state_unknown` settlement records
-  `kind=task_paused` with text saying "task paused… resume manually" — it was
-  neither paused nor is it resumable. Mild form of the family above.
+- `[RESOLVED][2026-08-07]` ~~Task-card pause reasons render **1 of 7** in Chinese —
+  the frontend never reads the `pause_reason_zh` the backend already returns.~~
+  已交付（`dd0b3e3`）：前端直读 `task.pause_reason_zh`（后端实为 **11 种**
+  `PAUSE_REASON_*`，非当初记的 7 种），孤儿表 `HEDGE_PAUSE_REASON_LABELS` 已删，
+  后端未给中文时回退英文枚举。连带激活了同日新写的 `-2015` 文案（点名请求 IP +
+  「订单未发出」），此前它写在后端却永远显示不出来。
+- `[RESOLVED][2026-08-07]` ~~`exposure_alert` is a **dead status** — nothing writes
+  it, so the frontend badge can never appear.~~ 整个状态已删除（后端常量 +
+  `ALL_STATUSES` + `?status=` 过滤器合法值 + 前端 label/badge/两处判定）。
+  它在 breakdown §4.5 把单腿敞口降级为 advisory 后就没有写入方了，删除而非补写入
+  是遵循那个决策。实盘库中 0 行该状态，删除零迁移风险。敞口信号 = 持仓表
+  `single_leg_exposure`（本轮刚修好，见上文 A）+ per-attempt 内联日志。
+- `[RESOLVED][2026-08-07]` ~~A deleted task's `order_state_unknown` settlement
+  records `kind=task_paused` with text saying "task paused… resume manually" — it
+  was neither paused nor is it resumable.~~ 终态任务（deleted/done/stopped）改记
+  `kind=order_state_unknown_final`，时间线投影为
+  `overall_result=manual_verification` / `next_action=verify_manually`（前端
+  「待人工核实」/「去交易所核实」），文案改为点明「本任务已删除/已完成/已终止，
+  状态不再改写、也无法恢复；请到交易所核实这笔订单——系统不会重发下单，也不会
+  自动补平」。**只改措辞与词汇**：sticky 状态、腿保持非终态、永不重发三条行为一行未动。
+  静态与并发两条路径的测试都已切到新 kind（否则修复只在慢路径成立）。
 
 - `[CLOSED][2026-08-04]` **双栏流水日志 stage 交付完成，Human 决策：直接合并推送**。review-1（REWORK→修复→复审 ACCEPT）+ review-2（ACCEPT）全过，`rework_count` 1/3；Human 授权合并推送（未做前后端联调，推迟至后续 stage）。遗留后续项见下。
 - `[OPEN][FOLLOW-UP][2026-08-04]` **前后端联调未做（Human 决定先合并，推迟）**。真实 `POST /api/private-ledger/refresh` 连币安拉取从未执行过；review-2 判定联调可放在合并后，且 F-R2-2（fetcher→落库端到端路径未被活体数据验证）建议联调时重点核对 `truncated`/`gaps`/`unparsed_row_count`。Human 表示「后面看有什么问题我再单独开 stage 一并修复」——后续联调/修复 stage 待开。

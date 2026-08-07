@@ -39,7 +39,7 @@ class OutcomeSpec:
 
     Default (no injection) is a balanced dual-leg fill. A spec can force a
     single-leg fill, a total failure, or a qty mismatch to exercise the
-    ``exposure_alert`` and ``>3``-fail termination paths end-to-end with no real
+    single-leg-exposure and ``>3``-fail termination paths end-to-end with no real
     order. This seam is test-only and never affects a live executor.
     """
 

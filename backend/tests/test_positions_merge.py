@@ -129,6 +129,42 @@ def test_merge_single_leg_exposure():
     assert merged[0]["match_status"] == "no_um"  # bucket present, no UM (single_leg is a separate marker)
 
 
+def test_merge_exposure_flags_perp_only_naked_short():
+    """裸空（合约腿在、现货腿没有）此前完全不报——旧判定只写了 spot>0 且 perp==0
+    一个方向。裸空的风险上不封顶，是这个标记最该抓的形态。"""
+    positions = [_bucket("BTCUSDT", D.DIR_FORWARD, spot_qty="0", perp_qty="0.5",
+                         spot_avg="0", perp_avg="50000")]
+    merged, _ = D.merge_positions(positions, _pa())
+    assert merged[0]["single_leg_exposure"] is True
+
+
+def test_merge_exposure_flags_partial_imbalance():
+    """部分失衡（现货 2 / 合约 1）此前读作「无敞口」——旧判定要求合约腿完全为 0。
+    一腿部分成交、或平仓平到一半中断，正是最容易落到这个形态的场合。"""
+    positions = [_bucket("BTCUSDT", D.DIR_FORWARD, spot_qty="2", perp_qty="1",
+                         spot_avg="50000", perp_avg="50000")]
+    merged, _ = D.merge_positions(positions, _pa())
+    assert merged[0]["single_leg_exposure"] is True
+
+
+def test_merge_exposure_tolerates_sub_one_percent_drift():
+    """两腿本应恒等（同一个 q_common 发两腿）。留 1% 容差只为吸收精度/舍入，
+    不该把它当成「允许 1% 敞口」——真实单腿至少是一整组的量级。"""
+    positions = [_bucket("BTCUSDT", D.DIR_FORWARD, spot_qty="1.000", perp_qty="0.995",
+                         spot_avg="50000", perp_avg="50000")]
+    merged, _ = D.merge_positions(positions, _pa())
+    assert merged[0]["single_leg_exposure"] is False
+
+
+def test_merge_exposure_false_for_no_task_row():
+    """no_task 行（交易所有仓、本地无任务记录）两腿记账都是 0，不得据此报敞口——
+    那是「不知道」，不是「已对平」。"""
+    pa = _pa(ums=[_um("BTCUSDT", "SHORT", "-0.5")])
+    merged, _ = D.merge_positions([], pa)
+    assert merged[0]["match_status"] == "no_task"
+    assert merged[0]["single_leg_exposure"] is False
+
+
 def test_merge_missing_sentinel_values():
     # (e) account verified but figures missing: liquidation_price "0" sentinel
     # preserved, unrealized_profit None. R2 (fix-merged-positions-n2-ui-v1): a
@@ -228,6 +264,36 @@ def test_merge_no_drift_when_real_exceeds_recorded():
     pa = _pa(ums=[_um("BTCUSDT", "SHORT", "-0.5")],
              spots=[{"asset": "BTC", "free": "0.8", "locked": "0"}])
     merged, _ = D.merge_positions(positions, pa)
+    assert merged[0]["drift"] is False
+
+
+def test_merge_drift_counts_the_unified_account():
+    """现货腿按 spot_route 落在两个账户之一：bStock / cap 打满走普通现货，其余走
+    统一杠杆。旧判定只看普通现货账户，于是对绝大多数币恒为假阴性——「没报 drift」
+    被读成「记账与实际相符」，而实际上这个检查根本没在看那个账户。"""
+    positions = [_bucket("BTCUSDT", D.DIR_FORWARD, spot_qty="0.5", perp_qty="0.5")]
+    pa = _pa(ums=[_um("BTCUSDT", "SHORT", "-0.5")],
+             unifieds=[{"asset": "BTC", "total_balance": "0.3"}])
+    merged, _ = D.merge_positions(positions, pa)
+    assert merged[0]["drift"] is True  # 统一账户只剩 0.3 < 记账 0.5
+
+
+def test_merge_drift_sums_both_accounts():
+    """两个账户之和达标就不算漂移：持仓可能一部分在普通现货、一部分在统一账户
+    （平仓补足会在两者间划转），只看单边会误报。"""
+    positions = [_bucket("BTCUSDT", D.DIR_FORWARD, spot_qty="0.5", perp_qty="0.5")]
+    pa = _pa(ums=[_um("BTCUSDT", "SHORT", "-0.5")],
+             spots=[{"asset": "BTC", "free": "0.2", "locked": "0"}],
+             unifieds=[{"asset": "BTC", "total_balance": "0.3"}])
+    merged, _ = D.merge_positions(positions, pa)
+    assert merged[0]["drift"] is False  # 0.2 + 0.3 == 0.5
+
+
+def test_merge_no_drift_when_account_unreadable():
+    """账户读不到时绝不报 drift。两个余额表在 verified=false 下都是空的，若照常
+    求和就会把「读不到」算成 0，给每一行印一个假的漂移告警——正是 F4 那类错误。"""
+    positions = [_bucket("BTCUSDT", D.DIR_FORWARD, spot_qty="0.5", perp_qty="0.5")]
+    merged, _ = D.merge_positions(positions, _pa(verified=False))
     assert merged[0]["drift"] is False
 
 

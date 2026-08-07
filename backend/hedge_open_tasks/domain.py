@@ -43,18 +43,21 @@ STATUS_RUNNING = "running"
 STATUS_PAUSED = "paused"
 STATUS_DONE = "done"
 STATUS_STOPPED = "stopped"
-STATUS_EXPOSURE_ALERT = "exposure_alert"
 STATUS_DELETED = "deleted"
+# ``exposure_alert`` was removed 2026-08-07: breakdown §4.5 demoted single-leg
+# exposure to ADVISORY, after which nothing ever wrote the status, so the badge
+# and the ``?status=exposure_alert`` filter could never match a row. The live
+# exposure signal is the merged position table's ``single_leg_exposure`` marker
+# plus the per-attempt inline log — both independent of task status.
 ALL_STATUSES = (
     STATUS_RUNNING,
     STATUS_PAUSED,
     STATUS_DONE,
     STATUS_STOPPED,
-    STATUS_EXPOSURE_ALERT,
     STATUS_DELETED,
 )
 # A running task below its target with no in-flight pair is dispatch-eligible;
-# exposure_alert/paused are operator-paused/frozen states, stopped is a fatal
+# paused is an operator-paused state, stopped is a fatal
 # final state (10-design §7 / amendment §Error handling).
 ACTIVE_RUNNABLE_STATUSES = (STATUS_RUNNING,)
 # Statuses excluded from the default list view unless ``status=all|deleted``.
@@ -1601,7 +1604,7 @@ def filter_status_for_list(status: str | None) -> str | None:
         return status
     raise invalid_field(
         "status",
-        "must be one of all|running|paused|done|stopped|deleted|exposure_alert",
+        "must be one of all|running|paused|done|stopped|deleted",
     )
 
 
@@ -1658,6 +1661,37 @@ def order_state_unknown_pause_reason_zh(business_code, business_msg):
     return (
         "交易所以 -2015 拒绝了本次下单（API-key / IP / 权限问题）。**订单未发出**，"
         "无需到交易所核对订单；请检查 API key 的权限与 IP 白名单，修正后手动恢复任务。"
+    )
+
+
+_TERMINAL_STATUS_ZH = {
+    STATUS_DELETED: "已删除",
+    STATUS_DONE: "已完成",
+    STATUS_STOPPED: "已终止",
+}
+
+
+def order_state_unknown_final_reason_zh(status, precise_zh=None):
+    """终态任务（deleted/done/stopped）的 ``order_state_unknown`` 结算文案。
+
+    这类任务走的是 sticky 分支：状态不改写、腿保持非终态、永不重发。此前它复用
+    暂停文案，于是时间线上印出「任务已暂停，请…手动恢复」——两个假声明（它没被
+    暂停，也没有恢复入口）。这里换掉措辞，**行为一行未改**。
+
+    ``precise_zh`` 是 :func:`order_state_unknown_pause_reason_zh` 的精准结论
+    （目前只有 -2015）。它自带「订单未发出」这一更强的事实，值得保留，只把结尾
+    那句「手动恢复任务」换成终态语境下成立的说法。
+    """
+    label = _TERMINAL_STATUS_ZH.get(status, "已终止")
+    if precise_zh:
+        return (
+            precise_zh.replace("，修正后手动恢复任务。", "。")
+            + f"（本任务{label}，状态不再改写，系统不会重发下单）"
+        )
+    return (
+        f"订单状态经 10 次重试查询仍不明，无法确认是否已被交易所接受。本任务{label}，"
+        "状态不再改写、也无法恢复；请到交易所核实这笔订单的实际下场——"
+        "系统不会重发下单，也不会自动补平"
     )
 
 
@@ -1810,8 +1844,14 @@ def _merge_empty_bucket_row(coin, direction):
     }
 
 
+# 两腿数量失衡的容差（相对于较大腿）。见 _merge_build_row 里 single_leg_exposure
+# 的说明：两腿发同一个 q_common，本应逐位相等，这 1% 只吸收精度/舍入。
+_EXPOSURE_IMBALANCE_TOLERANCE = Decimal("0.01")
+
+
 def _merge_build_row(coin, direction, bucket, um, spot_by_asset,
-                     spot_value_by_asset, unified_row_by_asset, asset_map=None):
+                     spot_value_by_asset, unified_row_by_asset, asset_map=None,
+                     account_readable=True):
     """Build one merged row: bucket fields + matched UM position + the four
     account-derived balance fields (v4.1 §9.2) + unrealized PnL + the
     single-leg / drift markers.
@@ -1889,23 +1929,55 @@ def _merge_build_row(coin, direction, bucket, um, spot_by_asset,
         unified_row.get("cross_margin_borrowed") if unified_row else None
     )
 
-    # single_leg_exposure: the task filled its spot leg but not its perp leg
-    # (one orderId) — a real naked-spot exposure. Derived from the task bucket
-    # (spot_qty>0, perp_qty==0), not re-derived on the frontend.
+    # single_leg_exposure: the two legs of this bucket do not offset. Derived
+    # from the task bucket, not re-derived on the frontend.
+    #
+    # 2026-08-07: was ``spot_qty > 0 and perp_qty == 0``, which missed two real
+    # shapes — a perp-only bucket (naked SHORT, unbounded risk, never flagged at
+    # all) and any partial imbalance (spot 2 / perp 1 read as "no exposure",
+    # exactly what a half-filled leg or an interrupted close leaves behind).
+    # Both legs are sent ONE q_common, so they should be equal to the digit; the
+    # 1% band absorbs precision/rounding only. It is NOT an allowance — a real
+    # single leg is at least one whole q_common, orders of magnitude above it.
+    #
+    # 已知边界：1000x 乘数币的 perp_qty 以「张」计、spot_qty 以「个」计，两者相差
+    # 1000 倍，这里会误报。开单侧已 fail-closed（service.create_task），历史库中
+    # 也无此类任务；腿量换算落地时这里要跟着换算，别只改下单侧。
     spot_qty = _merge_num(row.get("spot_qty")) or Decimal(0)
     perp_qty = _merge_num(row.get("perp_qty")) or Decimal(0)
-    row["single_leg_exposure"] = bucket is not None and spot_qty > 0 and perp_qty == 0
-
-    # drift: the real spot balance is LESS than the task-record accumulation —
-    # the operator manually reduced the hedge's spot leg (P2). Only the
-    # risk-relevant direction is flagged (real < recorded); no auto-action.
-    recorded_spot = _merge_num(row.get("spot_qty"))
-    row["drift"] = (
-        recorded_spot is not None
-        and recorded_spot > 0
-        and real_spot is not None
-        and real_spot < recorded_spot
+    larger = max(spot_qty, perp_qty)
+    row["single_leg_exposure"] = (
+        bucket is not None
+        and larger > 0
+        and abs(spot_qty - perp_qty) > larger * _EXPOSURE_IMBALANCE_TOLERANCE
     )
+
+    # drift: the account does not back the task-record accumulation — the
+    # operator manually reduced the hedge's spot leg (P2). Only the
+    # risk-relevant direction is flagged (real < recorded); no auto-action.
+    #
+    # 2026-08-07: the comparison now sums BOTH accounts. It used to read only the
+    # classic spot balance, but the hedge's spot leg lands in whichever account
+    # ``decide_spot_route`` picked — regular spot for bStock / a hit collateral
+    # cap, the unified margin account for everything else — so for most coins the
+    # flag could never fire and "no drift marker" was silently meaningless.
+    # Summing is the conservative direction: an unrelated holding of the same
+    # asset in either account can mask a real reduction (false negative), but no
+    # holding is invented, so a fired marker still means the account is genuinely
+    # short of the record.
+    #
+    # An unreadable account (verified=false -> both balance lists empty) must NOT
+    # sum to zero and paint every row — that is the F4 mistake ("claimed without
+    # checking"), so it fails to False.
+    recorded_spot = _merge_num(row.get("spot_qty"))
+    if not account_readable or recorded_spot is None or recorded_spot <= 0:
+        row["drift"] = False
+    else:
+        held = real_spot if real_spot is not None else Decimal(0)
+        unified_amt = _merge_num(row.get("unified_balance"))
+        if unified_amt is not None:
+            held += unified_amt
+        row["drift"] = held < recorded_spot
 
     # G1 (fix-merged-positions-mismatch-labels-v1): an explicit match-status so
     # the UI never has to infer 'no task record' / 'no UM position' from
@@ -2019,6 +2091,7 @@ def merge_positions(positions, private_account, asset_map=None):
             _merge_build_row(
                 symbol, direction, bucket, u, spot_by_asset,
                 spot_value_by_asset, unified_row_by_asset, asset_map,
+                account_readable=verified,
             )
         )
 
@@ -2033,6 +2106,7 @@ def merge_positions(positions, private_account, asset_map=None):
             _merge_build_row(
                 p.get("coin"), p.get("direction"), p, None, spot_by_asset,
                 spot_value_by_asset, unified_row_by_asset, asset_map,
+                account_readable=verified,
             )
         )
 

@@ -131,8 +131,10 @@ def test_whitelist_rejects_delete_on_whitelisted_path():
         PrivateClient._require_whitelisted("DELETE", "/papi/v1/margin/maxBorrowable")
 
 
-def test_whitelist_accepts_exactly_fifteen_get_endpoints():
-    assert len(private_client.WHITELIST) == 15
+def test_whitelist_accepts_exactly_sixteen_get_endpoints():
+    # 16th = /papi/v1/margin/maxWithdraw (Q4, 2026-08-07). 这个计数是 deny-by-default
+    # 的守卫：每加一个端点都必须在这里显式承认，不能悄悄溜进白名单。
+    assert len(private_client.WHITELIST) == 16
     for method, path in private_client.WHITELIST:
         assert method == "GET"
         assert PrivateClient._require_whitelisted(method, path)
@@ -156,6 +158,7 @@ def test_whitelist_base_urls_match_2A_appendix():
     api = {p for (m, p) in private_client.WHITELIST if private_client.WHITELIST[(m, p)].endswith("api.binance.com")}
     assert papi == {
         "/papi/v1/margin/maxBorrowable",
+        "/papi/v1/margin/maxWithdraw",
         "/papi/v1/balance",
         "/papi/v1/um/positionRisk",
         "/papi/v1/account",
@@ -261,6 +264,22 @@ def test_max_borrowable_degrades_on_endpoint_failure(monkeypatch):
     client = _make_client(monkeypatch, [_http_error(401, '{"code":-2015}')])
     assert client.fetch_max_borrowable("BTC") is None
     assert client.last_error.startswith("max_borrowable_failed:BTC")
+
+
+# ---- Q4 (2026-08-07): max-withdraw, the真·最大可转出额 ----
+def test_max_withdraw_maps_amount(monkeypatch):
+    """统一账户「最多可转出」的唯一权威来源。此前界面拿 crossMarginFree 冒充它，
+    但有借款时可转出要扣掉维持抵押的部分，两个数并不相等。"""
+    client = _make_client(monkeypatch, [(json.dumps({"amount": "222.35"}), 200)])
+    assert client.fetch_max_withdraw("USDT") == {"max_withdraw": "222.35"}
+
+
+def test_max_withdraw_degrades_on_endpoint_failure(monkeypatch):
+    """取不到就是 None——绝不回退到 crossMarginFree 冒充一个数，那正是本项要修的
+    毛病。调用方负责显示「未知」。"""
+    client = _make_client(monkeypatch, [_http_error(401, '{"code":-2015}')])
+    assert client.fetch_max_withdraw("USDT") is None
+    assert client.last_error.startswith("max_withdraw_failed:USDT")
 
 
 # ---- 8. happy-path classic reference mapping (raw camelCase -> snake_case dict) ----

@@ -198,7 +198,8 @@ const ids = [
   // 历史仓位 fake 原型（2026-08 hedge-open-position-cycle-v1）：新增静态元素，须注册。
   'nav-history', 'history-view', 'history-list',
   // 资产互转 fake 预览：随私有面板重渲染的按钮与提示（局部刷新按 id 取用）。
-  'transfer-submit', 'transfer-hint'
+  // transfer-max-withdraw：Q4 的「最多可转出」行，同样按 id 局部刷新。
+  'transfer-submit', 'transfer-hint', 'transfer-max-withdraw'
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
 
@@ -542,6 +543,8 @@ let hedgePositionsGetResponse = {
 let cacheRefreshPostResponse = null;
 // 资产互转（T2）：POST /api/asset-transfer 的响应槽；未设置时 503。
 let assetTransferPostResponse = null;
+// Q4：GET /api/private-account/max-withdraw 的响应槽；未设置时 503。
+let maxWithdrawGetResponse = null;
 // 流水日志 private-ledger mock（task C）
 let flowLogGetResponse = null;
 let flowLogRefreshResponse = null;
@@ -887,6 +890,12 @@ global.fetch = async (url, options) => {
     return buildFetchResponse(assetTransferPostResponse || {
       status: 503,
       body: { error: 'asset_transfer_unavailable', detail: 'mock 未设置划转响应' }
+    });
+  }
+  if (urlStr.startsWith('/api/private-account/max-withdraw')) {
+    return buildFetchResponse(maxWithdrawGetResponse || {
+      status: 503,
+      body: { error: 'private_account_unavailable', detail: 'mock 未设置 max-withdraw 响应' }
     });
   }
   if (urlStr === '/api/public-market/cache-refresh' && method === 'POST') {
@@ -7264,7 +7273,9 @@ setTimeout(async () => {
         /^\/api\/private-ledger\/flow-log\?/,
         /^\/api\/private-ledger\/refresh$/,
         // 资产互转（stage 2026-08-06-asset-transfer-live-v1 T2）：同源、POST。
-        /^\/api\/asset-transfer$/
+        /^\/api\/asset-transfer$/,
+        // Q4（2026-08-07）：统一账户单资产最大可转出额，同源、GET、按需读。
+        /^\/api\/private-account\/max-withdraw\?/
       ];
       for (const c of fetchCallLog) {
         if (/binance/i.test(c.url)) {
@@ -7368,6 +7379,64 @@ setTimeout(async () => {
         throw new Error('无中文时应回退展示原始 reason');
       }
       console.log('[PASS] 任务卡暂停原因直读 pause_reason_zh（缺失回退英文枚举）');
+    }
+
+    // ---- Q4：统一账户「最多可转出」按需实时读，读不到显示未知（绝不回退可用额）----
+    {
+      const mwFixture = JSON.parse(JSON.stringify(designFixture));
+      mwFixture.private_account = {
+        verified: true,
+        balances_unified: [
+          { asset: 'USDT', total_balance: '12500.4321', cross_margin_free: '9800.1000',
+            cross_margin_borrowed: '5000', value_usdt: '12500.43',
+            cross_margin_borrowed_value_usdt: '5000.00' }
+        ],
+        balances_spot: [{ asset: 'BNB', free: '1.2', locked: '0', value_usdt: '1240.00' }],
+        um_positions: [], total_value_usdt: '13745.79',
+        valuation: { price_source: 'api_v3_ticker_price', priced_at: '2026-08-06T09:30:00Z' },
+        checked_at: '2026-08-06T09:30:00Z', error: null
+      };
+      helpers.ingestSnapshot(mwFixture);
+      if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
+      helpers.setTransferFrom('unified');
+      helpers.renderPrivatePanel();
+
+      // 1) 正常读到：显示交易所口径的可转出额，而不是 cross_margin_free(9800.1)。
+      //    这两个数不等正是本项存在的理由——有借款时可转出要扣掉维持抵押的部分。
+      maxWithdrawGetResponse = { status: 200, body: {
+        asset: 'USDT', max_withdraw: '222.35', error: null } };
+      await helpers.setTransferAsset('USDT');
+      let text = helpers.getMaxWithdrawText();
+      if (!text.includes('222.35')) throw new Error('应展示交易所返回的可转出额: ' + text);
+      if (text.includes('9800.1')) throw new Error('不得把可用额当成可转出额: ' + text);
+
+      // 2) 读不到：显示 — 与失败原因，绝不顶一个数上去（「不知道」必须看得出来）。
+      maxWithdrawGetResponse = { status: 200, body: {
+        asset: 'USDT', max_withdraw: null, error: 'max_withdraw_failed:USDT:timeout' } };
+      await helpers.setTransferAsset('USDT');
+      text = helpers.getMaxWithdrawText();
+      if (!text.includes('—')) throw new Error('读取失败应显示 —: ' + text);
+      if (/\d+\.\d+/.test(text)) throw new Error('读取失败时不得出现任何数字: ' + text);
+
+      // 3) 端点未配置（503）同样落到「未知」，不静默消失。
+      maxWithdrawGetResponse = { status: 503, body: {
+        error: 'private_account_unavailable', detail: '私有客户端未配置' } };
+      await helpers.setTransferAsset('USDT');
+      if (!helpers.getMaxWithdrawText().includes('—')) {
+        throw new Error('503 也应显示未知: ' + helpers.getMaxWithdrawText());
+      }
+
+      // 4) 现货账户不显示这一行：free 本身就是可转出额，没有抵押约束。
+      const before = fetchCallLog.length;
+      helpers.setTransferFrom('spot');
+      await helpers.setTransferAsset('BNB');
+      if (helpers.getMaxWithdrawText() !== '') {
+        throw new Error('现货账户不应显示最多可转出行: ' + helpers.getMaxWithdrawText());
+      }
+      const calls = fetchCallLog.slice(before).filter(c => c.url.includes('max-withdraw'));
+      if (calls.length !== 0) throw new Error('现货账户不应发起 max-withdraw 请求');
+      helpers.setTransferFrom('unified');
+      console.log('[PASS] Q4 最多可转出：实时读交易所口径 / 读不到显示未知不回退可用额 / 现货账户不请求');
     }
 
     // ---- 持仓表展示现货腿 symbol（bStock 的 SNXXBUSDT ≠ 合约 SNXXUSDT）----

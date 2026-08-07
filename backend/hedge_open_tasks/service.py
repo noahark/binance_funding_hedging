@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Callable, Protocol
 
-from ..domain.normalize import resolve_spot_identity
+from ..domain.normalize import SPOT_MATCH_MULTIPLIER, resolve_spot_identity
 from . import domain as D
 from .executor import (
     AttemptContext,
@@ -88,6 +88,7 @@ _ENTRY_EVENT_KINDS = (
     "task_stopped",
     "threshold_paused",
     "task_paused",
+    "order_state_unknown_final",
     "preflight_incomplete",
     "rate_limited",
 )
@@ -791,6 +792,23 @@ class HedgeOpenTaskService:
                     extra={"missing": missing},
                 )
 
+        # P0 (2026-08-07)：1000x 乘数合约暂不可开单。执行链两腿发的是同一个
+        # q_common（注入的实盘执行器 dispatch 里两腿共用 send_qty），而 1 张
+        # 1000BONKUSDT = 1000 个 BONK——现货买 N 个、合约空 N 张，净裸空 999N。
+        # SPOT_SYMBOL_MAP 让这 6 个币
+        # 通过了上面的存在性探测，但腿量换算从未实现，故在此 fail-closed（「宁可
+        # 无腿，不可错腿」）。**只拦 open**：万一存在历史仓位，平仓必须放行。
+        # 换算实现后连同本拦截与其两个测试一起移除。
+        if task_type == D.TASK_TYPE_OPEN:
+            mult_spot_symbol, _, mult_match = resolve_spot_identity(coin)
+            if mult_match == SPOT_MATCH_MULTIPLIER:
+                raise D.HedgeError(
+                    400, "multiplier_contract_unsupported",
+                    f"{coin} 是 1000 倍乘数合约（1 张 = 1000 个 {mult_spot_symbol[:-4]}），"
+                    "两腿数量换算尚未实现，直接下单会留下 999 倍裸空敞口，暂不支持对冲开单",
+                    extra={"coin": coin, "spot_symbol": mult_spot_symbol},
+                )
+
         # close 任务按反转方向做余额检查：forward 平仓卖现货需现货持仓，
         # reverse 平仓买现货需 USDT（与开仓检查方向相反）。
         preflight_direction = (
@@ -900,8 +918,8 @@ class HedgeOpenTaskService:
             raise D.HedgeError(409, "invalid_state", "cannot start a deleted task")
         if status == D.STATUS_DONE:
             return 200, self._doc(task)  # idempotent: done stays done
-        # exposure_alert is ADVISORY (breakdown §4.5): a single-leg exposure no
-        # longer freezes scheduling, so it does not block start.
+        # Single-leg exposure is ADVISORY (breakdown §4.5): it does not freeze
+        # scheduling and never blocks start.
         updated = self._store.set_task_status(task_id, D.STATUS_RUNNING, self._wall_us())
         # Amendment 21: Start/recover launches THIS task's bounded worker (live
         # mode) and returns immediately — no global scan, no synchronous POST.
@@ -979,7 +997,7 @@ class HedgeOpenTaskService:
             raise D.HedgeError(409, "invalid_state", "cannot fill a deleted task")
         if status == D.STATUS_DONE:
             raise D.HedgeError(409, "invalid_state", "task already done")
-        # exposure_alert no longer blocks fill (advisory, §4.5).
+        # Single-leg exposure does not block fill (advisory, §4.5).
 
     # ----------------------------------------------------------------- reads
 
@@ -1180,9 +1198,15 @@ class HedgeOpenTaskService:
             # pause with next_action=paused (previously this kind fell through to
             # the wait branch with overall_result=None).
             "task_paused": "task_paused",
+            # 2026-08-07: a terminal task's order_state_unknown closure is NOT a
+            # pause — it has its own result so the timeline stops claiming the
+            # task was paused and can be resumed.
+            "order_state_unknown_final": "manual_verification",
         }.get(kind)
         if kind == "task_stopped":
             next_action, error_category = "stopped", "fatal"
+        elif kind == "order_state_unknown_final":
+            next_action, error_category = "verify_manually", None
         elif kind in ("threshold_paused", "task_paused"):
             next_action, error_category = "paused", None
         else:  # rate_limited / preflight_incomplete: a wait, not an attempt outcome
@@ -2146,7 +2170,14 @@ class HedgeOpenTaskService:
         ``next_action=paused`` with the Chinese reason (F3). deleted/done/stopped
         tasks are sticky: their status is NOT rewritten to paused (F2); the same
         visible manual-verification event is recorded and the legs stay
-        non-terminal for manual verification (never resent)."""
+        non-terminal for manual verification (never resent).
+
+        2026-08-07: the sticky branch records ``order_state_unknown_final``, not
+        ``task_paused``. A terminal task was never paused and cannot be resumed,
+        so the pause vocabulary printed two false claims on the timeline
+        (``任务暂停`` / ``已暂停``) plus a Chinese reason telling the operator to
+        resume a task that has no resume path. Only the words changed — the
+        sticky status, the non-terminal legs and the never-resend rule stand."""
         # -2015（API-key/IP/权限）是网关层拒绝，订单未发出——通用文案让人去交易所
         # 核对订单会白跑一趟（2026-08-07 实盘：出口 IP 变更）。能精准就精准。
         _code, _msg = self._store.latest_auth_error(task["id"])
@@ -2159,10 +2190,12 @@ class HedgeOpenTaskService:
             return
         self._store.record_task_event(
             task["id"],
-            "task_paused",
+            "order_state_unknown_final",
             {
                 "reason": D.PAUSE_REASON_ORDER_STATE_UNKNOWN,
-                "reason_zh": precise_zh or D.pause_reason_zh(D.PAUSE_REASON_ORDER_STATE_UNKNOWN),
+                "reason_zh": D.order_state_unknown_final_reason_zh(
+                    task["status"], precise_zh,
+                ),
                 "coin": task["coin"],
                 "direction": task["direction"],
                 "signal": drain_signal,

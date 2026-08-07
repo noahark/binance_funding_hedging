@@ -200,6 +200,35 @@ def test_create_blocks_when_spot_leg_confirmed_absent(tmp_path):
     assert err.detail == "该交易对在币安现货市场不存在（缺少现货腿），无法创建对冲任务"
 
 
+def test_create_open_blocks_multiplier_contract(tmp_path):
+    """P0 (2026-08-07): a 1000x contract cannot be opened until the leg-quantity
+    conversion exists. The executor sends ONE ``q_common`` to both legs, but one
+    ``1000BONKUSDT`` contract is 1000 BONK — opening would leave a 999x naked
+    short. Fail closed at create, the earliest point that knows the match type."""
+    svc = _svc(tmp_path, preflight=_ProbePreflight({"spot": True, "perp": True}))
+    with pytest.raises(D.HedgeError) as exc:
+        svc.create_task({"coin": "1000BONKUSDT", "direction": "forward",
+                         "mode": "immediate", "single_amount": "0.5", "target_n": 1})
+    err = exc.value
+    assert err.status == 400
+    assert err.code == "multiplier_contract_unsupported"
+    assert "1000" in err.detail and "对冲" in err.detail
+    assert err.extra == {"coin": "1000BONKUSDT", "spot_symbol": "BONKUSDT"}
+
+
+def test_create_close_allows_multiplier_contract(tmp_path):
+    """The open block must NOT strand an existing position: a close task for a
+    1000x coin is rejected only by the ordinary no_active_cycle rule, never by
+    the multiplier guard. (There is no such position in this repo's history —
+    this keeps the escape hatch open if one ever exists.)"""
+    svc = _svc(tmp_path, preflight=_ProbePreflight({"spot": True, "perp": True}))
+    with pytest.raises(D.HedgeError) as exc:
+        svc.create_task({"coin": "1000BONKUSDT", "direction": "forward",
+                         "mode": "immediate", "single_amount": "0.5",
+                         "target_n": 1, "task_type": "close"})
+    assert exc.value.code == "no_active_cycle"
+
+
 def test_create_blocks_when_perp_leg_confirmed_absent(tmp_path):
     svc = _svc(tmp_path, preflight=_ProbePreflight({"spot": True, "perp": False}))
     with pytest.raises(D.HedgeError) as exc:

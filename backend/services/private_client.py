@@ -60,6 +60,8 @@ WHITELIST: Dict[Tuple[str, str], str] = {
     ("GET", "/api/v3/account"): "https://api.binance.com",
     # papi endpoints — account IP weight pool (distinct from sapi/api).
     ("GET", "/papi/v1/margin/maxBorrowable"): "https://papi.binance.com",
+    # Q4 — 统一账户单资产最大可转出额（按需读，不进快照：per-asset 请求且随价格波动）。
+    ("GET", "/papi/v1/margin/maxWithdraw"): "https://papi.binance.com",
     ("GET", "/papi/v1/balance"): "https://papi.binance.com",
     ("GET", "/papi/v1/um/positionRisk"): "https://papi.binance.com",
     # E3b — PM account equity / uniMMR risk summary (60s with balances).
@@ -331,6 +333,34 @@ class PrivateClient:
             "borrow_limit": data.get("borrowLimit"),
             "error_code": None,
         }
+
+    def fetch_max_withdraw(self, asset: str, force: bool = False) -> Optional[dict]:
+        """统一账户中该资产的**最大可转出额**（Q4, 2026-08-07）。
+
+        Returns ``{"max_withdraw": <raw string>}`` or ``None``（disabled/failed，
+        并写 ``last_error``）。
+
+        与 ``crossMarginFree`` 的区别是这一项的全部意义：可用额只说「这些钱没被
+        挂单占用」，可转出额还扣掉了维持全仓抵押所必需的部分。有借款时两者必然
+        不等，而界面此前拿前者当后者显示。
+
+        取不到时返回 ``None`` 而非回退到可用额——「不知道」必须显示成不知道。
+
+        该值随价格波动，故 **不带缓存**（``force`` 透传到 ``_evict``，调用方每次
+        点选资产都应拿到一次新鲜读数）。
+        """
+        if not self.enabled:
+            return None
+        if force:
+            self._evict("GET", "/papi/v1/margin/maxWithdraw", {"asset": asset})
+        try:
+            data = self._cached_get(
+                "GET", "/papi/v1/margin/maxWithdraw", {"asset": asset}
+            )
+        except PrivateEndpointError as exc:
+            self.last_error = f"max_withdraw_failed:{asset}:{exc.reason}"
+            return None
+        return {"max_withdraw": data.get("amount")}
 
     # -- cost-leg chain (10-design §1.3) --
     def fetch_account_info(self) -> Optional[dict]:

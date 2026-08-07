@@ -20,6 +20,7 @@ import pytest
 from backend.hedge_open_tasks import domain as D
 from backend.hedge_open_tasks.executor import AttemptContext, AttemptOutcome
 from backend.tests.fakes import RecordTransportFake
+from backend.hedge_open_tasks import service as service_mod
 from backend.hedge_open_tasks.service import HedgeOpenTaskService
 from backend.hedge_open_tasks.store import HedgeOpenStore
 from backend.services.live_hedge_executor import LiveHedgeExecutor
@@ -1030,7 +1031,15 @@ def test_create_task_freezes_spot_identity_in_dry_run(tmp_path):
     assert row["symbol_match_type"] == "bstock_b_suffix_alias"
 
 
-def test_create_task_freezes_identity_for_multiplier_and_plain(tmp_path):
+def _allow_multiplier_open(monkeypatch):
+    """1000x 开单已被 P0 (2026-08-07) fail-closed（两腿量换算未实现）。身份固化与
+    平仓路径对乘数币的正确性仍然要守——那是「拦截生效前的历史仓位」必须能平掉的
+    逃生口。这里只关掉建单拦截，被测逻辑本身一行未改。"""
+    monkeypatch.setattr(service_mod, "SPOT_MATCH_MULTIPLIER", "__off_for_test__")
+
+
+def test_create_task_freezes_identity_for_multiplier_and_plain(tmp_path, monkeypatch):
+    _allow_multiplier_open(monkeypatch)
     svc = _svc(tmp_path)
     svc.create_task({"coin": "1000BONKUSDT", "direction": "forward", "mode": "immediate",
                      "single_amount": "1", "target_n": 1})
@@ -1051,8 +1060,9 @@ def test_create_task_freezes_identity_for_multiplier_and_plain(tmp_path):
     assert rows["BTCUSDT"]["symbol_match_type"] == "exact_symbol"
 
 
-def test_frozen_identity_base_always_derivable_from_symbol(tmp_path):
+def test_frozen_identity_base_always_derivable_from_symbol(tmp_path, monkeypatch):
     """测试 11：冗余列一致性——spot_base_asset 恒等于 spot_symbol 剥 USDT。"""
+    _allow_multiplier_open(monkeypatch)
     svc = _svc(tmp_path)
     for coin in ("SNXXUSDT", "1000BONKUSDT", "BTCUSDT", "THEUSDT"):
         svc.create_task({"coin": coin, "direction": "forward", "mode": "immediate",
@@ -1081,8 +1091,9 @@ def test_close_transfer_uses_frozen_spot_base_for_bstock(tmp_path):
     assert exe.transfers == [("PORTFOLIO_MARGIN_MAIN", "SNXXB", "6")]
 
 
-def test_close_transfer_uses_frozen_spot_base_for_multiplier(tmp_path):
+def test_close_transfer_uses_frozen_spot_base_for_multiplier(tmp_path, monkeypatch):
     # 1000x：合约 1000BONKUSDT 的现货资产是 BONK，不是 1000BONK。
+    _allow_multiplier_open(monkeypatch)
     exe = _CloseSpotExecutor(spot_free=4, recheck_free=10, unified_free=100)
     svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
     svc, ctid = _make_forward_close_with_open(lambda: svc, coin="1000BONKUSDT")
