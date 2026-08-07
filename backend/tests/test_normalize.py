@@ -2,6 +2,10 @@
 from __future__ import annotations
 
 from backend.domain.normalize import (
+    SPOT_MATCH_BSTOCK,
+    SPOT_MATCH_MULTIPLIER,
+    SPOT_SYMBOL_DENY,
+    SPOT_SYMBOL_MAP,
     asset_tag_for,
     filter_of,
     iso_from_ms,
@@ -110,31 +114,66 @@ def test_resolve_spot_leg_bstock_alias_for_tradifi():
     assert match_type == "bstock_b_suffix_alias"
 
 
-def test_resolve_spot_leg_alias_not_triggered_for_perpetual():
-    # A normal PERPETUAL falls back to the B-suffix alias only when a tradable
-    # spot pair actually exists (MUUUSDT -> MUBUSDT case, 2026-08-05 follow-up);
-    # an untradable B-suffix record must NOT be matched.
+def test_resolve_spot_leg_mapped_pair_must_still_be_tradable():
+    # 表命中也要过 TRADING 真值确认：映射存在但现货停牌/下架 -> (None, None)。
     spot = {"TSLABUSDT": {"symbol": "TSLABUSDT", "status": "BREAK"}}
-    obj, match_type = resolve_spot_leg("PERPETUAL", "TSLA", "USDT", spot)
+    obj, match_type = resolve_spot_leg("TRADIFI_PERPETUAL", "TSLA", "USDT", spot)
     assert obj is None
     assert match_type is None
 
 
-def test_resolve_spot_leg_bstock_alias_for_perpetual_when_tradable():
-    # The alias fallback is no longer gated on TRADIFI_PERPETUAL (2026-08-07
-    # unified-resolver): a plain PERPETUAL whose spot pair carries the B suffix
-    # resolves when the pair is tradable. (Real MUUSDT is TRADIFI — see
-    # test_resolve_spot_leg_bstock_alias_mu_case; this asserts the general rule.)
-    spot = {"FOOBUSDT": {"symbol": "FOOBUSDT", "status": "TRADING"}}
-    obj, match_type = resolve_spot_leg("PERPETUAL", "FOO", "USDT", spot)
-    assert obj["symbol"] == "FOOBUSDT"
-    assert match_type == "bstock_b_suffix_alias"
+def test_resolve_spot_leg_must_not_alias_b_to_bounce_bit():
+    # 真实撞车（2026-08-07 实测）：合约 BUSDT 的 baseAsset 是 B，而 base+"B"+quote
+    # 恰好等于 BBUSDT —— 那是另一个币 BB(BounceBit) 的现货对。字符串层面无法区分
+    # （"B"+"B" == "BB"），旧的猜测式后缀规则会把 B 的现货腿下单到 BounceBit。
+    # 显式表不收录 BUSDT，因此必须解析为「无现货腿」。
+    spot = {"BBUSDT": {"symbol": "BBUSDT", "baseAsset": "BB", "status": "TRADING"}}
+    obj, match_type = resolve_spot_leg("PERPETUAL", "B", "USDT", spot)
+    assert obj is None
+    assert match_type is None
+
+
+def test_spot_symbol_map_shape_invariants():
+    # 表由脚本生成，这里锁住形状，防手工编辑写坏。
+    assert SPOT_SYMBOL_MAP, "例外表不得为空"
+    for contract, entry in SPOT_SYMBOL_MAP.items():
+        assert isinstance(contract, str) and contract.endswith("USDT"), contract
+        assert isinstance(entry, tuple) and len(entry) == 2, contract
+        spot_symbol, match_type = entry
+        assert isinstance(spot_symbol, str) and spot_symbol.endswith("USDT"), contract
+        assert match_type in (SPOT_MATCH_BSTOCK, SPOT_MATCH_MULTIPLIER), contract
+        # 同名标的应走 exact，不该占用例外表的位置。
+        assert spot_symbol != contract, f"{contract} 与现货同名，不应进表"
+
+
+def test_spot_symbol_deny_never_overlaps_map():
+    # 一个合约不能既被映射又被拒绝——那是自相矛盾的两条结论。
+    overlap = set(SPOT_SYMBOL_DENY) & set(SPOT_SYMBOL_MAP)
+    assert not overlap, f"deny 与 map 冲突: {overlap}"
+    assert "BUSDT" in SPOT_SYMBOL_DENY
+    assert "BUSDT" not in SPOT_SYMBOL_MAP
+
+
+def test_spot_symbol_map_covers_known_live_symbols():
+    # 实盘出现过的标的必须在表内（SNXX 有活跃对冲周期；1000BONK 是乘数族样板）。
+    assert SPOT_SYMBOL_MAP["SNXXUSDT"] == ("SNXXBUSDT", SPOT_MATCH_BSTOCK)
+    assert SPOT_SYMBOL_MAP["1000BONKUSDT"] == ("BONKUSDT", SPOT_MATCH_MULTIPLIER)
+
+
+def test_resolve_spot_leg_unmapped_contract_never_guesses():
+    # 表外标的即使存在形似的现货对，也不得被猜中（fail-closed：宁可无腿，不可错腿）。
+    spot = {
+        "FOOBUSDT": {"symbol": "FOOBUSDT", "status": "TRADING"},
+        "BARUSDT": {"symbol": "BARUSDT", "status": "TRADING"},
+    }
+    assert resolve_spot_leg("PERPETUAL", "FOO", "USDT", spot) == (None, None)
+    assert resolve_spot_leg("PERPETUAL", "1000BAR", "USDT", spot) == (None, None)
 
 
 def test_resolve_spot_leg_bstock_alias_mu_case():
-    # Real 2026-08-05 follow-up case: futures MUUSDT (TRADIFI, baseAsset MU) ->
-    # spot MUBUSDT. PROJECT_STATE's "MUUUSDT" spelling was a typo; the
-    # exchangeInfo sample (public-market-bstock-alias-v1) confirms MU + "B".
+    # 2026-08-05 follow-up 案例：合约 MUUSDT（TRADIFI，baseAsset MU）-> 现货
+    # MUBUSDT。注意 MUUUSDT 是另一个真实合约（-> MUUBUSDT），并非 MUUSDT 的笔误
+    # （2026-08-07 表方案 verify 证实两者并存）。
     spot = {"MUBUSDT": {"symbol": "MUBUSDT", "status": "TRADING"}}
     obj, match_type = resolve_spot_leg("TRADIFI_PERPETUAL", "MU", "USDT", spot)
     assert obj["symbol"] == "MUBUSDT"

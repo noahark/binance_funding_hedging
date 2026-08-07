@@ -40,7 +40,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Callable, Optional
 
 from ..hedge_open_tasks import domain as D
-from ..domain.normalize import resolve_spot_leg
+from ..domain.normalize import SPOT_SYMBOL_MAP, resolve_spot_leg
 from .hedge_open_live_client import HedgeOpenLiveClient
 
 # Public (unsigned) market-data hosts (recon §2.1 / §3.4). Hardcoded; the public
@@ -125,23 +125,22 @@ def _find_symbol(symbols: list, coin: str) -> Optional[dict]:
     return None
 
 
-def _spot_alias_candidates(coin: str, perp_symbol: Optional[dict]) -> list:
-    """Spot-symbol candidates mirroring ``resolve_spot_leg``'s fallback chain:
-    the B-suffix alias (``TSLAUSDT`` -> ``TSLABUSDT``) and, for a ``1000``-
-    prefixed base, the stripped multiplier pair (``1000BONKUSDT`` ->
-    ``BONKUSDT``). Never returns ``coin`` itself; existence/tradability is
-    checked by the caller (probe) or by ``resolve_spot_leg`` (filters).
+def _spot_alias_candidates(coin: str) -> list:
+    """The mapped spot symbol for ``coin``, from the same explicit
+    :data:`SPOT_SYMBOL_MAP` the snapshot resolver uses — one source of truth for
+    "which spot pair hedges this contract" across preflight, ordering and
+    display.
+
+    Returns ``[]`` when the contract has no mapping (the normal same-name case,
+    handled by the caller's ``coin`` candidate, and the genuinely-no-spot-leg
+    case). Never derives a candidate from string surgery: see
+    :func:`resolve_spot_leg` for why ``base + "B"`` guessing mis-resolved
+    ``BUSDT`` onto BounceBit's ``BBUSDT``.
     """
-    if not isinstance(perp_symbol, dict):
+    entry = SPOT_SYMBOL_MAP.get(coin)
+    if entry is None or entry[0] == coin:
         return []
-    base = perp_symbol.get("baseAsset")
-    quote = perp_symbol.get("quoteAsset")
-    if not isinstance(base, str) or not isinstance(quote, str) or not base or not quote:
-        return []
-    cands = [f"{base}B{quote}"]
-    if base.startswith("1000"):
-        cands.append(f"{base[4:]}{quote}")
-    return [c for c in cands if c != coin]
+    return [entry[0]]
 
 
 # S4b (ADR-H5): three-state leg existence from a public read result. True =
@@ -254,10 +253,10 @@ class HedgePreflightProvider:
         """Fresh-enough ``restricted_asset`` value keyed on its OWN
         ``checked_at`` (wall-clock UTC), else ``None``.
 
-        The collateral-cap list is the ONLY fail-closed cache item (dispatch
-        §2): when it is missing or stale the caller returns ``None`` and the
-        snapshot fails closed — it never degrades to a real-time read and never
-        guesses a route on an old cap list."""
+        Returning ``None`` here does NOT by itself fail the snapshot closed: the
+        caller re-reads the list real-time and only then fails closed (2026-08-07
+        fix). What stays true is that an aged entry never decides a route — this
+        method hands back nothing rather than a stale list."""
         reader = self._snapshot_reader
         if reader is None:
             return None
@@ -404,9 +403,10 @@ class HedgePreflightProvider:
     ) -> Optional[tuple[dict, bool, str, str, bool]]:
         """Resolve the spot leg via the shared :func:`resolve_spot_leg` pure
         function — the SINGLE resolution rule shared with the display path
-        (design §6.5 / interface §5, acceptance S8). Reads the exact + bStock
-        B-suffix candidate records, delegates selection (exact-first, then alias
-        only for TRADIFI, both must be TRADING) to ``resolve_spot_leg``, and
+        (design §6.5 / interface §5, acceptance S8). Reads the exact record plus
+        the one mapped by :data:`SPOT_SYMBOL_MAP` (if any), delegates selection
+        (exact-first, then the mapped pair, both must be TRADING) to
+        ``resolve_spot_leg``, and
         distinguishes a readable-but-non-tradable record (a fatal
         ``symbol_unavailable`` fact) from a read failure (``None`` -> fail-closed
         incomplete).
@@ -421,7 +421,7 @@ class HedgePreflightProvider:
         ``None`` only when no candidate record could be read.
         """
         candidates = [coin]
-        for _alias in _spot_alias_candidates(coin, perp_symbol):
+        for _alias in _spot_alias_candidates(coin):
             if _alias not in candidates:
                 candidates.append(_alias)
         spot_by_sym: dict[str, dict] = {}
@@ -591,13 +591,17 @@ class HedgePreflightProvider:
 
         Stage 2026-08-06 task 05 (§2): the SnapshotService-local
         ``restricted_asset`` cache is consulted first with a 10min ceiling keyed
-        on its OWN ``checked_at``. This is the ONLY fail-closed cache item: when
-        the list is missing or stale the provider returns ``None`` and the
-        snapshot fails closed — it never degrades to a real-time read and never
-        guesses a route from an old cap list (a stale list could wrongly select
-        the regular-spot route and produce a naked short). When NO reader is
-        injected (``snapshot_reader=None``) the behaviour is byte-for-byte
-        unchanged: the read goes real-time, exactly as before this stage.
+        on its OWN ``checked_at``. When the list is missing or stale the provider
+        RE-READS IT REAL-TIME (2026-08-07 fix) and fails closed only if that read
+        also fails. The invariant task 05 protected is unchanged — an old cap
+        list never decides a route (a stale list could wrongly select the
+        regular-spot route and produce a naked short) — because the fallback
+        returns the exchange's current truth, not the aged cache. What it drops
+        is the 20-minute open-order dead zone the previous hard fail-closed
+        created: this consumer tolerated 600s while SnapshotService refreshes the
+        source every 1800s, so 2/3 of every cycle was unconditionally
+        ``preflight_incomplete``. When NO reader is injected
+        (``snapshot_reader=None``) the read goes real-time exactly as before.
         Returns True/False
         for whether ``spot_base_asset`` is on ``maxCollateralExceededAsset``.
 
@@ -615,11 +619,14 @@ class HedgePreflightProvider:
             exceeded = cached.get("exceeded")
             if isinstance(exceeded, set):
                 return spot_base_asset in exceeded
-            self._degrade_note("restricted_asset", "bad shape -> fail-closed")
-            return None
-        # 有 reader 但缓存缺失 / 超龄 / 结构不符 → fail-closed（不降级实时读，不猜路由）。
-        self._degrade_note("restricted_asset", "stale/missing -> fail-closed")
-        return None
+            self._degrade_note("restricted_asset", "bad shape -> 实时重读")
+        else:
+            self._degrade_note("restricted_asset", "stale/missing -> 实时重读")
+        # 缓存缺失 / 超龄 / 结构不符 → 实时重读一次，读到的是最新真值而非陈旧列表，
+        # 因此「绝不用旧 cap 列表猜路由」的安全性质不变；实时读再失败才 fail-closed
+        # （返回 None，调用方不发单）。此前这里直接 fail-closed，与生产端 1800s 的
+        # 刷新周期错配，造成每周期 20 分钟的开单死区（实盘 THE 开单故障）。
+        return self._read_collateral_cap_hit_live(spot_base_asset)
 
     def _read_collateral_cap_hit_live(self, spot_base_asset: str) -> Optional[bool]:
         """The unchanged real-time collateral-cap read (the ``snapshot_reader``
@@ -953,8 +960,7 @@ class HedgePreflightProvider:
                 spot = coin in spot_set
                 perp = coin in perp_set
                 if not spot:
-                    perp_symbol = _find_symbol(perp_symbols, coin)
-                    for alias in _spot_alias_candidates(coin, perp_symbol):
+                    for alias in _spot_alias_candidates(coin):
                         if alias in spot_set:
                             spot = True
                             break
@@ -968,9 +974,8 @@ class HedgePreflightProvider:
         )
         spot = _spot_leg_exists(spot_status, spot_body, coin)
         perp = _perp_leg_exists(perp_status, perp_body, coin)
-        if spot is False and isinstance(perp_body, dict):
-            perp_symbol = _find_symbol(perp_body.get("symbols", []), coin)
-            for alias in _spot_alias_candidates(coin, perp_symbol):
+        if spot is False:
+            for alias in _spot_alias_candidates(coin):
                 alias_status, alias_body = self._read_public_with_status(
                     f"{_SPOT_API_BASE}/api/v3/exchangeInfo?symbol={alias}"
                 )

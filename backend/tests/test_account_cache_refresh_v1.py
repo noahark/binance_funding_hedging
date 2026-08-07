@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import jsonschema
 import pytest
@@ -248,6 +249,38 @@ def test_force_only_evicts_exact_private_transport_key():
     assert exact not in client._cache      # evicted
     assert other in client._cache          # untouched
     assert multi in client._cache          # multi-asset scheduled key untouched
+
+
+class _RestrictedClient:
+    """只读 restricted-asset 客户端 fake：计调用次数，返回固定 cap 列表。"""
+
+    def __init__(self):
+        self.calls = 0
+
+    def get_restricted_asset(self):
+        self.calls += 1
+        return SimpleNamespace(
+            transport_error=None,
+            http_status=200,
+            body={"maxCollateralExceededAsset": ["HFT"]},
+        )
+
+
+def test_force_refreshes_restricted_asset_despite_due(raw_inputs):
+    # 手动「更新缓存」按钮必须连 collateral-cap 列表一起刷新：该源 1800s 才到 due，
+    # 而 preflight 只接受 600s 内的读数，两者错配会让开单在每个周期里有 20 分钟
+    # 必然 preflight_incomplete，且按钮报成功却救不了（实盘 THE 开单故障）。
+    rac = _RestrictedClient()
+    svc, _ = _service(raw_inputs)
+    svc._restricted_asset_client = rac
+    svc._run_refresh_cycle(force_account_panels=False)  # 冷启动：无缓存 -> 读一次
+    assert rac.calls == 1
+    svc._run_refresh_cycle(force_account_panels=False)  # 未到 1800s due -> 不读
+    assert rac.calls == 1
+    svc._run_refresh_cycle(force_account_panels=True)   # 手动按钮 -> 强制重读
+    assert rac.calls == 2
+    # 强制读成功后 checked_at 前进，preflight 的 600s 窗口随即重新打开。
+    assert svc._collateral_cap_state() is not None
 
 
 def test_force_bypasses_panel_due_when_sources_fresh(raw_inputs):

@@ -732,30 +732,48 @@ def test_stale_cache_degrades_to_realtime():
     assert "restricted_asset" not in priv.calls  # cap 走缓存（未降级）
 
 
-def test_restricted_asset_stale_fails_closed_no_realtime():
-    # §2 要点：restricted_asset 超龄 → forward open FAIL-CLOSED（get_snapshot
-    # 返回 None），且绝不降级实时读（priv.calls 无 restricted_asset）。
+def test_restricted_asset_stale_falls_back_to_realtime_never_uses_stale_list():
+    # cap 列表超龄不再直接 fail-closed：生产端 1800s 刷新 vs 消费端 600s 上限的
+    # 错配，会让每个周期有 20 分钟必然 preflight_incomplete（实盘 THE 开单故障）。
+    # 改为实时重读一次。核心安全性质不变——陈旧列表绝不参与路由决策：这里缓存说
+    # LINK 已打满（会选 regular_spot），实时读说没打满，结果必须按实时的走 papi。
     stale_wall = _time.time() - 10 * 3600.0  # checked_at 10h 前 → cap 超龄
-    priv = _RoutingPrivate(cap_assets=["LINK"])
+    priv = _RoutingPrivate(cap_assets=[])  # 实时真值：LINK 未打满
     pub = _RoutingPublic([_LINK_PERP], {"LINKUSDT": _LINK_SPOT})
-    caches = _fresh_caches(wall_now=stale_wall)
+    caches = _fresh_caches(wall_now=stale_wall, cap_exceeded={"LINK"})  # 陈旧：打满
     # now_ms 必须是真实 wall clock（checked_at 与它比较判陈旧）。
     prov = _cached_provider(priv, pub, caches, now_ms=lambda: _time.time() * 1000)
     snap = prov.get_snapshot("LINKUSDT", _D.DIR_FORWARD)
-    assert snap is None  # fail-closed
+    assert snap is not None  # 不再有死区
+    assert "restricted_asset" in priv.calls  # 确实实时重读了
+    assert snap.spot_route == _D.SPOT_ROUTE_PAPI_MARGIN  # 按实时真值，未用陈旧列表
+
+
+def test_restricted_asset_stale_and_realtime_failure_still_fails_closed():
+    # 超龄 + 实时重读也失败 → 仍然 fail-closed（不猜路由、不发单、不产生裸空）。
+    stale_wall = _time.time() - 10 * 3600.0
+    priv = _RoutingPrivate(cap_assets=["LINK"], cap_fail=True)
+    pub = _RoutingPublic([_LINK_PERP], {"LINKUSDT": _LINK_SPOT})
+    caches = _fresh_caches(wall_now=stale_wall, cap_exceeded={"LINK"})
+    prov = _cached_provider(priv, pub, caches, now_ms=lambda: _time.time() * 1000)
+    assert prov.get_snapshot("LINKUSDT", _D.DIR_FORWARD) is None
     assert prov.last_failed_read == "collateral_cap"
-    assert "restricted_asset" not in priv.calls  # 不降级实时读、不猜
+    assert "restricted_asset" in priv.calls  # 失败前确实尝试过实时读
 
 
-def test_restricted_asset_missing_fails_closed():
-    # 无 restricted_asset 缓存（reader 缺该 source）→ forward open fail-closed。
+def test_restricted_asset_missing_falls_back_to_realtime():
+    # 无 restricted_asset 缓存（reader 缺该 source，冷启动首个周期）→ 同样实时重读，
+    # 不再让开单在快照 worker 首次成功读之前一直 fail-closed。
     priv = _RoutingPrivate(cap_assets=["LINK"])
     pub = _RoutingPublic([_LINK_PERP], {"LINKUSDT": _LINK_SPOT})
     caches = _fresh_caches()
     del caches["restricted_asset"]
     prov = _cached_provider(priv, pub, caches)
-    assert prov.get_snapshot("LINKUSDT", _D.DIR_FORWARD) is None
-    assert "restricted_asset" not in priv.calls
+    snap = prov.get_snapshot("LINKUSDT", _D.DIR_FORWARD)
+    assert snap is not None
+    assert "restricted_asset" in priv.calls
+    # 实时读说 LINK 打满 → 现货腿改走普通现货端点（regular_spot）。
+    assert snap.spot_route == _D.SPOT_ROUTE_REGULAR_SPOT
 
 
 def test_account_config_ttl_read_once_per_600s_and_failure_not_cached():

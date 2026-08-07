@@ -1384,8 +1384,13 @@ class SnapshotService:
         # APP_HEDGE_EXECUTOR and the private channel (interface §10). On failure
         # the timestamp is NOT advanced (FR-2) and the failed flag makes the
         # projection emit UNKNOWN instead of last-good (§E-4). ----
-        if self._restricted_asset_client is not None and self._source_due(
-            "restricted_asset", now, GROUP_B_REFRESH_SECONDS
+        # force_account_panels 也放开本源：它 1800s 才到 due，而 hedge preflight 只
+        # 接受 600s 内的读数，错配会让开单在每个周期里有 20 分钟必然 fail-closed，
+        # 且手动按钮报成功却刷不到它（实盘 THE 开单故障）。本读无传输层缓存
+        # （_get_apikey_only 直发），放开 due 即真实重读，无需 force= 驱逐参数。
+        if self._restricted_asset_client is not None and (
+            force_account_panels
+            or self._source_due("restricted_asset", now, GROUP_B_REFRESH_SECONDS)
         ):
             exceeded, checked_at = self._read_restricted_asset()
             if exceeded is not None:

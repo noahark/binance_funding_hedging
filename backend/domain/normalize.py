@@ -88,6 +88,98 @@ SPOT_MATCH_EXACT = "exact_symbol"
 SPOT_MATCH_BSTOCK = "bstock_b_suffix_alias"
 SPOT_MATCH_MULTIPLIER = "multiplier_strip_alias"
 
+# 合约 symbol -> (现货 symbol, match_type) 的显式例外表（2026-08-07）。
+#
+# 只列「合约名 != 现货名」的标的；名字相同的走 exact，不进表。查不到就是查不到——
+# 解析器不再用字符串规则去猜，因为猜会撞车：合约 BUSDT 的 baseAsset 是 B，
+# base+"B"+quote 恰好等于 BBUSDT，而那是另一个币 BB(BounceBit) 的现货对。规则
+# 层面无法区分（"B"+"B" == "BB"），只有显式表能表达「B 没有现货腿」。
+#
+# 表由 `scripts/check-spot-symbol-map.py --emit` 从 exchangeInfo 生成，勿手工编辑；
+# 同一脚本的 `--verify` 校验表与交易所现状是否一致，并列出应补录的新标的。
+# 未列入 = 无现货腿 = 该标的不可对冲（fail-closed，安全的失败方向）。
+
+# 已人工确认「形似的现货对属于别的币，不可用作对冲腿」的合约。仅供校验脚本消费，
+# 使其不再把这些反复报成待确认项；解析器本身不需要它（表里没有就是没有）。
+SPOT_SYMBOL_DENY = {
+    "BUSDT": "BBUSDT 是 BB(BounceBit) 的现货对，与合约 B 无关（2026-08-07 人工确认）",
+}
+SPOT_SYMBOL_MAP = {
+    # --- bStock：TRADIFI_PERPETUAL，现货/杠杆对带 B 后缀 ---
+    "AAOIUSDT":            ("AAOIBUSDT",           SPOT_MATCH_BSTOCK),
+    "AAPLUSDT":            ("AAPLBUSDT",           SPOT_MATCH_BSTOCK),
+    "ALABUSDT":            ("ALABBUSDT",           SPOT_MATCH_BSTOCK),
+    "AMATUSDT":            ("AMATBUSDT",           SPOT_MATCH_BSTOCK),
+    "AMDUSDT":             ("AMDBUSDT",            SPOT_MATCH_BSTOCK),
+    "AMZNUSDT":            ("AMZNBUSDT",           SPOT_MATCH_BSTOCK),
+    "ARMUSDT":             ("ARMBUSDT",            SPOT_MATCH_BSTOCK),
+    "ASMLUSDT":            ("ASMLBUSDT",           SPOT_MATCH_BSTOCK),
+    "ASTSUSDT":            ("ASTSBUSDT",           SPOT_MATCH_BSTOCK),
+    "AVGOUSDT":            ("AVGOBUSDT",           SPOT_MATCH_BSTOCK),
+    "AXTIUSDT":            ("AXTIBUSDT",           SPOT_MATCH_BSTOCK),
+    "BABAUSDT":            ("BABABUSDT",           SPOT_MATCH_BSTOCK),
+    "BEUSDT":              ("BEBUSDT",             SPOT_MATCH_BSTOCK),
+    "BMNRUSDT":            ("BMNRBUSDT",           SPOT_MATCH_BSTOCK),
+    "CBRSUSDT":            ("CBRSBUSDT",           SPOT_MATCH_BSTOCK),
+    "COHRUSDT":            ("COHRBUSDT",           SPOT_MATCH_BSTOCK),
+    "COINUSDT":            ("COINBUSDT",           SPOT_MATCH_BSTOCK),
+    "CRCLUSDT":            ("CRCLBUSDT",           SPOT_MATCH_BSTOCK),
+    "CRDOUSDT":            ("CRDOBUSDT",           SPOT_MATCH_BSTOCK),
+    "CRWVUSDT":            ("CRWVBUSDT",           SPOT_MATCH_BSTOCK),
+    "DELLUSDT":            ("DELLBUSDT",           SPOT_MATCH_BSTOCK),
+    "DRAMUSDT":            ("DRAMBUSDT",           SPOT_MATCH_BSTOCK),
+    "EWYUSDT":             ("EWYBUSDT",            SPOT_MATCH_BSTOCK),
+    "FLNCUSDT":            ("FLNCBUSDT",           SPOT_MATCH_BSTOCK),
+    "GLWUSDT":             ("GLWBUSDT",            SPOT_MATCH_BSTOCK),
+    "GOOGLUSDT":           ("GOOGLBUSDT",          SPOT_MATCH_BSTOCK),
+    "GSUSDT":              ("GSBUSDT",             SPOT_MATCH_BSTOCK),
+    "HOODUSDT":            ("HOODBUSDT",           SPOT_MATCH_BSTOCK),
+    "IBMUSDT":             ("IBMBUSDT",            SPOT_MATCH_BSTOCK),
+    "INTCUSDT":            ("INTCBUSDT",           SPOT_MATCH_BSTOCK),
+    "INTWUSDT":            ("INTWBUSDT",           SPOT_MATCH_BSTOCK),
+    "IRENUSDT":            ("IRENBUSDT",           SPOT_MATCH_BSTOCK),
+    "KORUUSDT":            ("KORUBUSDT",           SPOT_MATCH_BSTOCK),
+    "LITEUSDT":            ("LITEBUSDT",           SPOT_MATCH_BSTOCK),
+    "METAUSDT":            ("METABUSDT",           SPOT_MATCH_BSTOCK),
+    "MRVLUSDT":            ("MRVLBUSDT",           SPOT_MATCH_BSTOCK),
+    "MSFTUSDT":            ("MSFTBUSDT",           SPOT_MATCH_BSTOCK),
+    "MSTRUSDT":            ("MSTRBUSDT",           SPOT_MATCH_BSTOCK),
+    "MUUSDT":              ("MUBUSDT",             SPOT_MATCH_BSTOCK),
+    "MUUUSDT":             ("MUUBUSDT",            SPOT_MATCH_BSTOCK),
+    "MVLLUSDT":            ("MVLLBUSDT",           SPOT_MATCH_BSTOCK),
+    "NBISUSDT":            ("NBISBUSDT",           SPOT_MATCH_BSTOCK),
+    "NFLXUSDT":            ("NFLXBUSDT",           SPOT_MATCH_BSTOCK),
+    "NOKUSDT":             ("NOKBUSDT",            SPOT_MATCH_BSTOCK),
+    "NVDAUSDT":            ("NVDABUSDT",           SPOT_MATCH_BSTOCK),
+    "ORCLUSDT":            ("ORCLBUSDT",           SPOT_MATCH_BSTOCK),
+    "PLTRUSDT":            ("PLTRBUSDT",           SPOT_MATCH_BSTOCK),
+    "PYPLUSDT":            ("PYPLBUSDT",           SPOT_MATCH_BSTOCK),
+    "QCOMUSDT":            ("QCOMBUSDT",           SPOT_MATCH_BSTOCK),
+    "QQQUSDT":             ("QQQBUSDT",            SPOT_MATCH_BSTOCK),
+    "RKLBUSDT":            ("RKLBBUSDT",           SPOT_MATCH_BSTOCK),
+    "SKHYUSDT":            ("SKHYBUSDT",           SPOT_MATCH_BSTOCK),
+    "SMCIUSDT":            ("SMCIBUSDT",           SPOT_MATCH_BSTOCK),
+    "SMHUSDT":             ("SMHBUSDT",            SPOT_MATCH_BSTOCK),
+    "SNDKUSDT":            ("SNDKBUSDT",           SPOT_MATCH_BSTOCK),
+    "SNXXUSDT":            ("SNXXBUSDT",           SPOT_MATCH_BSTOCK),
+    "SOXLUSDT":            ("SOXLBUSDT",           SPOT_MATCH_BSTOCK),
+    "SOXSUSDT":            ("SOXSBUSDT",           SPOT_MATCH_BSTOCK),
+    "SPCXUSDT":            ("SPCXBUSDT",           SPOT_MATCH_BSTOCK),
+    "SPYUSDT":             ("SPYBUSDT",            SPOT_MATCH_BSTOCK),
+    "TQQQUSDT":            ("TQQQBUSDT",           SPOT_MATCH_BSTOCK),
+    "TSLAUSDT":            ("TSLABUSDT",           SPOT_MATCH_BSTOCK),
+    "TSMUSDT":             ("TSMBUSDT",            SPOT_MATCH_BSTOCK),
+    "USARUSDT":            ("USARBUSDT",           SPOT_MATCH_BSTOCK),
+    "WDCUSDT":             ("WDCBUSDT",            SPOT_MATCH_BSTOCK),
+    # --- 乘数前缀：合约按 N 倍计价，现货是原币 ---
+    "1000BONKUSDT":        ("BONKUSDT",            SPOT_MATCH_MULTIPLIER),
+    "1000FLOKIUSDT":       ("FLOKIUSDT",           SPOT_MATCH_MULTIPLIER),
+    "1000LUNCUSDT":        ("LUNCUSDT",            SPOT_MATCH_MULTIPLIER),
+    "1000PEPEUSDT":        ("PEPEUSDT",            SPOT_MATCH_MULTIPLIER),
+    "1000SHIBUSDT":        ("SHIBUSDT",            SPOT_MATCH_MULTIPLIER),
+    "1000XECUSDT":         ("XECUSDT",             SPOT_MATCH_MULTIPLIER),
+}
+
 
 def resolve_spot_leg(
     contract_type: str,
@@ -97,39 +189,38 @@ def resolve_spot_leg(
 ) -> tuple:
     """Resolve the public spot leg for a futures symbol.
 
-    Returns ``(spot_obj|None, match_type|None)``. Candidates are tried in
-    priority order, each gated on ``status == "TRADING"`` via
-    :func:`_tradable_spot` (a non-trading exact record is skipped before the
-    alias is tried):
+    Returns ``(spot_obj|None, match_type|None)``:
 
-    1. ``exact_symbol`` — ``spot_by_sym[base_asset + quote_asset]`` (normal
-       crypto; futures symbol equals spot symbol).
-    2. ``bstock_b_suffix_alias`` — ``spot_by_sym[base_asset + "B" + quote_asset]``
-       (Binance bStocks use a "B"-suffixed spot/margin symbol, e.g. futures
-       ``TSLAUSDT`` -> spot ``TSLABUSDT``). Not gated on ``TRADIFI_PERPETUAL``
-       any more (2026-08-07 unified-resolver): exact-first plus the TRADING
-       truth check keep normal crypto exact matching unpolluted, and a
-       non-TRADIFI perpetual whose spot pair genuinely carries the B suffix
-       (MUUUSDT -> MUBUSDT) resolves too.
-    3. ``multiplier_strip_alias`` — when ``base_asset`` starts with the literal
-       ``"1000"`` (1000BONK/FLOKI/LUNC/PEPE/SHIB/XEC family):
-       ``spot_by_sym[base_asset[4:] + quote_asset]`` (futures ``1000BONKUSDT``
-       -> spot ``BONKUSDT``). Only the literal ``1000`` is stripped, never a
-       general numeric prefix; the TRADING gate means a coin whose spot pair
-       does not exist stays ``(None, None)``.
-    4. ``(None, None)`` — no currently tradable public spot leg.
+    1. ``exact_symbol`` — ``spot_by_sym[base_asset + quote_asset]``, the normal
+       case where the futures and spot symbols are identical.
+    2. the :data:`SPOT_SYMBOL_MAP` entry for this contract symbol — the explicit
+       exception table for bStocks (``TSLAUSDT`` -> ``TSLABUSDT``) and
+       multiplier-prefixed contracts (``1000BONKUSDT`` -> ``BONKUSDT``). Its
+       ``match_type`` is carried from the table.
+    3. ``(None, None)`` — no currently tradable public spot leg.
 
-    ``contract_type`` is retained for callers that classify routes (asset tags
-    etc.); the alias itself no longer depends on it.
+    Every candidate is gated on ``status == "TRADING"`` via
+    :func:`_tradable_spot`, so a delisted/halted record is never used as a leg.
+
+    NO string-derived guessing (2026-08-07): the previous ``base + "B" + quote``
+    and ``base[4:]`` fallbacks are gone. They mis-resolved futures ``BUSDT``
+    (baseAsset ``B``) onto spot ``BBUSDT`` (baseAsset ``BB``, BounceBit) — a
+    different coin — because ``"B" + "B" == "BB"`` is indistinguishable from a
+    real bStock suffix at the string level. The prefix strip was likewise wrong
+    for the ``1000000``-prefixed family (it stripped 4 chars, yielding
+    ``000MOG``). An unlisted symbol now resolves to ``(None, None)``: a missing
+    hedge leg, never a wrong one.
+
+    ``contract_type`` is unused by the lookup (the table is keyed on the exact
+    contract symbol) and retained only for signature stability with callers that
+    pass it positionally.
     """
     exact = _tradable_spot(spot_by_sym, base_asset + quote_asset)
     if exact is not None:
         return exact, SPOT_MATCH_EXACT
-    alias = _tradable_spot(spot_by_sym, base_asset + "B" + quote_asset)
-    if alias is not None:
-        return alias, SPOT_MATCH_BSTOCK
-    if isinstance(base_asset, str) and base_asset.startswith("1000"):
-        stripped = _tradable_spot(spot_by_sym, base_asset[4:] + quote_asset)
-        if stripped is not None:
-            return stripped, SPOT_MATCH_MULTIPLIER
+    entry = SPOT_SYMBOL_MAP.get(base_asset + quote_asset)
+    if entry is not None:
+        mapped = _tradable_spot(spot_by_sym, entry[0])
+        if mapped is not None:
+            return mapped, entry[1]
     return None, None
