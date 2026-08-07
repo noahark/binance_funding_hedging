@@ -316,10 +316,16 @@ know.** None costs money directly; each can mislead an operating decision.
   a missing UM-side read. A task bucket plus no matching UM is `no_um` only
   after a successful UM-granular read; the reported root cause is
   `backend/domain/snapshot.py` near `:1098` and `:1120`. This remains deferred.
-- `[OPEN][RELEASE-GATE]` The read-only smoke run was never executed. Checklist:
-  archive `49-`; it is a hard prerequisite for the next
-  live activation. Its B-6 covers private-channel-off, but not F4's third path;
-  add that case before the gate is used.
+- `[VOID][2026-08-07]` ~~The read-only smoke run was never executed. Checklist:
+  archive `49-`; it is a **hard prerequisite** for the next live activation.~~
+  **该门禁经 Human 决定正式作废——实盘启用不再需要任何前置检查。**
+  作废理由（不是"暂缓"，是撤销）：它自登记起一次未跑，而这期间实盘开单/平仓/划转
+  已发生多次，事实上早被绕过。**一条被反复绕过的「必须」比没有门禁更糟**——它让
+  文档里其他真的「必须」一起贬值，后来者无从判断哪条当真。
+  与之绑定的「B-6 未覆盖 F4 第三条路径，用前需补」一并作废（F4 本身仍 OPEN，
+  见 Merged Position Table 段，但不再有任何门禁挂在它上面）。
+  清单原件留在 archive `49-` 作历史，**不再具备效力**；任何人不得再据此声称
+  「实盘前必须先跑 smoke」。
 
 ## Task 3 — Cadence + Absent Tolerance (merged 2026-08-02)
 
@@ -454,12 +460,21 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
   API 侦察结论仍有效：PM 路径是 `GET /papi/v1/um/income`（本 key 打 fapi 得 `-2015`），
   按 `(incomeType, tranId)` 幂等、升序、limit≤1000、权重 ~30。证据
   `reports/api-samples/2026-08-um-income-funding-recon-v1/`。
-- `[OPEN][FOLLOW-UP]` **No automated check binds the frontend field names to the
-  backend ones.** The four v4.1 balance fields cross the seam by hand-typed name
-  in three places (`domain.py` row keys, `test_hedge_api.py::_POSITION_KEYS`,
-  `index.html` `p.xxx`); Review-2 verified all five keys character-by-character
-  and the 2026-08-03 live smoke confirmed them end-to-end, but a future rename on
-  either side would silently render `—` with every test still green.
+- `[RESOLVED][2026-08-07]` ~~**No automated check binds the frontend field names to
+  the backend ones.**~~ 已交付 `backend/tests/test_frontend_field_binding.py`（4 用例）。
+  **锚定链**：`test_hedge_api::test_positions_shape_after_fill` 用**真实 HTTP 响应**钉住
+  `_POSITION_KEYS == GET /api/hedge-open-positions 的字段集` → 新测试钉住
+  `前端引用 ⊆ _POSITION_KEYS` → 合起来即「前端读的每个字段后端都真的发」。
+  另一条方向相反的用例钉 `merge 层产出 ⊆ _POSITION_KEYS`，防「后端加了字段但契约常量
+  没跟上」——merge 是纯函数最易被单独改，而 API 那条要跑完整 HTTP 链路才覆盖得到。
+  **实现踩到的坑**：权威源最初取 `merge_positions` 的产出，结果误报两个**正常工作**的
+  字段——`stats_incomplete` / `borrow_interest_usdt` 是 handler 在 merged rows 之上追加的
+  （`server.py:1125/1171`，周期费率利息现算），故 merge 层产出是 wire 契约的**真子集**。
+  **失效防护**：检查靠正则从 `index.html` 抓 `p.xxx` / `posRow.xxx`，一旦函数改名或结构
+  变动抓空，主断言会**因集合为空而通过**——所以每个消费点钉了引用数下限
+  （`_POSITION_CONSUMERS`），抓空即红。**新增消费变量必须加进那张表**，否则不被覆盖。
+  **已验证会红**（不是写完就算）：注入前端改名 `p.um_mark_price`→`p.um_markprice` 主断言红；
+  注入后端改名 `row["um_mark_price"]`→`row["um_markprice"]` 反向断言红；两次均已还原。
 - `[OPEN][FOLLOW-UP]` **Manual-restart logs land in a session scratchpad.** The
   2026-08-03 restart wrote stdout/stderr to a Claude session scratchpad path,
   which is temporary. Until the launchd service is repaired (see Live Risks),
