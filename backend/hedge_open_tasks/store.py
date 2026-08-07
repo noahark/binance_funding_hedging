@@ -2475,6 +2475,26 @@ class HedgeOpenStore:
                 )
 
         buckets: dict[tuple[str, str, str | None], dict] = {}
+        identity_conflicts: list[dict] = []
+
+        def _take_identity(b: dict, row, coin: str) -> None:
+            """桶内身份合并：首个非空胜出；后续非空且不同的值记一条审计事件。
+
+            同一桶会汇聚多个任务的腿（同周期多次开仓）。正常情况下它们的固化身份
+            一致；若映射表在两次开仓之间变更，就会分裂——静默取首个会让该桶的余额
+            对齐用到旧身份，必须留下信号（不阻断聚合，展示仍以首个为准）。
+            """
+            incoming = row["spot_symbol"]
+            if not incoming:
+                return
+            if b["spot_symbol"] is None:
+                b["spot_symbol"] = incoming
+                b["spot_base_asset"] = row["spot_base_asset"]
+            elif b["spot_symbol"] != incoming:
+                identity_conflicts.append(
+                    {"coin": coin, "kept": b["spot_symbol"], "ignored": incoming}
+                )
+
 
         def _bucket(coin: str, direction: str, cycle_id: str | None) -> dict:
             return buckets.setdefault(
@@ -2509,9 +2529,7 @@ class HedgeOpenStore:
 
         for row in fill_rows:
             b = _bucket(row["coin"], row["direction"], None)
-            if b["spot_symbol"] is None and row["spot_symbol"]:
-                b["spot_symbol"] = row["spot_symbol"]
-                b["spot_base_asset"] = row["spot_base_asset"]
+            _take_identity(b, row, row["coin"])
             if row["status"] == D.STATUS_DELETED:
                 b["includes_deleted"] = True
             if row["spot_status"] == D.LEG_FILLED:
@@ -2545,9 +2563,7 @@ class HedgeOpenStore:
             if _num(row["cumulative_base_qty"]) <= 0:
                 continue
             b = _bucket(row["coin"], row["direction"], row["cycle_id"])
-            if b["spot_symbol"] is None and row["spot_symbol"]:
-                b["spot_symbol"] = row["spot_symbol"]
-                b["spot_base_asset"] = row["spot_base_asset"]
+            _take_identity(b, row, row["coin"])
             # 周期戳记取组内一致值（同桶所有腿属于同一 cycle；旧数据 cycle_id
             # NULL 时两者均为 None，输出行保持 null，前端不渲染）。
             b["cycle_opened_at_us"] = row["cycle_opened_at_us"]
@@ -2586,6 +2602,14 @@ class HedgeOpenStore:
                     b["perp_incomplete"] = True
                 sign = Decimal(-1) if row["direction"] == D.DIR_FORWARD else Decimal(1)
                 b["position_qty"] += sign * q
+
+        for conflict in identity_conflicts:
+            self._conn.execute(
+                "INSERT INTO hedge_open_log"
+                " (task_id, ts_us, attempt_id, kind, payload)"
+                " VALUES (?, ?, NULL, 'identity_conflict', ?)",
+                ("", int(time.time() * 1_000_000), json.dumps(conflict)),
+            )
 
         positions = []
         for (coin, direction, cycle_id), b in buckets.items():

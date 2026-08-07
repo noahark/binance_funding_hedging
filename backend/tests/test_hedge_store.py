@@ -1425,3 +1425,29 @@ def test_aggregate_positions_carries_spot_identity(tmp_path):
     assert rows, "应有 SNXXUSDT 持仓桶"
     assert rows[0]["spot_symbol"] == "SNXXBUSDT"
     assert rows[0]["spot_base_asset"] == "SNXXB"
+
+
+def test_aggregate_positions_flags_identity_conflict_within_bucket(tmp_path):
+    """同一 (coin, direction, cycle) 桶汇聚多个任务的腿；若它们的固化身份分裂
+    （映射表在两次开仓之间变更），取首个非空会静默用旧值——必须留下审计信号。
+
+    生产实证：THEUSDT/forward 的一个周期有 5 个任务贡献腿，桶内多任务是常态。
+    """
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    for tid, sym, base in (("t_a", "SNXXBUSDT", "SNXXB"), ("t_b", "SNXXCUSDT", "SNXXC")):
+        store.create_task(
+            tid, "SNXXUSDT", D.DIR_FORWARD, D.MODE_IMMEDIATE, "1", 1,
+            "1", D.POS_MODE_BOTH, {"est_price": "10"}, 1_000,
+            spot_symbol=sym, spot_base_asset=base,
+            symbol_match_type="bstock_b_suffix_alias",
+        )
+        _apply(store, tid, _outcome(attempt_id=f"att_{tid}", spot_qty="1", perp_qty="1"),
+               2_000, q_common="1")
+    store.aggregate_positions()
+    conflicts = store._conn.execute(
+        "SELECT payload FROM hedge_open_log WHERE kind = 'identity_conflict'"
+    ).fetchall()
+    assert len(conflicts) >= 1, "桶内身份分裂必须落审计事件"
+    payload = json.loads(conflicts[0]["payload"])
+    assert payload["coin"] == "SNXXUSDT"
+    assert {payload["kept"], payload["ignored"]} == {"SNXXBUSDT", "SNXXCUSDT"}

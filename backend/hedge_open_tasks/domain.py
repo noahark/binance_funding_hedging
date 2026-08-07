@@ -1699,6 +1699,15 @@ def missing_leg_detail(missing: list[str]) -> str:
 def _merge_base_asset(symbol):
     """Strip the USDT quote suffix to get the base asset for spot/borrow matching.
 
+    **私有实现细节（2026-08-07 身份统一 §3④）。** 合法用途只有一个：三级优先链的
+    最后一级——`no_task` 行（UM 有仓、无任务记录）且快照 `asset_map` 也未就绪时的
+    诚实回退。它只剥 USDT、不认 bStock/1000x 映射，对这两类必然取不到正确资产名
+    （这是诚实的「取不到」，不是错值）。
+
+    需要现货资产名的代码一律走 :func:`spot_base_of`（任务固化列 -> 查表），**不要**
+    直接调用本函数。当前仅两处合法引用：本模块 `_merge_build_row` 与组合根
+    `server.py` 周期统计的同一条回退链末端。
+
     Does NOT strip the 1000x multiplier prefix (BONK/FLOKI/LUNC/PEPE/SHIB/XEC):
     ``1000PEPEUSDT`` -> ``1000PEPE`` will not equal the spot asset ``PEPE``, which
     is the honest 'no automatic alignment' outcome for those six (non-goal #5 /
@@ -1766,6 +1775,11 @@ def _merge_empty_bucket_row(coin, direction):
         "cycle_id": None,
         "cycle_opened_at": None,
         "cycle_closed_at": None,
+        # 现货腿身份：no_task 行没有任务记录，故无固化身份（余额对齐改走
+        # asset_map）。显式写出而非依赖 dict.get 的隐式 None——让契约可见，
+        # 且保证所有 merged 行的键集一致。
+        "spot_symbol": None,
+        "spot_base_asset": None,
     }
 
 

@@ -828,6 +828,25 @@ class HedgeOpenTaskService:
         # 导致的实盘缺陷（无预检的任务回退到合约 symbol，对 bStock/1000x 必错）。
         # 它只答「叫什么」；「有没有现货腿」由上面的 check_symbol_legs 探测负责。
         spot_symbol, spot_base_asset, symbol_match_type = resolve_spot_identity(coin)
+        # §3⑤：close 继承开仓任务的身份，不重新查表。对冲是跨时间的持仓——若映射表
+        # 在持仓期间变更，重新查表会让平仓腿与开仓腿对不上（方案 §2.1「固化优于
+        # 实时」）。继承链走 cycle.first_task_id，无需给 cycle 加列。
+        # origin 缺失/未回填 -> 保留上面的查表结果并记 warning，不阻断建 close。
+        if task_type == D.TASK_TYPE_CLOSE and active_cycle is not None:
+            origin = self._store.get_task(active_cycle.get("first_task_id") or "")
+            inherited = origin.get("spot_symbol") if origin else None
+            if inherited:
+                spot_symbol = inherited
+                spot_base_asset = origin.get("spot_base_asset")
+                symbol_match_type = origin.get("symbol_match_type")
+            else:
+                print(
+                    f"[HEDGE-CREATE] close identity fallback: cycle="
+                    f"{str(active_cycle.get('id'))[:8]} origin_task="
+                    f"{str(active_cycle.get('first_task_id'))[:8]} 无固化身份，"
+                    f"回退查表 {spot_symbol}",
+                    file=sys.stderr, flush=True,
+                )
         task = self._store.create_task(
             task_id,
             coin,

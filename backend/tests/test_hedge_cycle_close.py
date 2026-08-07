@@ -1089,3 +1089,56 @@ def test_close_transfer_uses_frozen_spot_base_for_multiplier(tmp_path):
     task = svc._store.get_task(ctid)
     assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None
     assert exe.transfers == [("PORTFOLIO_MARGIN_MAIN", "BONK", "6")]
+
+
+def test_close_task_inherits_identity_from_cycle_open_task(tmp_path):
+    """步骤⑤：close 身份继承开仓任务，而非重新查表。
+
+    对冲是跨时间的持仓——平仓必须用开仓时的身份，否则映射表若在持仓期间变更，
+    两条腿就对不上。cycle.first_task_id 提供了这条继承链，无需给 cycle 加列。
+    """
+    svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled",
+                               executor=RecordTransportFake())
+    svc, ctid = _make_forward_close_with_open(lambda: svc, coin="SNXXUSDT")
+    # 人为把开仓任务的固化身份改成一个「历史值」，模拟建 close 时表已变更。
+    open_tid = svc._store._conn.execute(
+        "SELECT id FROM hedge_open_task WHERE task_type='open' ORDER BY creation_seq ASC LIMIT 1"
+    ).fetchone()[0]
+    svc._store._conn.execute(
+        "UPDATE hedge_open_task SET spot_symbol='SNXXLEGACYUSDT', spot_base_asset='SNXXLEGACY'"
+        " WHERE id = ?", (open_tid,))
+    svc._store._conn.commit()
+
+    # 重新建一个 close 任务：应继承开仓身份，而不是查表得到 SNXXBUSDT。
+    svc.create_task({"coin": "SNXXUSDT", "direction": "forward", "mode": "immediate",
+                     "single_amount": "10", "target_n": 1, "task_type": "close"})
+    new_ctid = svc._store._conn.execute(
+        "SELECT id FROM hedge_open_task WHERE task_type='close' ORDER BY creation_seq DESC LIMIT 1"
+    ).fetchone()[0]
+    row = svc._store._conn.execute(
+        "SELECT spot_symbol, spot_base_asset FROM hedge_open_task WHERE id=?", (new_ctid,)
+    ).fetchone()
+    assert row["spot_symbol"] == "SNXXLEGACYUSDT", "close 必须继承开仓身份"
+    assert row["spot_base_asset"] == "SNXXLEGACY"
+
+
+def test_close_task_falls_back_to_table_when_origin_missing(tmp_path):
+    # origin 任务缺失/未回填 → 回退查表（不阻断建 close）。
+    svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled",
+                               executor=RecordTransportFake())
+    svc, ctid = _make_forward_close_with_open(lambda: svc, coin="SNXXUSDT")
+    open_tid = svc._store._conn.execute(
+        "SELECT id FROM hedge_open_task WHERE task_type='open' ORDER BY creation_seq ASC LIMIT 1"
+    ).fetchone()[0]
+    svc._store._conn.execute(
+        "UPDATE hedge_open_task SET spot_symbol=NULL, spot_base_asset=NULL WHERE id=?",
+        (open_tid,))
+    svc._store._conn.commit()
+    svc.create_task({"coin": "SNXXUSDT", "direction": "forward", "mode": "immediate",
+                     "single_amount": "10", "target_n": 1, "task_type": "close"})
+    new_ctid = svc._store._conn.execute(
+        "SELECT id FROM hedge_open_task WHERE task_type='close' ORDER BY creation_seq DESC LIMIT 1"
+    ).fetchone()[0]
+    row = svc._store._conn.execute(
+        "SELECT spot_symbol FROM hedge_open_task WHERE id=?", (new_ctid,)).fetchone()
+    assert row["spot_symbol"] == "SNXXBUSDT"  # 回退查表
