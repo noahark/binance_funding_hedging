@@ -396,7 +396,7 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
      两腿各自的 min/max qty；(b) `notional = q_common * est_price` 用**同一个**数量
      和**现货**价算出一个 notional，再拿它比两腿各自的 minNotional。
      修法：每腿的数量边界和 minNotional 各按各的量纲与价格查。
-  7. `backend/hedge_open_tasks/domain.py:1189-1200` `snapshot_record` 的审计指纹
+  7. `backend/hedge_open_tasks/domain.py:1191-1202` `snapshot_record` 的审计指纹
      （`spot_min_qty`/`perp_min_qty`/`grid`/`est_price`）——**不影响计算正确性**，
      但这份不可变记录当前隐含「两腿同量纲」，换算后不更新会让事后审计读错。
   8. `backend/hedge_open_tasks/domain.py:1265` `base = base_asset(coin)` ——
@@ -409,6 +409,27 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
      （bStock 也命中这一行，但**无借币市场故不存在负费率开单**，对它而言 fail-closed
      恰是正确行为——见 Current Status 的领域事实条目。）
 
+  **行号校验（2026-08-07 核对，全部命中）**：这份清单的价值全在行号准确。改动
+  `domain.py` 后行号会漂——下轮动手前先跑一遍校验，别照着漂移的行号改：
+  ```
+  python3 - <<'EOF'
+  for path, line, needle in [
+      ("backend/services/live_hedge_executor.py", 873, "send_qty = ctx.q_common"),
+      ("backend/services/hedge_preflight_provider.py", 832, "est_price = self._read_est_price"),
+      ("backend/hedge_open_tasks/domain.py", 1183, "q_common = floor_to_grid"),
+      ("backend/hedge_open_tasks/domain.py", 1267, "required = q_common * target_n * snapshot.est_price"),
+      ("backend/hedge_open_tasks/domain.py", 1273, "required = q_common * target_n"),
+      ("backend/hedge_open_tasks/domain.py", 1952, "abs(spot_qty - perp_qty)"),
+      ("backend/hedge_open_tasks/domain.py", 1001, "def _check_common_quantity"),
+      ("backend/hedge_open_tasks/domain.py", 1195, '"spot_min_qty"'),
+      ("backend/hedge_open_tasks/domain.py", 1265, "base = base_asset(coin)"),
+  ]:
+      lines = open(path, encoding="utf-8").read().split("\n")
+      hit = needle in (lines[line-1] if line <= len(lines) else "")
+      print(("OK  " if hit else "DRIFT ") + f"{path}:{line}",
+            "" if hit else [i+1 for i,l in enumerate(lines) if needle in l])
+  EOF
+  ```
   **改完要一并移除**：`service.py:807` 的 `multiplier_contract_unsupported` 拦截
   + `test_hedge_service.py` 的两条拦截测试 + `test_hedge_cycle_close.py` 的
   `_allow_multiplier_open` monkeypatch（三处调用）。
