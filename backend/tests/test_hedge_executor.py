@@ -108,15 +108,14 @@ def test_record_transport_spot_params_shape_forward():
 
 
 def test_record_transport_uses_resolved_bstock_spot_symbol():
+    # 2026-08-07 身份统一：现货腿 symbol 由 AttemptContext.spot_symbol 携带
+    # （service 从任务固化列取出），不再从预检快照现算。
     ctx = _ctx()
     ctx = AttemptContext(
         **{
             **ctx.__dict__,
             "coin": "TSLAUSDT",
-            "preflight_snapshot": {
-                **ctx.preflight_snapshot,
-                "spot_symbol": "TSLABUSDT",
-            },
+            "spot_symbol": "TSLABUSDT",
         },
     )
     out = RecordTransportFake().execute(ctx)

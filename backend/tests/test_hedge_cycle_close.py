@@ -583,15 +583,15 @@ class _CloseSpotExecutor:
         return "tran-1"
 
 
-def _make_forward_close_with_open(svc_factory):
+def _make_forward_close_with_open(svc_factory, coin="COOKIEUSDT"):
     svc = svc_factory()
-    svc.create_task({"coin": "COOKIEUSDT", "direction": "forward", "mode": "immediate",
+    svc.create_task({"coin": coin, "direction": "forward", "mode": "immediate",
                      "single_amount": "10", "target_n": 1})
     tid = svc._store._conn.execute(
         "SELECT id FROM hedge_open_task WHERE task_type='open' ORDER BY creation_seq DESC LIMIT 1"
     ).fetchone()[0]
     svc.post_fill_all(tid)
-    svc.create_task({"coin": "COOKIEUSDT", "direction": "forward", "mode": "immediate",
+    svc.create_task({"coin": coin, "direction": "forward", "mode": "immediate",
                      "single_amount": "10", "target_n": 1, "task_type": "close"})
     ctid = svc._store._conn.execute(
         "SELECT id FROM hedge_open_task WHERE task_type='close' ORDER BY creation_seq DESC LIMIT 1"
@@ -1061,3 +1061,31 @@ def test_frozen_identity_base_always_derivable_from_symbol(tmp_path):
         "SELECT coin, spot_symbol, spot_base_asset FROM hedge_open_task"
     ):
         assert r["spot_symbol"] == r["spot_base_asset"] + "USDT", r["coin"]
+
+
+# ---------------------------------------------------------------------------
+# 平单环消费固化身份（步骤②，DeepSeek 前置要求 4）
+# ---------------------------------------------------------------------------
+
+def test_close_transfer_uses_frozen_spot_base_for_bstock(tmp_path):
+    """bStock 平单补足现货时，划转资产名必须是 SNXXB 而非合约 base SNXX。
+
+    切换前这里读 preflight_snapshot.spot_symbol，dry-run 无预检时回退 coin，
+    会用 SNXX 去划转——账户里没有这个资产，必然失败。现改读任务固化列。
+    """
+    exe = _CloseSpotExecutor(spot_free=4, recheck_free=10, unified_free=100)
+    svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
+    svc, ctid = _make_forward_close_with_open(lambda: svc, coin="SNXXUSDT")
+    task = svc._store.get_task(ctid)
+    assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None
+    assert exe.transfers == [("PORTFOLIO_MARGIN_MAIN", "SNXXB", "6")]
+
+
+def test_close_transfer_uses_frozen_spot_base_for_multiplier(tmp_path):
+    # 1000x：合约 1000BONKUSDT 的现货资产是 BONK，不是 1000BONK。
+    exe = _CloseSpotExecutor(spot_free=4, recheck_free=10, unified_free=100)
+    svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
+    svc, ctid = _make_forward_close_with_open(lambda: svc, coin="1000BONKUSDT")
+    task = svc._store.get_task(ctid)
+    assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None
+    assert exe.transfers == [("PORTFOLIO_MARGIN_MAIN", "BONK", "6")]

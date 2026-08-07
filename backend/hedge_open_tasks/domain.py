@@ -26,6 +26,8 @@ from datetime import datetime, timedelta, timezone
 from decimal import ROUND_FLOOR, Decimal, InvalidOperation
 from math import gcd
 
+from ..domain.normalize import resolve_spot_identity
+
 # ---------------------------------------------------------------------------
 # Frozen vocabulary and constants (10-design §2 / §3 / §7 / breakdown §3.2)
 # ---------------------------------------------------------------------------
@@ -932,18 +934,65 @@ def base_asset(coin: str) -> str:
     return coin[: -len(QUOTE_ASSET)]
 
 
-def spot_order_symbol(coin: str, preflight_snapshot: dict | None) -> str:
-    """Return the resolved spot symbol for an order or query.
+def _require_task(task, fn_name: str) -> dict:
+    """接口层守卫（symbol-identity-unification 测试 10）：身份取值只接受 task 字典。
 
-    The task's ``coin`` is the canonical futures symbol.  A live preflight may
-    carry a different spot symbol for bStocks; absent that internal field,
-    ordinary symbols continue to use the canonical value.
+    合约名 / 现货名 / 资产名三者都是裸字符串，传错既不报错也不崩，只会静默算出
+    一个错答案——方案 §1.3 的类型混淆正是这样发生的（持仓面板把合约名喂给只剥
+    USDT 的函数，于是 bStock 永远读不到余额）。守卫落在接口形状上：不是 dict 就
+    当场 TypeError。
     """
-    if isinstance(preflight_snapshot, dict):
-        resolved = preflight_snapshot.get("spot_symbol")
-        if isinstance(resolved, str) and resolved:
-            return resolved
-    return coin
+    if not isinstance(task, dict):
+        raise TypeError(
+            f"{fn_name}() expects a task dict, got {type(task).__name__} "
+            f"—— 现货腿身份必须取自任务的固化列，不能由裸 symbol 现算"
+        )
+    return task
+
+
+def spot_symbol_of(task: dict) -> str:
+    """任务的现货腿交易对（下单 / 查单 / 划转用）。
+
+    优先读建任务时固化的 ``spot_symbol`` 列——它是该任务的历史真值，平仓必须
+    用开仓时的身份（方案 §2.1）。列为空只发生在回填前的旧行，此时回退查表。
+    """
+    task = _require_task(task, "spot_symbol_of")
+    frozen = task.get("spot_symbol")
+    if isinstance(frozen, str) and frozen:
+        return frozen
+    return resolve_spot_identity(task["coin"])[0]
+
+
+def spot_base_of(task: dict) -> str:
+    """任务的现货资产名（余额 / 利息 / 借币记账用），如 bStock 的 ``SNXXB``。
+
+    与 :func:`spot_symbol_of` 同源同策略：固化列优先，旧行回退查表。
+    """
+    task = _require_task(task, "spot_base_of")
+    frozen = task.get("spot_base_asset")
+    if isinstance(frozen, str) and frozen:
+        return frozen
+    return resolve_spot_identity(task["coin"])[1]
+
+
+def identity_drift(task: dict) -> dict | None:
+    """任务固化的现货身份与当前查表结果不一致时返回差异，否则 ``None``（方案 D3）。
+
+    这是**只报不拦**的一致性信号：固化值才是该任务的历史真值，平仓必须用开仓时
+    的身份，绝不因表更新而静默切换（那会让两条腿对不上）。它的用途是让「映射表
+    变动影响到存量任务」尽早可见，与 ``check-spot-symbol-map.py --verify`` 的
+    STALE 一起构成表变动的两侧告警。
+
+    未固化的旧行返回 ``None``——回退查表本就等于当前值，不构成漂移。
+    """
+    task = _require_task(task, "identity_drift")
+    frozen = task.get("spot_symbol")
+    if not (isinstance(frozen, str) and frozen):
+        return None
+    current = resolve_spot_identity(task["coin"])[0]
+    if frozen == current:
+        return None
+    return {"coin": task["coin"], "frozen": frozen, "current": current}
 
 
 def _check_common_quantity(
@@ -1148,8 +1197,9 @@ def compute_preflight(
         "est_price": str(snapshot.est_price) if snapshot.est_price is not None else None,
         "position_mode": snapshot.position_mode,
     }
-    if snapshot.spot_symbol and snapshot.spot_symbol != coin:
-        snapshot_record["spot_symbol"] = snapshot.spot_symbol
+    # 2026-08-07 身份统一：现货腿 symbol 不再写进预检快照。它是任务的第一等属性
+    # （hedge_open_task.spot_symbol，建任务时固化），由 spot_symbol_of(task) 读取。
+    # 保留两份会重新回到「多份真相」，正是本次改造要消除的（方案 §3② P3）。
     # Record the resolved spot account route (design §3 step 4) on the immutable
     # preflight fingerprint so the executor, the leg-row endpoint and the audit
     # trail all follow ONE decision. ``spot_route`` is papi_margin | regular_spot;

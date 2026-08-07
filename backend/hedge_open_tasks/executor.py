@@ -50,6 +50,10 @@ class AttemptContext:
     target_n: int
     ts_us: int
     task_type: str = "open"  # 功能三：'open'=开仓 / 'close'=平仓（合约腿 reduceOnly）
+    # 现货腿交易对（2026-08-07 身份统一）：由 service 从任务固化列取出后传入，
+    # executor 不再从 preflight_snapshot 现算。None 仅出现在未传该字段的旧构造
+    # （测试夹具），此时回退 coin。
+    spot_symbol: str | None = None
 
 
 @dataclass(frozen=True)

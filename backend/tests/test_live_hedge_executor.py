@@ -103,16 +103,16 @@ class _FakeClient:
 
 
 def _ctx(*, spot_symbol=None, spot_route=None) -> AttemptContext:
+    # 2026-08-07 身份统一：现货腿 symbol 走 AttemptContext.spot_symbol（由 service
+    # 从任务固化列传入），不再藏在预检快照里。
     snapshot = {"est_price": "50000"}
-    if spot_symbol is not None:
-        snapshot["spot_symbol"] = spot_symbol
     if spot_route is not None:
         snapshot["spot_route"] = spot_route
     return AttemptContext(
         attempt_id="att1", task_id="t1", coin="BTCUSDT", direction=D.DIR_FORWARD,
         single_amount=Decimal("0.5"), q_common=Decimal("0.5"),
         position_side_mode=D.POS_MODE_BOTH, preflight_snapshot=snapshot,
-        filter_versions={}, target_n=3, ts_us=1000,
+        filter_versions={}, target_n=3, ts_us=1000, spot_symbol=spot_symbol,
     )
 
 

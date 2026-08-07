@@ -65,7 +65,7 @@ def test_direction_mapping_forward_one_way():
     assert a.spot_side_effect == "NO_SIDE_EFFECT"
 
 
-def test_preflight_record_keeps_resolved_bstock_spot_symbol():
+def test_preflight_record_no_longer_carries_spot_symbol():
     pf = D.compute_preflight(
         D.PreflightSnapshot(
             spot_filters=spot_filters_btcusdt(),
@@ -81,7 +81,10 @@ def test_preflight_record_keeps_resolved_bstock_spot_symbol():
         1,
     )
     assert pf.rejection is None
-    assert pf.snapshot_record["spot_symbol"] == "TSLABUSDT"
+    # 2026-08-07 身份统一（方案 §3② P3）：现货腿 symbol 不再写进预检快照。它是
+    # 任务的第一等属性（hedge_open_task.spot_symbol，建任务时固化），由
+    # spot_symbol_of(task) 读取；保留两份会回到本次改造要消除的「多份真相」。
+    assert "spot_symbol" not in pf.snapshot_record
 
 
 def test_direction_mapping_forward_hedge():
@@ -722,3 +725,56 @@ def test_rollup_tie_prefers_spot_category_and_code():
     assert D.rollup_leg_error_category(
         D.ERROR_CATEGORY_FATAL, "-1013a", D.ERROR_CATEGORY_FATAL, "-1013b",
     ) == (D.ERROR_CATEGORY_FATAL, "-1013a")
+
+
+# ---------------------------------------------------------------------------
+# 现货腿身份取值入口（symbol-identity-unification 步骤②）
+# ---------------------------------------------------------------------------
+
+def test_spot_symbol_of_prefers_frozen_column():
+    # 固化值是权威：任务建成时解析的历史真值，不随表变动而改。
+    task = {"coin": "SNXXUSDT", "spot_symbol": "SNXXBUSDT", "spot_base_asset": "SNXXB"}
+    assert D.spot_symbol_of(task) == "SNXXBUSDT"
+    assert D.spot_base_of(task) == "SNXXB"
+
+
+def test_spot_symbol_of_falls_back_for_unbackfilled_row():
+    # 测试 9：回填前的旧行（三列为 NULL）→ 回退查表，不回退到合约 symbol。
+    task = {"coin": "SNXXUSDT", "spot_symbol": None, "spot_base_asset": None}
+    assert D.spot_symbol_of(task) == "SNXXBUSDT"
+    assert D.spot_base_of(task) == "SNXXB"
+
+
+def test_spot_symbol_of_plain_coin():
+    task = {"coin": "BTCUSDT", "spot_symbol": "BTCUSDT", "spot_base_asset": "BTC"}
+    assert D.spot_symbol_of(task) == "BTCUSDT"
+    assert D.spot_base_of(task) == "BTC"
+
+
+def test_spot_identity_accessors_reject_bare_string():
+    # 测试 10（接口层守卫）：只接受 task 字典。合约名/现货名都是裸字符串，
+    # 传错不会报错只会静默算出错答案——守卫落在接口形状上。
+    for bad in ("SNXXUSDT", "SNXXBUSDT", None, 123):
+        with pytest.raises(TypeError):
+            D.spot_symbol_of(bad)
+        with pytest.raises(TypeError):
+            D.spot_base_of(bad)
+
+
+def test_identity_drift_detects_table_change_and_never_blocks():
+    # D3：任务固化的身份与当前查表结果不一致时能被检出（表更新影响存量任务的
+    # 早期信号），但只报不拦——固化值才是该任务的历史真值，平仓必须用它。
+    stale = {"coin": "SNXXUSDT", "spot_symbol": "OLDSNXXUSDT", "spot_base_asset": "OLDSNXX"}
+    drift = D.identity_drift(stale)
+    assert drift is not None
+    assert drift["frozen"] == "OLDSNXXUSDT"
+    assert drift["current"] == "SNXXBUSDT"
+    # 检出漂移不改变取值：仍返回固化值。
+    assert D.spot_symbol_of(stale) == "OLDSNXXUSDT"
+
+
+def test_identity_drift_none_when_consistent():
+    ok = {"coin": "SNXXUSDT", "spot_symbol": "SNXXBUSDT", "spot_base_asset": "SNXXB"}
+    assert D.identity_drift(ok) is None
+    # 未回填的旧行不算漂移（回退查表本就等于当前值）。
+    assert D.identity_drift({"coin": "SNXXUSDT", "spot_symbol": None}) is None

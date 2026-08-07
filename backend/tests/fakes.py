@@ -152,7 +152,7 @@ class RecordTransportFake:
         send_qty = ctx.q_common if ctx.q_common is not None else ctx.single_amount
         spot_cid, perp_cid = _client_order_ids(ctx.attempt_id)
         spot_params = build_spot_order_params(
-            D.spot_order_symbol(ctx.coin, ctx.preflight_snapshot),
+            ctx.spot_symbol or ctx.coin,
             actions,
             send_qty,
             spot_cid,
