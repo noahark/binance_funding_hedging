@@ -1094,7 +1094,12 @@ class _Handler(BaseHTTPRequestHandler):
             funding = lsvc.sum_funding_by_symbol(
                 row.get("coin"), start_ms, end_ms,
             )
-            base_asset = asset_map.get(row.get("coin")) or hedge_open_domain._merge_base_asset(row.get("coin"))
+            # 与 merge 层同序（步骤③）：任务固化列 > 快照 asset_map > 旧规则。
+            base_asset = (
+                row.get("spot_base_asset")
+                or asset_map.get(row.get("coin"))
+                or hedge_open_domain._merge_base_asset(row.get("coin"))
+            )
             interest = (
                 lsvc.sum_interest_by_asset(base_asset, start_ms, end_ms)
                 if base_asset else None

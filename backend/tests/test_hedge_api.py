@@ -72,6 +72,11 @@ _POSITION_KEYS = {
     # G1 (fix-merged-positions-mismatch-labels-v1): explicit UM-vs-task match
     # status so the UI never infers 'no task' / 'no UM' from all-zero fields.
     "match_status",
+    # 现货腿身份（2026-08-07 symbol-identity-unification 步骤③）：任务建成时
+    # 固化的真值，随 bucket 透传。有任务记录的行必有值；no_task 行为 None
+    # （它没有任务列，余额对齐仍走快照 asset_map）。契约的有意扩展——前端可据此
+    # 显示该持仓实际对冲的现货腿（bStock 的 SNXXBUSDT 而非合约名 SNXXUSDT）。
+    "spot_symbol", "spot_base_asset",
     # 持仓周期（设计 v1 §5.2，功能一剩余块）：周期 UUID + ISO 起止时间（活跃周期
     # cycle_closed_at=null；no_task 行全为 None）。aggregate 与 merge 均透传。
     "cycle_id", "cycle_opened_at", "cycle_closed_at",

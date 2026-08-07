@@ -1409,3 +1409,19 @@ def test_backfill_treats_empty_string_as_unfilled(tmp_path):
     store._conn.commit()
     assert store.backfill_spot_identity()["updated"] == 1
     assert store.get_task("t1")["spot_symbol"] == "BTCUSDT"
+
+
+def test_aggregate_positions_carries_spot_identity(tmp_path):
+    """步骤③：bucket 带出任务的固化身份，供 merge 层无快照也能对齐。"""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    store.create_task(
+        "bs", "SNXXUSDT", D.DIR_FORWARD, D.MODE_IMMEDIATE, "1", 1,
+        "1", D.POS_MODE_BOTH, {"est_price": "10"}, 1_000,
+        spot_symbol="SNXXBUSDT", spot_base_asset="SNXXB",
+        symbol_match_type="bstock_b_suffix_alias",
+    )
+    _apply(store, "bs", _outcome(attempt_id="a1", spot_qty="1", perp_qty="1"), 2_000, q_common="1")
+    rows = [p for p in store.aggregate_positions() if p["coin"] == "SNXXUSDT"]
+    assert rows, "应有 SNXXUSDT 持仓桶"
+    assert rows[0]["spot_symbol"] == "SNXXBUSDT"
+    assert rows[0]["spot_base_asset"] == "SNXXB"

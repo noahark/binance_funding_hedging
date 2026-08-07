@@ -14,7 +14,8 @@ from backend.hedge_open_tasks import domain as D
 
 
 def _bucket(coin, direction, spot_qty="0", perp_qty="0", spot_avg="0",
-            perp_avg="0", includes_deleted_task=False, position_qty=None):
+            perp_avg="0", includes_deleted_task=False, position_qty=None,
+            spot_symbol=None, spot_base_asset=None):
     if position_qty is None:
         # forward perp is a SELL -> negative; reverse a BUY -> positive
         position_qty = ("-" + perp_qty) if (direction == D.DIR_FORWARD and perp_qty != "0") else perp_qty
@@ -26,6 +27,8 @@ def _bucket(coin, direction, spot_qty="0", perp_qty="0", spot_avg="0",
         "includes_deleted_task": includes_deleted_task,
         "open_basis_rate": "0", "price_pnl": "0", "accrued_funding": "0",
         "borrow_interest": "0", "net_pnl": "0",
+        # 步骤③：现货腿身份随 bucket 从 aggregate_positions 带出（有任务记录的行）。
+        "spot_symbol": spot_symbol, "spot_base_asset": spot_base_asset,
     }
 
 
@@ -418,3 +421,76 @@ def test_merge_does_not_mutate_source_private_account():
     assert unified_row == {"asset": "BTC", "total_balance": "100",
                            "cross_margin_borrowed": "10", "value_usdt": "60000"}
 
+
+
+# ---------------------------------------------------------------------------
+# 展示环消费固化身份（symbol-identity-unification 步骤③，测试 5/6/7）
+# ---------------------------------------------------------------------------
+
+def test_merge_bstock_uses_frozen_identity_without_asset_map():
+    """测试 5：有任务记录的行读 bucket 里的固化身份，不依赖快照 asset_map。
+
+    这是 Q1 的正解：此前 merge 用 _merge_base_asset(coin) 只剥 USDT，
+    SNXXUSDT -> SNXX，而账户里的资产是 SNXXB，于是 bStock 现货余额恒为 null。
+    """
+    positions = [_bucket("SNXXUSDT", D.DIR_FORWARD, spot_qty="1", perp_qty="1",
+                         spot_symbol="SNXXBUSDT", spot_base_asset="SNXXB")]
+    pa = _pa(
+        ums=[_um("SNXXUSDT", "SHORT", "-1")],
+        spots=[{"asset": "SNXXB", "free": "1", "locked": "0", "value_usdt": "10.33"}],
+    )
+    # 不传 asset_map —— 快照未就绪时也必须正确
+    merged, _ = D.merge_positions(positions, pa)
+    r = merged[0]
+    assert r["spot_balance"] == "1"
+    assert r["spot_balance_value_usdt"] == "10.33"
+    # drift 判定依赖 real_spot，身份对了它才有意义（真实余额 1 == 记账 1 -> 无漂移）
+    assert r["drift"] is False
+
+
+def test_merge_multiplier_uses_frozen_identity_without_asset_map():
+    positions = [_bucket("1000BONKUSDT", D.DIR_FORWARD, spot_qty="1000", perp_qty="1",
+                         spot_symbol="BONKUSDT", spot_base_asset="BONK")]
+    pa = _pa(
+        ums=[_um("1000BONKUSDT", "SHORT", "-1")],
+        spots=[{"asset": "BONK", "free": "1000", "locked": "0", "value_usdt": "20"}],
+    )
+    merged, _ = D.merge_positions(positions, pa)
+    assert merged[0]["spot_balance"] == "1000"
+
+
+def test_merge_no_task_row_still_uses_asset_map():
+    """测试 6：no_task 行（UM 有仓、无任务记录）没有固化列，仍走 asset_map。"""
+    pa = _pa(
+        ums=[_um("SNXXUSDT", "SHORT", "-1")],
+        spots=[{"asset": "SNXXB", "free": "1", "locked": "0", "value_usdt": "10.33"}],
+    )
+    merged, _ = D.merge_positions([], pa, {"SNXXUSDT": "SNXXB"})
+    r = merged[0]
+    assert r["match_status"] == "no_task"
+    assert r["spot_balance"] == "1"
+
+
+def test_merge_no_task_and_no_asset_map_falls_back_without_crashing():
+    """测试 7：无任务记录且快照未就绪 → 回退旧规则，诚实地取不到，但不崩。"""
+    pa = _pa(
+        ums=[_um("SNXXUSDT", "SHORT", "-1")],
+        spots=[{"asset": "SNXXB", "free": "1", "locked": "0"}],
+    )
+    merged, _ = D.merge_positions([], pa)
+    r = merged[0]
+    assert r["match_status"] == "no_task"
+    assert r["spot_balance"] is None  # SNXX != SNXXB，不臆造对齐
+
+
+def test_merge_frozen_identity_beats_asset_map_when_both_present():
+    # 固化值优先于快照：任务的历史真值不该被当前快照覆盖。
+    positions = [_bucket("SNXXUSDT", D.DIR_FORWARD, spot_qty="1", perp_qty="1",
+                         spot_symbol="SNXXBUSDT", spot_base_asset="SNXXB")]
+    pa = _pa(
+        ums=[_um("SNXXUSDT", "SHORT", "-1")],
+        spots=[{"asset": "SNXXB", "free": "1", "locked": "0"},
+               {"asset": "WRONG", "free": "999", "locked": "0"}],
+    )
+    merged, _ = D.merge_positions(positions, pa, {"SNXXUSDT": "WRONG"})
+    assert merged[0]["spot_balance"] == "1"  # 用固化的 SNXXB，不是 asset_map 的 WRONG

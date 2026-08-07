@@ -1823,7 +1823,15 @@ def _merge_build_row(coin, direction, bucket, um, spot_by_asset,
         row["um_liquidation_price"] = None
         row["unrealized_profit"] = None
 
-    base_asset = (asset_map or {}).get(row.get("coin")) or _merge_base_asset(row.get("coin"))
+    # 现货资产名三级优先（步骤③）：
+    #   1. 任务固化列（随 bucket 从 aggregate_positions 带出）—— 权威、不随快照变
+    #   2. asset_map（当前快照解析）—— 只服务 no_task 行（UM 有仓但无任务记录）
+    #   3. _merge_base_asset —— 快照也未就绪时的诚实回退（bStock 取不到，不臆造）
+    base_asset = (
+        row.get("spot_base_asset")
+        or (asset_map or {}).get(row.get("coin"))
+        or _merge_base_asset(row.get("coin"))
+    )
     real_spot = spot_by_asset.get(base_asset) if base_asset else None
     row["spot_balance"] = fmt_decimal(real_spot) if real_spot is not None else None
     row["spot_balance_value_usdt"] = (

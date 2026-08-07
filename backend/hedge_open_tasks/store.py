@@ -2426,13 +2426,15 @@ class HedgeOpenStore:
             fill_rows = self._conn.execute(
                 "SELECT f.spot_status, f.spot_filled_qty, f.spot_avg_price,"
                 " f.perp_status, f.perp_filled_qty, f.perp_avg_price,"
-                " t.coin, t.direction, t.status"
+                " t.coin, t.direction, t.status,"
+                " t.spot_symbol, t.spot_base_asset"
                 " FROM hedge_open_fill f JOIN hedge_open_task t ON t.id = f.task_id"
                 " ORDER BY f.ts_us ASC, f.id ASC",
             ).fetchall()
             leg_rows = self._conn.execute(
                 "SELECT l.leg, l.exchange_status, l.cumulative_base_qty,"
                 " l.cumulative_quote_amt, t.coin, t.direction, t.status,"
+                " t.spot_symbol, t.spot_base_asset,"
                 " a.cycle_id,"
                 " c.opened_at_us AS cycle_opened_at_us,"
                 " c.closed_at_us AS cycle_closed_at_us"
@@ -2498,11 +2500,18 @@ class HedgeOpenStore:
                     "includes_deleted": False,
                     "cycle_opened_at_us": None,
                     "cycle_closed_at_us": None,
+                    # 步骤③：现货腿身份随桶带出，供 merge 层无快照也能对齐余额。
+                    # 同一桶的所有腿同属一个 coin，身份一致；取首个非空即可。
+                    "spot_symbol": None,
+                    "spot_base_asset": None,
                 },
             )
 
         for row in fill_rows:
             b = _bucket(row["coin"], row["direction"], None)
+            if b["spot_symbol"] is None and row["spot_symbol"]:
+                b["spot_symbol"] = row["spot_symbol"]
+                b["spot_base_asset"] = row["spot_base_asset"]
             if row["status"] == D.STATUS_DELETED:
                 b["includes_deleted"] = True
             if row["spot_status"] == D.LEG_FILLED:
@@ -2536,6 +2545,9 @@ class HedgeOpenStore:
             if _num(row["cumulative_base_qty"]) <= 0:
                 continue
             b = _bucket(row["coin"], row["direction"], row["cycle_id"])
+            if b["spot_symbol"] is None and row["spot_symbol"]:
+                b["spot_symbol"] = row["spot_symbol"]
+                b["spot_base_asset"] = row["spot_base_asset"]
             # 周期戳记取组内一致值（同桶所有腿属于同一 cycle；旧数据 cycle_id
             # NULL 时两者均为 None，输出行保持 null，前端不渲染）。
             b["cycle_opened_at_us"] = row["cycle_opened_at_us"]
@@ -2606,6 +2618,9 @@ class HedgeOpenStore:
                     "includes_deleted_task": b["includes_deleted"],
                     # 持仓周期（设计 v1 §5.2）：桶键第三元 + ISO 起止时间；NULL=无周期。
                     "cycle_id": cycle_id,
+                    # 步骤③：任务固化的现货腿身份（merge 层优先于 asset_map 使用）。
+                    "spot_symbol": b["spot_symbol"],
+                    "spot_base_asset": b["spot_base_asset"],
                     "cycle_opened_at": D.us_to_iso(b["cycle_opened_at_us"]),
                     "cycle_closed_at": D.us_to_iso(b["cycle_closed_at_us"]),
                     "open_basis_rate": "0",
