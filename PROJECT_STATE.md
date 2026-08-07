@@ -361,8 +361,7 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
   静态与并发两条路径的测试都已切到新 kind（否则修复只在慢路径成立）。
 
 - `[CLOSED][2026-08-04]` **双栏流水日志 stage 交付完成，Human 决策：直接合并推送**。review-1（REWORK→修复→复审 ACCEPT）+ review-2（ACCEPT）全过，`rework_count` 1/3；Human 授权合并推送（未做前后端联调，推迟至后续 stage）。遗留后续项见下。
-- `[OPEN][FOLLOW-UP][2026-08-04]` **前后端联调未做（Human 决定先合并，推迟）**。真实 `POST /api/private-ledger/refresh` 连币安拉取从未执行过；review-2 判定联调可放在合并后，且 F-R2-2（fetcher→落库端到端路径未被活体数据验证）建议联调时重点核对 `truncated`/`gaps`/`unparsed_row_count`。Human 表示「后面看有什么问题我再单独开 stage 一并修复」——后续联调/修复 stage 待开。
-- `[OPEN][FOLLOW-UP][2026-08-04]` **微信通知、开单任务状态联动仍为后续项**（Human 2026-08-04 早先决定本轮不做）。
+- `[RESOLVED][2026-08-07]` ~~**前后端联调未做**。真实 `POST /api/private-ledger/refresh` 连币安拉取从未执行过。~~ **已在跑，实测证据（只读查 `data/ledger-flow.sqlite3` 的 `flow_refresh_runs`，2026-08-07 22:0x）**：`manual` 3 次（最后 17:46:11，interest/income 全 ok——即流水页「刷新」按钮打的那条真实路径）、`scheduled` 38 次（最后 22:01:20，32 次双 ok）、`startup_catchup` 3 次；落库 `interest_rows` 91 行 + `um_income_rows` 94 行。该条自 2026-08-04 起即过时，2026-08-07 核实后关闭。
 - `[NOTE][2026-08-04]` **Human 已重启后端服务加载新代码（合并后部署）**。Human 计划在 2026-08-05 00:01（每小时整点后 1 分钟的定时刷新首触发点）观察流水日志页面数据是否自动拉取——这是 fetcher→落库端到端路径（review-2 F-R2-2）的首次活体验证。观察要点：页面「流水日志」看板数据是否出现、状态条「上次刷新」时间是否推进、两栏是否有 error 短码、`coverage` 是否正常（重点 `truncated`/`gaps`/`unparsed_row_count`）。观察结果若有异常，按 Human 决定开后续修复 stage。
 
 ## Open Follow-ups
@@ -455,48 +454,6 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
   API 侦察结论仍有效：PM 路径是 `GET /papi/v1/um/income`（本 key 打 fapi 得 `-2015`），
   按 `(incomeType, tranId)` 幂等、升序、limit≤1000、权重 ~30。证据
   `reports/api-samples/2026-08-um-income-funding-recon-v1/`。
-- `[OPEN][FOLLOW-UP][2026-08-04]` **WeChat notification for new funding-fee
-  increments was explicitly deferred by Human** (not part of this stage); the
-  hourly refresh + increment stats land on-page only. Revisit as a separate
-  task if still wanted.
-- `[OPEN][FOLLOW-UP][2026-08-04]` **Hedge-task status linkage with the flow log
-  was explicitly deferred by Human** ("开单任务状态联动放到后面做"); not part of
-  this stage.
-- `[OPEN][FOLLOW-UP]` **One orphan borrow blocker recovered at the 2026-08-03
-  restart** (`recovered_orphan_blocker_count=1` in the `borrow_execution_mode`
-  startup line, alongside `live_authorized_task_count=26`). Never investigated;
-  noted here so it is not lost now that the startup state itself is recorded as
-  a by-design premise rather than a risk.
-- `[OPEN][FOLLOW-UP]` **O-1 — per-asset balances repeat per row, with no
-  anti-sum treatment.** The 「现货 / 杠杆」 lines are account-level per-asset
-  figures rendered in a table keyed by (coin, direction), so a coin held both
-  forward and reverse repeats the same amounts *and* the same USDT valuations on
-  both rows; summing the column double-counts. The neighbouring 全仓借款 column
-  already solves exactly this — repeats render `同↑` with the title
-  「账户级（按资产）；同币多行请勿竖向相加」 (`frontend/index.html:4934-4945`,
-  `ef53a02`), while the un-deduped `spot_balance` cell dates to `969c455`; both
-  precede `base_sha`. v4.1 §9.2 specified the two lines without dedup, so the
-  merged delivery is not a deviation — but it widened the gap from one amount to
-  two amounts plus two USDT figures, and USDT reads as summable money. Fix =
-  reuse the existing `同↑` treatment on the two balance lines (a two-line
-  frontend change). Human accepted the risk at merge (2026-08-03) and deferred
-  the fix. Detail: Review-2 handoff O-1.
-- `[OPEN][FOLLOW-UP]` **O-3 — the `≈ … U` valuation's price age is invisible.**
-  Those values are priced from `price_map`, but the 对冲开单持仓 section's source
-  clock shows only the earliest of `um_positions` / `unified_balances` /
-  `spot_balances` — v4 §5.3 deliberately keeps `price_map` off panel titles. So a
-  valuation can rest on a quote older than the time displayed above it, with
-  nothing on the page saying so. Pre-existing convention (the balance cards do
-  the same) extended to a new place; not a false statement, just an unshown
-  dimension.
-- `[OPEN][FOLLOW-UP]` **O-6 — missing `free`/`locked` still paints a fake `0`.**
-  `spot_by_asset` uses `free = _merge_num(...) or Decimal(0)`
-  (`backend/hedge_open_tasks/domain.py:1768-1770`, introduced `969c455`, earlier
-  than `base_sha` and untouched by this delivery), so a spot row carrying only
-  `asset` renders 「现货: 0 ≈ — U」 — amount painted as a true zero while its
-  valuation is unknown. This is the one hole in v4.1's 「缺失绝不画 0」 promise.
-  Reaching it requires Binance to omit both fields on a balance row; never
-  observed. Same family as the money-zero tripwire below.
 - `[OPEN][FOLLOW-UP]` **No automated check binds the frontend field names to the
   backend ones.** The four v4.1 balance fields cross the seam by hand-typed name
   in three places (`domain.py` row keys, `test_hedge_api.py::_POSITION_KEYS`,
@@ -620,7 +577,7 @@ three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
   (delivery range `dc4cc6d..0c9c4de` + 收尾提交；A/B/C+前端最终+修复；deepseek review-1 REWORK→修复→复审 ACCEPT、sonnet5 review-2 ACCEPT；`rework_count` 1)
 - recorded_completed_at: `2026-08-04`
 - scope delivered: 双栏流水日志——私有账户 panel-actions 双看板按钮（费率行情|流水日志）、侧栏三项、流水为费率行情页内第二看板（每栏默认最新 20 条、元数据卡片左右排）；后端取数（白名单 13→15 + 两单页 fetcher）+ 本地 SQLite 幂等账本 + 拉取编排/整点调度 + `GET flow-log`/`POST refresh` 路由 + 增量统计与 coverage 诚实性护栏；全量回归 1351 passed、self-check 全绿。
-- closing note: Human 2026-08-04 授权直接合并推送（未做前后端联调，推迟至后续 stage 一并修复）；联调/端到端验证、微信通知、开单任务联动列为后续项。
+- closing note: Human 2026-08-04 授权直接合并推送（未做前后端联调，推迟至后续 stage 一并修复）；联调/端到端验证、微信通知、开单任务联动列为后续项。**（2026-08-07 更新：联调已自然完成——`flow_refresh_runs` 实测 manual 3 次 + scheduled 38 次全在跑；微信通知与开单任务联动经 Human 决定**取消**，不再作为后续项。此行保留为当时的归档事实。）**
 - previous stage: `2026-08-03-hedge-status-account-refresh-v1`
 - archive_ref: `archive/2026-08-03-hedge-status-account-refresh-v1`
   (delivery range `89103303..7f965f82`; v4.1 backend projection `65bdd81`
