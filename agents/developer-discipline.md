@@ -37,6 +37,13 @@ Before implementing:
 - No "flexibility" or "configurability" that wasn't requested.
 - No error handling for impossible scenarios.
 - If you write 200 lines and it could be 50, rewrite it.
+- Before writing new code, look for an existing authority, data source,
+  execution path, or shared root cause to reuse.
+- Once the acceptance criteria and required tests pass, stop expanding scope.
+  Report a real defect discovered afterward, but do not silently fold its fix
+  into the current delivery.
+- An exhaustive scan required by the `AGENTS.md` §8 same-root-cause brake is
+  explicitly authorized scope and is not barred by the preceding stop rule.
 
 Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes,
 simplify.

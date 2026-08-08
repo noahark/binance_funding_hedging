@@ -14,6 +14,12 @@ These overrides have higher priority than the vendored role text below, but lowe
 - Obey `AGENTS.md`, current `status.json`, and the dispatch before this skill text.
 - Use the raw task inputs and acceptance evidence named by the dispatch.
 - Do not record credentials, tokens, cookies, private keys, or expanded auth environments.
+- `agents/developer-discipline.md` is the detailed authority for implementation
+  simplicity. The scalability, microservice, circuit-breaker, bulkhead, DLQ,
+  tracing, SLO, zero-downtime migration, and similar material below describes
+  available capabilities, not default deliverables; apply it only when the
+  dispatch, observed evidence, measured load, or current acceptance checks
+  require it.
 
 # Vendored Role Text
 

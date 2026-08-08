@@ -2,7 +2,8 @@
 
 Read only the section named by the active dispatch packet. `AGENTS.md` has
 higher authority than this file. A role describes responsibility; it does not
-give a model permission to launch another model or expand task scope.
+give a model or its subagents permission to act as the next workflow model or
+expand task scope.
 
 ## Shared Rules
 
@@ -11,7 +12,9 @@ give a model permission to launch another model or expand task scope.
 - A model's self-check against `target_model` is only a warning tripwire. The
   operator's launch record and Bookkeeper verification establish the actual
   model identity.
-- No model may start, call, relay to, or impersonate another model session.
+- In-session subagents follow `AGENTS.md` §3; they do not authorize a new
+  workflow task, role, dispatch, or independent formal review. Human starts
+  each next workflow model session.
 - Stay inside the dispatch file boundary. Stop and report if the boundary is
   insufficient or overlaps another terminal's work.
 - Preserve raw evidence. Do not replace test output, findings, or model output
@@ -196,7 +199,7 @@ be implemented and verified.
   - `agents/skills/software-architect.md` for architecture decisions;
   - another named skill only when the dispatch explains why it is needed.
 - Produce a dispatch packet for the human operator. Do not execute the next
-  model terminal.
+  formal workflow terminal.
 
 ### Stop Point
 
@@ -245,7 +248,7 @@ Do not load both implementation and repair skills for one task.
 ### Stop Point
 
 Stop after implementation, self-tests, artifacts, and `TASK_RESULT`. Do not
-launch a reviewer or assign the next model.
+launch a formal reviewer or assign the next formal workflow actor.
 
 ## Reviewer
 
@@ -300,7 +303,8 @@ Claude Code using GLM is still a Zhipu provider session, not Anthropic.
 ### Routing Hints
 
 Routing hints in model output never replace Bookkeeper verification and
-Human terminal launch. Only the human operator starts a prepared model terminal.
+Human terminal launch. Only the human operator starts a prepared formal
+workflow terminal.
 
 ### Verdict
 
@@ -433,8 +437,8 @@ replace it with a later bookkeeping commit.
 - Prepare the next dispatch packet, then make the final `status.json` revision
   point to that packet. Do not bump the revision again before human delivery.
 - Enforce the `rework_count` rule defined in `AGENTS.md`.
-- Prepare model-facing instructions, but never start or relay to the model
-  terminal.
+- Prepare model-facing instructions, but never start or relay to the next
+  formal workflow terminal.
 
 ### Stop Point
 

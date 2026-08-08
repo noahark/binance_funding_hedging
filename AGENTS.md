@@ -6,7 +6,44 @@ This is the single startup guide. Read it before acting, then load only files re
 
 Ship a usable version quickly and learn from real feedback. Solve problems that exist, have evidence, and have clear acceptance criteria. Do not add abstractions, compatibility layers, or defensive machinery for hypothetical scenarios. Fix a concrete problem with the smallest sufficient change.
 
-Known live exposure, money risk, open gates, missing close capability, observed model mismatch, proven review gaps, cheap validation, and fail-closed safety still require action.
+Known live exposure, concerns protected by §3 and §8, missing close capability,
+observed model mismatch, proven review gaps, cheap validation of an admitted
+risk, and fail-closed safety still require action.
+
+### Scenario Admission
+
+This gate applies only to a model-introduced hypothetical, not to a requirement,
+acceptance check, observed defect, failed test, nonconformance, or missing
+required evidence. It may expand scope or block review only with either (a) a
+current entry, premise, and practical effect supported by a matching evidence
+anchor, or (b) a possible impact on a concern protected by §3 or §8 plus one
+current premise and matching evidence anchor; an incident or complete static
+call chain is not required.
+
+Evidence forms are examples, not an exhaustive checklist, and must match the
+claim: executable or raw evidence; a traceable code path, authoritative external
+contract, or recorded domain fact; or a concrete concurrency, omission, seam,
+unit, precision, multiplier, or rounding argument. A bare future possibility,
+label, branch reference, or "no caller found" is not evidence. Concrete
+uncertainty about protected classification uses the protected path; a bare
+protected-risk label does not. Rejecting a protected scenario as unreachable
+requires counter-evidence.
+
+Evidence of a current protected impact with unresolved reachability is named
+for Human decision without unsupported `REWORK`. A read-only Reviewer unable to
+obtain necessary live or external evidence for a protected concern may leave
+one review-evidence line naming the missing evidence and reopen trigger; it does
+not enter the Human summary or block delivery. Other unadmitted scenarios do
+not change delivery, expand scope, enter the Human summary, or cause `REWORK`;
+retain one only when likely to recur with a concrete reopen trigger. Only
+Human-confirmed cross-stage facts, fixed premises, or accepted risks enter a
+durable authority.
+
+Cheapness alone never admits a scenario. After admission, a cheap check must fit
+the existing test, assertion, or guard structure without new state, contract,
+recovery or operational duty, dependency, or abstraction. Name its invariant
+and false-positive effect; an assertion is a regression guard, not proof, and
+an unowned log is not fail-closed.
 
 ## 2. Harness Design Principle
 
@@ -21,12 +58,25 @@ During a Harness change, each rule, field shape, state vocabulary, routing mappi
 These are Human-authorization gates: the actions below require explicit Human authorization before a model performs them. They are a different classification from the review-topology risk in §8 Review Rules.
 
 1. Money, orders, live gates, credentials, destructive data actions, risk-limit changes, deployment, and external side effects require explicit human authorization.
-2. No model may start, call, relay to, assign, or impersonate another model session. The human operator starts the next terminal from a prepared packet.
-3. An implementer may modify only dispatch-approved files. It must not overwrite the human's or another terminal's work; insufficient scope is a blocker.
-4. An implementation or fix author cannot review its own delivery. Formal review uses a fresh read-only session.
-5. Review isolation follows the model vendor, not the CLI wrapper.
-6. Formal review uses the committed `base_sha..delivery_sha` recorded in `status.json`, never moving `HEAD` or an uncommitted worktree.
-7. A review without an explicit, well-formed `ACCEPT` is non-accepting.
+2. A model may use tool-managed, in-session subagents only for bounded work in
+   its current authorized task. The parent owns their instructions, changes,
+   evidence, and result; subagents inherit its role, authorization, file and
+   write scope, and safety gates, gain no workflow authority, and must not make
+   overlapping edits. This applies recursively. For authorship and formal
+   review, the parent and all its subagents are one delivery team: the actual
+   vendor of every implementation or fix contributor joins the author-provider
+   set, and a Reviewer and all its subagents must be isolated from that full
+   set. A subagent cannot supply an independent review or `ACCEPT`, and a
+   Reviewer's subagents remain read-only.
+3. No model or subagent may act as, start, call, relay to, assign, or impersonate
+   the next or another independent workflow model session. Subagents cannot
+   consume the next dispatch or advance workflow state. The human operator
+   starts each next formal workflow terminal from a prepared packet.
+4. An implementer may modify only dispatch-approved files. It must not overwrite the human's or another terminal's work; insufficient scope is a blocker.
+5. An implementation or fix author cannot review its own delivery. Formal review uses a fresh read-only session.
+6. Review isolation follows the model vendor, not the CLI wrapper.
+7. Formal review uses the committed `base_sha..delivery_sha` recorded in `status.json`, never moving `HEAD` or an uncommitted worktree.
+8. A review without an explicit, well-formed `ACCEPT` is non-accepting.
 
 ## 4. Startup
 
@@ -90,7 +140,7 @@ Detailed model routing and provider identity live only in `agents/roles.md`; thi
 10. Merge, deployment, or live activation requires explicit human authorization.
 
 Models prepare dispatch packets; only the human operator starts the selected
-model terminal.
+next formal workflow terminal.
 
 ## 7. Task Result Protocol
 
@@ -161,7 +211,8 @@ Every formal `[TASK_RESULT v2]` must contain these three Chinese handoff lines:
   it is part of the follow-on sequence. Do not use vague text.
 
 These fields are informational only and never authorize dispatch. The current
-model cannot start, call, relay to, or assign the next model.
+delivery team cannot start, call, relay to, or assign the next formal workflow
+actor.
 
 ### New-Stage Handoff Receipt
 
@@ -204,6 +255,7 @@ This section defines review-topology risk: which task changes require review-1 p
 - **发现的范围三分类**：评审者须为每条 `REWORK` 发现标注三者之一——`in-range`（由本次交付引入或触碰，阻塞交付，走修复轮）；`pre-existing-independent`（引入提交早于 `base_sha` 且不在本次交付文件内，不阻塞，记为后续项）；`pre-existing-release-critical`（同前，但涉及资金、实盘、账务含义或安全，不机械阻塞交付，但阻塞合并/发布，作为“合并前由 Human 决定”的具名事项上交）。`pre-existing-*` 必须附早于 `base_sha` 的引入提交引用（`git blame` 或 `git log -L`），Bookkeeper 封存前核验该引用，无此证据者只是观察；不新增第三个 verdict 值，发现全为范围外时评审者返回 `ACCEPT`，`问题记录` 照常填路径，`修复要求` 指向后续项或 `none`；Human 可明确授权“已知风险暂不修，仍允许合并”，该记录须含问题事实、可能影响、接受理由、临时限制或观察方式、后续复看条件，且仅针对本次合并——部署、实盘操作与风险参数调整仍须单独授权，已发生的实盘风险仍须写入 `PROJECT_STATE.md`。
 - **评审范围口径**：`base_sha..delivery_sha` 区间可能包含本阶段自身的控制提交（dispatch、`status.json`、阶段报告）；它们是评审者的上下文而非受审交付，针对它们的发现按上面的三分类记为范围外。`base_sha` 的定义不变（其权威在 `agents/roles.md` 的 SHA Discipline）。
 - **计划评审**：`HIGH_RISK` 任务在实现开始前须经一次独立的、跨 provider 的只读计划评审；其 verdict 返回 Planner，不触碰 `rework_count`（已由上文 pre-dispatch packet correction 豁免覆盖，不在此重复）。不新增角色、不新增技能，不改 §5 与 §6。
+- **新假设场景证据门**：Reviewer 用自行提出的新假设场景阻塞交付时，须满足 §1 Scenario Admission，并给出与主张匹配的证据锚点、对当前交付的具体影响、以及为何必须本轮修而不能带重开条件留作观察。已有原始证据、验收失败或必需证据缺失不适用本门，仍按既有 fail-closed 规则处理。本门只决定当前范围和 `REWORK`；发现范围三分类、同根因刹车及 `pre-existing-release-critical` 的 Human 上交通道不变。
 
 ## 9. Stage Completion
 
@@ -226,4 +278,4 @@ Human does not review code or technical documents and does not manually edit cod
 
 When Human input is required, use plain Chinese and state: what happened, practical effect, recommended choice, and alternatives. Translate English terms, abbreviations, and statuses on first use. Do not hand raw diffs, JSON, code, or technical-review work to Human.
 
-Starting a prepared model terminal executes an already-made dispatch decision. It does not make Human the technical reviewer, repository editor, or autonomous model router.
+Starting a prepared formal workflow terminal executes an already-made dispatch decision. It does not make Human the technical reviewer, repository editor, or autonomous model router.
