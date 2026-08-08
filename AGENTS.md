@@ -200,7 +200,7 @@ Every formal `[TASK_RESULT v2]` must contain these three Chinese handoff lines:
   it is part of the follow-on sequence. Do not use vague text.
 
 These fields are informational only and never authorize dispatch. The current
-delivery team cannot start, call, relay to, or assign the next formal workflow
+model cannot start, call, relay to, or assign the next formal workflow
 actor.
 
 ### New-Stage Handoff Receipt
