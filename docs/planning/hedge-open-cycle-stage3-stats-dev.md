@@ -11,7 +11,7 @@
 ### 1.1 目标
 
 1. 持仓行三列 `accrued_funding`（累计资金费）、`borrow_interest`（借币利息）、`net_pnl`（周期收益）从占位 `"0"` 变为**周期窗口真值**。
-2. 统计口径（Human 已拍板）：`net_pnl = funding_fee + borrow_interest` 窗口合计；**不含**未实现盈亏、**不含**平仓盈亏。
+2. 统计口径（Human 已拍板，2026-08-08 更正）：`net_pnl = funding_fee − borrow_interest` 窗口合计（`interest_rows.interest` 为币安记的正数成本，原稿误作相加）；**不含**未实现盈亏、**不含**平仓盈亏。
 3. 窗口 = `[cycle.opened_at, cycle.closed_at 或 now]`；迟到费率不特殊处理，ledger 约 1 小时自动刷新后自然可见。
 4. 展示层（`frontend/index.html`）把「暂无」占位替换为真值；已平仓周期行显示窗口合计，活跃周期显示截至 now。
 
@@ -69,7 +69,7 @@ def sum_interest_by_asset(self, asset, start_ms, end_ms) -> str | None:
    interest = ledger_flow_service.sum_interest_by_asset(base_asset, window_us/1000)
    row["accrued_funding"] = funding
    row["borrow_interest"] = interest
-   row["net_pnl"] = (funding+interest) 若两者均可解析；任一 None → None（「暂无」，绝不部分相加）
+   row["net_pnl"] = (funding−interest_usdt) 若两者均可解析；任一 None → None（「暂无」，绝不部分相加；2026-08-08 更正：利息是减项，原稿误作相加）
 2. ledger_flow_service 为 None（未注入）→ 三列保持占位
 3. 单次请求 N 行 × 2 查询：行数少（实盘 9 行），SQLite 本地读可接受；行数多时按请求参数缓存（本轮不做，注明即可）
 ```

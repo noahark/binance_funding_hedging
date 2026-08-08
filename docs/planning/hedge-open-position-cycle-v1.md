@@ -238,7 +238,7 @@ cycle_closed_at  TEXT    -- ISO 或 null（活跃）
 | 资金费 | `um_income_rows`（`symbol` + `time_ms` + `income_type`） | 按 `symbol` + 窗口聚合，**可靠对齐** |
 | 借币利息 | `interest_rows`（资产维度；**实盘 `isolated_symbol` 全空**，`type=PERIODIC`） | 按 `asset` + 窗口聚合：周期没全平，窗口内该资产的利息都算进这个周期。单仓准确；多仓并存时同一资产利息近似归属当前活跃周期（Human 已拍板：只要没全部平仓都算在本次周期内） |
 
-**周期收益（Human 已拍板）**：`funding_fee + borrow_interest` 窗口合计；不含未实现盈亏、不含平仓盈亏。展示层 `net_pnl`/`accrued_funding`/`borrow_interest` 由此填充，未实现盈亏仍独立展示（现有 `unrealized_profit` 字段）。
+**周期收益（Human 已拍板，2026-08-08 更正）**：`funding_fee − borrow_interest` 窗口合计（`interest_rows.interest` 为币安记的正数成本，原文误作相加）；不含未实现盈亏、不含平仓盈亏。展示层 `net_pnl`/`accrued_funding`/`borrow_interest` 由此填充，未实现盈亏仍独立展示（现有 `unrealized_profit` 字段）。
 
 **迟到费率（Human 已拍板）**：不特殊处理极端迟到。窗口用闭区间 `[opened_at, closed_at]`；费率到账晚于窗口但在 ledger 约 1 小时自动刷新窗口内的，自然进入后续展示；超出窗口的极端情况接受近似，不追溯。
 

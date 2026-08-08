@@ -5793,6 +5793,16 @@
           // 展示用：由均价现算，不读后端占位 open_basis_rate:"0"。
           const basisRate = computeHedgeOpenBasisRate(p.spot_avg, p.perp_avg, p.direction);
           const basisCls = classForSignedNumber(basisRate);
+          // 当前资金费率：与市场表同一数据源（snapshot.rows[].futures.last_funding_rate，
+          // 缓存约 60s）与同一格式（3 位小数百分比、正绿负红、原始费率 title）。
+          // 快照未覆盖该币（如 bStock 映射腿）→ —。
+          const frSnapRow = ((state.snapshot && Array.isArray(state.snapshot.rows)) ? state.snapshot.rows : [])
+            .find(r => r && r.symbol === p.coin);
+          const curFundingRate = frSnapRow && frSnapRow.futures ? frSnapRow.futures.last_funding_rate : null;
+          const curFundingCls = classForFundingRate(curFundingRate);
+          const curFundingText = formatFundingRateFixed(curFundingRate, 3);
+          const curFundingTitle = (curFundingRate === null || curFundingRate === undefined || curFundingRate === '')
+            ? '' : ` title="原始费率 ${escapeHtml(curFundingRate)} · 本周期实时预估，结算前会漂移"`;
           // 未实现盈亏：仅当存在真实 UM 持仓且 unrealized_profit 可解析时才有真值；
           // 否则「暂无」（不画 0.00）。R2：真值 0 与缺失必须可区分。
           const hasUm = !(p.um_position_amt === null || p.um_position_amt === undefined || p.um_position_amt === '');
@@ -5800,7 +5810,7 @@
           const pnlReal = hasUm && upnlPresent;
           const pnlCls = pnlReal ? classForSignedNumber(hedgeNum(p.price_pnl)) : '';
           const pnlText = pnlReal ? formatHedgeSigned(p.price_pnl) : '<span class="muted small">暂无</span>';
-          // 功能二：周期净盈亏（资金费+利息换算U）正负着色；无统计（null）不着色。
+          // 功能二：周期净盈亏（资金费−利息换算U，利息是成本/减项）正负着色；无统计（null）不着色。
           const netPnlNum = (p.net_pnl === null || p.net_pnl === undefined || p.net_pnl === '')
             ? NaN : hedgeNum(p.net_pnl);
           const netPnlCls = Number.isFinite(netPnlNum) ? classForSignedNumber(netPnlNum) : '';
@@ -5857,6 +5867,7 @@
           return `
                       <tr>
                         <td class="mono">${escapeHtml(p.coin)}${spotLegLine(p)}</td>
+                        <td class="${curFundingCls}"${curFundingTitle}>${curFundingText}</td>
                         <td class="${dirCls}">${dirLabel}</td>
                         <td class="mono">${umCell(p.um_notional_usdt)}</td>
                         <td class="mono">${hasUm ? maskAmount(p.um_position_amt) : formatHedgeDecimal(p.position_qty)}</td>
@@ -5876,7 +5887,7 @@
                         <td class="small">${markerText}</td>
                       </tr>
                     `;
-        }).join('') : `<tr><td colspan="18"><span class="muted small">暂无开单持仓；任务成交后按币种聚合展示</span></td></tr>`;
+        }).join('') : `<tr><td colspan="19"><span class="muted small">暂无开单持仓；任务成交后按币种聚合展示</span></td></tr>`;
         // Multi-source freshness: earliest of UM + unified + spot; any null → not-ready
         // (never invents a complete time from remaining sources). Prefer snapshot
         // private_account.source_checked_at; fall back to positions account meta.
@@ -5899,6 +5910,7 @@
                 <thead>
                   <tr>
                     <th>币种</th>
+                    <th title="本周期实时预估">资金费率</th>
                     <th>方向</th>
                     <th>仓位价值</th>
                     <th>持仓数量</th>

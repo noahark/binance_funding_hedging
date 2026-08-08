@@ -84,7 +84,7 @@ _POSITION_KEYS = {
     # 三列非真值；无统计行三列为 None（前端「暂无」）。
     "stats_incomplete",
     # Human 2026-08-05：利息按币（asset）计，此为按 price_map 换算的 U 值
-    # （null=无法换算/无统计；真零为 "0"）。net_pnl = 资金费(U) + 利息(U)。
+    # （null=无法换算/无统计；真零为 "0"）。net_pnl = 资金费(U) − 利息(U)（2026-08-08 更正：利息是减项）。
     "borrow_interest_usdt",
 }
 
@@ -826,11 +826,11 @@ def test_positions_stats_true_values_with_ledger(tmp_path):
             assert p["cycle_opened_at"] == D.us_to_iso(t0_ms * 1000)
             assert p["stats_incomplete"] is False
             # 窗口 = [t0, now]：BTCUSDT FUNDING_FEE 0.1+0.3=0.4（U）；
-            # BTC 利息 0.2（币）× 60000 = 12000（U）
+            # BTC 利息 0.2（币）× 60000 = 12000（U，成本，账本记正数）
             assert p["accrued_funding"] == "0.4"
             assert p["borrow_interest"] == "0.2"
             assert p["borrow_interest_usdt"] == "12000.0"          # 0.2 × 60000（Decimal 保留精度）
-            assert p["net_pnl"] == "12000.4"                     # 0.4 + 12000，单位一致
+            assert p["net_pnl"] == "-11999.6"                    # 0.4 − 12000，单位一致（利息是减项）
     finally:
         _Handler.ledger_flow_service = None
 

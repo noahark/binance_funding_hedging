@@ -1123,7 +1123,7 @@ class _Handler(BaseHTTPRequestHandler):
         # 对齐），缺失时回退 _merge_base_asset 旧规则（1000x 不对齐），组合根推导。
         lsvc = self.ledger_flow_service
         # Human 2026-08-05：利息按币（asset）计，资金费按 USDT 计——net_pnl 必须把
-        # 利息换算成 U 再相加，否则单位不一致。价格源 = 公开行情缓存 rows 的
+        # 利息换算成 U 再相减，否则单位不一致。价格源 = 公开行情缓存 rows 的
         # opening_quotes（纯读、无请求）；键 = symbol（如 RSRUSDT），匹配
         # `{base_asset}USDT`。缺失/stale/无该 symbol → 利息 U 值 None（「暂无」），
         # net_pnl 绝不部分相加。注：private_account 不含 price_map（估值只留在
@@ -1182,9 +1182,10 @@ class _Handler(BaseHTTPRequestHandler):
                     if price is not None:
                         interest_usdt = str(Decimal(interest) * Decimal(price))
             row["borrow_interest_usdt"] = interest_usdt
-            # 单位一致：net_pnl = 资金费(U) + 利息换算(U)；任一不可解析 → 「暂无」。
+            # 单位一致：net_pnl = 资金费(U) − 利息换算(U)（利息是成本，账本记正数；
+            # 2026-08-08 Human 更正口径，此前误作相加）；任一不可解析 → 「暂无」。
             if funding is not None and interest_usdt is not None:
-                row["net_pnl"] = str(Decimal(funding) + Decimal(interest_usdt))
+                row["net_pnl"] = str(Decimal(funding) - Decimal(interest_usdt))
             else:
                 row["net_pnl"] = None  # 任一不可解析/无价格 → 「暂无」
         self._send_hedge_open(200, {"positions": merged, "account": account_meta})

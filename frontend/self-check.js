@@ -4615,6 +4615,23 @@ setTimeout(async () => {
       }
       if (privHtml.includes('本地模拟')) throw new Error('持仓表不应再标注本地模拟');
       if (helpers.getHedgePositions().length !== 2) throw new Error('持仓缓存应来自 positions 端点');
+      // 资金费率列（币种与方向之间）：与市场表同一数据源（snapshot.rows）与 3 位小数格式
+      helpers.ingestSnapshot(designFixture);
+      helpers.renderPrivatePanel();
+      const privHtmlFr = elements['private-panel-body'].innerHTML;
+      if (!privHtmlFr.includes('<th title="本周期实时预估">资金费率</th>')) {
+        throw new Error('持仓表缺少「资金费率」列头（本周期实时预估）');
+      }
+      const posTableHtml = privHtmlFr.slice(privHtmlFr.indexOf('对冲开单持仓'));
+      const ausdtFrCell = getRowCell(posTableHtml, 'AUSDT', 1);
+      if (!ausdtFrCell.includes('-0.060%') || !ausdtFrCell.includes('negative')) {
+        throw new Error(`AUSDT 持仓资金费率期望红色 -0.060%，单元格 ${ausdtFrCell}`);
+      }
+      // 快照未覆盖的币（RSRUSDT 不在设计 fixture 快照行）→ —
+      const rsrFrCell = getRowCell(posTableHtml, 'RSRUSDT', 1);
+      if (!rsrFrCell.includes('—')) {
+        throw new Error(`RSRUSDT 无快照行，资金费率期望 —，单元格 ${rsrFrCell}`);
+      }
       // 空持仓 → 空态
       hedgePositionsGetResponse = { status: 200, body: { positions: [], account: { verified: true, error: null, checked_at: null } } };
       await helpers.loadHedgePositions();
@@ -4632,8 +4649,9 @@ setTimeout(async () => {
         {
           coin: 'AUSDT', direction: 'forward', position_qty: 6, spot_avg: '101.3333', perp_avg: 102.3333,
           open_basis_rate: 0.00233, price_pnl: -0.5,
-          // Human 2026-08-05：利息按币计 + 换算 U（borrow_interest_usdt）；net_pnl = 资金费 + 利息U
-          accrued_funding: '0.0614', borrow_interest: '0.02', borrow_interest_usdt: '2.35', net_pnl: '2.4114',
+          // Human 2026-08-05：利息按币计 + 换算 U（borrow_interest_usdt）；
+          // 2026-08-08 更正：net_pnl = 资金费 − 利息U = 0.0614 − 2.35 = -2.2886（利息是成本/减项）
+          accrued_funding: '0.0614', borrow_interest: '0.02', borrow_interest_usdt: '2.35', net_pnl: '-2.2886',
           cycle_id: 'c1', cycle_opened_at: '2026-07-27T06:14:29.000000Z', cycle_closed_at: null,
           stats_incomplete: false, match_status: 'normal'
         },
@@ -4649,13 +4667,18 @@ setTimeout(async () => {
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
       const statsHtml = elements['private-panel-body'].innerHTML;
-      for (const piece of ['0.06', '0.02', '≈ 2.35 U', '+2.41', '统计区间不全', '已完全平仓', '暂无']) {
+      for (const piece of ['0.06', '0.02', '≈ 2.35 U', '-2.29', '统计区间不全', '已完全平仓', '暂无']) {
         if (!statsHtml.includes(piece)) throw new Error(`功能二持仓统计缺少「${piece}」: ` + statsHtml);
       }
-      // net_pnl 正值 positive 着色（AUSDT +2.4114）；资金费正值同样 positive（正=收取绿）。
-      const positiveCount = (statsHtml.match(/class="mono positive">/g) || []).length;
-      if (positiveCount < 2) {
-        throw new Error('资金费列与 net_pnl 列正值均应 positive 着色，实际 ' + positiveCount + ' 处: ' + statsHtml);
+      // 资金费正值 positive 着色（正=收取绿）；net_pnl 负值 negative 着色（−2.2886 → -2.29）。
+      const posStatsHtml = statsHtml.slice(statsHtml.indexOf('对冲开单持仓'));
+      const ausdtFundCell = getRowCell(posStatsHtml, 'AUSDT', 14);
+      if (!ausdtFundCell.includes('positive') || !ausdtFundCell.includes('0.06')) {
+        throw new Error('资金费列正值应 positive 着色: ' + ausdtFundCell);
+      }
+      const ausdtNetCell = getRowCell(posStatsHtml, 'AUSDT', 16);
+      if (!ausdtNetCell.includes('negative') || !ausdtNetCell.includes('-2.29')) {
+        throw new Error('net_pnl 列负值应 negative 着色: ' + ausdtNetCell);
       }
       if (!statsHtml.includes('统计区间不全') || !statsHtml.includes('已完全平仓')) {
         throw new Error('统计区间不全 / 已完全平仓 标记缺失: ' + statsHtml);
@@ -4813,8 +4836,8 @@ setTimeout(async () => {
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
       const r2Body = elements['private-panel-body'].innerHTML;
-      // 价格未实现盈亏是合并表第 8 列（index 7）。
-      const pnlCell = getRowCell(r2Body, 'BTCUSDT', 7);
+      // 价格未实现盈亏是合并表第 9 列（index 8，资金费率列后为 8）。
+      const pnlCell = getRowCell(r2Body, 'BTCUSDT', 8);
       if (!pnlCell.includes('暂无')) {
         throw new Error('R2: 缺 unrealized_profit 时未实现盈亏应渲染「暂无」: ' + pnlCell);
       }
@@ -4843,9 +4866,9 @@ setTimeout(async () => {
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
       let body = elements['private-panel-body'].innerHTML;
-      const noTaskSpot = getRowCell(body, 'MUUSDT', 10);
-      const noTaskPerp = getRowCell(body, 'MUUSDT', 11);
-      const noTaskMark = getRowCell(body, 'MUUSDT', 17);
+      const noTaskSpot = getRowCell(body, 'MUUSDT', 11);
+      const noTaskPerp = getRowCell(body, 'MUUSDT', 12);
+      const noTaskMark = getRowCell(body, 'MUUSDT', 18);
       if (!noTaskSpot.includes('—') || noTaskSpot.includes('0')) {
         throw new Error('G2: no_task 现货均价应显示 — 而非 0: ' + noTaskSpot);
       }
@@ -4866,7 +4889,7 @@ setTimeout(async () => {
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
       body = elements['private-panel-body'].innerHTML;
-      const noUmMark = getRowCell(body, 'XYZUSDT', 17);
+      const noUmMark = getRowCell(body, 'XYZUSDT', 18);
       if (!noUmMark.includes('交易所无仓')) {
         throw new Error('G1: no_um 行应标记「交易所无仓」: ' + noUmMark);
       }
@@ -4882,11 +4905,11 @@ setTimeout(async () => {
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
       body = elements['private-panel-body'].innerHTML;
-      const g5Mark = getRowCell(body, 'RSRUSDT', 17);
+      const g5Mark = getRowCell(body, 'RSRUSDT', 18);
       if (!g5Mark.includes('均价不完整')) {
         throw new Error('G5: 不完整均价应显示「均价不完整」标记: ' + g5Mark);
       }
-      const g5Perp = getRowCell(body, 'RSRUSDT', 11);
+      const g5Perp = getRowCell(body, 'RSRUSDT', 12);
       if (!g5Perp.includes('title=')) {
         throw new Error('G5: 不完整合约均价单元格应带 title 说明: ' + g5Perp);
       }
@@ -6830,14 +6853,14 @@ setTimeout(async () => {
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
       let posBody = elements['private-panel-body'].innerHTML;
-      const balCell = getRowCell(posBody, 'BTCUSDT', 8);
+      const balCell = getRowCell(posBody, 'BTCUSDT', 9);
       if (!balCell.includes('现货: 0.5') || !balCell.includes('≈ 30500.50 U')) {
         throw new Error('现货行须含 amount 与 2 位估值: ' + balCell);
       }
       if (!balCell.includes('杠杆: 0.07') || !balCell.includes('≈ 4270.12 U')) {
         throw new Error('杠杆行须含 amount 与 2 位估值: ' + balCell);
       }
-      const borrowCell = getRowCell(posBody, 'BTCUSDT', 9);
+      const borrowCell = getRowCell(posBody, 'BTCUSDT', 10);
       if (!borrowCell.includes('0.01')) {
         throw new Error('全仓借款列须仍显示 cross_margin_borrowed: ' + borrowCell);
       }
@@ -6849,7 +6872,7 @@ setTimeout(async () => {
       // loadHedgePositions 后 state 仍是上一轮 positions（未再 mock 新值）
       helpers.renderPrivatePanel();
       posBody = elements['private-panel-body'].innerHTML;
-      const balCell2 = getRowCell(posBody, 'BTCUSDT', 8);
+      const balCell2 = getRowCell(posBody, 'BTCUSDT', 9);
       if (balCell2.includes('现货: 9') || balCell2.includes('杠杆: 9')) {
         throw new Error('不得从 snapshot 拼接余额覆盖 positions 行字段: ' + balCell2);
       }
@@ -6872,7 +6895,7 @@ setTimeout(async () => {
       };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      let sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'ETHUSDT', 8);
+      let sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'ETHUSDT', 9);
       if (!sideCell.includes('现货: —') || !sideCell.includes('杠杆: 2')) {
         throw new Error('现货缺失时该侧 — 且杠杆独立: ' + sideCell);
       }
@@ -6892,7 +6915,7 @@ setTimeout(async () => {
       };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'SOLUSDT', 8);
+      sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'SOLUSDT', 9);
       if (!sideCell.includes('现货: 3 ≈ — U') || !sideCell.includes('杠杆: 4 ≈ — U')) {
         throw new Error('有 amount 无 value 须 ≈ — U: ' + sideCell);
       }
@@ -6912,7 +6935,7 @@ setTimeout(async () => {
       };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'ZEROUSDT', 8);
+      sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'ZEROUSDT', 9);
       if (!sideCell.includes('现货: 0') || !sideCell.includes('杠杆: 0')) {
         throw new Error('真零须显示 0 而非 —: ' + sideCell);
       }
@@ -6936,7 +6959,7 @@ setTimeout(async () => {
       };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'NRUSDT', 8);
+      sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'NRUSDT', 9);
       if (!sideCell.includes('现货: —') || !sideCell.includes('杠杆: —')) {
         throw new Error('未就绪两侧均 —: ' + sideCell);
       }
@@ -6957,7 +6980,7 @@ setTimeout(async () => {
       };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'PRIVUSDT', 8);
+      sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'PRIVUSDT', 9);
       if (!sideCell.includes('****') || sideCell.includes('1.5') || sideCell.includes('2.5') || sideCell.includes('100.00')) {
         throw new Error('隐私模式须遮蔽 amount 与估值: ' + sideCell);
       }
