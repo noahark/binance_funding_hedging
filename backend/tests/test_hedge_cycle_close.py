@@ -1159,3 +1159,134 @@ def test_close_task_falls_back_to_table_when_origin_missing(tmp_path):
     row = svc._store._conn.execute(
         "SELECT spot_symbol FROM hedge_open_task WHERE id=?", (new_ctid,)).fetchone()
     assert row["spot_symbol"] == "SNXXBUSDT"  # 回退查表
+
+
+# ===========================================================================
+# 开仓 regular_spot 预划转（Human 2026-08 极简版）：create_task 时从统一账户一次性
+# 划转 1.03 倍所需 USDT 到现货账户；失败→任务卡不创建+前端弹窗。papi 不划转。
+# ===========================================================================
+
+def _rs_snapshot(est_price="100"):
+    """regular_spot 路由的 PreflightSnapshot（mock provider 返回）。"""
+    return D.PreflightSnapshot(
+        spot_filters={"lot_size": {"min_qty": "0.00001", "max_qty": "9000", "step_size": "0.00001"},
+                      "market_lot_size": {"min_qty": "0", "max_qty": "9000", "step_size": "0"},
+                      "notional": {"min_notional": "5", "apply_min_to_market": True}},
+        perp_filters={"lot_size": {"min_qty": "0.001", "max_qty": "1000", "step_size": "0.001"},
+                      "market_lot_size": {"min_qty": "0.001", "max_qty": "120", "step_size": "0.001"},
+                      "notional": {"notional": "50"}},
+        balances={"USDT": Decimal("100000")},
+        position_mode=D.POS_MODE_BOTH, est_price=Decimal(est_price),
+        spot_route=D.SPOT_ROUTE_REGULAR_SPOT,
+    )
+
+
+def _arm_preflight_mock(svc, snap):
+    svc._preflight.check_symbol_legs = lambda coin: {"spot": True, "perp": True}
+    svc._preflight.get_snapshot = lambda *a, **k: snap
+
+
+def test_create_task_regular_spot_transfers_usdt(tmp_path):
+    exe = _CloseSpotExecutor()
+    svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
+    _arm_preflight_mock(svc, _rs_snapshot())
+    status, _ = svc.create_task({"coin": "LINKUSDT", "direction": "forward",
+                                  "mode": "immediate", "single_amount": "1", "target_n": 2})
+    assert status == 201
+    tid = svc._store._conn.execute(
+        "SELECT id FROM hedge_open_task ORDER BY creation_seq DESC LIMIT 1").fetchone()[0]
+    task = svc._store.get_task(tid)
+    need = D.truncate_usdt(
+        D.Decimal(task["q_common"]) * D.Decimal(task["target_n"])
+        * D.Decimal("100") * D.OPEN_SPOT_BUFFER)
+    assert exe.transfers == [("PORTFOLIO_MARGIN_MAIN", "USDT", str(need))]
+
+
+def test_create_task_regular_spot_transfer_failure_aborts(tmp_path):
+    exe = _CloseSpotExecutor(transfer_raise=RuntimeError("insufficient balance"))
+    svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
+    _arm_preflight_mock(svc, _rs_snapshot())
+    with pytest.raises(D.HedgeError) as exc:
+        svc.create_task({"coin": "LINKUSDT", "direction": "forward",
+                         "mode": "immediate", "single_amount": "1", "target_n": 2})
+    assert exc.value.code == "open_spot_transfer_failed"
+    assert svc._store._conn.execute(
+        "SELECT COUNT(*) FROM hedge_open_task").fetchone()[0] == 0
+
+
+def test_create_task_papi_margin_skips_transfer(tmp_path):
+    exe = _CloseSpotExecutor()
+    svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
+    _arm_preflight_mock(svc, D.PreflightSnapshot(
+        spot_filters={"lot_size": {"min_qty": "0.00001", "max_qty": "9000", "step_size": "0.00001"},
+                      "market_lot_size": {"min_qty": "0", "max_qty": "9000", "step_size": "0"},
+                      "notional": {"min_notional": "5", "apply_min_to_market": True}},
+        perp_filters={"lot_size": {"min_qty": "0.001", "max_qty": "1000", "step_size": "0.001"},
+                      "market_lot_size": {"min_qty": "0.001", "max_qty": "120", "step_size": "0.001"},
+                      "notional": {"notional": "50"}},
+        balances={"USDT": Decimal("100000")},
+        position_mode=D.POS_MODE_BOTH, est_price=Decimal("100"),
+        spot_route=D.SPOT_ROUTE_PAPI_MARGIN,
+    ))
+    status, _ = svc.create_task({"coin": "BTCUSDT", "direction": "forward",
+                                  "mode": "immediate", "single_amount": "1", "target_n": 2})
+    assert status == 201
+    assert exe.transfers == []
+
+
+def test_dispatch_unfunded_regular_spot_pauses(tmp_path):
+    """问题1 场景1：建卡时读不到账户（snapshot None，未备款、未固化路由），下单前恢复成
+    regular_spot → 暂停不发单（避免裸空）。"""
+    exe = _CloseSpotExecutor()
+    svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
+    svc._preflight.get_snapshot = lambda *a, **k: None  # 建卡时读不到 → frozen route 缺失
+    svc.create_task({"coin": "LINKUSDT", "direction": "forward", "mode": "immediate",
+                     "single_amount": "1", "target_n": 1})
+    tid = svc._store._conn.execute(
+        "SELECT id FROM hedge_open_task ORDER BY creation_seq DESC LIMIT 1").fetchone()[0]
+    task = svc._store.get_task(tid)
+    svc._live_mode = True
+    svc.set_start_gate(True)
+    exe.dispatch = lambda ctx: (_ for _ in ()).throw(RuntimeError("不应到达下单"))
+    svc._resolve_fresh_preflight = lambda t: service_mod._FreshPreflight(
+        q_common=D.Decimal("1"), position_side_mode=D.POS_MODE_BOTH,
+        snapshot_record={"spot_route": D.SPOT_ROUTE_REGULAR_SPOT},
+        rejection=None, ok=True, fatal=False, stop_reason=None)
+    _, signal = svc._dispatch_one_for_task(task, svc._wall_us())
+    assert signal == D.SIGNAL_SPOT_ROUTE_CHANGED
+    assert svc._store.get_task(tid)["status"] == D.STATUS_PAUSED
+
+
+def test_dispatch_route_change_pauses_before_send(tmp_path):
+    """问题1b：建卡 PAPI、下单时 fresh route 转 regular_spot → 暂停不发单（不裸空）。"""
+    exe = _CloseSpotExecutor()
+    svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
+    _arm_preflight_mock(svc, D.PreflightSnapshot(
+        spot_filters={"lot_size": {"min_qty": "0.00001", "max_qty": "9000", "step_size": "0.00001"},
+                      "market_lot_size": {"min_qty": "0", "max_qty": "9000", "step_size": "0"},
+                      "notional": {"min_notional": "5", "apply_min_to_market": True}},
+        perp_filters={"lot_size": {"min_qty": "0.001", "max_qty": "1000", "step_size": "0.001"},
+                      "market_lot_size": {"min_qty": "0.001", "max_qty": "120", "step_size": "0.001"},
+                      "notional": {"notional": "50"}},
+        balances={"USDT": Decimal("100000")},
+        position_mode=D.POS_MODE_BOTH, est_price=Decimal("100"),
+        spot_route=D.SPOT_ROUTE_PAPI_MARGIN,
+    ))
+    svc.create_task({"coin": "LINKUSDT", "direction": "forward", "mode": "immediate",
+                     "single_amount": "1", "target_n": 1})
+    tid = svc._store._conn.execute(
+        "SELECT id FROM hedge_open_task ORDER BY creation_seq DESC LIMIT 1").fetchone()[0]
+    task = svc._store.get_task(tid)
+    # 模拟 live dispatch：_live_mode + start_gate + executor.dispatch（不应到达下单）
+    svc._live_mode = True
+    svc.set_start_gate(True)
+    exe.dispatch = lambda ctx: (_ for _ in ()).throw(
+        RuntimeError("不应到达下单——路由核验应先暂停"))
+    # fresh preflight 返回 regular_spot（与建卡 PAPI 不一致）
+    svc._resolve_fresh_preflight = lambda t: service_mod._FreshPreflight(
+        q_common=D.Decimal("1"), position_side_mode=D.POS_MODE_BOTH,
+        snapshot_record={"spot_route": D.SPOT_ROUTE_REGULAR_SPOT},
+        rejection=None, ok=True, fatal=False, stop_reason=None)
+    _, signal = svc._dispatch_one_for_task(task, svc._wall_us())
+    assert signal == D.SIGNAL_SPOT_ROUTE_CHANGED
+    assert svc._store.get_task(tid)["status"] == D.STATUS_PAUSED

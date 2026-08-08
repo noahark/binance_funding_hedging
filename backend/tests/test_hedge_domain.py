@@ -345,24 +345,22 @@ def test_compute_preflight_records_route_on_snapshot_record():
     assert pf.snapshot_record["spot_endpoint"] == D.REGULAR_SPOT_ORDER_PATH
 
 
-def test_compute_preflight_regular_spot_uses_standard_spot_usdt_balance():
-    # A regular_spot forward route sizes the USDT need against spot_account_usdt
-    # (the standard spot wallet), NOT PAPI crossMarginFree. Here PAPI has plenty
-    # but the standard spot wallet is short -> insufficient.
+def test_compute_preflight_regular_spot_forward_passes_regardless_of_spot_balance():
+    # Human 2026-08：regular_spot forward 余额门放行——资金在 create_task 时从统一账户
+    # 划转，不校验现货余额。这里现货账户短缺、统一账户充裕 → 仍放行（不拒）。
     snap = D.PreflightSnapshot(
         spot_filters=spot_filters_btcusdt(), perp_filters=perp_filters_btcusdt(),
-        balances={"USDT": Decimal("100000")},  # PAPI crossMarginFree (ignored here)
+        balances={"USDT": Decimal("100000")},  # 统一账户（展示用）
         position_mode="BOTH", est_price=Decimal("50000"),
         spot_route=D.SPOT_ROUTE_REGULAR_SPOT,
         spot_route_reason=D.ROUTE_REASON_COLLATERAL_CAP_PRECHECK,
         spot_route_endpoint=D.REGULAR_SPOT_ORDER_PATH,
-        spot_account_usdt=Decimal("10"),  # standard spot wallet, short
+        spot_account_usdt=Decimal("10"),  # 现货短缺——不再被读
         spot_rate_limit_order=50,
     )
     pf = D.compute_preflight(snap, "LINKUSDT", D.DIR_FORWARD, Decimal("0.5"), 1)
-    # 0.5 * 1 * 50000 = 25000 USDT needed; only 10 available -> insufficient.
-    assert pf.rejection == D.REJECT_INSUFFICIENT_BALANCE
-    assert pf.balance_ok is False
+    assert pf.rejection is None  # 放行（不再因现货短缺拒）
+    assert pf.balance_ok is True
 
 
 # ---------------------------------------------------------------------------

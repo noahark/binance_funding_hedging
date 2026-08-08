@@ -164,6 +164,10 @@ PAUSE_REASON_CLOSE_SPOT_BALANCE = "close_spot_balance"
 # 开单前自动设置合约杠杆（THE -2027 方案 B，Human 拍板）：设置失败 → 任务暂停
 # （fail-closed，不创建 attempt、不发单——避免在错误杠杆下开仓，仓位风险不可控）。
 PAUSE_REASON_LEVERAGE_SET_FAILED = "leverage_set_failed"
+# 开仓下单前路由一致性核验（Human 2026-08 REWORK 问题1）：fresh spot_route 与建卡时
+# 固化的 spot_route 不一致 → 任务暂停（不发单——避免建卡 PAPI 未备款、下单 regular_spot
+# 裸空）。与 leverage 同理：在 _dispatch_one_for_task 内落库暂停，不入 ALL_PAUSE_REASONS。
+PAUSE_REASON_SPOT_ROUTE_CHANGED = "spot_route_changed"
 # Retry-counter task (fix-review1-retry-counter): an order-detail query that
 # stayed inconclusive (5xx / timeout / malformed 2xx) for all LEG_QUERY_MAX_RETRIES
 # attempts. The worker could neither confirm acceptance nor absence, so it pauses
@@ -226,6 +230,9 @@ SIGNAL_ORDER_STATE_UNKNOWN = "signal_order_state_unknown"
 # 直接退出本轮（不重复暂停、不创建 attempt、不发单）。刻意不在
 # SIGNAL_TASK_LOCAL_PAUSE 内（避免 _pause_from_signal 二次暂停）。
 SIGNAL_LEVERAGE_SET_FAILED = "signal_leverage_set_failed"
+# 开仓路由变化暂停（Human 2026-08）：_dispatch_one_for_task 内已落库暂停，worker 收到
+# 直接退出本轮（与 leverage 失败同构）。
+SIGNAL_SPOT_ROUTE_CHANGED = "signal_spot_route_changed"
 
 # Fatal-stop reasons (amendment error-matrix rows 1–2 / breakdown I-4). Recorded
 # on the task as the nullable `stop_reason` alongside `status=stopped`. A fatal
@@ -640,6 +647,11 @@ ENTRIES_LIMIT_MAX = 100
 # symbols are USDT-margined). base asset is derived by stripping this suffix.
 QUOTE_ASSET = "USDT"
 
+# 开仓 regular_spot 预划转缓冲（Human 2026-08）：所有 USDT 默认在统一账户当保证金，
+# create_task 时从统一账户一次性划转 required*OPEN_SPOT_BUFFER 的 USDT 到现货账户（向下
+# 截断两位），缓冲覆盖下单时的价格漂移。仅 open+forward+regular_spot。
+OPEN_SPOT_BUFFER = Decimal("1.03")
+
 # papi order endpoints (record-transport payload only; never a real POST here).
 SPOT_ORDER_PATH = "/papi/v1/margin/order"
 PERP_ORDER_PATH = "/papi/v1/um/order"
@@ -787,6 +799,14 @@ def floor_to_grid(amount: Decimal, grid: Decimal) -> Decimal:
         raise invalid_field("step", "filter step must be positive")
     floored = (amount / grid).to_integral_value(rounding=ROUND_FLOOR)
     return floored * grid
+
+
+def truncate_usdt(amount: Decimal) -> Decimal:
+    """Truncate ``amount`` down to 2 decimal places (USDT 划转金额截断).
+
+    ROUND_FLOOR 对正数 USDT 等同 ROUND_DOWN；划转缓冲宁可少划一分（缺口由 1.03 缓冲
+    吸收），绝不划超。"""
+    return amount.quantize(Decimal("0.01"), rounding=ROUND_FLOOR)
 
 
 # ---------------------------------------------------------------------------
@@ -1246,15 +1266,15 @@ def compute_preflight(
     # and positive by the direction-independent check above, so the forward USDT
     # need can always be sized.
     #
-    # Route-aware (design §3 steps 5–6): a positive-funding ``regular_spot`` route
-    # sizes the USDT need against the STANDARD spot account free USDT
-    # (``spot_account_usdt``), NOT PAPI ``crossMarginFree`` — the two wallets are
-    # distinct and PAPI's crossMarginFree cannot answer what the regular spot
-    # account can buy. Every other path (papi_margin forward USDT, reverse base)
-    # keeps the PAPI balance read. The provider already fail-closed the snapshot
-    # (returned None) when a regular_spot account/rate-limit read failed, so a
-    # non-None snapshot here carries the figure; a shortfall is a readable
-    # insufficient-balance fact distinct from a read failure.
+    # Forward (BUY spot): papi_margin reads unified crossMarginFree USDT as
+    # before. A ``regular_spot`` route (open+forward only — close+forward is
+    # direction-reversed in service and falls into the REVERSE branch below) does
+    # NOT balance-gate here: all USDT lives in the unified account by default
+    # (Human 2026-08), and create_task pre-transfers the 1.03× need from unified
+    # → standard spot right before persisting the task, so the gate would only
+    # see a stale/empty spot wallet. ``available`` carries unified USDT for
+    # display only; the real funding check is the transfer itself (fail-closed
+    # on exchange rejection).
     #
     # Stage 2026-08-06 task 06: the REVERSE branch (SELL direction) is symmetric
     # — a ``regular_spot`` route (the ONLY entry is close+forward selling into
@@ -1266,16 +1286,18 @@ def compute_preflight(
     if direction == DIR_FORWARD:
         required = q_common * target_n * snapshot.est_price
         if snapshot.spot_route == SPOT_ROUTE_REGULAR_SPOT:
-            available = snapshot.spot_account_usdt or Decimal(0)
+            available = snapshot.balances.get(QUOTE_ASSET, Decimal(0))  # 展示用
+            balance_ok = True  # 放行：create_task 时划转 1.03 倍 USDT 到现货
         else:
             available = snapshot.balances.get(QUOTE_ASSET, Decimal(0))
+            balance_ok = available >= required
     else:
         required = q_common * target_n
         if snapshot.spot_route == SPOT_ROUTE_REGULAR_SPOT:
             available = snapshot.spot_account_base_free or Decimal(0)
         else:
             available = snapshot.balances.get(base, Decimal(0))
-    balance_ok = available >= required
+        balance_ok = available >= required
     return PreflightResult(
         q_common=q_common,
         position_side_mode=snapshot.position_mode,

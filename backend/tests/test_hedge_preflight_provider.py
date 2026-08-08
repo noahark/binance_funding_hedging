@@ -577,17 +577,17 @@ def test_routing_regular_spot_rate_limit_read_failure_fails_closed():
     assert _route_provider(pub, priv).get_snapshot("LINKUSDT", _D.DIR_FORWARD) is None
 
 
-def test_routing_regular_spot_insufficient_usdt_is_distinguishable_from_read_failure():
-    # cap hit -> regular_spot; standard spot USDT is short. The snapshot is
-    # returned (read succeeded) and compute_preflight rejects INSUFFICIENT_BALANCE
-    # — a different signal from the None returned on a read failure above.
-    priv = _RoutingPrivate(cap_assets=["LINK"], spot_usdt="1")
+def test_routing_regular_spot_forward_passes_snapshot_returned():
+    # Human 2026-08：regular_spot forward 余额门放行——即使现货 USDT 短缺，snapshot 仍
+    # 返回（读成功），preflight 不拒（资金 create_task 时划转）。区别于上方 read failure
+    # 返回 None。
+    priv = _RoutingPrivate(cap_assets=["LINK"], spot_usdt="1")  # 现货短缺
     pub = _RoutingPublic([_perp_sym("LINKUSDT", "PERPETUAL", "LINK")],
                          {"LINKUSDT": _spot_sym("LINKUSDT", "LINK")})
     snap = _route_provider(pub, priv).get_snapshot("LINKUSDT", _D.DIR_FORWARD)
-    assert snap is not None
+    assert snap is not None  # 读成功（区别于 read failure 的 None）
     pf = _D.compute_preflight(snap, "LINKUSDT", _D.DIR_FORWARD, Decimal("1"), 1)
-    assert pf.rejection == _D.REJECT_INSUFFICIENT_BALANCE
+    assert pf.rejection is None  # 放行（不再因现货短缺拒）
 
 
 # ---------------------------------------------------------------------------

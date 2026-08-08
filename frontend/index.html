@@ -5375,6 +5375,11 @@
               }
               return { ok: false, error: 'insufficient_balance' };
             }
+            if (err.errorCode === 'open_spot_transfer_failed') {
+              showHedgeModal('开仓划转失败',
+                `统一账户 USDT 划转到现货账户失败${payload.need != null ? '（需约 ' + payload.need + ' USDT）' : ''}，请检查统一账户余额或网络后重试。`);
+              return { ok: false, error: 'open_spot_transfer_failed' };
+            }
             if (err.errorCode === 'invalid_field') {
               setErr(`字段无效：${payload.field || 'unknown'}，请检查输入`);
               return { ok: false, error: 'invalid_field' };

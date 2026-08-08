@@ -837,6 +837,41 @@ class HedgeOpenTaskService:
                 "single_amount",
                 f"common-grid quantity rejected: {preflight.rejection}",
             )
+        # 开仓 regular_spot 预划转（Human 2026-08）：所有 USDT 默认在统一账户当保证金，
+        # open+forward+regular_spot 建仓前从统一账户一次性划转 1.03 倍所需 USDT 到普通
+        # 现货账户（缓冲覆盖下单价格漂移、向下截断两位）。划转失败 → 任务卡不创建，
+        # 前端弹窗（统一账户 USDT 不足等）；dry-run（executor 无 universal_transfer）跳过。
+        # 不预查统一账户余额——前端已校验，划转本身即资金核验（fail-closed on reject）。
+        if (
+            snapshot is not None
+            and task_type == D.TASK_TYPE_OPEN
+            and direction == D.DIR_FORWARD
+            and snapshot.spot_route == D.SPOT_ROUTE_REGULAR_SPOT
+        ):
+            xfer = getattr(self._executor, "universal_transfer", None)
+            if xfer is not None:
+                need = D.truncate_usdt(
+                    preflight.q_common * D.Decimal(target_n) * snapshot.est_price
+                    * D.OPEN_SPOT_BUFFER
+                )
+                try:
+                    xfer("PORTFOLIO_MARGIN_MAIN", D.QUOTE_ASSET, str(need))
+                except Exception as exc:  # noqa: BLE001
+                    detail = str(exc)[:200] or type(exc).__name__
+                    print(
+                        f"[HEDGE-CREATE] open_spot_transfer failed coin={coin} "
+                        f"need={need} detail={detail}",
+                        file=sys.stderr, flush=True,
+                    )
+                    raise D.HedgeError(
+                        400, "open_spot_transfer_failed",
+                        f"统一账户 USDT 划转到现货账户失败（需 {D.fmt_decimal(need)} USDT）：{detail}",
+                        extra={"coin": coin, "need": D.fmt_decimal(need)},
+                    )
+                print(
+                    f"[HEDGE-CREATE] open_spot_transfer ok coin={coin} need={need}",
+                    file=sys.stderr, flush=True,
+                )
         task_id = str(uuid.uuid4())
         now_us = self._wall_us()
         print(
@@ -1618,6 +1653,10 @@ class HedgeOpenTaskService:
             # 杠杆设置失败的暂停已由 _dispatch_one_for_task 落库（中文原因 + 错误
             # 详情 + leverage_set_failed 事件）；worker 直接退出本轮——不创建 attempt、
             # 不发单、不二次暂停。
+            return False
+        if signal == D.SIGNAL_SPOT_ROUTE_CHANGED:
+            # 路由变化暂停已由 _dispatch_one_for_task 落库（spot_route_changed 事件）；
+            # worker 直接退出本轮——不发单、不二次暂停（与杠杆失败同构）。
             return False
         return False  # dispatched -> next round resolves/drains this pair
 
@@ -2577,6 +2616,26 @@ class HedgeOpenTaskService:
         attempt_uuid = uuid.uuid4().hex
         spot_cid, perp_cid = _client_order_ids(attempt_uuid)
         task_type = task.get("task_type") or D.TASK_TYPE_OPEN
+        # 备款/路由一致性核验（Human 2026-08 REWORK 问题1）：regular_spot 下单需已备款
+        # （create_task 时划转，固化 frozen route=regular_spot）。若 fresh 要走 regular_spot
+        # 但建卡时不是 regular_spot（建卡 PAPI 未备款、或建卡时 snapshot None 未固化路由
+        # 又恢复成 regular_spot）→ 暂停不发单，避免裸空。papi 下单不需备款，不拦。
+        if live and task_type == D.TASK_TYPE_OPEN:
+            frozen_route = (task.get("preflight_snapshot") or {}).get("spot_route")
+            fresh_route = (snapshot_record or {}).get("spot_route")
+            if (fresh_route == D.SPOT_ROUTE_REGULAR_SPOT
+                    and frozen_route != D.SPOT_ROUTE_REGULAR_SPOT):
+                self._pause_task_local(
+                    task, D.PAUSE_REASON_SPOT_ROUTE_CHANGED,
+                    D.SIGNAL_SPOT_ROUTE_CHANGED, now_us,
+                    kind="spot_route_changed",
+                    pause_zh=f"下单需走普通现货（regular_spot）但建卡时未备款"
+                            f"（建卡路由 {frozen_route}），已暂停避免裸空，请核对后恢复",
+                )
+                return (
+                    self._store.get_task(task["id"]) or task,
+                    D.SIGNAL_SPOT_ROUTE_CHANGED,
+                )
         # 开单前自动设置合约杠杆（THE -2027 方案 B，Human 拍板）：live 开单任务
         # 首个 attempt 发单前设置一次（每任务只设一次）。设置失败 fail-closed——
         # 任务暂停（中文原因 + 错误详情落库）、不创建 attempt、不发单（避免在错误
