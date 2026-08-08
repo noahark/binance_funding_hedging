@@ -64,8 +64,9 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   **活文档**：review-request 已入库 docs/planning；PRD/架构/API 公共契约未改（划转为
   create_task 内部行为，不涉公共市场契约）。
 
-- 挂账 follow-up：本地数量口径（X/Y/Z 方案待定）、close_log 利息 ≈U（价格源注入
-  service 层）。
+- 挂账 follow-up：close_log 利息 ≈U（价格源注入 service 层）。
+  （本地数量口径 X/Y/Z 已由 Human 2026-08-08 关闭：持仓表数量列以交易所实际持仓
+  为主，读不到时红字提示 + drift 标记已兜底，维持现状不再整改。）
 
 ## Live Risks
 
@@ -260,9 +261,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 - `[OPEN][RESIDUAL]` Perp average price can read blank — upstream: Binance dropped
   quote/avgPrice from the UM POST result (2026-07-14), so figures only arrive via
   the order-detail GET. Renders as an em-dash, not a fabricated zero.
-- `[OPEN][DEFERRED]` Three discarded-failure sites, by decision: `service.py:1141`,
-  `:1632`, `live_hedge_executor.py:690-702`. Should these reach the `entries`
-  timeline? Human decides. Audit: `archive/2026-07-unknown-not-zero-v1` file `71-`.
 - `[OPEN][RESIDUAL]` `_rate_limit_stamp_pending` is in-process: a restart mid-stamp
   costs one failure count (pauses one early, fail-closed). Fix = a new column.
 - `[OPEN][RESIDUAL]` The money-zero tripwire is a speed bump, not a proof: five
@@ -299,8 +297,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 - **No active stage.** Current priorities (detail in the sections above):
   1. 1000x 腿量换算 —— 唯一涉及资金路径的待办，须 Human 授权后单开一轮；
-  2. launchd 损坏 —— Human 自 2026-08-03 决定不修（机器重启服务不会自动起来）；
-  3. 本地数量口径 X/Y/Z 方案 —— 待 Human 定。
+  2. launchd 损坏 —— Human 自 2026-08-03 决定不修（机器重启服务不会自动起来）。
 - Nothing open authorizes deployment, Start-gate changes, credentials, or live
   operation. Live actions follow the Live Risks gates above.
 
