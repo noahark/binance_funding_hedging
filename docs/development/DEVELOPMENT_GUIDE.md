@@ -1,6 +1,6 @@
 # Development Guide
 
-Status: as-built workstation with optional live PM borrow, 2026-07-22
+Status: as-built hedge execution system with live order, borrow, and asset-transfer paths, 2026-08-08. Current runtime state and live risks: `PROJECT_STATE.md`.
 
 This file is the canonical approved development guide for the project.
 
@@ -12,8 +12,9 @@ Model drafts must not be written here directly. Drafts belong in
 - `docs/product/PRD.md`: approved product requirements.
 - `docs/api/`: approved backend-to-frontend API contracts.
 - `schemas/api/`: JSON schemas for API payloads and sample validation.
-- `backend/`: stdlib HTTP server, Binance adapters, normalization, private
-  read-only enrichment, and tests.
+- `backend/`: stdlib HTTP server, Binance adapters, normalization, hedge-open
+  task execution (order/close), borrow tasks, ledger flow, asset transfer,
+  private account enrichment, and tests.
 - `frontend/`: same-origin static workstation UI and self-check script.
 - `reports/agent-runs/<stage-id>/`: stage blackboard, model handoffs, reviews,
   and raw transcripts.
@@ -66,6 +67,23 @@ Useful environment variables:
   mode block dispatch with `borrow_credentials_missing`.
 - `APP_BORROW_DB_PATH` / `FUNDING_HEDGING_BORROW_DB_PATH`: SQLite path for durable
   borrow tasks (default `data/borrow-tasks.sqlite3`).
+- `APP_HEDGE_EXECUTOR` / `FUNDING_HEDGING_HEDGE_EXECUTOR`: `disabled` (default,
+  no signed order POST) or `live` (narrow exact-path PAPI margin/UM order
+  adapter). Live mode still requires the global Start gate and a fresh
+  preflight per task.
+- `BINANCE_HEDGE_API_KEY` / `BINANCE_HEDGE_API_SECRET`: dedicated hedge-open
+  credentials. Empty keys in live mode block dispatch (the live adapter never
+  POSTs).
+- `APP_CACHE_REFRESH_TIMEOUT_SECONDS` /
+  `FUNDING_HEDGING_CACHE_REFRESH_TIMEOUT_SECONDS`: bounded wait for the manual
+  「更新缓存」 whole-cycle refresh command (default 20s).
+- `APP_REQUEST_TIMEOUT` / `FUNDING_HEDGING_REQUEST_TIMEOUT`: upstream HTTP
+  client timeout (default 15s).
+- `BINANCE_RECV_WINDOW` / `FUNDING_HEDGING_BINANCE_RECV_WINDOW`: signed-request
+  recvWindow (default 10000 ms).
+- `APP_TOP_N` / `FUNDING_HEDGING_TOP_N`: funding-history top-N (default 20).
+- `APP_CACHE_TTL_SECONDS` / `FUNDING_HEDGING_CACHE_TTL_SECONDS`: whole-snapshot
+  cache TTL (default 60s).
 
 The private channel is deny-by-default. API keys may exist in the environment,
 but signed private GET requests are not used unless
@@ -113,6 +131,12 @@ operator on a stopped server; always take a `.bak` copy first.
 
   ```bash
   PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests -q -p no:cacheprovider
+  ```
+
+- Service-control script tests (launchd plist rendering, status parsing):
+
+  ```bash
+  python3 -m pytest scripts/tests
   ```
 
 - Opening-quotes (paired bookTicker) targeted verification — adapter pair cache,
@@ -190,10 +214,14 @@ No project-wide lint or typecheck command is currently defined.
   `schemas/api/`.
 - Backend code owns Binance request/response sampling, normalization, field
   semantics, and classification rules.
-- Private account access is optional, disabled by default, and restricted to
-  signed GET endpoints on the explicit backend whitelist. There are still no
-  user data streams, websocket order execution, borrow, repay, transfer, or
-  order-placement paths.
+- Private account access is deny-by-default. The whitelist is no longer
+  read-only: it now includes signed write paths — PM borrow
+  (`POST /papi/v1/marginLoan`, gated by `APP_BORROW_EXECUTOR`), hedge open/close
+  orders and account transfers (`backend/services/hedge_open_live_client.py`,
+  gated by `APP_HEDGE_EXECUTOR`), and the asset-transfer endpoint
+  (`POST /api/asset-transfer`, which has no executor gate; see
+  `PROJECT_STATE.md` Live Risks). There are still no repay paths and no user
+  data streams or websocket order execution.
 - Raw samples must be stored under `reports/api-samples/<scope>/<timestamp>/`
   with a sample index that records source endpoint, capture time, and auth
   requirements.

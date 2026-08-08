@@ -1,8 +1,20 @@
 # Symbol Mismatch Analysis — 期现命名差异与对冲匹配
 
+> **状态（2026-08-08）：已解决。** 本问题已于 2026-08-07 由 SPOT_SYMBOL_MAP 纯表方案
+> 收口（`backend/domain/normalize.py:111`，71 条映射，按最新 exchangeInfo 实测生成），
+> 权威记录见 `PROJECT_STATE.md` Open Follow-ups「现货/合约 symbol 别名已统一」条目。
+> 下文 §修复方向 推荐的「数字前缀剥离」方案曾实施（`d717595`），后因真实误配风险
+> （合约 `BUSDT` 误配 BounceBit `BBUSDT`、`1000000MOG` 剥成 `000MOG`）被纯表取代
+> （`8ee6d3c`），**该方案已废弃，勿按此方向重做**。
+> §影响 所述的 1000x 数量错配风险仍然有效：腿量换算本身未做，当前靠建任务
+> fail-closed 拦截止血，见 `PROJECT_STATE.md` Live Risks 与 Open Follow-ups 的
+> 「1000x 腿量换算」条目（待 Human 授权）。
+> 正文其余内容保留为当时的问题记录，其中「未修复 / 未做前缀剥离 / 建议未实现」等
+> 现状描述均已过时。
+
 诊断脚本：`scripts/check_symbol_mismatch.py`（拉币安公共 exchangeInfo，随时可重跑
 获取最新数据：`python scripts/check_symbol_mismatch.py [--quote USDT] [--json]`）。
-本文件是问题记录 + 修复方向，**尚未实现**（未来工作项，独立于 hedge-open stage）。
+本文件保留为问题记录与当时的修复方向；**当前状态见上方状态头与 `PROJECT_STATE.md`。**
 
 ## 问题
 币安 USDⓈ-M 永续合约的部分交易对命名与现货市场不完全一致，系统在匹配现货对冲腿

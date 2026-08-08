@@ -2,6 +2,19 @@
 
 Status: **designed, plan-reviewed, deliberately not built.** 2026-08-02.
 
+> **输入更新（2026-08-08）**：以下输入已被独立解决，**重启本工作包前必须先读
+> `PROJECT_STATE.md` 核对当前状态**——
+> - §3.3 `exposure_alert` 已整个删除（2026-08-07：后端常量 + `ALL_STATUSES` +
+>   `?status=` 过滤器合法值 + 前端 label/badge/两处判定），见 `PROJECT_STATE.md`
+>   对应 `[RESOLVED]` 条目；
+> - §3.4 暂停原因中文已交付（`dd0b3e3`）：前端直读后端 `pause_reason_zh`，孤儿表
+>   `HEDGE_PAUSE_REASON_LABELS` 已删；
+> - §4 终态任务（deleted/done/stopped）的 `order_state_unknown` settlement kind 已改
+>   `order_state_unknown_final`，文案随之如实改写（sticky/永不重发行为未动）；
+> - §4 的「`ALL_PAUSE_REASONS` 七值」已过时：现为 11 个 `PAUSE_REASON_*` 常量
+>   （`backend/hedge_open_tasks/domain.py:142-179`；`ALL_PAUSE_REASONS` 元组收其中 8 个，
+>   `:180-189`）。
+
 Human 于 2026-08-02 决定暂缓：「Task 2 看起来也不是很理想，先保持这样」，随后
 「暂时还不打算做」。本文件是该工作包的**自包含记录**——原 stage
 `2026-07-31-hedge-task-lifecycle-v1` 归档后，重启它只需读本文件。

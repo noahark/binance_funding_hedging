@@ -1,6 +1,7 @@
 # Roadmap
 
-Status: as-built roadmap sync + position-cycle plan, 2026-08-03
+Status: as-built roadmap sync, 2026-08-08. Live detail and acceptance state:
+`PROJECT_STATE.md`.
 
 This file is the canonical approved roadmap.
 
@@ -22,12 +23,13 @@ This file is the canonical approved roadmap.
    in use, with known limitations.** Durable hedge-open tasks, a task-local
    worker, real PAPI order dispatch behind the Start gate, an inline per-attempt
    log, and a backend-merged position table have all shipped. Real orders have
-   been placed. The open items are display honesty and runtime verification, not
-   capability — see Current Focus and `PROJECT_STATE.md`.
+   been placed and closed. Remaining follow-ups are tracked in
+   `PROJECT_STATE.md`; the display-honesty family closed on 2026-08-07.
 8. Accounting, reconciliation, and alerting. Future.
-9. **Position cycle + per-cycle cost statistics. Planned (see below).**
+9. **Position cycle + per-cycle cost statistics. Done — developed,
+   live-validated, Human acceptance 2026-08-05 (see below).**
 
-## Planned: 持仓周期三功能（2026-08 排期）
+## 持仓周期三功能（2026-08 交付，Human 验收通过）
 
 依赖链：**周期表（地基）→ 费率/利息统计（只读消费）→ 平仓记录 + 平仓执行（最重）**。
 功能 2 是 3 和 1 的共同地基；功能 1b（平仓执行）是系统第一次获得主动改仓能力，风险最高，
@@ -49,10 +51,12 @@ This file is the canonical approved roadmap.
 联动、历史页补全（现货均价/成交量/成交额/滑点 %）。持仓表口径：只显示未平仓周期
 （`closed_at_us IS NULL` 过滤）。本地数量口径保持现状（方案 B 已回退，整改方案待 Human 定）。
 四任务交付 + 全部修复已提交 `97ecb7f`（评审 ACCEPT 后）。**2026-08-06 数据清理**
-（三库记录清空、保留表结构，备份 bak-clean-*，交易所全平）——**从头测试起点**；应用服务停止，
-重启用 `scripts/run-server.sh`。前端「假数据 · 预览」探针已删除。**close_gate 实盘启用
-（平仓发单）需 Human 单独明确授权，评审 ACCEPT 不构成该授权**。挂账 follow-up：本地数量与交易所脱节（X/Y/Z 方案待定）、
-MUUUSDT 现货别名配对、close_log 利息 ≈U（价格源注入 service 层）。
+（三库记录清空、保留表结构，备份 bak-clean-*，交易所全平）——**从头测试起点**。服务其后已
+恢复运行（当前由 Human 手动前台启动，2026-08-08 00:13 重启，见 `PROJECT_STATE.md` Live Risks
+的 launchd 条目）。前端「假数据 · 预览」探针已删除。close 已实盘使用（2026-08-07 SNXXUSDT
+全平），`close_gate` 默认开（`store.py` `DEFAULT 1`）。挂账 follow-up：本地数量与交易所脱节（X/Y/Z 方案待定）、
+close_log 利息 ≈U（价格源注入 service 层）。（「MUUUSDT 现货别名配对」已随 `SPOT_SYMBOL_MAP`
+解决：MUUSDT→MUBUSDT 与 MUUUSDT→MUUBUSDT 是两个并存的真实合约，均已收录。）
 
 设计权威：`docs/planning/hedge-open-position-cycle-v1.md`（周期设计 v1；五项口径 + 关闭触发决策已拍板——**不做自动归零观察，关闭由功能三平仓任务触发、人工核实作纠偏**）。
 开发文稿：`docs/planning/hedge-open-cycle-stage2-cycle-dev.md`（功能 ①）、
@@ -62,19 +66,30 @@ MUUUSDT 现货别名配对、close_log 利息 ≈U（价格源注入 service 层
 
 ## Current Focus
 
-Hedge-open display honesty, then runtime verification. Detail and acceptance
-state for every item below live in `PROJECT_STATE.md`.
+The display-honesty family closed on 2026-08-07. Current priorities and every
+item's acceptance state live in `PROJECT_STATE.md` (Live Risks / Open
+Follow-ups).
 
-- **F4 — the position table claims "exchange has no position" without checking.**
-  The fix is fully specified and plan-reviewed, deliberately not implemented.
-  It remains an accepted limitation and release/runtime concern; if restarted,
-  read the archived stage closure record and the Opus5 report §9. The third-path
-  smoke coverage is also a follow-up to archive `49-`.
-- **Task-card pause reasons render 1 of 7 in Chinese** — the frontend never reads
-  the `pause_reason_zh` the backend already returns. Two-line change.
-- **Run the read-only smoke checklist** (`archive/2026-07-31-hedge-task-lifecycle-v1`
-  file `49-`). Never executed; now a hard prerequisite for the next live
-  activation. Nothing in the hedge-open path has runtime evidence.
+- **F4 — RESOLVED 2026-08-07** (`184d76e` + `44ab175`): the position table no
+  longer claims "exchange has no position" when account reads fail; the
+  contract carries `private_account.unavailable_sources`, and a single red
+  title line replaces the per-row fabrication. Live-verified 2026-08-08. The
+  archive `49-` smoke gate it referenced is void (see below).
+- **Task-card pause reasons — RESOLVED 2026-08-07** (`dd0b3e3`): the frontend
+  reads `pause_reason_zh` directly (the backend actually has 11
+  `PAUSE_REASON_*` values, not the 7 originally recorded); the orphan
+  `HEDGE_PAUSE_REASON_LABELS` table was deleted.
+- **The read-only smoke checklist gate — VOIDED by Human 2026-08-07.** It was
+  never executed while live opens, closes, and transfers repeatedly happened
+  around it; live activation no longer has this prerequisite. The checklist
+  remains in `archive/2026-07-31-hedge-task-lifecycle-v1` file `49-` as
+  history only, with no force.
+- **Current priorities** (detail in `PROJECT_STATE.md`): 1000x multiplier
+  leg-quantity conversion — a money-path change awaiting Human authorization;
+  ledger-flow log 20-row display limit hiding checked categories (Q2);
+  multi-task card error hint lost on any re-render (Q3); the broken launchd
+  service (unrepaired by decision); `PROJECT_STATE.md` nearing its 64 KB
+  budget.
 - The lifecycle rework (deadlock fix, five-reason auto-delete, `rate_limited`
   backoff) is designed and deliberately deferred — DEC-2026-08-02-003 and
   `docs/planning/deferred-hedge-task-lifecycle.md`.
@@ -121,6 +136,7 @@ state for every item below live in `PROJECT_STATE.md`.
   (green「已验证可借」still does not mean maxBorrowable was probed).
 - Websocket depth display after operator clicks open.
 - Position mismatch monitoring beyond the current merged table (the single-leg
-  marker under-reports partial imbalance; drift detection reads the wrong
-  account pool and is permanently inert).
+  and drift markers themselves were fixed 2026-08-07 — partial-imbalance
+  tolerance `_EXPOSURE_IMBALANCE_TOLERANCE`, drift sums both accounts;
+  `d7057e3` et al.).
 - Funding, commission, rebate, and borrow-interest accounting.

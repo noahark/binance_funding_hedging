@@ -1,16 +1,19 @@
 # Binance Funding Hedging PRD
 
-Status: current product baseline and approved immediate-open direction
+Status: current product baseline, reflecting delivered live functionality
 
-Last updated: 2026-07-23
+Last updated: 2026-08-08
+
+This document evolves with delivered stages; where it and the code disagree,
+the code and `PROJECT_STATE.md` are authoritative.
 
 ## 1. Product Summary
 
 This product is a locally operated workstation for manually controlled Binance
 funding-rate hedging on a regular Portfolio Margin account. It discovers
 USDT-quoted opportunities, shows account and route information, records
-operator-directed borrow and hedge tasks, and is evolving toward a narrowly
-gated real immediate hedge-open path.
+operator-directed borrow and hedge tasks, and runs a narrowly gated real
+immediate hedge-open and manual-close path that has been live-verified.
 
 It is not an autonomous trading bot. The operator chooses the symbol,
 direction, base-asset amount, number of attempts, allocated margin, and when to
@@ -29,25 +32,40 @@ close, borrow, repay, or transfer assets as a response to an order outcome.
 - Durable SQLite borrow tasks, task/log UI, global Start control, and an
   optional gated live Portfolio Margin borrow executor
   (`POST /papi/v1/marginLoan` when `APP_BORROW_EXECUTOR=live`).
-- Durable SQLite immediate hedge-open task skeleton, API, frontend, task/log
-  views, global Start control, and a one-second scheduler using record/dry-run
-  transport. It does not submit real hedge market orders.
-- A local Python standard-library HTTP server, vanilla-JS frontend, and
-  launchd-based local service management on macOS.
+- Durable SQLite immediate hedge-open tasks with cycles and merged positions:
+  API, frontend, task/log/position views, global Start control, a one-second
+  scheduler, and a gated live executor that submits real PAPI margin and
+  USDⓈ-M market orders (stage `2026-08-06-hedge-order-close-validation`; the
+  record/dry-run transport is removed from production and lives only in
+  `backend/tests/fakes.py`).
+- Manual close tasks, live-verified (a real SNXXUSDT position was fully
+  closed on 2026-08-07; see `PROJECT_STATE.md`).
+- Asset transfer between the unified and regular-spot accounts via
+  `POST /api/asset-transfer`, live-verified with three real transfers
+  (`data/asset-transfer.sqlite3`).
+- A dual-column flow log backed by local SQLite ledgers: borrow interest and
+  UM income (funding fee, commission, realized PnL, transfer) are pulled from
+  Binance and recorded (`data/ledger-flow.sqlite3`).
+- A local Python standard-library HTTP server and vanilla-JS frontend.
+  Service management was launchd-based, but launchd has been broken since
+  2026-08-03 (TCC authorization failure); the service actually runs as a
+  manually started foreground process via `scripts/run-server.sh` (see
+  `PROJECT_STATE.md` Live Risks).
 
 ### 2.2 Not implemented yet
 
-- Real PAPI margin and USDⓈ-M market-order execution for hedge opening.
-- Real order preflight, `orderId` reconciliation, fill accounting, and the
-  immediate-open contract described in section 6.
 - Smooth/WebSocket-gated execution.
-- Manual close, repay, transfer, full holdings reconciliation, or complete
-  funding/fee/interest accounting.
+- Repay workflows and full holdings reconciliation.
 - User-data-stream persistence and any automatic risk response.
+- 1000x multiplier-contract leg-quantity conversion (the six multiplier
+  symbols are currently fail-closed at task creation; the conversion touches
+  the real order-quantity path and awaits explicit human authorization — see
+  `PROJECT_STATE.md` Open Follow-ups).
 
-Implementing a real adapter does not authorize enabling it, turning on the
-durable Start gate, or placing the first real hedge task. Those are explicit
-human actions.
+Implementing a real adapter never authorized enabling it. Live execution has
+since been explicitly human-authorized and is the standing operating premise
+(the Start gate is kept ON; see `PROJECT_STATE.md` Live Risks); gate changes,
+credentials, and first use of any new live path remain explicit human actions.
 
 ## 3. Product Goals
 
@@ -84,8 +102,10 @@ human actions.
 
 ## 6. Approved Immediate Hedge-Open Contract
 
-This section is the current approved product direction. It describes the next
-real-API stage; it does not claim that real hedge POSTs already exist.
+This section is the approved product contract for immediate hedge-open. It is
+implemented and live-verified: real hedge POSTs exist and have been exercised
+under human authorization (stage `2026-08-06-hedge-order-close-validation`;
+see `PROJECT_STATE.md`).
 
 ### 6.1 Operator input and limits
 
@@ -170,10 +190,12 @@ Real hedge POST requires:
 2. Durable global Start enabled.
 3. A runnable task with passing factual preflight.
 4. No browser or unsafe bulk/manual endpoint bypass.
-5. Explicit human authorization before the first real hedge task.
+5. Explicit human authorization before the first real hedge task (granted;
+   live execution is now the standing operating premise — see
+   `PROJECT_STATE.md`).
 
-Manual-close implementation is future product work, not a prerequisite for
-this immediate-open stage or its first human-authorized real task.
+Manual close is delivered as its own task type with its own gate and has been
+live-verified (see section 2.1).
 
 ## 7. Public Route Classification
 
@@ -195,9 +217,13 @@ BSTOCK and spot-only rows are excluded from the current negative-funding route.
 ### 8.1 Current discovery
 
 Public discovery uses Binance spot and UM exchange information, funding data,
-and public quote/depth sources. Optional private enrichment uses a backend
-signed-GET allowlist. Raw samples stay under `reports/api-samples/` with
-credentials redacted.
+and public quote/depth sources. Optional private enrichment uses backend
+deny-by-default allowlists that mix read-only signed GETs with a small set of
+signed POST write paths (order, borrow, transfer) behind gated executors
+(`backend/services/private_client.py`,
+`backend/services/hedge_open_live_client.py`,
+`backend/services/portfolio_margin_borrow_client.py`). Raw samples stay under
+`reports/api-samples/` with credentials redacted.
 
 ### 8.2 Immediate-open implementation requirements
 
@@ -212,9 +238,11 @@ sample or live order is separately authorized evidence.
 
 ### 8.3 Later streams and accounting
 
-Portfolio Margin user streams, spot/UM depth streams, complete funding-income
-ledger, commissions, BNB discount, rebates, borrow interest, and holdings
-reconciliation are future work. They are not current capabilities.
+Borrow interest and UM income (funding fee, commission, realized PnL,
+transfer) are already pulled into the local flow-log ledger
+(`data/ledger-flow.sqlite3`); Portfolio Margin user streams, spot/UM depth
+streams, BNB discount, rebates, and holdings reconciliation remain future
+work and are not current capabilities.
 
 ## 9. UI Requirements
 
@@ -224,9 +252,13 @@ reconciliation are future work. They are not current capabilities.
   quote references, and raw-evidence context.
 - Private account panels when optional signed-read-only enrichment is enabled.
 - Borrow task and log views backed by SQLite.
-- Immediate hedge-open task, log, settings/status, and position views backed by
-  SQLite. The present executor is dry-run/record transport; smooth-open is
-  visibly unavailable for this stage.
+- Immediate hedge-open task, log, settings/status, merged-position, and
+  history-position (`history-view`) views backed by SQLite, with a live,
+  human-gated executor; smooth-open is visibly unavailable.
+- Flow-log view (`flow-log-view`): dual-column borrow-interest / UM-income
+  ledger with refresh and coverage status.
+- Asset-transfer UI: unified ⇄ regular-spot transfers with idempotency key,
+  status lock on `unknown`, and manual-unlock wording.
 
 ### 9.2 Immediate-open additions
 
@@ -244,8 +276,12 @@ or contacts Binance directly.
   domain logic, and `jsonschema` validation where appropriate.
 - Frontend: same-origin static HTML/CSS/vanilla JavaScript with contract
   self-checks and no build step.
-- Persistence: local SQLite for borrow and hedge-open task domains.
-- Runtime: local macOS service management through launchd scripts.
+- Persistence: local SQLite for the borrow, hedge-open, ledger-flow, and
+  asset-transfer domains (`data/*.sqlite3`).
+- Runtime: launchd-based service scripts exist, but launchd has been broken
+  since 2026-08-03 (TCC authorization failure); the service actually runs as
+  a manually started foreground process via `scripts/run-server.sh` (see
+  `PROJECT_STATE.md` Live Risks).
 
 ### 10.2 Future evolution
 
@@ -258,24 +294,30 @@ they are not committed migrations.
 ### 11.1 Accepted baseline
 
 Public discovery, optional private read-only enrichment, live-gated borrowing,
-and the dry-run immediate hedge-open skeleton are accepted repository state.
+live immediate hedge-open, manual close, asset transfer, and the flow-log
+ledger are accepted repository state (delivery history in `PROJECT_STATE.md`).
 
-### 11.2 Active real immediate-open stage
+### 11.2 Real immediate-open stage (delivered)
 
-Acceptance requires the section-6 contract: Decimal/filter handling,
-durable-before-send attempts, concurrent fixed-quantity POST construction,
-orderId/client-ID reconciliation, one-second scheduling, configurable
-consecutive-failure pause, audited cumulative averages, no automatic repair,
-and tests proving zero real POST by default.
+The section-6 contract is delivered and live-verified: Decimal/filter
+handling, durable-before-send attempts, concurrent fixed-quantity POST
+construction, orderId/client-ID reconciliation, one-second scheduling,
+configurable consecutive-failure pause, audited cumulative averages, no
+automatic repair, and tests proving zero real POST by default.
 
-Code review acceptance does not authorize enabling live execution, turning on
-Start, accessing credentials, or placing a first real task.
+Code review acceptance never authorized live use; live execution has since
+been explicitly human-authorized and is the standing operating premise (see
+`PROJECT_STATE.md` Live Risks). Gate changes, credentials, and any new live
+path remain explicit human actions.
 
 ### 11.3 Later stages
 
 - Smooth/WebSocket basis-aware execution.
-- Manual close, repay/transfer workflows, and complete position reconciliation.
-- User data streams and complete funding/fee/borrow-interest accounting.
+- Repay workflows and complete position reconciliation.
+- 1000x multiplier-contract leg-quantity conversion (awaiting explicit human
+  authorization — `PROJECT_STATE.md` Open Follow-ups).
+- User data streams and broader accounting beyond the delivered flow-log
+  ledger.
 - Additional account modes/routes only with fresh evidence and explicit scope.
 
 ## 12. Open Facts And Deferred Decisions

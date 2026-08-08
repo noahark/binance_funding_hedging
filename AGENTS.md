@@ -184,6 +184,8 @@ An implementer may move only its own task from `dispatched` to `reported`. Bookk
 
 Write a verified live incident to `PROJECT_STATE.md` immediately. Never present repository history as a current runtime check.
 
+任何交付收口（含 Human 直接驱动、无 stage 的改动）都必须检查 `docs/` 下的活文档（索引、产品、架构、开发指南、路线图、API 契约）是否因本次交付需要更新并同步之：有 stage 时此义务由 Bookkeeper 按 §9 执行，无 stage 时由在 `PROJECT_STATE.md` 记录收口的模型在收口的同时执行。
+
 ## 8. Review Rules
 
 This section defines review-topology risk: which task changes require review-1 plus review-2. It alone defines the `LOW_RISK` and `HIGH_RISK` review routes, which are a different classification from the Human-authorization gates in §3 Safety Kernel.

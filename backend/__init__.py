@@ -1,5 +1,7 @@
-"""Public-market backend snapshot service.
+"""Funding-hedging backend service.
 
-Phase 1 public data only. No API keys, no signed endpoints, no account
-endpoints, no order/borrow/repay/transfer paths. The service binds 127.0.0.1.
+Public-market snapshot plus human-gated live execution: hedge open/close
+orders, portfolio-margin borrow, and asset transfer behind deny-by-default
+endpoint whitelists and executor switches. Repay and user-data-stream paths
+still do not exist. The service binds 127.0.0.1.
 """

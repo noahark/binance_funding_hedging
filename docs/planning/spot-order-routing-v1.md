@@ -2,6 +2,16 @@
 
 状态：草稿，2026-08-02。本文是后续实现的唯一详细说明；尚未授权改动、开闸、使用凭证或发单。
 
+> **状态（2026-08-08）：该 stage（`2026-08-02-spot-order-routing-cap-display-v1`）已交付
+> 并归档**，下单路由经实盘检验（含 COOKIEUSDT 单腿事故及其修复链）；证据见
+> `archive/2026-08-02-spot-order-routing-cap-display-v1`，行为权威为
+> `docs/api/public-market-contract.md`。正文定格在设计时，后续已被两处有意超越——
+> **读正文前先看 `PROJECT_STATE.md`**：
+> - §3 步骤 1 的现货 pair 解析机制已被 `SPOT_SYMBOL_MAP` 纯表取代
+>   （`backend/domain/normalize.py:111`，2026-08-07）；
+> - §6.4「预检必须每次自己新读」已被 task 05 的「预检读本地缓存（陈旧上限内）+
+>   超龄/缺失实时重读」调整（stage `2026-08-06-hedge-order-close-validation` 及 `8ee6d3c`）。
+
 修订史：
 
 - 初稿（Planner）→ Opus5 计划评审 REWORK（12 项发现）

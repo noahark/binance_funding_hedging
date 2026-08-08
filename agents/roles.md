@@ -258,7 +258,7 @@ Provider identity means the model vendor, not the CLI wrapper:
 | `claude_glm` | `zhipu_glm` |
 | `kimi` | `moonshot` |
 | `codex` / GPT | `openai` |
-| Claude Fable or Opus | `anthropic` |
+| Claude Fable, Sonnet or Opus | `anthropic` |
 | Grok | `xai` |
 | DeepSeek | `deepseek` |
 
@@ -290,7 +290,9 @@ Claude Code using GLM is still a Zhipu provider session, not Anthropic.
 ### Review-2
 
 - Default skill: `agents/skills/reality-checker.md`.
-- Opus 5 is the default review-2 model.
+- `sonnet5` (anthropic) is the default review-2 model (Human decision
+  2026-08-04, DEC-2026-08-04-001, changed from Opus 5 for Claude-quota
+  reasons).
 - Fable5 is used only when Human explicitly selects its separate paid quota.
 - Judge the user's approved requirement, actual delivery effect, evidence,
   operational risk, and release readiness.

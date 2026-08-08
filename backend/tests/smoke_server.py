@@ -63,11 +63,6 @@ def main() -> int:
         print(f"GET / -> HTTP 200, frontend index.html bytes={len(index)}")
         assert len(index) > 0, "frontend index.html empty"
 
-        fixture = get("/fixture/public-market-snapshot.json")
-        print(
-            f"GET /fixture/public-market-snapshot.json -> HTTP 200, bytes={len(fixture)}"
-        )
-
         # Task C: selected-symbol settled-history endpoint (offline -> empty).
         def get_with_status(url: str):
             try:
