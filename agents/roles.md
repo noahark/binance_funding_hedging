@@ -2,8 +2,7 @@
 
 Read only the section named by the active dispatch packet. `AGENTS.md` has
 higher authority than this file. A role describes responsibility; it does not
-give a model or its subagents permission to act as the next workflow model or
-expand task scope.
+give a model permission to act as the next workflow model or expand task scope.
 
 ## Shared Rules
 
@@ -12,9 +11,8 @@ expand task scope.
 - A model's self-check against `target_model` is only a warning tripwire. The
   operator's launch record and Bookkeeper verification establish the actual
   model identity.
-- In-session subagents follow `AGENTS.md` §3; they do not authorize a new
-  workflow task, role, dispatch, or independent formal review. Human starts
-  each next workflow model session.
+- No model may start, call, relay to, or impersonate the next workflow model
+  session. Human starts each next workflow model session.
 - Stay inside the dispatch file boundary. Stop and report if the boundary is
   insufficient or overlaps another terminal's work.
 - Preserve raw evidence. Do not replace test output, findings, or model output

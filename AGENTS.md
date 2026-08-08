@@ -58,25 +58,14 @@ During a Harness change, each rule, field shape, state vocabulary, routing mappi
 These are Human-authorization gates: the actions below require explicit Human authorization before a model performs them. They are a different classification from the review-topology risk in §8 Review Rules.
 
 1. Money, orders, live gates, credentials, destructive data actions, risk-limit changes, deployment, and external side effects require explicit human authorization.
-2. A model may use tool-managed, in-session subagents only for bounded work in
-   its current authorized task. The parent owns their instructions, changes,
-   evidence, and result; subagents inherit its role, authorization, file and
-   write scope, and safety gates, gain no workflow authority, and must not make
-   overlapping edits. This applies recursively. For authorship and formal
-   review, the parent and all its subagents are one delivery team: the actual
-   vendor of every implementation or fix contributor joins the author-provider
-   set, and a Reviewer and all its subagents must be isolated from that full
-   set. A subagent cannot supply an independent review or `ACCEPT`, and a
-   Reviewer's subagents remain read-only.
-3. No model or subagent may act as, start, call, relay to, assign, or impersonate
-   the next or another independent workflow model session. Subagents cannot
-   consume the next dispatch or advance workflow state. The human operator
-   starts each next formal workflow terminal from a prepared packet.
-4. An implementer may modify only dispatch-approved files. It must not overwrite the human's or another terminal's work; insufficient scope is a blocker.
-5. An implementation or fix author cannot review its own delivery. Formal review uses a fresh read-only session.
-6. Review isolation follows the model vendor, not the CLI wrapper.
-7. Formal review uses the committed `base_sha..delivery_sha` recorded in `status.json`, never moving `HEAD` or an uncommitted worktree.
-8. A review without an explicit, well-formed `ACCEPT` is non-accepting.
+2. No model may act as, start, call, relay to, assign, or impersonate the next
+   or another independent workflow model session. The human operator starts
+   each next formal workflow terminal from a prepared packet.
+3. An implementer may modify only dispatch-approved files. It must not overwrite the human's or another terminal's work; insufficient scope is a blocker.
+4. An implementation or fix author cannot review its own delivery. Formal review uses a fresh read-only session.
+5. Review isolation follows the model vendor, not the CLI wrapper.
+6. Formal review uses the committed `base_sha..delivery_sha` recorded in `status.json`, never moving `HEAD` or an uncommitted worktree.
+7. A review without an explicit, well-formed `ACCEPT` is non-accepting.
 
 ## 4. Startup
 
