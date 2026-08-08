@@ -125,6 +125,17 @@ coalesce in mind.
 **Local DB hygiene:** attempt spam and soft-deleted tasks may be cleared by the
 operator on a stopped server; always take a `.bak` copy first.
 
+### Hedge-open regular_spot 预划转 (as of 2026-08-08)
+
+`open+forward+regular_spot` 建仓（collateral-cap / bStock / SPOT_ONLY 标的）时，
+`create_task` 内从统一账户一次性划转 `truncate(q×N×price×1.03)` USDT 到普通现货账户
+（1.03 缓冲覆盖价格漂移，向下截两位）；划转失败则不建卡，前端弹
+`open_spot_transfer_failed`。preflight 对 regular_spot forward 余额门放行；dispatch
+下单前核验 `fresh=regular_spot` 时建卡固化的 frozen route 必须也是 `regular_spot`
+（即已备款），否则暂停不发单防裸空。开完不自动回流，残余 USDT 人工收尾（Human 决断
+不做幂等/tranId/恢复链）。详见
+`docs/planning/open-spot-usdt-transfer-2026-08-08.review-request.md`。
+
 ## Commands
 
 - Backend tests without bytecode/cache churn:

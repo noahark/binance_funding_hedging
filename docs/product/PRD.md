@@ -38,6 +38,10 @@ close, borrow, repay, or transfer assets as a response to an order outcome.
   USDⓈ-M market orders (stage `2026-08-06-hedge-order-close-validation`; the
   record/dry-run transport is removed from production and lives only in
   `backend/tests/fakes.py`).
+- regular_spot 标的(collateral-cap / bStock / SPOT_ONLY)开仓时，`create_task` 自动
+  从统一账户划转 `truncate(q×N×price×1.03)` USDT 到普通现货账户备款；划转失败不建卡，
+  dispatch 下单前核验已备款（frozen route=regular_spot），残余 USDT 不自动回流（人工
+  收尾）。详见 `docs/planning/open-spot-usdt-transfer-2026-08-08.review-request.md`。
 - Manual close tasks, live-verified (a real SNXXUSDT position was fully
   closed on 2026-08-07; see `PROJECT_STATE.md`).
 - Asset transfer between the unified and regular-spot accounts via
