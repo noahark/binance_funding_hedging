@@ -1298,6 +1298,47 @@ def test_resolve_leg_from_query_persists_avg_price(tmp_path):
     store.close()
 
 
+def test_resolve_leg_from_query_retains_known_money_when_later_query_is_unknown(tmp_path):
+    """An incomplete follow-up GET must not erase previously observed fill money."""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "tn", target=1)
+    attempt = store.prepare_attempt(
+        "tn", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"}, D.SPOT_ORDER_PATH,
+        "hgo-att1-p", {"side": "SELL"}, 1_000,
+    )
+    perp_leg = next(l for l in store.list_legs_for_attempt(attempt["id"]) if l["leg"] == "perp")
+    store.resolve_leg_from_query(
+        perp_leg["id"],
+        exchange_status=D.LEG_PARTIALLY_FILLED,
+        order_id="op",
+        base_qty="0.5",
+        quote_amt="25061.725",
+        avg_price="50123.45",
+        fee_amount=None, fee_asset=None,
+        now_us=2_000,
+        terminal=False,
+    )
+    # Binance can omit quote/avgPrice in a later order-detail response. Those
+    # missing fields are unknown, not evidence that the previously known figures
+    # became null.
+    store.resolve_leg_from_query(
+        perp_leg["id"],
+        exchange_status=D.LEG_FILLED,
+        order_id="op",
+        base_qty="0.5",
+        quote_amt=None,
+        avg_price=None,
+        fee_amount=None, fee_asset=None,
+        now_us=3_000,
+        terminal=True,
+    )
+    leg = next(l for l in store.list_legs_for_attempt(attempt["id"]) if l["leg"] == "perp")
+    assert leg["cumulative_quote_amt"] == "25061.725"
+    assert leg["avg_price"] == "50123.45"
+    store.close()
+
+
 def test_avg_price_migration_idempotent_and_preserves_existing_rows(tmp_path):
     # Part B / AC6：加 avg_price 列的 migration 必须幂等（列只加一次、重开不报错），
     # 且既有 leg 行的 cumulative_base_qty / cumulative_quote_amt / order_id / avg_price

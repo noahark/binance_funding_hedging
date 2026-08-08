@@ -1792,12 +1792,16 @@ class HedgeOpenStore:
         carry the exchange business code + its classification (fatal / absent /
         auth) so a fatal reconciled leg can stop the task. ``quote_amt`` may be
         ``None`` — a FILLED UM leg whose order-detail GET came back without a figure
-        records NULL (T1 §1(d): unknown, not a coerced 0)."""
+        stays NULL when no figure was known (T1 §1(d): unknown, not a coerced 0).
+        A later incomplete query must not erase a previously recorded quote or
+        exchange-provided average price."""
         with self._lock, self._conn:
             self._conn.execute(
                 "UPDATE hedge_open_leg SET exchange_status = ?,"
                 " order_id = COALESCE(?, order_id),"
-                " cumulative_base_qty = ?, cumulative_quote_amt = ?, avg_price = ?,"
+                " cumulative_base_qty = ?,"
+                " cumulative_quote_amt = COALESCE(?, cumulative_quote_amt),"
+                " avg_price = COALESCE(?, avg_price),"
                 " fee_amount = ?, fee_asset = ?,"
                 " error_code = ?, error_category = ?,"
                 " dispatch_state = ?, terminal = ?,"
