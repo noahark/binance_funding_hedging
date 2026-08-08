@@ -46,6 +46,24 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   一次性追平到 2026-08-08；AGENTS.md 新增「任何交付收口必须同步 docs 活文档」；
   Update Rule 新增「完结留痕在 git 不进本文」。见 DEC-2026-08-08-001 与 git 历史。
 
+- **[2026-08-08 已收口] regular_spot 开仓自动划转 USDT + dispatch 路由核验**（Human
+  直接驱动，无 stage；交付 `fb59c38..c837722`，细节见 git 历史 +
+  `docs/planning/open-spot-usdt-transfer-2026-08-08.review-request.md`）：
+  所有 USDT 默认放统一账户当保证金；`open+forward+regular_spot` 建仓时 `create_task`
+  内一次性划转 `truncate(q×N×price×1.03)` USDT 到现货，失败不建卡 + 前端弹窗
+  （`open_spot_transfer_failed`）；preflight 对 regular_spot forward 余额门放行
+  （不校验、不缓冲）。**dispatch 下单前核验**：`fresh=regular_spot` 时建卡固化的
+  `frozen route` 必须也是 `regular_spot`（即已备款），否则暂停不发单防裸空——覆盖
+  路由变化（建卡 PAPI→下单 regular_spot）与 snapshot None 建卡后恢复 regular_spot 两
+  场景；`frozen=regular_spot` 即"已划转备款"的间接证据，故无需持久化 tranId。开完不
+  自动回流，残余 USDT 人工收尾。实盘验证 TSTUSDT 两腿成交（划转 15.77→现货买 1000 +
+  合约空 1000→done，残余 ~0.81 人工收尾）。
+  **Human 决断（勿议）**：不查统一账户余额（前端/人工已校验）、不做幂等/tranId/恢复
+  链、不自动回流、本轮不做前端防重——均人工收尾。
+  **review**：codex 预提交 review1 `ACCEPT` + Human 特批本次归档。
+  **活文档**：review-request 已入库 docs/planning；PRD/架构/API 公共契约未改（划转为
+  create_task 内部行为，不涉公共市场契约）。
+
 - 挂账 follow-up：本地数量口径（X/Y/Z 方案待定）、close_log 利息 ≈U（价格源注入
   service 层）。
 
