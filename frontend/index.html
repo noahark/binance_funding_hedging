@@ -1679,6 +1679,9 @@
         // 任务卡内嵌日志缓存（task id → { loading, attempts, error }）：展开时拉取该任务
         // 全部 attempt（GET /api/hedge-open-logs?task_id=…），随既有 tick 重取，不新增定时器。
         hedgeTaskLogs: {},
+        // Q3（2026-08-08）：任务卡操作错误提示入 state——此前只写 DOM，任何重渲染
+        // （他卡操作 / 60s 自动刷新）即抹除。键 = task id，值为错误文案（空串 = 无）。
+        hedgeTaskActionErrors: {},
         // 开单日志页（15 号修正案 §开单日志页 / 16 号拆分 §5）：开单任务旁独立 tab，交互对齐
         // 借币日志页（newest-first、刷新、加载更多）；GET /api/hedge-open-logs 的 entries 数组
         // 是唯一数据源，后端是唯一权威。
@@ -5536,7 +5539,7 @@
               ${showFillAll ? `<button class="btn compact primary" type="button" data-hedge-action="fill-all" data-task-id="${idAttr}"${fillDisabled}>${drillMode ? '立即成交所有（演习）' : '立即成交所有'}</button>` : ''}
               <button class="btn compact" type="button" data-hedge-log-toggle="${idAttr}">${logExpanded ? '收起日志' : '展开日志'}</button>
             </div>
-            <div class="borrow-op-error" id="hedge-task-error-${idAttr}" role="alert" aria-live="polite"></div>
+            <div class="borrow-op-error" id="hedge-task-error-${idAttr}" role="alert" aria-live="polite">${escapeHtml((state.hedgeTaskActionErrors && state.hedgeTaskActionErrors[task.id]) || '')}</div>
             <div class="hedge-task-log-wrap" id="hedge-task-log-${idAttr}"${logExpanded ? '' : ' hidden'}>
               <table>
                 <thead><tr><th>进展</th><th>状态</th><th>尝试时间</th><th>合约订单号</th><th>现货订单号</th><th>合约均价</th><th>现货均价</th><th>合约数量</th><th>现货数量</th><th>错误原因</th></tr></thead>
@@ -5704,6 +5707,9 @@
       }
 
       function showHedgeTaskActionError(id, msg) {
+        // Q3：先写 state（重渲染由此恢复），再同步当前 DOM。
+        if (!state.hedgeTaskActionErrors) state.hedgeTaskActionErrors = {};
+        state.hedgeTaskActionErrors[id] = msg || '';
         const el = document.getElementById(`hedge-task-error-${id}`);
         if (el) el.textContent = msg || '';
       }
@@ -6464,6 +6470,24 @@
         return list.slice(0, lim);
       }
 
+      // Q2（2026-08-08）：默认筛选下保持「最近 20 条」；用户一旦改动筛选（如加勾
+      // 划转），意图就是看这些类型，取消显示上限（后端已封顶 500 条）——否则加勾
+      // 的类型会被全局时间序挤出前 20，勾了也看不到。
+      const FLOW_LOG_DEFAULT_FILTERS = {
+        FUNDING_FEE: true,
+        COMMISSION: true,
+        REALIZED_PNL: false,
+        TRANSFER: false,
+        OTHER: false,
+      };
+
+      function flowLogFiltersAreDefault() {
+        const f = state.flowLogFilters || {};
+        return Object.keys(FLOW_LOG_DEFAULT_FILTERS).every(
+          (k) => !!f[k] === FLOW_LOG_DEFAULT_FILTERS[k]
+        );
+      }
+
       function flowLogSourceZh(src) {
         if (src === 'interest') return '借币利息';
         if (src === 'income') return '合约资金';
@@ -6985,7 +7009,9 @@
         const filteredAll = (Array.isArray(block.rows) ? block.rows : []).filter((r) =>
           flowLogTypeAllowed(r.income_type)
         );
-        const rows = flowLogSliceLatest(filteredAll, FLOW_LOG_DEFAULT_DISPLAY_LIMIT);
+        const rows = flowLogFiltersAreDefault()
+          ? flowLogSliceLatest(filteredAll, FLOW_LOG_DEFAULT_DISPLAY_LIMIT)
+          : filteredAll;
         status +=
           ' · 显示最近 ' +
           String(rows.length) +
@@ -7315,6 +7341,9 @@
         getMarketBoard: () => state.marketBoard,
         getFlowLogPayload: () => state.flowLogPayload,
         setFlowLogPayload: (p) => { state.flowLogPayload = p; state.flowLogError = null; },
+        renderFlowLogIncomeCol,
+        flowLogFiltersAreDefault,
+        getFlowLogFilters: () => state.flowLogFilters,
         getFlowLogError: () => state.flowLogError,
         getFlowLogPollId: () => flowLogPollId,
         getFlowLogLoading: () => state.flowLogLoading,
@@ -7437,6 +7466,8 @@
         setHedgeTaskFilter,
         getHedgeTaskFilter: () => state.hedgeTaskFilter,
         getHedgeTasks: () => state.hedgeTasks,
+        showHedgeTaskActionError,
+        getHedgeTaskActionErrors: () => state.hedgeTaskActionErrors,
         getHedgePositions: () => state.hedgePositions,
         getHedgeSettings: () => state.hedgeSettings,
         getHedgeModal: () => state.hedgeModal,
@@ -7460,6 +7491,7 @@
           state.hedgeLogsError = null;
           state.hedgeLogExpanded = new Set();
           state.hedgeTaskLogs = {};
+          state.hedgeTaskActionErrors = {};
           updateHedgeTaskNav();
         }
       };

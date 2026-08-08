@@ -6269,6 +6269,96 @@ setTimeout(async () => {
       console.log('[PASS] 流水日志 C+v2：panel-actions 双看板、侧栏移除、同页切换、GET/POST/轮询/护栏');
     }
 
+    // 98b. Q2 流水筛选回显：默认筛选保持「最近 20 条」；用户改动筛选（加勾划转）后
+    //     取消显示上限——被全局时间序挤出前 20 的划转记录勾了就能看到。
+    {
+      // 前序测试勾选过「已实现盈亏」——先把五个勾选框恢复到默认选择。
+      [
+        ['flow-log-filter-funding', true],
+        ['flow-log-filter-commission', true],
+        ['flow-log-filter-realized', false],
+        ['flow-log-filter-transfer', false],
+        ['flow-log-filter-other', false],
+      ].forEach(([id, on]) => {
+        const box = document.getElementById(id);
+        box.checked = on;
+        (box.listeners.change || []).forEach(h => h());
+      });
+      const payload = buildMockFlowLogPayload();
+      // 25 行收入流水里把第 22、24 位（0 基）改成 TRANSFER——默认上限 20 之外。
+      payload.um_income.rows[22].income_type = 'TRANSFER';
+      payload.um_income.rows[22].income = '50.00000000';
+      payload.um_income.rows[24].income_type = 'TRANSFER';
+      payload.um_income.rows[24].income = '1.00000000';
+      helpers.setFlowLogPayload(payload);
+      if (!helpers.flowLogFiltersAreDefault()) throw new Error('初始筛选应为默认');
+
+      // 默认筛选（资金费+手续费）：仍是最多 20 条，看不到划转。
+      helpers.renderFlowLogIncomeCol(payload);
+      const bodyDefault = document.getElementById('flow-log-income-body').innerHTML;
+      const rowsDefault = (bodyDefault.match(/<tr>/g) || []).length - 1;
+      if (rowsDefault !== 20) throw new Error('默认筛选应显示 20 条，实际 ' + rowsDefault);
+      if (bodyDefault.includes('划转')) throw new Error('默认筛选下不应出现划转行');
+      const statusDefault = document.getElementById('flow-log-income-status').textContent || '';
+      if (!statusDefault.includes('显示最近 20 条')) throw new Error('默认状态行文案: ' + statusDefault);
+
+      // 加勾划转（零请求，只改 state）→ 取消上限，全部 25 条含 2 条划转。
+      const markQ2 = fetchCallLog.length;
+      const transferBox = document.getElementById('flow-log-filter-transfer');
+      transferBox.checked = true;
+      (transferBox.listeners.change || []).forEach(h => h());
+      if (fetchCallLog.length !== markQ2) throw new Error('改动筛选不得 fetch');
+      if (helpers.flowLogFiltersAreDefault()) throw new Error('改动后不应再判定为默认筛选');
+      helpers.renderFlowLogIncomeCol(helpers.getFlowLogPayload());
+      const bodyChecked = document.getElementById('flow-log-income-body').innerHTML;
+      const rowsChecked = (bodyChecked.match(/<tr>/g) || []).length - 1;
+      if (rowsChecked !== 25) throw new Error('加勾后应显示全部 25 条，实际 ' + rowsChecked);
+      const transferRows = (bodyChecked.match(/>划转</g) || []).length;
+      if (transferRows !== 2) throw new Error('加勾后应看到 2 条划转，实际 ' + transferRows);
+
+      // 取消勾选回到默认 → 恢复 20 条上限。
+      transferBox.checked = false;
+      (transferBox.listeners.change || []).forEach(h => h());
+      if (!helpers.flowLogFiltersAreDefault()) throw new Error('取消后应回到默认筛选');
+      helpers.renderFlowLogIncomeCol(helpers.getFlowLogPayload());
+      const bodyBack = document.getElementById('flow-log-income-body').innerHTML;
+      if ((bodyBack.match(/<tr>/g) || []).length - 1 !== 20) throw new Error('回到默认应恢复 20 条');
+
+      helpers.setFlowLogPayload(null);
+      console.log('[PASS] Q2 流水筛选回显：默认 20 条上限 / 改动筛选取消上限（加勾划转可见）/ 恢复默认恢复上限 / 零请求');
+    }
+
+    // 98c. Q3 任务卡错误提示入 state：他卡操作 / 60s 自动刷新引发的重渲染不再抹除。
+    {
+      helpers.resetHedgeStateForTest();
+      const t = mockHedgeTask({ id: 'h-q3-1', coin: 'AUSDT', direction: 'forward' });
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [t] } };
+      await helpers.loadHedgeTasks();
+      helpers.renderHedgeTasks();
+      const q3msg = '任务状态不允许该操作（可能已删除、已完成、已终止或存在单腿敞口）';
+      helpers.showHedgeTaskActionError('h-q3-1', q3msg);
+      // 立即路径：state 写入 + 惰性 mock 元素 textContent 同步（真实浏览器中即卡片
+      // 错误 div 的即时更新）。
+      if ((helpers.getHedgeTaskActionErrors() || {})['h-q3-1'] !== q3msg) {
+        throw new Error('Q3 错误提示应写入 state');
+      }
+      if (document.getElementById('hedge-task-error-h-q3-1').textContent !== q3msg) {
+        throw new Error('Q3 错误提示应立即同步 DOM');
+      }
+      // 核心回归：模拟他卡操作 / 自动刷新引发的全量重渲染——提示必须从 state 恢复。
+      helpers.renderHedgeTasks();
+      if (!elements['hedge-task-list'].innerHTML.includes(q3msg)) {
+        throw new Error('Q3 重渲染后错误提示被抹除');
+      }
+      // 操作成功（空串）→ 提示清除，重渲染后也不残留。
+      helpers.showHedgeTaskActionError('h-q3-1', '');
+      helpers.renderHedgeTasks();
+      if (elements['hedge-task-list'].innerHTML.includes(q3msg)) {
+        throw new Error('Q3 清除后不应残留提示');
+      }
+      console.log('[PASS] Q3 任务卡错误提示入 state：重渲染不抹除 / 成功即清除');
+    }
+
     // 99. v0.9 / v4.1 §9.1 collateral_cap 纯展示：徽标仅在「借贷状态 / 资产」列三态 +
     //     不适用 + 缺键；摘要截至时间；不进 REQUIRED；不驱动排序/过滤/按钮；标的列零徽标；bStock 用 cap.asset。
     {

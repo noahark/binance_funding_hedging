@@ -231,12 +231,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   `1000000` 前缀（`1000000MOG`——d717595 的 `base[4:]` 正是在它上面剥成 `000MOG` 的），
   倍率应随表逐条声明，新增条目时由 `scripts/check-spot-symbol-map.py` 一起校验。
 
-- `[OPEN][2026-08-07]` **Q2 流水勾选「划转」不回显**：数据在（2 条 TRANSFER），
-  是显示上限 20 条 + 全局时间序把它挤到第 33 位；只勾划转能看到、默认基础上加勾
-  看不到。
-- `[OPEN][2026-08-07]` **Q3 多任务卡回显**：错误提示只写 DOM 未入 state，任何重
-  渲染（他卡操作 / 60s 自动刷新）即抹除；按钮无 pending 态；每次 mutate 触发
-  3 个 GET + 2 次全量 DOM 重建。
 - `[OPEN][FOLLOW-UP]` **Manual-restart logs land in a session scratchpad.** The
   2026-08-03 restart wrote stdout/stderr to a Claude session scratchpad path,
   which is temporary. Until the launchd service is repaired (see Live Risks),
@@ -287,9 +281,8 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 - **No active stage.** Current priorities (detail in the sections above):
   1. 1000x 腿量换算 —— 唯一涉及资金路径的待办，须 Human 授权后单开一轮；
-  2. Q2 流水 20 条上限 / Q3 多任务卡提示丢失 —— 纯体验项，随时可做，无风险；
-  3. launchd 损坏 —— Human 自 2026-08-03 决定不修（机器重启服务不会自动起来）；
-  4. 本地数量口径 X/Y/Z 方案 —— 待 Human 定。
+  2. launchd 损坏 —— Human 自 2026-08-03 决定不修（机器重启服务不会自动起来）；
+  3. 本地数量口径 X/Y/Z 方案 —— 待 Human 定。
 - Nothing open authorizes deployment, Start-gate changes, credentials, or live
   operation. Live actions follow the Live Risks gates above.
 

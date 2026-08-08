@@ -4,7 +4,9 @@
 - 执笔模型：**claude-opus-5**（Claude Opus 5）
 - 性质：P1/P2 为**已交付修复**（含测试）；Q1–Q4 为**摸排落档，未改代码**
 - **状态（2026-08-08）**：Q1 已修复并实盘验证（见 PROJECT_STATE 的
-  symbol-identity-unification 条目）；Q2/Q3 未处理；**Q4 已交付（2026-08-07 晚）**。
+  symbol-identity-unification 条目）；**Q2/Q3 已修复（2026-08-08，前端小修轮：
+  Q2 筛选改动后取消 20 条显示上限、Q3 错误提示入 state 跨重渲染保持）**；
+  **Q4 已交付（2026-08-07 晚）**。
   本文 Q1「影响」第 2 条含一处已订正的错误表述，详见该处订正块。
 - **Q4 最终形态与本文推荐方案不同（Human 2026-08-07 晚定稿）**：前端**零请求**，
   全部沿用后端 account 缓存快照——USDT 用账户级 `total_available_balance_usdt`、
@@ -25,8 +27,8 @@
 | P1 | 开单任务 `preflight_incomplete` | 缓存生产 1800s vs 消费 600s 错配，每周期 20 分钟死区 | ✅ 已修 |
 | P2 | 手动「更新缓存」对 cap 列表无效 | `force_account_panels` 不覆盖 `restricted_asset` | ✅ 已修 |
 | Q1 | bStock 现货展示不匹配 | `_merge_base_asset` 只剥 USDT，不加 bStock 的 `B` 后缀 | ✅ 已修+实盘验证 |
-| Q2 | 流水勾选「划转」不回显 | 显示上限 20 条 + 全局时间序，TRANSFER 排在第 33 位 | 📋 待修 |
-| Q3 | 多任务卡同时启动回显异常 | 错误提示只写 DOM 不入 state，任何重渲染即抹除 | 📋 待修 |
+| Q2 | 流水勾选「划转」不回显 | 显示上限 20 条 + 全局时间序，TRANSFER 排在第 33 位 | ✅ 已修（2026-08-08） |
+| Q3 | 多任务卡同时启动回显异常 | 错误提示只写 DOM 不入 state，任何重渲染即抹除 | ✅ 已修（2026-08-08） |
 | Q4 | 统一账户可转出额不准 | `cross_margin_free` 非最大可转出，缺 `maxWithdraw` 数据源 | ✅ 已交付（2026-08-07 晚） |
 
 ---

@@ -86,10 +86,8 @@ Follow-ups).
   history only, with no force.
 - **Current priorities** (detail in `PROJECT_STATE.md`): 1000x multiplier
   leg-quantity conversion — a money-path change awaiting Human authorization;
-  ledger-flow log 20-row display limit hiding checked categories (Q2);
-  multi-task card error hint lost on any re-render (Q3); the broken launchd
-  service (unrepaired by decision); `PROJECT_STATE.md` nearing its 64 KB
-  budget.
+  the broken launchd service (unrepaired by decision). (Q2 flow-log display
+  cap and Q3 task-card error hint were fixed 2026-08-08.)
 - The lifecycle rework (deadlock fix, five-reason auto-delete, `rate_limited`
   backoff) is designed and deliberately deferred — DEC-2026-08-02-003 and
   `docs/planning/deferred-hedge-task-lifecycle.md`.
