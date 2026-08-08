@@ -22,9 +22,11 @@ human-gated execution (hedge open/close, borrowing, and asset transfer):
    whitelisted private signed channels: read-only GETs for account, balance,
    position, borrowability, and borrow-cost enrichment
    (`backend/services/private_client.py`), plus explicitly whitelisted POST
-   writes for orders, borrowing, and transfer, reachable only through gated
-   executors (`backend/services/hedge_open_live_client.py`,
-   `backend/services/portfolio_margin_borrow_client.py`).
+   writes: orders and borrowing are reachable only through gated executors
+   (`backend/services/hedge_open_live_client.py`,
+   `backend/services/portfolio_margin_borrow_client.py`), while
+   `POST /api/asset-transfer` has no executor gate — `confirm: true` is the
+   only threshold (accepted exposure, `PROJECT_STATE.md` Live Risks R1).
 3. Backend serves the normalized snapshot from
    `GET /api/public-market/snapshot`.
 4. Frontend consumes only the backend snapshot contract. It does not call
@@ -50,8 +52,9 @@ future contract stage.
 - No frontend component calls Binance directly.
 - The private channels are disabled by default and, when enabled, are limited
   to explicit deny-by-default whitelists: signed GETs for reads, plus a small
-  set of signed POST write paths (order, borrow, transfer) reachable only
-  through gated executors.
+  set of signed POST write paths — order and borrow behind gated executors;
+  the asset-transfer endpoint is not executor-gated (`confirm: true` only,
+  accepted exposure, `PROJECT_STATE.md` Live Risks R1).
 - Live trading side effects exist and are human-gated: hedge open/close tasks
   with a 1s scheduler and close worker (`backend/hedge_open_tasks/`), borrow
   tasks (`backend/borrow_tasks/`), the interest and UM income ledger

@@ -297,17 +297,13 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 - stage: `2026-08-06-asset-transfer-live-v1`
 - archive_ref: `archive/2026-08-06-asset-transfer-live-v1`
-  (delivery range `bb47d02..bbe81b0` + 各轮封存；基线 `8e17027` + T1 `1f91241` + 修复轮 `ce2569e` +
-  T2 `036fcd1` + UUID 修复轮 `bbe81b0`；review-1 deepseek 兼任（Human 越门）R1-R5 → R1 接受现状、
-  R2 转 T2、R3 不修、R4/R5 修复；无 review-2（Human 越门）；T1 `rework_count` 1、T2 `rework_count` 1)
+  (delivery range `bb47d02..bbe81b0` + 各轮封存；T1/T2 `rework_count` 各 1；
+  review-1 deepseek 兼任、无 review-2，均 Human 越门)
 - recorded_completed_at: `2026-08-07`
-- scope delivered: 资产互转真实划转前后端打通——`POST /api/asset-transfer`（复用
-  `universal_transfer` 本体零改动、`client_request_id` 唯一索引幂等、超时/5xx 记
-  `unknown` 不重试、R5 状态码人话映射 418/429→`unknown`）；前端接线（UUID 幂等键
-  前端生成、只认 `body.status`、`unknown` 锁定+「我已核对」解锁、成功后刷快照缓存）；
-  实盘首批三笔真实划转 `succeeded`（1+50+50 USDT 带交易所流水号）。
-- closing note: Human 2026-08-07 实盘验收通过并授权合并推送（`bb47d02..b98ad4f` +
-  记录提交 `4d0fd44` 推送 origin）。后续项见 Live Risks R1 条与 Open Follow-ups。
+- outcome: 资产互转真实划转前后端打通，实盘首批三笔真实划转 `succeeded`
+  （1+50+50 USDT 带交易所流水号）；Human 实盘验收通过并授权合并推送。
+- follow-ups: 见 Live Risks R1 条与 Open Follow-ups（R3 `pending` 卡死不修、
+  仅 `unified→spot` 成功路径有实盘证据）。
 - previous stage: `2026-08-06-hedge-order-close-validation` —— 下单/平仓链路实盘验收
   通过，合并 main（`f153cdc..64f0051`）。归档 `archive/2026-08-06-hedge-order-close-validation`。
 - previous stage: `2026-08-04-dual-ledger-flow-log-v1` —— 双栏流水日志。归档

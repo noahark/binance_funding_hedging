@@ -178,6 +178,11 @@ resolves only when it is itself `TRADING`:
    `BREAK`/`HALT`) -> `spot.exists = false`, `spot.match_type = null`, route
    `PERP_ONLY_EXCLUDED`.
 
+> SUPERSEDED 2026-08-08 by the Spot-Leg Identity Amendment (v0.14, end of this
+> file): the rule-2 string-constructed alias no longer exists; resolution is
+> exact -> explicit `SPOT_SYMBOL_MAP` -> `(None, None)`. This passage stays as
+> history.
+
 Consequences (driven entirely by the existing classifier, unchanged this stage):
 
 - if the alias spot pair exists and public `isMarginTradingAllowed=true`, the row
@@ -500,6 +505,10 @@ candidate row falls through to position 4 (`PRIVATE_BORROW_VALIDATION_REQUIRED`)
 - `exact_symbol`
 - `bstock_b_suffix_alias`
 
+> SUPERSEDED 2026-08-08 by v0.14 (end of this file): the enum gained
+> `multiplier_strip_alias`, and the values now come from the explicit
+> `SPOT_SYMBOL_MAP`, not from any constructed-alias rule.
+
 ## Frontend Integration Rules
 
 - Kimi must consume only `GET /api/public-market/snapshot` or matching fixture
@@ -627,9 +636,10 @@ Authority order: `10-design.md` > this contract section.
 
 `backend/services/private_client.py:WHITELIST` maps `(GET, exact-path)` pairs
 to hardcoded base URLs (anti-injection); that dict is the sole live authority
-for the entry list and its count — 16 entries as of 2026-08-08 (the v0.12
-flow-log sources and the v0.16 `/papi/v1/margin/maxWithdraw` were added after
-this amendment froze at 12; do not restate the number anywhere else). This
+for the entry list and its count — 16 entries as of 2026-08-08 (added after
+this amendment froze at 12: E3b `/papi/v1/account`, the two v0.12 flow-log
+sources, and the v0.16 `/papi/v1/margin/maxWithdraw`; do not restate the
+number anywhere else). This
 amendment added: E2/E2b/E5 (sapi →
 `api.binance.com`), E6 (`/api/v3/account` → `api.binance.com`), E3/E4 (→
 `papi.binance.com`), and the discovery-only E1/E1b (registered, **not** called by
@@ -1303,6 +1313,11 @@ rule (strip the `USDT` suffix; the 1000x multiplier prefix is NOT stripped, so
 `1000PEPEUSDT` does NOT auto-align to the spot/unified asset `PEPE` — the
 honest "no automatic alignment" outcome is unchanged).
 
+> SUPERSEDED 2026-08-08 by v0.14 (end of this file): balance alignment now
+> follows the task-frozen identity first (`spot_base_asset`), falling back to
+> the asset map and only then to the `_merge_base_asset` suffix strip as the
+> honest last resort.
+
 ### null / true-zero semantics
 
 - `private_account.verified = false` or the account not ready: all four account
@@ -1708,9 +1723,13 @@ regression.
 
 The "Frontend Integration Rules" line above ("or matching fixture JSON
 generated from this schema") predates reality:
-`frontend/fixture/public-market-snapshot.json` was ORPHANED — neither the
-frontend nor `self-check.js` loaded it (self-check uses
-`backend/tests/fixtures/private-account-v1-design.json`) — and it FAILED schema
+`frontend/fixture/public-market-snapshot.json` had no runtime consumer —
+neither the frontend nor `self-check.js` loaded it (self-check uses
+`backend/tests/fixtures/private-account-v1-design.json`; two July discovery
+scripts, `scripts/discovery-capture-phase2.py` and
+`scripts/discovery-capture-private-v1.py`, read it inside try/except with a
+fallback, so its removal silently switches them to their fallback branches) —
+and it FAILED schema
 validation (5 violations: `cross_margin_borrowed` missing on
 four unified-balance items, `notional_usdt` missing on a UM position). It was
 deleted on 2026-08-08 (Human-authorized doc catch-up; the `smoke_server.py`

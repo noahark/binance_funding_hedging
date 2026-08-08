@@ -1,7 +1,7 @@
 # Symbol Mismatch Analysis — 期现命名差异与对冲匹配
 
 > **状态（2026-08-08）：已解决。** 本问题已于 2026-08-07 由 SPOT_SYMBOL_MAP 纯表方案
-> 收口（`backend/domain/normalize.py:111`，71 条映射，按最新 exchangeInfo 实测生成），
+> 收口（`backend/domain/normalize.py` 的 `SPOT_SYMBOL_MAP`，71 条映射，按最新 exchangeInfo 实测生成），
 > 权威记录见 `PROJECT_STATE.md` Open Follow-ups「现货/合约 symbol 别名已统一」条目。
 > 下文 §修复方向 推荐的「数字前缀剥离」方案曾实施（`d717595`），后因真实误配风险
 > （合约 `BUSDT` 误配 BounceBit `BBUSDT`、`1000000MOG` 剥成 `000MOG`）被纯表取代

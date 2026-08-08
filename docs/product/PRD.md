@@ -219,10 +219,12 @@ BSTOCK and spot-only rows are excluded from the current negative-funding route.
 Public discovery uses Binance spot and UM exchange information, funding data,
 and public quote/depth sources. Optional private enrichment uses backend
 deny-by-default allowlists that mix read-only signed GETs with a small set of
-signed POST write paths (order, borrow, transfer) behind gated executors
+signed POST write paths — order and borrow behind gated executors
 (`backend/services/private_client.py`,
 `backend/services/hedge_open_live_client.py`,
-`backend/services/portfolio_margin_borrow_client.py`). Raw samples stay under
+`backend/services/portfolio_margin_borrow_client.py`); the asset-transfer
+endpoint is not executor-gated (`confirm: true` only, accepted exposure,
+`PROJECT_STATE.md` Live Risks R1). Raw samples stay under
 `reports/api-samples/` with credentials redacted.
 
 ### 8.2 Immediate-open implementation requirements
