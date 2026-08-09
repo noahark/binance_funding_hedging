@@ -7,7 +7,8 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 ## Current Status (2026-08-09)
 
 - **Active stage:** `2026-08-09-pm-margin-repay-v1`。Grok 4.5（xAI）独立计划评审已
-  `ACCEPT`；T1 后端实现 `19c7096` 已由 Bookkeeper 核验，当前准备前端 T2。后端已具备
+  `ACCEPT`；T1 后端实现 `19c7096` 已由 Bookkeeper 核验，当前等待 Human 启动前端 T2。
+  后端已具备
   默认关闭的还款闸门、本地幂等审计和离线 API，但尚未部署或开启真实还款。冻结端点为
   `POST /papi/v1/margin/repay-debt`，界面 `0` 映射为省略币安 `amount`，指定偿还资产
   首版固定 USDT；实现、双评审、部署、开闸门和真实还款分别受后续关卡约束。
@@ -184,8 +185,8 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 - `[IN-STAGE][FRONTEND-ONLY][2026-08-09]` **统一账户借款资产卡已增加还款输入框和按钮，后端尚未接入。**
   仅 `cross_margin_borrowed > 0` 的卡展示，输入框提示 `0 自动还所有`；当前点击只显示
   「还款后端尚未接入」，不会发出请求。后续实现由
-  `reports/agent-runs/2026-08-09-pm-margin-repay-v1/` 跟踪；T1 后端已核验，当前准备 T2
-  前端真实接线与公共契约同步，完整交付形成后再进入双评审。
+  `reports/agent-runs/2026-08-09-pm-margin-repay-v1/` 跟踪；T1 后端已核验，T2 前端真实
+  接线与公共契约同步 dispatch 已准备，等待 Human 启动；完整交付形成后再进入双评审。
 
 - `[OPEN][NEEDS-HUMAN-AUTHORIZATION][2026-08-07]` **1000x 腿量换算——未做的资金路径**。
   P0 止血只是把 6 个乘数币（BONK/FLOKI/LUNC/PEPE/SHIB/XEC）挡在门外（见 Live Risks
