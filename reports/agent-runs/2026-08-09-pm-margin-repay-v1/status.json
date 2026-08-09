@@ -1,0 +1,22 @@
+{
+  "schema_version": "2",
+  "revision": 1,
+  "stage_id": "2026-08-09-pm-margin-repay-v1",
+  "bookkeeper": "codex",
+  "phase": "plan-review",
+  "checkpoint": "stage-opened",
+  "base_sha": "8092e94439b6a25a58d044d4c067950687b5d0e2",
+  "delivery_sha": null,
+  "ledger_sha": "8092e94439b6a25a58d044d4c067950687b5d0e2",
+  "current_task": {
+    "id": "pm-margin-repay-plan-review",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-09-pm-margin-repay-v1/pm-margin-repay-plan-review.dispatch.md"
+  },
+  "next": {
+    "actor": "human_operator",
+    "action": "start-prepared-task"
+  },
+  "rework_count": 0,
+  "blockers": []
+}

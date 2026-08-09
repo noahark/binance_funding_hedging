@@ -4,9 +4,13 @@ Cross-stage state, read at startup. Keep under 64 KB. Git history is not a runti
 check. Completed work's trace is git history and archive references (see Update
 Rule); this file records only live risks, open follow-ups, and pointers.
 
-## Current Status (2026-08-08)
+## Current Status (2026-08-09)
 
-- **No active stage.** `ACTIVE.json` 为 `null`。服务以 Human 手动前台进程运行
+- **Active stage:** `2026-08-09-pm-margin-repay-v1`，当前为高风险资金功能的独立
+  计划评审，尚未实现、部署或开启真实还款。已冻结的方向是仅接入
+  `POST /papi/v1/margin/repay-debt`，界面 `0` 映射为省略币安 `amount`，指定偿还资产
+  首版固定 USDT；实现、双评审、部署、开闸门和真实还款分别受后续关卡约束。
+  服务仍以 Human 手动前台进程运行
   （2026-08-09 18:03 重启，已载入含平仓两段式的全部改动；launchd 损坏不修，见 Live Risks）。
   测试基线 **1610 passed + self-check EXIT=0**。实盘库数据自 2026-08-06 清理后
   从新起点累积（备份 `data/*.sqlite3.bak-clean-20260806-120813`）。
@@ -176,10 +180,10 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Open Follow-ups
 
-- `[OPEN][FRONTEND-ONLY][2026-08-09]` **统一账户借款资产卡已增加还款输入框和按钮，后端尚未接入。**
+- `[IN-STAGE][FRONTEND-ONLY][2026-08-09]` **统一账户借款资产卡已增加还款输入框和按钮，后端尚未接入。**
   仅 `cross_margin_borrowed > 0` 的卡展示，输入框提示 `0 自动还所有`；当前点击只显示
-  「还款后端尚未接入」，不会发出请求。Human 后续决定开发
-  `POST /papi/v1/margin/repay-debt` 时，再单独定义确认、费用提示和真实执行契约。
+  「还款后端尚未接入」，不会发出请求。后续实现由
+  `reports/agent-runs/2026-08-09-pm-margin-repay-v1/` 跟踪；计划评审通过前不得开始开发。
 
 - `[OPEN][NEEDS-HUMAN-AUTHORIZATION][2026-08-07]` **1000x 腿量换算——未做的资金路径**。
   P0 止血只是把 6 个乘数币（BONK/FLOKI/LUNC/PEPE/SHIB/XEC）挡在门外（见 Live Risks
