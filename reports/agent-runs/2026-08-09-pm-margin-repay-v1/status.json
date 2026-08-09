@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 4,
+  "revision": 5,
   "stage_id": "2026-08-09-pm-margin-repay-v1",
   "bookkeeper": "codex",
   "phase": "review-1",
-  "checkpoint": "delivery-verified",
+  "checkpoint": "review-1-human-requirement-corrected",
   "base_sha": "ee0d5320b319a5bacc708eb8680e8156328db338",
   "delivery_sha": "5a81bdc1c40238053a07736faa64b34cab294987",
-  "ledger_sha": "4dced24f4d61ab8f85d2836ea451cb704fdb908b",
+  "ledger_sha": "8062e1e4af1e0e6036d992fd98e0498c44380c8b",
   "current_task": {
-    "id": "pm-margin-repay-review-1",
+    "id": "pm-margin-repay-review-1-rerun",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-09-pm-margin-repay-v1/pm-margin-repay-review-1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-09-pm-margin-repay-v1/pm-margin-repay-review-1-rerun.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
