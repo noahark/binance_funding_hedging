@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 1,
+  "revision": 2,
   "stage_id": "2026-08-09-close-task-preflight-simplification-v1",
   "bookkeeper": "claude_glm",
-  "phase": "review-1",
-  "checkpoint": "delivery-sealed",
+  "phase": "review-2",
+  "checkpoint": "review-1-accepted",
   "base_sha": "dc356cd7f6acdc8502cd6caa44a48f6e3c760cac",
   "delivery_sha": "e5f83f1c7f53bba4593a51f843fd1f45f52814bd",
-  "ledger_sha": "e5f83f1c7f53bba4593a51f843fd1f45f52814bd",
+  "ledger_sha": "9a1861e0af427e3d4d4ecb00650e89e828d99d3a",
   "current_task": {
-    "id": "close-task-preflight-simplification-review-1-opus5",
+    "id": "close-task-preflight-simplification-review-2-sonnet5",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-09-close-task-preflight-simplification-v1/close-task-preflight-simplification-review-1-opus5.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-09-close-task-preflight-simplification-v1/close-task-preflight-simplification-review-2-sonnet5.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
