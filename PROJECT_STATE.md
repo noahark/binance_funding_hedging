@@ -9,8 +9,9 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 - **Active stage:** `2026-08-09-pm-margin-repay-v1`。Grok 4.5（xAI）独立计划评审已
   `ACCEPT`；T1 后端 `19c7096` 与 T2 前端 `5a81bdc` 均已由 Bookkeeper 核验，当前准备
   HIGH_RISK review-1。首轮 review-1 仅因缺少组合根闸门提交级测试返回 `REWORK`；Human
-  2026-08-10 明确撤销该测试要求，不改代码、不计返工，修订后的 fresh review-1 dispatch
-  已准备，等待 Human 启动 Codex Reviewer。完整交付已具备
+  2026-08-10 明确撤销该测试要求，不改代码、不计返工；修订后的 fresh review-1 已明确
+  `ACCEPT` 并经 Bookkeeper 核验。Human 指定 Opus 5（Anthropic）执行 review-2，dispatch
+  已准备，等待 Human 启动。完整交付已具备
   默认关闭的还款闸门、本地幂等审计和离线 API。冻结端点为
   `POST /papi/v1/margin/repay-debt`，界面 `0` 映射为省略币安 `amount`，指定偿还资产
   首版固定 USDT。2026-08-10 Human 已手动重启前台服务并开启
