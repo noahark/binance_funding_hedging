@@ -26,7 +26,7 @@ new Function(script);
 console.log('[PASS] 内联脚本语法检查');
 
 let fetchUrl = null;
-const fetchCallLog = [];    // 记录全部 fetch {url, method, body}，用于同源白名单断言
+const fetchCallLog = [];    // 记录全部 fetch {url, method, body, cache}，用于同源白名单断言
 
 // mock setInterval / clearInterval，记录调用以便验证自动刷新计时器重调度
 let intervalIdSeq = 0;
@@ -883,7 +883,7 @@ global.fetch = async (url, options) => {
   if (options && typeof options.body === 'string') {
     try { body = JSON.parse(options.body); } catch (e) { body = options.body; }
   }
-  fetchCallLog.push({ url: urlStr, method, body });
+  fetchCallLog.push({ url: urlStr, method, body, cache: options && options.cache });
   if (urlStr === '/api/public-market/snapshot') {
     fetchUrl = urlStr;
     return buildFetchResponse({ status: 200, body: fixtureToFetch });
@@ -1547,7 +1547,17 @@ setTimeout(async () => {
     if (!newRefreshTimer || newRefreshTimer.id === initialRefreshTimer.id) {
       throw new Error('手动刷新完成后，未重新创建 60000ms 自动刷新计时器');
     }
-    console.log('[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立');
+    const autoCallsBefore = fetchCallLog.length;
+    newRefreshTimer.callback();
+    await new Promise(resolve => setImmediate(resolve));
+    const autoCalls = fetchCallLog.slice(autoCallsBefore);
+    if (!autoCalls.some(c => c.url === '/api/public-market/snapshot' && c.cache === 'no-store')) {
+      throw new Error('60s 自动刷新须强制重拉 snapshot（cache=no-store）');
+    }
+    if (!autoCalls.some(c => c.url === '/api/hedge-open-positions' && c.cache === 'no-store')) {
+      throw new Error('60s 自动刷新须强制重拉对冲持仓（cache=no-store）');
+    }
+    console.log('[PASS] 60s 自动刷新强制重拉快照与持仓，手动刷新后计时器重调度');
 
     // 19. 净收益列存在与格式（统一 3 位小数百分比）
     const netYieldChecks = [
@@ -1665,6 +1675,22 @@ setTimeout(async () => {
         const uSec = shownDebtBody.slice(uStart, sStart > uStart ? sStart : undefined);
         if (!uSec.includes('≈ 25.00 USDT')) {
           throw new Error('已借>0 应在统一区展示已借价值 ≈ 25.00 USDT: ' + uSec);
+        }
+        if (!uSec.includes('placeholder="0 自动还所有"')
+            || !uSec.includes('data-repay-amount="BTC"')
+            || !uSec.includes('data-repay-preview="BTC">还款</button>')) {
+          throw new Error('已借>0 的资产卡须在已借行后展示还款输入框和按钮: ' + uSec);
+        }
+        const zeroDebtFixture = JSON.parse(JSON.stringify(debtFixture));
+        zeroDebtFixture.private_account.balances_unified[0].cross_margin_borrowed = '0';
+        zeroDebtFixture.private_account.balances_unified[0].cross_margin_borrowed_value_usdt = '0.00000000';
+        helpers.ingestSnapshot(zeroDebtFixture);
+        const zeroDebtBody = elements['private-panel-body'].innerHTML;
+        const zuStart = zeroDebtBody.indexOf('统一账户余额');
+        const zsStart = zeroDebtBody.indexOf('现货账户余额');
+        const zeroDebtSec = zeroDebtBody.slice(zuStart, zsStart > zuStart ? zsStart : undefined);
+        if (zeroDebtSec.includes('data-repay-preview="BTC"')) {
+          throw new Error('无借款的资产卡不应展示还款按钮');
         }
         if (!helpers.getPrivacyHidden()) helpers.togglePrivacy(); // 恢复本段默认隐藏态
         helpers.ingestSnapshot(designFixture);
@@ -2397,16 +2423,25 @@ setTimeout(async () => {
       if (!uSec.includes('净价值 ≈ 75.00 USDT')) {
         throw new Error('正值示例净价值应为 ≈ 75.00 USDT: ' + uSec);
       }
-      // 旧底部独立 value_usdt 行已移除：净价值行与已借共用 locked/borrowed-debt，并保留 value-usdt
+      // 旧底部独立 value_usdt 行已移除；正净价值用默认次要色，并保留 value-usdt。
       if (uSec.match(/class="amount value-usdt">≈ /)) {
         throw new Error('统一卡仍保留旧底部独立 value_usdt 行: ' + uSec);
       }
       if (!uSec.includes('value-usdt') || !uSec.includes('净价值')) {
         throw new Error('统一卡净价值行 class 缺失');
       }
-      // 净价值应与已借共用次要行样式（locked 或 borrowed-debt）
-      if (!uSec.match(/class="amount (?:locked|borrowed-debt) value-usdt">净价值/)) {
-        throw new Error('统一卡净价值应与已借同字体/颜色 class: ' + uSec);
+      if (!uSec.includes('class="amount locked value-usdt">净价值')) {
+        throw new Error('正净价值不应使用红色样式: ' + uSec);
+      }
+
+      // 零净值也保持默认次要色。
+      const zeroNetFx = JSON.parse(JSON.stringify(posFx));
+      zeroNetFx.private_account.balances_unified[0].value_usdt = '25.00000000';
+      helpers.ingestSnapshot(zeroNetFx);
+      body = elements['private-panel-body'].innerHTML;
+      uSec = body.slice(body.indexOf('统一账户余额'), body.indexOf('现货账户余额'));
+      if (!uSec.includes('class="amount locked value-usdt">净价值 ≈ 0.00 USDT')) {
+        throw new Error('零净价值不应使用红色样式: ' + uSec);
       }
 
       // B=null（有借款但无法估值）→ 已借≈—、净价值≈—
@@ -2436,6 +2471,9 @@ setTimeout(async () => {
       uSec = body.slice(body.indexOf('统一账户余额'), body.indexOf('现货账户余额'));
       if (!uSec.includes('净价值 ≈ -20.00 USDT')) {
         throw new Error('负净值应保留负号 ≈ -20.00 USDT: ' + uSec);
+      }
+      if (!uSec.includes('class="amount borrowed-debt value-usdt">净价值')) {
+        throw new Error('负净价值应使用红色样式: ' + uSec);
       }
 
       // 隐私：正值场景下先切换隐藏，短路不泄露 100/25/75
@@ -4401,7 +4439,9 @@ setTimeout(async () => {
         throw new Error(`暂停路由错误: ${JSON.stringify(pauseCall)}`);
       }
       if (helpers.getHedgeTasks()[0].status !== 'paused') throw new Error('暂停后列表应重拉为 paused');
-      if (elements['hedge-task-count'].textContent !== '0') throw new Error('导航徽标只计执行中，应为 0');
+      if (elements['hedge-task-count'].textContent !== '1') {
+        throw new Error('导航徽标须保留已暂停任务计数，应为 1');
+      }
       // start
       const tRunning = mockHedgeTask({ id: 'h-life-1', status: 'running' });
       hedgeActionResponses['h-life-1:start'] = { status: 200, body: tRunning };
@@ -4632,6 +4672,28 @@ setTimeout(async () => {
       const rsrFrCell = getRowCell(posTableHtml, 'RSRUSDT', 1);
       if (!rsrFrCell.includes('—')) {
         throw new Error(`RSRUSDT 无快照行，资金费率期望 —，单元格 ${rsrFrCell}`);
+      }
+      // 资金费率与方向错配时只把币种红色加粗；方向正常与 0 费率保持默认。
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        { coin: 'AUSDT', direction: 'forward' },
+        { coin: 'CUSDT', direction: 'reverse' },
+        { coin: 'DUSDT', direction: 'reverse' },
+        { coin: 'FUSDT', direction: 'reverse' }
+      ], account: { verified: true, error: null, checked_at: null } } };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      const mismatchTableHtml = elements['private-panel-body'].innerHTML.slice(
+        elements['private-panel-body'].innerHTML.indexOf('对冲开单持仓')
+      );
+      for (const coin of ['AUSDT', 'CUSDT']) {
+        if (!getRowCell(mismatchTableHtml, coin, 0).includes(`<span class="negative">${coin}</span>`)) {
+          throw new Error(`${coin} 资金费率与方向错配时币种须红色加粗`);
+        }
+      }
+      for (const coin of ['DUSDT', 'FUSDT']) {
+        if (getRowCell(mismatchTableHtml, coin, 0).includes('class="negative"')) {
+          throw new Error(`${coin} 方向正常或资金费率为 0 时币种须保持默认`);
+        }
       }
       // 空持仓 → 空态
       hedgePositionsGetResponse = { status: 200, body: { positions: [], account: { verified: true, error: null, checked_at: null } } };
@@ -5135,6 +5197,7 @@ setTimeout(async () => {
       if (!inlineCall || inlineCall.url !== '/api/hedge-open-logs?task_id=h-inline-1' || inlineCall.method !== 'GET') {
         throw new Error('内嵌日志应 GET /api/hedge-open-logs?task_id=…: ' + JSON.stringify(inlineCall));
       }
+      if (inlineCall.cache !== 'no-store') throw new Error('内嵌日志 GET 须绕过浏览器缓存');
       helpers.renderHedgeTasks();
       const card = elements['hedge-task-list'].innerHTML;
 
@@ -5205,8 +5268,27 @@ setTimeout(async () => {
       if (!card.includes('data-hedge-log-toggle="h-inline-1"')) throw new Error('AC7 真卡应内嵌 toggle 按钮');
       if (!card.includes('id="hedge-task-log-h-inline-1"')) throw new Error('AC7 真卡应内嵌日志表容器');
       if (card.includes('id="hedge-task-log-h-inline-1" hidden')) throw new Error('AC7 展开后日志表应可见（未 hidden）');
+      if (!card.includes('展开日志每 2 秒自动刷新')) throw new Error('展开区须提示日志自动刷新频率');
       if (card.includes('示例预览') || card.includes('fake-preview') || card.includes('示例卡')) {
         throw new Error('AC9 fake 卡残留: ' + card);
+      }
+      const pollMark = fetchCallLog.length;
+      await helpers.refreshExpandedRunningHedgeLogs();
+      if (!fetchCallLog.slice(pollMark).some(c => c.url === '/api/hedge-open-logs?task_id=h-inline-1')) {
+        throw new Error('执行中任务的已展开日志须由共享 2s tick 自动刷新');
+      }
+      helpers.getHedgeLogExpanded().delete('h-inline-1');
+      const collapsedMark = fetchCallLog.length;
+      await helpers.refreshExpandedRunningHedgeLogs();
+      if (fetchCallLog.slice(collapsedMark).some(c => c.url.includes('hedge-open-logs?task_id='))) {
+        throw new Error('日志收起后须停止自动刷新');
+      }
+      helpers.getHedgeLogExpanded().add('h-inline-1');
+      helpers.getHedgeTasks()[0].status = 'paused';
+      const pausedMark = fetchCallLog.length;
+      await helpers.refreshExpandedRunningHedgeLogs();
+      if (fetchCallLog.slice(pausedMark).some(c => c.url.includes('hedge-open-logs?task_id='))) {
+        throw new Error('任务停止执行后须停止自动刷新日志');
       }
       helpers.setActiveView('market');
       console.log('[PASS] 任务卡内嵌日志 AC1/AC2/AC3/AC4/AC6/AC7/AC9：四状态徽标 + 钱原样透传 + 未受理腿门控 + 错误回退链 + 进展列 + 真卡 toggle + fake 已清');
@@ -5750,6 +5832,12 @@ setTimeout(async () => {
           throw new Error('创建回显后开单任务数字应为 1，实际: ' + elements['hedge-task-count'].textContent);
         }
       }
+      const pausedClose = mockHedgeTask({ id: 'h-confirm-close-1', task_type: 'close', status: 'paused' });
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [created, pausedClose] } };
+      await helpers.loadHedgeTasks();
+      if (elements['hedge-task-count'].textContent !== '2') {
+        throw new Error('开单任务导航数字须统计执行中 + 已暂停（含新建平单任务）');
+      }
       // 非法输入：不弹确认
       document.getElementById('hedge-amount-forward-AUSDT').value = '';
       const rBad = helpers.requestHedgeOpenConfirm('AUSDT', 'forward', 'immediate');
@@ -5787,7 +5875,7 @@ setTimeout(async () => {
       let sawLoading = false;
       const slowTask = mockHedgeTask({ id: 'h-load-1', status: 'running' });
       // 用同步 mock 无法穿插观察 loading；直接断言 begin/end 后计数与 spinner HTML
-      // 通过 submit 成功路径：结束后 loading=0 且数字为 running 数
+      // 通过 submit 成功路径：结束后 loading=0 且数字为执行中 + 已暂停数
       hedgeTasksPostResponse = { status: 201, body: slowTask };
       hedgeTasksGetResponse = { status: 200, body: { tasks: [slowTask] } };
       const rLoad = await helpers.submitHedgeOpen('AUSDT', 'forward', 'immediate');
@@ -6657,6 +6745,16 @@ setTimeout(async () => {
       if (singleNull.ready || !singleNull.text.includes('资产数据未就绪')) {
         throw new Error('单源 null 须显示未就绪: ' + singleNull.text);
       }
+      if (helpers.isStaleTime(1000, 91000) || !helpers.isStaleTime(1000, 91001)) {
+        throw new Error('时间须严格超过 90 秒才标记过期');
+      }
+      if (!helpers.sourceCheckedAtHtml({ text: '数据源更新时间', ready: true, checkedAtMs: 1000 }, 91001)
+          .includes('stale-time')) {
+        throw new Error('超过 90 秒的数据源时间须使用 stale-time 红色加粗样式');
+      }
+      if (!html.includes('.stale-time') || !html.includes('font-weight: 700')) {
+        throw new Error('缺少 stale-time 红色加粗样式');
+      }
 
       // Multi-source earliest vs missing (never invent from remaining)
       const multiOk = helpers.formatMultiSourceCheckedLine([
@@ -6765,6 +6863,25 @@ setTimeout(async () => {
       }
       if (elements['private-panel-body'].innerHTML.includes('PM 账户数据源更新时间')) {
         throw new Error('PM 有时间时也不得重复出现在概览区');
+      }
+
+      // 超过 90 秒：普通数据源行、PM 标题时间、市场表双时间统一红色加粗。
+      const staleIso = new Date(_mockNow - 120000).toISOString();
+      scaFx.private_account.source_checked_at.unified_balances = staleIso;
+      scaFx.private_account.source_checked_at.um_positions = staleIso;
+      scaFx.private_account.source_checked_at.spot_balances = staleIso;
+      scaFx.private_account.source_checked_at.pm_account = staleIso;
+      scaFx.generated_at = staleIso;
+      scaFx.data_time = staleIso;
+      helpers.ingestSnapshot(scaFx);
+      if (!elements['private-panel-body'].innerHTML.includes('source-checked-at stale-time')) {
+        throw new Error('超过 90 秒的账户数据源时间须红色加粗');
+      }
+      if (!String(elements['private-pm-source-time'].className).includes('stale-time')) {
+        throw new Error('超过 90 秒的 PM 数据源时间须红色加粗');
+      }
+      if (!String(elements['market-snapshot-meta'].className).includes('stale-time')) {
+        throw new Error('超过 90 秒的市场表生成/数据时间须红色加粗');
       }
 
       // 私有账户不可读：面板内提示；标题区聚合时间不复用该文案
@@ -7205,8 +7322,7 @@ setTimeout(async () => {
       if (!(idxUnified < idxTransfer && idxTransfer < idxSpot)) {
         throw new Error(`互转行位置错误: unified=${idxUnified} transfer=${idxTransfer} spot=${idxSpot}`);
       }
-      // 真实划转徽标：动钱路径必须在界面上说清楚
-      if (!tBody.includes('真实划转 · 点击即动钱')) throw new Error('缺少「真实划转」徽标');
+      if (tBody.includes('真实划转 · 点击即动钱')) throw new Error('已删除的「真实划转」提示不应出现');
       if (!tBody.includes('>从<') || !tBody.includes('>转到<')) throw new Error('缺少「从」/「转到」标签');
 
       // 默认转出=统一账户，资产下拉展示统一账户资产（含币种/可转/净值三段）
@@ -7474,13 +7590,15 @@ setTimeout(async () => {
           throw new Error(`只读路由非法方法 ${c.method}: ${c.url}`);
         }
       }
-      // 无新定时器：全部 interval 注册只允许 60000 快照刷新、1000 倒计时、
-      // 与 2000 执行状态轮询（Boundary C 单一 2s 显示轮询，浏览器从不签名/调度）。
-      // 开单执行调度在后端，前端不注册任何开单定时器。
+      // 无新增定时器：全部 interval 注册只允许 60000 快照刷新、1000 倒计时、
+      // 与单一 2000ms 只读显示轮询（执行状态 + 已展开的执行中任务日志）。
       for (const call of intervalCalls) {
         if (call.delay !== 60000 && call.delay !== 1000 && call.delay !== 2000) {
           throw new Error(`存在非法任务定时器: delay=${call.delay}`);
         }
+      }
+      if (intervalCalls.filter(call => call.delay === 2000).length !== 1) {
+        throw new Error('执行状态与展开日志必须复用同一个 2s 显示轮询');
       }
       // localStorage 白名单：仅隐私开关键（开单任务/持仓权威在后端 SQLite，不落 localStorage）
       const allowedStorageKeys = ['funding_hedging_privacy_hidden'];
@@ -7489,7 +7607,7 @@ setTimeout(async () => {
           throw new Error(`localStorage 出现白名单外键: ${k}`);
         }
       }
-      console.log('[PASS] fetch 同源白名单（含开单 §3 路由）、零 Binance/外域、零新任务定时器、localStorage 白名单（仅隐私键）');
+      console.log('[PASS] fetch 同源白名单（含开单 §3 路由）、零 Binance/外域、单一共享 2s 显示轮询、localStorage 白名单（仅隐私键）');
     }
 
     // ---- 暂停原因：直读后端 pause_reason_zh（不再查前端残缺映射表）----
@@ -7560,6 +7678,16 @@ setTimeout(async () => {
       if (fetchCallLog.slice(before).some(c => c.url.includes('max-withdraw'))) {
         throw new Error('可转出额链路不得发起任何请求');
       }
+      let unifiedSection = elements['private-panel-body'].innerHTML.slice(
+        elements['private-panel-body'].innerHTML.indexOf('统一账户余额'),
+        elements['private-panel-body'].innerHTML.indexOf('资产互转')
+      );
+      if (!unifiedSection.includes('可转余额: 209.18482141')) {
+        throw new Error('统一账户 USDT 资产卡须显示账户级可转余额');
+      }
+      if ((unifiedSection.match(/可转余额:/g) || []).length !== 1) {
+        throw new Error('可转余额只应出现在 USDT 资产卡');
+      }
 
       // 2) USDT 说「可转」并给账户级 total_available_balance_usdt，
       //    不是 cross_margin_free(9800.1)——两个数不等正是本项存在的理由。
@@ -7585,11 +7713,27 @@ setTimeout(async () => {
       const noPm = JSON.parse(JSON.stringify(mwFixture));
       delete noPm.private_account.pm_account;
       helpers.ingestSnapshot(noPm);
+      unifiedSection = elements['private-panel-body'].innerHTML.slice(
+        elements['private-panel-body'].innerHTML.indexOf('统一账户余额'),
+        elements['private-panel-body'].innerHTML.indexOf('资产互转')
+      );
+      if (!unifiedSection.includes('可转余额: —')) {
+        throw new Error('账户级可转余额缺失时 USDT 资产卡须显示 —');
+      }
       const degraded = helpers.getTransferAssetOptionLabels().find(l => l.startsWith('USDT'));
       if (!degraded.includes('可用 9,800.1000')) {
         throw new Error('缺账户级字段时应退回可用余额并改口「可用」: ' + degraded);
       }
       helpers.ingestSnapshot(mwFixture);
+      helpers.togglePrivacy();
+      unifiedSection = elements['private-panel-body'].innerHTML.slice(
+        elements['private-panel-body'].innerHTML.indexOf('统一账户余额'),
+        elements['private-panel-body'].innerHTML.indexOf('资产互转')
+      );
+      if (!unifiedSection.includes('可转余额: ****') || unifiedSection.includes('209.18482141')) {
+        throw new Error('隐私模式须遮蔽 USDT 可转余额');
+      }
+      helpers.togglePrivacy();
 
       // 5) 校验跟着同一个数走：USDT 按 209.18 拦（而非按可用额 9800.1 放行）。
       helpers.setTransferAsset('USDT');

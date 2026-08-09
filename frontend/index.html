@@ -237,6 +237,10 @@
     .source-checked-at.not-ready {
       color: var(--warn);
     }
+    .stale-time {
+      color: var(--danger);
+      font-weight: 700;
+    }
     .dual-balance-cell {
       white-space: nowrap;
       font-size: 12px;
@@ -702,6 +706,21 @@
       font-weight: 600;
       line-height: 1.5;
     }
+    .balance-card .repay-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: var(--space-2);
+      vertical-align: middle;
+    }
+    .balance-card .repay-amount {
+      width: 112px;
+      min-height: 30px;
+      padding: 0 8px;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .balance-card .repay-controls .btn { min-height: 30px; }
 
     /* 资产互转（统一账户 ⇄ 普通现货账户）：单行交互，窄屏换行不挤压 */
     .asset-transfer {
@@ -1585,6 +1604,7 @@
       ];
 
       const AUTO_REFRESH_MS = 60000; // 与后端 Config.cache_ttl_seconds=60 对齐
+      const STALE_TIME_MS = 90000;
       const PRIVACY_STORAGE_KEY = 'funding_hedging_privacy_hidden';
 
       const refreshState = {
@@ -1652,6 +1672,8 @@
           from: 'unified', asset: null, amount: '',
           submitting: false, result: null, locked: false,
         },
+        // 仅保存前端预览输入；后端还款接口尚未接入，刷新后仍回填用户正在输入的数量。
+        repayAmounts: {},
         // 立即开单创建中：导航徽标显示转圈，计数可叠加（并发创建）。
         hedgeTaskNavLoading: 0,
         // attempt 时间线（2026-07-hedge-open-real-api-v1，12-breakdown §3.4）：
@@ -1958,6 +1980,11 @@
         return formatBeijing(ms);
       }
 
+      function isStaleTime(ms, nowMs) {
+        const now = nowMs === undefined ? Date.now() : nowMs;
+        return Number.isFinite(ms) && now - ms > STALE_TIME_MS;
+      }
+
       // Single required source: ready time or honest not-ready (never invents a time).
       function formatSingleSourceCheckedLine(iso) {
         const beijing = formatSourceIsoBeijing(iso);
@@ -1967,7 +1994,7 @@
             ready: false
           };
         }
-        return { text: `数据源更新时间 ${beijing}`, ready: true };
+        return { text: `数据源更新时间 ${beijing}`, ready: true, checkedAtMs: Date.parse(String(iso)) };
       }
 
       // Multi-source: earliest only when ALL required sources have non-null times;
@@ -1996,13 +2023,17 @@
         }
         return {
           text: `数据源更新时间 ${formatBeijing(earliestMs)}`,
-          ready: true
+          ready: true,
+          checkedAtMs: earliestMs
         };
       }
 
-      function sourceCheckedAtHtml(line) {
+      function sourceCheckedAtHtml(line, nowMs) {
         if (!line) return '';
-        const cls = line.ready ? 'source-checked-at' : 'source-checked-at not-ready';
+        const stale = line.ready && isStaleTime(line.checkedAtMs, nowMs);
+        const cls = line.ready
+          ? `source-checked-at${stale ? ' stale-time' : ''}`
+          : 'source-checked-at not-ready';
         return `<p class="${cls}">${escapeHtml(line.text)}</p>`;
       }
 
@@ -2046,6 +2077,7 @@
           return;
         }
         const sca = readSourceCheckedAt(pa) || {};
+        const checkedAtMs = Date.parse(String(sca.pm_account));
         const beijing = formatSourceIsoBeijing(sca.pm_account);
         els.privatePmSourceTime.style.display = '';
         if (!beijing) {
@@ -2054,7 +2086,8 @@
             'PM 账户数据源更新时间：资产数据未就绪（该账户源未成功读取）';
           return;
         }
-        els.privatePmSourceTime.className = 'subtitle source-checked-at';
+        els.privatePmSourceTime.className =
+          `subtitle source-checked-at${isStaleTime(checkedAtMs) ? ' stale-time' : ''}`;
         els.privatePmSourceTime.textContent = `PM 账户数据源更新时间 ${beijing}`;
       }
 
@@ -2132,7 +2165,6 @@
 
           if (panels === 'complete') {
             await loadApi();
-            await loadHedgePositions();
             setStatus('success', '刷新周期已完成');
             return;
           }
@@ -2140,13 +2172,11 @@
             // Re-read so source times show old/new mix; do not claim full update.
             // price_map is not a panel title; partial notice covers valuation source.
             await loadApi();
-            await loadHedgePositions();
             setStatus('warn', '刷新周期已完成，但部分账户或估值源未更新，请查看数据更新时间');
             return;
           }
           // not_attempted or unknown honest fallback
           await loadApi();
-          await loadHedgePositions();
           setStatus('warn', '账户数据未刷新（本轮未尝试更新账户源），请查看既有数据更新时间');
         } catch (err) {
           setStatus('error', `更新缓存失败：${err && err.message ? err.message : String(err)}`);
@@ -3541,7 +3571,6 @@
           <div class="asset-transfer">
             <div class="transfer-head">
               <h3>资产互转</h3>
-              <span class="badge danger compact">真实划转 · 点击即动钱</span>
             </div>
             <div class="asset-transfer-row">
               <label for="transfer-from">从</label>
@@ -3764,14 +3793,30 @@
               .map(b => {
               const borrowedPositive = isPositiveBorrowedAmount(b.cross_margin_borrowed);
               const borrowedCls = borrowedPositive ? 'borrowed-debt' : 'locked';
+              const netValue = sub8(b.value_usdt, b.cross_margin_borrowed_value_usdt);
+              const netValueCls = netValue && netValue.startsWith('-') ? 'borrowed-debt' : 'locked';
+              const asset = String(b.asset || '');
+              const transferableLine = b.asset === 'USDT'
+                ? `<div class="amount locked">可转余额: ${formatBalanceAmount(pm.total_available_balance_usdt)}</div>`
+                : '';
+              const repayControls = borrowedPositive
+                ? `<span class="repay-controls">
+                    <input class="repay-amount" type="text" inputmode="decimal" autocomplete="off"
+                           aria-label="${escapeHtml(asset)} 还款数量" placeholder="0 自动还所有"
+                           data-repay-amount="${escapeHtml(asset)}" value="${escapeHtml(state.repayAmounts[asset] || '')}"/>
+                    <button class="btn compact primary" type="button"
+                            data-repay-preview="${escapeHtml(asset)}">还款</button>
+                  </span>`
+                : '';
               // Hold + borrowed values on their amount rows; net value replaces
               // the old bottom-only value_usdt line (spot cards unchanged).
               return `
               <div class="balance-card">
                 <div class="asset">${escapeHtml(b.asset || '—')}</div>
                 <div class="amount">${formatBalanceAmount(b.total_balance)} ${approximateUsdtLine(b.value_usdt)}</div>
-                <div class="amount ${borrowedCls}">已借: ${formatBalanceAmount(b.cross_margin_borrowed)} ${approximateUsdtLine(b.cross_margin_borrowed_value_usdt)}</div>
-                <div class="amount ${borrowedCls} value-usdt">净价值 ${unifiedNetValueLine(b.value_usdt, b.cross_margin_borrowed_value_usdt)}</div>
+                ${transferableLine}
+                <div class="amount ${borrowedCls}">已借: ${formatBalanceAmount(b.cross_margin_borrowed)} ${approximateUsdtLine(b.cross_margin_borrowed_value_usdt)}${repayControls}</div>
+                <div class="amount ${netValueCls} value-usdt">净价值 ${unifiedNetValueLine(b.value_usdt, b.cross_margin_borrowed_value_usdt)}</div>
               </div>`;
             }).join('')
           : '<span class="muted small">无数据</span>';
@@ -3868,12 +3913,17 @@
       function renderMarketSnapshotMeta() {
         if (!els.marketSnapshotMeta) return;
         if (!state.snapshot) {
+          els.marketSnapshotMeta.className = 'subtitle';
           els.marketSnapshotMeta.textContent =
             '生成时间: — · 数据时间: — · 数据每 60 秒自动刷新（后端缓存 TTL 60 秒）';
           return;
         }
+        const generatedMs = Date.parse(String(state.snapshot.generated_at));
+        const dataTimeMs = Date.parse(String(state.snapshot.data_time));
         const generated = formatSnapshotTimeBeijing(state.snapshot.generated_at);
         const dataTime = formatSnapshotTimeBeijing(state.snapshot.data_time);
+        els.marketSnapshotMeta.className =
+          `subtitle${isStaleTime(generatedMs) || isStaleTime(dataTimeMs) ? ' stale-time' : ''}`;
         els.marketSnapshotMeta.textContent =
           `生成时间: ${generated} · 数据时间: ${dataTime} · 数据每 60 秒自动刷新（后端缓存 TTL 60 秒）`;
       }
@@ -4756,6 +4806,7 @@
       async function hedgeApi(path, options) {
         const opts = options || {};
         const fetchOpts = { method: opts.method || 'GET' };
+        if (opts.cache) fetchOpts.cache = opts.cache;
         if (opts.body !== undefined) {
           fetchOpts.headers = { 'Content-Type': 'application/json' };
           fetchOpts.body = JSON.stringify(opts.body);
@@ -4800,7 +4851,7 @@
       // 持仓表：GET /api/hedge-open-positions 为唯一数据源（§3.4 Position JSON 逐字渲染）。
       async function loadHedgePositions() {
         try {
-          const doc = await hedgeApi('/api/hedge-open-positions');
+          const doc = await hedgeApi('/api/hedge-open-positions', { cache: 'no-store' });
           state.hedgePositions = Array.isArray(doc && doc.positions) ? doc.positions : [];
           state.hedgeAccountMeta = (doc && doc.account) || null;
         } catch (err) {
@@ -5012,7 +5063,9 @@
           return;
         }
         els.hedgeTaskCount.title = '';
-        els.hedgeTaskCount.textContent = String(state.hedgeTasks.filter(t => t.status === 'running').length);
+        els.hedgeTaskCount.textContent = String(
+          state.hedgeTasks.filter(t => t.status === 'running' || t.status === 'paused').length
+        );
       }
 
       function beginHedgeTaskNavLoading() {
@@ -5548,6 +5601,7 @@
             </div>
             <div class="borrow-op-error" id="hedge-task-error-${idAttr}" role="alert" aria-live="polite">${escapeHtml((state.hedgeTaskActionErrors && state.hedgeTaskActionErrors[task.id]) || '')}</div>
             <div class="hedge-task-log-wrap" id="hedge-task-log-${idAttr}"${logExpanded ? '' : ' hidden'}>
+              <div class="muted small" style="margin-bottom:6px;">任务执行中时，展开日志每 2 秒自动刷新</div>
               <table>
                 <thead><tr><th>进展</th><th>状态</th><th>尝试时间</th><th>合约订单号</th><th>现货订单号</th><th>合约均价</th><th>现货均价</th><th>合约数量</th><th>现货数量</th><th>错误原因</th></tr></thead>
                 <tbody>${logExpanded ? hedgeTaskLogRowsHtml(task.id) : ''}</tbody>
@@ -5652,7 +5706,7 @@
         };
         patchHedgeTaskLogTable(taskId);
         try {
-          const doc = await hedgeApi('/api/hedge-open-logs?task_id=' + encodeURIComponent(taskId));
+          const doc = await hedgeApi('/api/hedge-open-logs?task_id=' + encodeURIComponent(taskId), { cache: 'no-store' });
           const attempts = Array.isArray(doc && doc.attempts) ? doc.attempts : [];
           state.hedgeTaskLogs[taskId] = { loading: false, attempts, error: null };
         } catch (err) {
@@ -5663,6 +5717,15 @@
           };
         }
         patchHedgeTaskLogTable(taskId);
+      }
+
+      async function refreshExpandedRunningHedgeLogs() {
+        if (state.activeView !== 'hedge-tasks' || state.hedgeTab !== 'tasks') return;
+        const ids = state.hedgeLogExpanded ? [...state.hedgeLogExpanded] : [];
+        await Promise.all(ids.map(id => {
+          const task = findHedgeTask(id);
+          return task && task.status === 'running' ? loadHedgeTaskLogs(id) : Promise.resolve();
+        }));
       }
 
       // 把缓存中的 tbody 补丁进当前 DOM 的该任务日志表（重渲染或拉取后调用）。
@@ -5816,6 +5879,13 @@
           const curFundingText = formatFundingRateFixed(curFundingRate, 3);
           const curFundingTitle = (curFundingRate === null || curFundingRate === undefined || curFundingRate === '')
             ? '' : ` title="原始费率 ${escapeHtml(curFundingRate)} · 本周期实时预估，结算前会漂移"`;
+          const curFundingNum = Number(curFundingRate);
+          const fundingDirectionMismatch = Number.isFinite(curFundingNum) && curFundingNum !== 0
+            && ((curFundingNum > 0 && p.direction === 'reverse')
+              || (curFundingNum < 0 && p.direction === 'forward'));
+          const coinHtml = fundingDirectionMismatch
+            ? `<span class="negative">${escapeHtml(p.coin)}</span>`
+            : escapeHtml(p.coin);
           // 未实现盈亏：仅当存在真实 UM 持仓且 unrealized_profit 可解析时才有真值；
           // 否则「暂无」（不画 0.00）。R2：真值 0 与缺失必须可区分。
           const hasUm = !(p.um_position_amt === null || p.um_position_amt === undefined || p.um_position_amt === '');
@@ -5879,7 +5949,7 @@
             ? ' title="部分成交金额未知，均价为不完整口径"' : '';
           return `
                       <tr>
-                        <td class="mono">${escapeHtml(p.coin)}${spotLegLine(p)}</td>
+                        <td class="mono">${coinHtml}${spotLegLine(p)}</td>
                         <td class="${curFundingCls}"${curFundingTitle}>${curFundingText}</td>
                         <td class="${dirCls}">${dirLabel}</td>
                         <td class="mono">${umCell(p.um_notional_usdt)}</td>
@@ -6327,7 +6397,7 @@
         state.source = 'api';
         els.dataSourceLabel.textContent = '数据源: /api/public-market/snapshot';
         try {
-          const res = await fetch('/api/public-market/snapshot');
+          const res = await fetch('/api/public-market/snapshot', { cache: 'no-store' });
           if (!res.ok) {
             throw new Error(`HTTP ${res.status} ${res.statusText}`);
           }
@@ -6339,6 +6409,8 @@
           state.blockedReason = `请求后端失败: ${err.message}。`;
           applyFiltersAndRender();
         } finally {
+          // 市场页的持仓表来自独立接口；每轮快照刷新都必须同步重拉，否则会一直显示启动时缓存。
+          await loadHedgePositions();
           refreshState.isRefreshing = false;
           refreshState.nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
           updateCountdown();
@@ -6379,11 +6451,9 @@
         if (state.activeView === 'borrow-tasks') {
           loadBorrowTasks();
         }
-        // 开单任务同理：仅当开单视图激活时随快照 tick 重拉任务与持仓（显示刷新，
-        // 不是执行时钟；执行调度在后端）。
+        // 开单任务仅在对应视图激活时随快照 tick 重拉；持仓由 loadApi 每轮统一刷新。
         if (state.activeView === 'hedge-tasks') {
           loadHedgeTasks();
-          loadHedgePositions();
         }
       }
 
@@ -7194,6 +7264,19 @@
               acknowledgeTransferUnknown();
               return;
             }
+            const repayBtn = closest('[data-repay-preview]');
+            if (repayBtn) {
+              e.stopPropagation();
+              const asset = repayBtn.getAttribute('data-repay-preview') || '该资产';
+              const amount = String(state.repayAmounts[asset] || '').trim();
+              showHedgeModal(
+                amount ? '还款后端尚未接入' : '请输入还款数量',
+                amount
+                  ? `${asset} 还款数量：${amount === '0' ? '全部' : amount}。当前仅展示前端交互，不会发起还款。`
+                  : '输入 0 表示自动偿还该资产的全部借款。'
+              );
+              return;
+            }
             const btn = closest('[data-hedge-close]');
             if (!btn || btn.disabled) return;
             e.stopPropagation();
@@ -7219,6 +7302,10 @@
           els.privatePanelBody.addEventListener('input', (e) => {
             const el = e.target;
             if (!el || typeof el.closest !== 'function') return;
+            if (el.closest('[data-repay-amount]')) {
+              state.repayAmounts[el.getAttribute('data-repay-amount') || ''] = el.value;
+              return;
+            }
             if (!el.closest('[data-transfer-amount]')) return;
             state.assetTransfer.amount = el.value;
             updateTransferValidity();
@@ -7249,10 +7336,13 @@
           els.borrowLogsClear.addEventListener('click', () => { requestClearBorrowLogs(); });
         }
         els.borrowLogsLoadMore.addEventListener('click', () => { loadBorrowLogs(false); });
-        // Boundary C 执行控制：幂等全局 Start/Stop（无 body）；2s 显示轮询仅刷新投影。
+        // Boundary C 执行控制：幂等全局 Start/Stop（无 body）；共享 2s 轮询只刷新只读投影。
         els.borrowExecutionStart.addEventListener('click', () => { submitExecutionToggle('start'); });
         els.borrowExecutionStop.addEventListener('click', () => { submitExecutionToggle('stop'); });
-        setInterval(loadExecutionStatus, EXECUTION_POLL_MS);
+        setInterval(() => {
+          loadExecutionStatus();
+          refreshExpandedRunningHedgeLogs();
+        }, EXECUTION_POLL_MS);
         // 筛选按钮经容器事件委托（按钮随 renderBorrowTaskFilters 重渲染）
         els.borrowTaskFilters.addEventListener('click', (e) => {
           const btn = e.target && typeof e.target.closest === 'function' ? e.target.closest('[data-borrow-filter]') : null;
@@ -7365,6 +7455,9 @@
         getSnapshot: () => state.snapshot,
         // cache-refresh v1 seams (offline self-check)
         onCacheRefresh,
+        loadApi,
+        isStaleTime,
+        sourceCheckedAtHtml,
         formatSingleSourceCheckedLine,
         formatMultiSourceCheckedLine,
         formatAggregateAccountAssetTime,
@@ -7457,6 +7550,7 @@
         getHedgeAttempts: () => state.hedgeAttempts,
         // 任务卡内嵌日志（2026-07-31-hedge-task-inline-log-v1）。
         loadHedgeTaskLogs,
+        refreshExpandedRunningHedgeLogs,
         getHedgeLogExpanded: () => state.hedgeLogExpanded,
         getHedgeTaskLogs: () => state.hedgeTaskLogs,
         renderPrivatePanel,
@@ -7510,11 +7604,10 @@
       // 启动即拉借币任务列表，使市场页导航「借币任务 N」在未点进视图前即为「借币中」真实数量。
       loadBorrowTasks();
       startAutoRefresh();
-      // 开单任务：启动即拉任务列表（导航徽标）、执行设置（徽标）与持仓缓存；
+      // 开单任务：启动即拉任务列表（导航徽标）与执行设置（徽标）；持仓由 loadApi 拉取。
       // 执行调度在后端，前端无任何开单定时器。
       loadHedgeTasks();
       loadHedgeSettings();
-      loadHedgePositions();
     })();
   </script>
 </body>

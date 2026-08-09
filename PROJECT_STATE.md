@@ -176,6 +176,11 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Open Follow-ups
 
+- `[OPEN][FRONTEND-ONLY][2026-08-09]` **统一账户借款资产卡已增加还款输入框和按钮，后端尚未接入。**
+  仅 `cross_margin_borrowed > 0` 的卡展示，输入框提示 `0 自动还所有`；当前点击只显示
+  「还款后端尚未接入」，不会发出请求。Human 后续决定开发
+  `POST /papi/v1/margin/repay-debt` 时，再单独定义确认、费用提示和真实执行契约。
+
 - `[OPEN][NEEDS-HUMAN-AUTHORIZATION][2026-08-07]` **1000x 腿量换算——未做的资金路径**。
   P0 止血只是把 6 个乘数币（BONK/FLOKI/LUNC/PEPE/SHIB/XEC）挡在门外（见 Live Risks
   同日条目），**换算本身一行未写**。恢复这 6 个币的对冲能力必须改下单数量这条真金

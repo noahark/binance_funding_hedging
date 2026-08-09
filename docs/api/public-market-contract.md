@@ -742,7 +742,12 @@ Each `balances_unified[]` item carries additive **`cross_margin_borrowed`**
 `GET /papi/v1/balance` field `crossMarginBorrowed`. Display-only; never counted
 into `total_value_usdt` (liability is not an asset). Frontend balance cards show
 `已借: <amount>` and highlight in red when the amount is strictly greater than
-zero (2026-07-22 ops patch).
+zero (2026-07-22 ops patch). A positive-borrow card also shows a frontend-only
+repay amount input (`0 自动还所有`) and a repay button. Until a backend repay
+contract is delivered, clicking it only reports that the backend is not connected
+and must not issue a request. The unified-card net-value line uses the danger
+color only when the computed net value is below zero; zero and positive values
+use the normal secondary text color.
 
 Each item also carries additive **`cross_margin_free`** (raw decimal string |
 null): the unencumbered full-cross balance from `GET /papi/v1/balance` field
@@ -1275,6 +1280,12 @@ uses those times as the real read evidence. No GET on this namespace performs
 upstream I/O — `GET /snapshot` and `GET /hedge-open-positions` stay pure reads
 of the published state.
 
+The frontend's existing ~60s display timer re-reads BOTH endpoints with the
+browser cache bypassed; there is no separate positions timer and neither GET
+causes upstream I/O. Displayed account-source times and the market table's
+generated/data times become bold red only when their age is strictly greater
+than 90 seconds.
+
 ### `GET /api/hedge-open-positions` account meta
 
 The `account` meta object gains `source_checked_at` — the SAME fixed five-key
@@ -1339,7 +1350,7 @@ honest "no automatic alignment" outcome is unchanged).
   fields exist only on the hedge-open positions endpoint.
 - The ~60s scheduled refresh, the cache-refresh POST/command, the source success
   times (`source_checked_at`), and the zero-upstream GET contract are unchanged.
-- No new API, polling, SSE, WebSocket, or upstream I/O; no order, borrow,
+- No new API, independent polling timer, SSE, WebSocket, or upstream I/O; no order, borrow,
   transfer, Start-gate, or risk-limit change; no aggregation of multiple
   accounts; the 1000x non-alignment rule is preserved.
 
@@ -1708,11 +1719,11 @@ request, which controls the upstream cadence. Registered only in `do_GET`.
 - On-demand read, deliberately NOT in the snapshot: the value moves with price,
   so a cached copy would be stale exactly when a transfer is being sized.
 
-Consumer status (recorded honestly): NO frontend consumer as of 2026-08-08. The
-transfer dropdown instead reads the backend account-cache snapshot with zero
-frontend requests (Human final form, 2026-08-07: USDT shows the account-level
-`total_available_balance_usdt` labeled 「可转」 — valid only because USDT is
-the quote unit, explicitly not generalizable; other assets show
+Consumer status (recorded honestly): the transfer dropdown and unified-account
+USDT asset card read the backend account-cache snapshot with zero frontend
+requests. USDT shows the account-level `total_available_balance_usdt` labeled
+「可转」/「可转余额」 — valid only because USDT is the quote unit and explicitly
+not generalizable; other assets show
 `cross_margin_free` labeled 「可用」, the wording following the data source).
 This route remains the only source of exact per-asset transferable amounts; it
 was removed from the frontend same-origin whitelist, so a future frontend call
