@@ -8,7 +8,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 - **Active stage:** `2026-08-09-pm-margin-repay-v1`。Grok 4.5（xAI）独立计划评审已
   `ACCEPT`；T1 后端 `19c7096` 与 T2 前端 `5a81bdc` 均已由 Bookkeeper 核验，当前准备
-  HIGH_RISK review-1。完整交付已具备
+  HIGH_RISK review-1；dispatch 已准备，等待 Human 启动 fresh Codex Reviewer。完整交付已具备
   默认关闭的还款闸门、本地幂等审计和离线 API，但尚未部署或开启真实还款。冻结端点为
   `POST /papi/v1/margin/repay-debt`，界面 `0` 映射为省略币安 `amount`，指定偿还资产
   首版固定 USDT；实现、双评审、部署、开闸门和真实还款分别受后续关卡约束。
@@ -186,7 +186,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   仅 `cross_margin_borrowed > 0` 的卡展示，输入框提示 `0 自动还所有`；当前点击只显示
   「还款后端尚未接入」，不会发出请求。后续实现由
   `reports/agent-runs/2026-08-09-pm-margin-repay-v1/` 跟踪；T1/T2 已核验，完整 delivery
-  固定为 `ee0d532..5a81bdc`，当前准备 review-1；双评审通过前不得合并或发布。
+  固定为 `ee0d532..5a81bdc`，review-1 dispatch 已准备；双评审通过前不得合并或发布。
 
 - `[OPEN][NEEDS-HUMAN-AUTHORIZATION][2026-08-07]` **1000x 腿量换算——未做的资金路径**。
   P0 止血只是把 6 个乘数币（BONK/FLOKI/LUNC/PEPE/SHIB/XEC）挡在门外（见 Live Risks

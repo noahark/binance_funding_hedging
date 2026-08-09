@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 3,
+  "revision": 4,
   "stage_id": "2026-08-09-pm-margin-repay-v1",
   "bookkeeper": "codex",
-  "phase": "implementation",
+  "phase": "review-1",
   "checkpoint": "delivery-verified",
-  "base_sha": "64bd81188a94a9e600c3e315ebaf1130d2a8a3b2",
+  "base_sha": "ee0d5320b319a5bacc708eb8680e8156328db338",
   "delivery_sha": "5a81bdc1c40238053a07736faa64b34cab294987",
-  "ledger_sha": "5a81bdc1c40238053a07736faa64b34cab294987",
+  "ledger_sha": "4dced24f4d61ab8f85d2836ea451cb704fdb908b",
   "current_task": {
-    "id": "pm-margin-repay-frontend-implement",
-    "state": "verified",
-    "dispatch": "reports/agent-runs/2026-08-09-pm-margin-repay-v1/pm-margin-repay-frontend-implement.dispatch.md"
+    "id": "pm-margin-repay-review-1",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-09-pm-margin-repay-v1/pm-margin-repay-review-1.dispatch.md"
   },
   "next": {
-    "actor": "bookkeeper",
-    "action": "prepare-review-1"
+    "actor": "human_operator",
+    "action": "start-prepared-task"
   },
   "rework_count": 0,
   "blockers": []
