@@ -10,7 +10,7 @@
   "ledger_sha": "64bd81188a94a9e600c3e315ebaf1130d2a8a3b2",
   "current_task": {
     "id": "pm-margin-repay-frontend-implement",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-08-09-pm-margin-repay-v1/pm-margin-repay-frontend-implement.dispatch.md"
   },
   "next": {

@@ -1606,6 +1606,10 @@
       const AUTO_REFRESH_MS = 60000; // 与后端 Config.cache_ttl_seconds=60 对齐
       const STALE_TIME_MS = 90000;
       const PRIVACY_STORAGE_KEY = 'funding_hedging_privacy_hidden';
+      // 统一账户还款未决请求号（stage 2026-08-09-pm-margin-repay-v1 T2）：发送前按负债
+      // 资产持久化；浏览器丢响应/页面刷新后按同一 UUID 本地恢复，绝不生成新号重发
+      // （币安 repay-debt 无幂等键，换号重发会真的还两次）。
+      const MARGIN_REPAY_PENDING_STORAGE_KEY = 'funding_hedging_margin_repay_pending';
 
       const refreshState = {
         isRefreshing: false,
@@ -1661,6 +1665,7 @@
         // 市场表创建确认（借币 / 立即开单 / 资产互转预览）：pending 期间未发 POST。
         // 形状：{ kind:'borrow_create', symbol } | { kind:'hedge_open', symbol, direction, mode }
         //     | { kind:'asset_transfer', from, to, asset, amount }
+        //     | { kind:'margin_repay', asset, amount }
         marketActionPending: null,
         // 资产互转：私有面板 60s 重渲染会重建这一行的 DOM，选择与输入必须存在
         // state 里回填，否则自动刷新会清空用户填了一半的表单。
@@ -1672,8 +1677,15 @@
           from: 'unified', asset: null, amount: '',
           submitting: false, result: null, locked: false,
         },
-        // 仅保存前端预览输入；后端还款接口尚未接入，刷新后仍回填用户正在输入的数量。
+        // 还款输入按资产保存在 state，60s 重渲染据此回填，不打断正在输入的数量。
         repayAmounts: {},
+        // 统一账户还款（stage 2026-08-09-pm-margin-repay-v1 T2，已接后端）：
+        // submitting —— 全局防连点：任一还款提交期间所有还款按钮禁用（端点权重 3000）。
+        // pending —— localStorage 未决请求的内存镜像（按负债资产），它本身就是锁：
+        //   有未决记录的资产不得发起新还款；仅 failed、succeeded+强制刷新成功、
+        //   或人工「我已核对」三种路径清除。
+        // results —— 按资产的四态回显（后端记录或请求层错误）。
+        marginRepay: { submitting: false, pending: readRepayPendingStorage(), results: {} },
         // 立即开单创建中：导航徽标显示转圈，计数可叠加（并发创建）。
         hedgeTaskNavLoading: 0,
         // attempt 时间线（2026-07-hedge-open-real-api-v1，12-breakdown §3.4）：
@@ -2136,8 +2148,11 @@
 
       // POST /api/public-market/cache-refresh — local enqueue only; honest complete/
       // partial/not_attempted/failure/202. No auto-poll, SSE, or WebSocket.
+      // 返回值（2026-08-09 还款接线新增）：仅「complete」一轮完整刷新返回 true，其余
+      // 一律 false。既有按钮状态、提示文案与其他调用方行为不变（它们忽略返回值）；
+      // 还款流程只凭 true 解锁（部分刷新可能仍留着旧负债显示）。
       async function onCacheRefresh() {
-        if (cacheRefreshLoading) return;
+        if (cacheRefreshLoading) return false;
         setCacheRefreshLoading(true);
         setStatus('loading', '正在更新缓存…');
         try {
@@ -2147,39 +2162,41 @@
 
           if (res.status === 202) {
             setStatus('warn', '缓存仍在后台刷新中（已排队），请稍后查看数据更新时间；页面不会自动轮询。');
-            return;
+            return false;
           }
           if (!res.ok) {
             const detail = (data && (typeof data.detail === 'string' ? data.detail : data.error))
               || `HTTP ${res.status}`;
             setStatus('error', `更新缓存失败：${detail}`);
-            return;
+            return false;
           }
 
           const published = !!(data && data.published);
           const panels = data && data.account_panels;
           if (!published) {
             setStatus('error', '更新缓存失败：本轮未发布快照，页面保留当前数据。');
-            return;
+            return false;
           }
 
           if (panels === 'complete') {
             await loadApi();
             setStatus('success', '刷新周期已完成');
-            return;
+            return true;
           }
           if (panels === 'partial') {
             // Re-read so source times show old/new mix; do not claim full update.
             // price_map is not a panel title; partial notice covers valuation source.
             await loadApi();
             setStatus('warn', '刷新周期已完成，但部分账户或估值源未更新，请查看数据更新时间');
-            return;
+            return false;
           }
           // not_attempted or unknown honest fallback
           await loadApi();
           setStatus('warn', '账户数据未刷新（本轮未尝试更新账户源），请查看既有数据更新时间');
+          return false;
         } catch (err) {
           setStatus('error', `更新缓存失败：${err && err.message ? err.message : String(err)}`);
+          return false;
         } finally {
           setCacheRefreshLoading(false);
         }
@@ -3702,6 +3719,280 @@
         }
       }
 
+      // ---- 统一账户全仓杠杆还款（stage 2026-08-09-pm-margin-repay-v1 T2）----
+      // 与划转同纪律但加严：业务结论一律在 body.status（四态），HTTP 200 不当成功；
+      // 请求层错误（4xx/503）= 后端在外发前拒绝，钱没动；网络中断/响应丢失 = 结果未知，
+      // 保留同一未决请求号锁定资产，绝不换新 UUID 自动重试。
+
+      function readRepayPendingStorage() {
+        try {
+          const raw = localStorage.getItem(MARGIN_REPAY_PENDING_STORAGE_KEY);
+          if (!raw) return {};
+          const parsed = JSON.parse(raw);
+          return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+        } catch (e) {
+          return {};
+        }
+      }
+
+      // 先写 localStorage 成功才更新内存镜像；持久化失败返回 false，调用方绝不外发
+      // （刷新后无未决记录会诱导用户换号重发同一笔还款）。
+      function setRepayPending(asset, entry) {
+        const next = Object.assign({}, state.marginRepay.pending, { [asset]: entry });
+        try {
+          localStorage.setItem(MARGIN_REPAY_PENDING_STORAGE_KEY, JSON.stringify(next));
+        } catch (e) {
+          return false;
+        }
+        state.marginRepay.pending = next;
+        return true;
+      }
+
+      function clearRepayPending(asset) {
+        if (!state.marginRepay.pending[asset]) return;
+        const next = Object.assign({}, state.marginRepay.pending);
+        delete next[asset];
+        state.marginRepay.pending = next;
+        try {
+          if (Object.keys(next).length === 0) {
+            localStorage.removeItem(MARGIN_REPAY_PENDING_STORAGE_KEY);
+          } else {
+            localStorage.setItem(MARGIN_REPAY_PENDING_STORAGE_KEY, JSON.stringify(next));
+          }
+        } catch (e) {
+          // 清除侧存储失败不阻断：残留记录下次启动 GET 恢复时按终态自愈。
+        }
+      }
+
+      // 金额校验镜像后端（server.py _parse_margin_repay_request）：形状 ^\d+(\.\d+)?$
+      // 先挡负号/科学计数法/空白（首尾空白同样拒绝，不修剪）/"5."/".5"；精确 "0" = 全部，
+      // 其余必须严格大于零——"0.0"/"0.00"/"00" 一类的数值零 fail-closed。全程字符串，不转 float。
+      function validateRepayAmount(raw) {
+        const amount = String(raw == null ? '' : raw);
+        if (amount === '') return { ok: false, reason: 'empty' };
+        if (!/^\d+(\.\d+)?$/.test(amount)) return { ok: false, reason: 'shape' };
+        if (amount === '0') return { ok: true, amount, repayAll: true };
+        if (/^0+(\.0+)?$/.test(amount)) return { ok: false, reason: 'zero' };
+        return { ok: true, amount, repayAll: false };
+      }
+
+      // 点击「还款」→ 校验 + 二次确认；取消确认零请求、零请求号、零 localStorage 记录。
+      function requestMarginRepayConfirm(asset) {
+        if (!asset) return;
+        const m = state.marginRepay;
+        if (m.submitting || m.pending[asset]) return;  // 按钮已禁用，此处是双保险
+        const verdict = validateRepayAmount(state.repayAmounts[asset]);
+        if (!verdict.ok) {
+          showHedgeModal(
+            '还款数量无效',
+            '只接受 0（自动偿还该资产的全部借款）或大于 0 的普通十进制数量；' +
+            '不支持空值、负数、科学计数法、空白或 0.0/0.00/00 一类的数值零。'
+          );
+          return;
+        }
+        state.marketActionPending = { kind: 'margin_repay', asset, amount: verdict.amount };
+        const amountText = verdict.repayAll ? '全部（自动）' : `${verdict.amount} 个 ${asset}`;
+        // 确认文案如实：不说「只扣 USDT」，不承诺 USDT 一定够；同币优先、转换成本
+        // 未知与快照滞后都是币安契约与本页架构的既定事实，必须写清楚。
+        showHedgeConfirm(
+          '确认还款',
+          `将偿还统一账户 ${asset} 借款：${amountText}。` +
+          `币安会优先使用账户中的 ${asset} 资产偿还，不足时才把指定的 USDT 转换偿还；` +
+          `跨资产转换的价格、手续费和滑点币安未披露，本页面无法预估。` +
+          `页面账户数据为约 60 秒的缓存快照，实际负债与余额可能已变化，以交易所结果为准。`,
+          '确认还款'
+        );
+      }
+
+      // 真实提交：Human 确认后才生成 UUID，先持久化未决请求再 POST；
+      // body 恰含 client_request_id / asset / 原始 amount / confirm:true，四态认 body.status。
+      async function submitMarginRepay(pending) {
+        const asset = pending.asset;
+        const amount = pending.amount;
+        const m = state.marginRepay;
+        if (m.submitting || m.pending[asset]) return { ok: false, error: 'repay_busy' };
+        const clientRequestId = newTransferRequestId();
+        if (!setRepayPending(asset, { client_request_id: clientRequestId, asset, amount })) {
+          m.results[asset] = { request_error: '浏览器本地存储不可用，未能持久化请求号，还款未发出' };
+          renderPrivatePanel();
+          return { ok: false, error: 'persist_failed' };
+        }
+        m.submitting = true;
+        delete m.results[asset];
+        renderPrivatePanel();
+        try {
+          const record = await hedgeApi('/api/margin-repay', {
+            method: 'POST',
+            body: { client_request_id: clientRequestId, asset, amount, confirm: true },
+          });
+          m.results[asset] = record;
+          if (record && record.status === 'failed') {
+            // 交易所明确拒绝：钱确定没动，结束该请求，下一次仍需重新确认。
+            clearRepayPending(asset);
+          }
+          if (record && record.status === 'succeeded') {
+            // 先放行全局锁再做强制快照刷新；刷新成功才清除未决记录、允许新还款。
+            m.submitting = false;
+            renderPrivatePanel();
+            await finalizeMarginRepaySuccess(asset);
+            return { ok: true, status: 'succeeded' };
+          }
+          // pending/unknown：保留未决记录 = 锁，人工核对后解锁。
+          return { ok: true, status: record && record.status };
+        } catch (err) {
+          if (err && typeof err.status === 'number') {
+            // 4xx/503：后端在外发前拒绝（校验/白名单/闸门），钱一定没动；撤销未决记录。
+            clearRepayPending(asset);
+            m.results[asset] = { request_error: (err && err.message) || '请求失败' };
+            return { ok: false, error: err && err.errorCode };
+          }
+          // 网络中断/响应丢失：请求可能已被受理——保留同一未决请求并锁定，绝不换号重发。
+          m.results[asset] = {
+            transport_unknown: true,
+            error_message: (err && err.message) || '网络错误',
+          };
+          return { ok: false, error: 'transport' };
+        } finally {
+          m.submitting = false;
+          renderPrivatePanel();
+        }
+      }
+
+      // succeeded 之后：强制账户快照刷新成功才清除未决记录并允许新还款；刷新失败保留
+      // 成功结果和锁（旧负债卡会诱导重复还款），给「再次刷新」/页面重载恢复路径。
+      async function finalizeMarginRepaySuccess(asset) {
+        if (state.marginRepay.submitting) return false;
+        const refreshed = (await onCacheRefresh()) === true;
+        const m = state.marginRepay;
+        if (refreshed) {
+          clearRepayPending(asset);
+          if (m.results[asset]) delete m.results[asset].refresh_failed;
+        } else if (m.results[asset]) {
+          m.results[asset].refresh_failed = true;
+        }
+        renderPrivatePanel();
+        return refreshed;
+      }
+
+      // 纯本地恢复：按同一 UUID 调本地 GET 一次（不轮询、零上游）。
+      // GET 404/请求层错误不得擅自宣称未还款或清除未决 ID——保留记录与锁。
+      async function recoverMarginRepay(asset) {
+        const m = state.marginRepay;
+        const entry = m.pending[asset];
+        if (!entry || m.submitting) return { ok: false, error: 'no_pending_or_busy' };
+        let record = null;
+        try {
+          record = await hedgeApi('/api/margin-repay?client_request_id=' + encodeURIComponent(entry.client_request_id));
+        } catch (err) {
+          m.results[asset] = {
+            recovery_error: (err && err.status === 404) ? 'not_found' : 'query_failed',
+            error_message: (err && err.message) || '查询失败',
+          };
+          renderPrivatePanel();
+          return { ok: false, error: m.results[asset].recovery_error };
+        }
+        m.results[asset] = record;
+        if (record && record.status === 'succeeded') {
+          await finalizeMarginRepaySuccess(asset);
+          return { ok: true, status: 'succeeded' };
+        }
+        if (record && record.status === 'failed') {
+          clearRepayPending(asset);  // 明确失败：结束该请求
+        }
+        // pending/unknown：保留锁，展示四态与人工解锁入口。
+        renderPrivatePanel();
+        return { ok: true, status: record && record.status };
+      }
+
+      // 启动/重载恢复：读取所有未决记录，逐条按同一 UUID 各查一次（不轮询）。
+      async function recoverMarginRepayAll() {
+        for (const asset of Object.keys(state.marginRepay.pending)) {
+          await recoverMarginRepay(asset);
+        }
+      }
+
+      // 「我已到币安核对」：纯本地状态解锁，不发任何请求，
+      // 也不改变那笔还款的真实结局（它在交易所那边早已确定）。
+      function acknowledgeRepayUnknown(asset) {
+        if (!asset || state.marginRepay.submitting) return;
+        clearRepayPending(asset);
+        delete state.marginRepay.results[asset];
+        renderPrivatePanel();
+      }
+
+      function repayWhatText(r, asset) {
+        const what = r && r.amount === '0' ? '全部' : `${r && r.amount ? r.amount : ''} 个`;
+        return `${what} ${(r && r.asset) || asset}`;
+      }
+
+      // 四态回显（措辞与资产划转同口径：最危险的是 unknown——钱可能已还，
+      // 只给核对指引，绝不给重试入口）。
+      function renderRepayStatus(asset) {
+        const m = state.marginRepay;
+        const pend = m.pending[asset];
+        const r = m.results[asset];
+        const actsDisabled = m.submitting ? ' disabled' : '';
+        const ackBtn = `<button class="btn compact" type="button" data-repay-ack="${escapeHtml(asset)}" style="margin-left:8px;"${actsDisabled}>我已核对</button>`;
+        const recheckBtn = `<button class="btn compact" type="button" data-repay-recheck="${escapeHtml(asset)}" style="margin-left:8px;"${actsDisabled}>查询结果</button>`;
+        if (r && r.request_error) {
+          return `<div class="asset-transfer-hint negative">还款未发出：${escapeHtml(r.request_error)}</div>`;
+        }
+        if (r && r.transport_unknown) {
+          return `<div class="asset-transfer-hint negative">
+            <strong>结果未知，请勿直接重试</strong>：还款请求已发出但未收到本机服务响应（${escapeHtml(r.error_message || '网络错误')}）。
+            该请求<strong>可能已被受理</strong>，请点「查询结果」按同一请求号恢复，或到币安账户核对后点「我已核对」解除锁定。
+            ${recheckBtn}${ackBtn}
+          </div>`;
+        }
+        if (r && r.recovery_error) {
+          const detail = r.recovery_error === 'not_found'
+            ? '本机服务没有该请求号的记录——请求可能从未到达本机服务，不得据此认定未还款。'
+            : `恢复查询失败（${escapeHtml(r.error_message || '查询失败')}），无法确认该请求状态。`;
+          return `<div class="asset-transfer-hint negative">
+            <strong>恢复查询未完成，请勿直接重试</strong>：${detail}
+            请到币安账户核对后点「我已核对」解除锁定，或稍后再点「查询结果」。
+            ${recheckBtn}${ackBtn}
+          </div>`;
+        }
+        if (r && r.status === 'succeeded') {
+          const repaid = r.repaid_amount
+            ? `，实际偿还 ${escapeHtml(String(r.repaid_amount))} 个 ${escapeHtml(r.asset || asset)}`
+            : '';
+          const via = r.repay_asset
+            ? `（指定偿还资产 ${escapeHtml(r.repay_asset)}；负债同币资产仍被优先使用）`
+            : '';
+          if (r.refresh_failed) {
+            return `<div class="asset-transfer-hint negative">
+              <strong>还款已成功，但账户快照刷新失败</strong>：${escapeHtml(repayWhatText(r, asset))}${repaid}${via}。
+              页面可能仍显示旧负债，为避免重复还款该资产暂时锁定——请点「再次刷新」或重载页面，刷新成功后自动解锁。
+              <button class="btn compact" type="button" data-repay-refresh="${escapeHtml(asset)}" style="margin-left:8px;"${actsDisabled}>再次刷新</button>
+            </div>`;
+          }
+          return `<div class="asset-transfer-hint positive">还款成功：${escapeHtml(repayWhatText(r, asset))}借款已偿还${repaid}${via}</div>`;
+        }
+        if (r && r.status === 'failed') {
+          const code = r.error_code ? `（错误码 ${escapeHtml(String(r.error_code))}）` : '';
+          const why = r.error_message || '交易所未给出原因';
+          return `<div class="asset-transfer-hint negative">还款失败：${escapeHtml(repayWhatText(r, asset))}——${escapeHtml(why + code)}。该请求已结束；如需还款请重新输入数量并再次确认。</div>`;
+        }
+        if (r && (r.status === 'unknown' || r.status === 'pending')) {
+          const unknown = r.status === 'unknown';
+          const lead = unknown ? '结果未知，请勿直接重试' : '还款已登记，尚无最终结论，请勿重复提交';
+          const why = r.error_message || (unknown ? '交易所未返回明确结果' : '本机服务已受理，等待终态');
+          const moved = unknown ? '这笔还款<strong>可能已经执行</strong>，' : '该请求可能已被执行，';
+          return `<div class="asset-transfer-hint negative">
+            <strong>${lead}</strong>：${escapeHtml(repayWhatText(r, asset))}——${escapeHtml(why)}。${moved}
+            请到币安账户核对后再操作；确认后点「我已核对」解除锁定，或点「查询结果」按同一请求号恢复。
+            ${recheckBtn}${ackBtn}
+          </div>`;
+        }
+        if (pend) {
+          const amountText = pend.amount === '0' ? '全部' : `${pend.amount} 个 ${asset}`;
+          return `<div class="asset-transfer-hint muted">还款请求已登记（${escapeHtml(amountText)}），正在等待结果；请勿重复提交。如长时间停留在此，请点「查询结果」按同一请求号恢复。${recheckBtn}</div>`;
+        }
+        return '';
+      }
+
       function renderPrivatePanel() {
         const pa = state.snapshot && state.snapshot.private_account;
         // R1 (fix-merged-positions-n2-ui-v1): the merged positions table is local
@@ -3799,15 +4090,20 @@
               const transferableLine = b.asset === 'USDT'
                 ? `<div class="amount locked">可转余额: ${formatBalanceAmount(pm.total_available_balance_usdt)}</div>`
                 : '';
+              // 提交期间全局禁用 + 有未决记录的资产锁定（未决记录本身就是锁，
+              // 杜绝「换个新编号再还一次」）；四态回显存活于 state，60s 重渲染不清。
+              // 控件仍只在已借 > 0 时出现；回显在已借读 0 时保留（成功/锁定可见性）。
+              const repayBusy = state.marginRepay.submitting || !!state.marginRepay.pending[asset];
+              const repayStatusHtml = renderRepayStatus(asset);
               const repayControls = borrowedPositive
                 ? `<span class="repay-controls">
                     <input class="repay-amount" type="text" inputmode="decimal" autocomplete="off"
                            aria-label="${escapeHtml(asset)} 还款数量" placeholder="0 自动还所有"
                            data-repay-amount="${escapeHtml(asset)}" value="${escapeHtml(state.repayAmounts[asset] || '')}"/>
                     <button class="btn compact primary" type="button"
-                            data-repay-preview="${escapeHtml(asset)}">还款</button>
-                  </span>`
-                : '';
+                            data-repay-preview="${escapeHtml(asset)}"${repayBusy ? ' disabled' : ''}>还款</button>
+                  </span>${repayStatusHtml}`
+                : repayStatusHtml;
               // Hold + borrowed values on their amount rows; net value replaces
               // the old bottom-only value_usdt line (spot cards unchanged).
               return `
@@ -5155,6 +5451,9 @@
         }
         if (pending.kind === 'asset_transfer') {
           return submitAssetTransfer(pending);
+        }
+        if (pending.kind === 'margin_repay') {
+          return submitMarginRepay(pending);
         }
         return { ok: false, error: 'unknown_pending' };
       }
@@ -7245,8 +7544,8 @@
         els.navBorrowTasks.addEventListener('click', () => setActiveView('borrow-tasks'));
         els.navHedgeTasks.addEventListener('click', () => setActiveView('hedge-tasks'));
         if (els.navHistory) els.navHistory.addEventListener('click', () => setActiveView('history'));
-        // 立即平仓列（功能三 UI 预览）+ 资产互转（fake 预览）：私有面板容器事件
-        // 委托，60s 自动刷新重建 innerHTML 也不丢绑定。
+        // 立即平仓列 + 资产互转 + 统一账户还款：私有面板容器事件委托，
+        // 60s 自动刷新重建 innerHTML 也不丢绑定。
         if (els.privatePanelBody) {
           els.privatePanelBody.addEventListener('click', (e) => {
             const closest = (sel) =>
@@ -7264,17 +7563,35 @@
               acknowledgeTransferUnknown();
               return;
             }
+            // 还款（已接后端）：点击进二次确认，确认后才生成请求号并发送。
             const repayBtn = closest('[data-repay-preview]');
             if (repayBtn) {
+              if (repayBtn.disabled) return;
               e.stopPropagation();
-              const asset = repayBtn.getAttribute('data-repay-preview') || '该资产';
-              const amount = String(state.repayAmounts[asset] || '').trim();
-              showHedgeModal(
-                amount ? '还款后端尚未接入' : '请输入还款数量',
-                amount
-                  ? `${asset} 还款数量：${amount === '0' ? '全部' : amount}。当前仅展示前端交互，不会发起还款。`
-                  : '输入 0 表示自动偿还该资产的全部借款。'
-              );
+              requestMarginRepayConfirm(repayBtn.getAttribute('data-repay-preview') || '');
+              return;
+            }
+            // 还款恢复/解锁按钮：「查询结果」= 同一 UUID 本地 GET 一次；
+            // 「再次刷新」= 成功后的强制快照刷新重试；「我已核对」= 纯本地解锁，零请求。
+            const repayRecheck = closest('[data-repay-recheck]');
+            if (repayRecheck) {
+              if (repayRecheck.disabled) return;
+              e.stopPropagation();
+              recoverMarginRepay(repayRecheck.getAttribute('data-repay-recheck') || '');
+              return;
+            }
+            const repayRefresh = closest('[data-repay-refresh]');
+            if (repayRefresh) {
+              if (repayRefresh.disabled) return;
+              e.stopPropagation();
+              finalizeMarginRepaySuccess(repayRefresh.getAttribute('data-repay-refresh') || '');
+              return;
+            }
+            const repayAck = closest('[data-repay-ack]');
+            if (repayAck) {
+              if (repayAck.disabled) return;
+              e.stopPropagation();
+              acknowledgeRepayUnknown(repayAck.getAttribute('data-repay-ack') || '');
               return;
             }
             const btn = closest('[data-hedge-close]');
@@ -7533,6 +7850,18 @@
           updateTransferValidity();
         },
         getAssetTransfer: () => state.assetTransfer,
+        // ---- 统一账户还款（stage 2026-08-09-pm-margin-repay-v1 T2） ----
+        validateRepayAmount,
+        requestMarginRepayConfirm,
+        submitMarginRepay,
+        recoverMarginRepay,
+        recoverMarginRepayAll,
+        finalizeMarginRepaySuccess,
+        acknowledgeRepayUnknown,
+        getMarginRepay: () => state.marginRepay,
+        setRepayAmount: (asset, value) => { state.repayAmounts[asset] = value; },
+        setMarginRepayPending: (asset, entry) => setRepayPending(asset, entry),
+        clearMarginRepayPending: (asset) => clearRepayPending(asset),
         pauseHedgeTask,
         startHedgeTask,
         deleteHedgeTask,
@@ -7608,6 +7937,8 @@
       // 执行调度在后端，前端无任何开单定时器。
       loadHedgeTasks();
       loadHedgeSettings();
+      // 还款未决恢复：启动/重载时按 localStorage 未决记录逐条本地 GET 一次（不轮询）。
+      recoverMarginRepayAll();
     })();
   </script>
 </body>

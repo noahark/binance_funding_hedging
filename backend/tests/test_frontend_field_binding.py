@@ -36,6 +36,93 @@ from backend.tests.test_hedge_api import _POSITION_KEYS
 
 INDEX_HTML = Path(__file__).resolve().parents[2] / "frontend" / "index.html"
 
+# 统一账户还款（stage 2026-08-09-pm-margin-repay-v1 T2）：前端还款代码块的扫描锚点。
+# 与持仓字段绑定同纪律——改名/重构导致正则抓空时测试会红，而不是静默放行。
+_REPAY_SUBMIT_FN = "function submitMarginRepay("
+_REPAY_RENDER_FN = "function renderRepayStatus("
+# renderRepayStatus 里 `r.xxx` 允许出现的前端本地标记（不是后端记录字段）：
+# 请求层错误、传输未知、恢复查询失败、成功后刷新失败。
+_REPAY_LOCAL_MARKERS = {"request_error", "transport_unknown", "recovery_error", "refresh_failed"}
+
+
+def _repay_backend_record_keys() -> set[str]:
+    """后端还款记录的真实键集（store `_row_to_doc` 的输出，POST/GET 响应同形）。"""
+    from backend.margin_repay.store import MarginRepayStore
+
+    store = MarginRepayStore(":memory:")
+    rec, is_new = store.begin(
+        client_request_id="00000000-0000-4000-8000-000000000000",
+        asset="BTC", amount="0", repay_asset="USDT", now_us=1,
+    )
+    assert is_new
+    keys = set(rec.keys())
+    assert len(keys) >= 8, "还款记录字段过少，权威源取错了"
+    return keys
+
+
+def _repay_fn_block(text: str, anchor: str) -> str:
+    start = text.index(anchor)
+    tail = text.find("\n      function ", start + len(anchor))
+    return text[start: tail if tail != -1 else len(text)]
+
+
+def test_margin_repay_post_body_matches_backend_contract():
+    """前端还款 POST body 必须恰含后端 `_REPAY_REQUIRED_FIELDS` 四字段。
+
+    「恰含」双向钉死：少一个字段后端 400，多一个字段（如 specifyRepayAssets
+    或任何偿还资产字段）后端同样 400——这是冻结的请求体契约（验收检查 4）。
+    """
+    from backend.app.server import _REPAY_REQUIRED_FIELDS
+
+    text = INDEX_HTML.read_text(encoding="utf-8")
+    block = _repay_fn_block(text, _REPAY_SUBMIT_FN)
+    m = re.search(r"hedgeApi\('/api/margin-repay',\s*\{.*?body:\s*\{([^}]*)\}", block, re.S)
+    assert m, "未在 submitMarginRepay 找到还款 POST 调用，字段绑定扫描失效"
+    # body 逐项（支持 `key: value` 与 shorthand `key` 两种写法），取每项首个标识符为键。
+    items = [seg.strip() for seg in m.group(1).split(",") if seg.strip()]
+    assert items, "还款 POST body 为空，字段绑定扫描失效"
+    keys = set()
+    for seg in items:
+        km = re.match(r"^([a-z_][a-z0-9_]*)", seg)
+        assert km, f"还款 POST body 项无法解析键名: {seg}"
+        keys.add(km.group(1))
+    assert keys == set(_REPAY_REQUIRED_FIELDS), (
+        f"还款请求体字段与后端冻结契约不一致：前端 {sorted(keys)} vs "
+        f"后端 {sorted(_REPAY_REQUIRED_FIELDS)}"
+    )
+
+
+def test_margin_repay_record_fields_consumed_exist_in_backend_record():
+    """renderRepayStatus 读取的每个记录字段，后端记录都必须真的发出来。
+
+    四态展示读错字段名会静默显示空（页面不报错、测试全绿），与 E4 同形状。
+    """
+    block = _repay_fn_block(INDEX_HTML.read_text(encoding="utf-8"), _REPAY_RENDER_FN)
+    refs = set(re.findall(r"\br\.([a-z_][a-z0-9_]*)", block))
+    assert len(refs) >= 7, (
+        f"renderRepayStatus 只扫到 {len(refs)} 个 `r.xxx` 引用：正则可能已失效，"
+        "字段绑定检查形同虚设。若是有意重构，请同步扫描锚点与下限。"
+    )
+    unknown = sorted(refs - _REPAY_LOCAL_MARKERS - _repay_backend_record_keys())
+    assert not unknown, (
+        f"还款四态展示读取了后端记录不存在的字段（页面会静默留白）：{unknown}；"
+        f"后端记录 {sorted(_repay_backend_record_keys())}"
+    )
+
+
+@pytest.mark.parametrize(
+    "needle",
+    ["specifyRepayAssets", "repayLoan", "papi.binance.com", "binance.com"],
+)
+def test_margin_repay_forbidden_strings_absent_from_frontend(needle):
+    """前端绝不出现偿还资产参数名、/repayLoan 路径或交易所 URL（验收检查 4）。
+
+    前端只能发本地 `/api/margin-repay`；偿还资产固定 USDT 是服务端行为，
+    前端出现这些字符串意味着越权或外联。
+    """
+    text = INDEX_HTML.read_text(encoding="utf-8")
+    assert needle not in text, f"frontend/index.html 出现违禁字符串: {needle}"
+
 # 前端消费持仓行的两个变量名。**新增消费点必须加进来**，否则它不被本检查覆盖。
 # 每个都配了最小引用数下限：改名/重构导致正则抓空时测试会红，而不是静默放行
 # （一个永远抓不到东西的检查比没有检查更糟——它给人已被保护的错觉）。

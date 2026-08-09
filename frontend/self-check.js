@@ -544,6 +544,14 @@ let hedgePositionsGetResponse = {
 let cacheRefreshPostResponse = null;
 // 资产互转（T2）：POST /api/asset-transfer 的响应槽；未设置时 503。
 let assetTransferPostResponse = null;
+// 统一账户还款（T2）：POST/GET /api/margin-repay 的响应槽；未设置时 503。
+// marginRepayPostThrow 置非空时 POST 直接抛出（模拟浏览器到本机服务网络中断/响应丢失）。
+// marginRepayPostPendingSnapshot 记录 POST 到达瞬间的 localStorage 未决记录原文，
+// 供「发送前持久化」断言取证（离线 mock 无法计时，改证请求时刻的存储状态）。
+let marginRepayPostResponse = null;
+let marginRepayGetResponse = null;
+let marginRepayPostThrow = null;
+let marginRepayPostPendingSnapshot = null;
 // Q4：GET /api/private-account/max-withdraw 的响应槽；未设置时 503。
 let maxWithdrawGetResponse = null;
 // 流水日志 private-ledger mock（task C）
@@ -892,6 +900,24 @@ global.fetch = async (url, options) => {
     return buildFetchResponse(assetTransferPostResponse || {
       status: 503,
       body: { error: 'asset_transfer_unavailable', detail: 'mock 未设置划转响应' }
+    });
+  }
+  if (urlStr === '/api/margin-repay' && method === 'POST') {
+    marginRepayPostPendingSnapshot = localStorageData['funding_hedging_margin_repay_pending'] || null;
+    if (marginRepayPostThrow) {
+      const thrower = marginRepayPostThrow;
+      marginRepayPostThrow = null;
+      throw thrower;
+    }
+    return buildFetchResponse(marginRepayPostResponse || {
+      status: 503,
+      body: { error: 'margin_repay_unavailable', detail: 'mock 未设置还款响应' }
+    });
+  }
+  if (urlStr.startsWith('/api/margin-repay?') && method === 'GET') {
+    return buildFetchResponse(marginRepayGetResponse || {
+      status: 503,
+      body: { error: 'margin_repay_unavailable', detail: 'mock 未设置还款查询响应' }
     });
   }
   if (urlStr.startsWith('/api/private-account/max-withdraw')) {
@@ -7505,6 +7531,310 @@ setTimeout(async () => {
       return helpers.evaluateTransfer().ok;
     }
 
+    // 75z2. 统一账户还款 T2 接线（stage 2026-08-09-pm-margin-repay-v1）：输入校验镜像后端、
+    // 确认前零请求/零请求号/零未决记录、确认文案诚实、body 恰四字段、发送前持久化、
+    // 全局防连点、四态、纯本地恢复、人工核对锁、成功后强制刷新解锁、请求层/传输错误分支。
+    {
+      const repayFixture = JSON.parse(JSON.stringify(designFixture));
+      repayFixture.private_account = {
+        verified: true,
+        balances_unified: [
+          { asset: 'BTC', total_balance: '0.4', cross_margin_free: '0.0',
+            cross_margin_borrowed: '0.5', value_usdt: '16000.00',
+            cross_margin_borrowed_value_usdt: '20000.00' },
+          { asset: 'BNB', total_balance: '1.0', cross_margin_free: '1.0',
+            cross_margin_borrowed: '0.25', value_usdt: '620.00',
+            cross_margin_borrowed_value_usdt: '155.00' },
+          { asset: 'USDT', total_balance: '9000', cross_margin_free: '9000',
+            cross_margin_borrowed: '0', value_usdt: '9000.00',
+            cross_margin_borrowed_value_usdt: '0.00' }
+        ],
+        balances_spot: [],
+        um_positions: [],
+        total_value_usdt: '7000.00',
+        valuation: { price_source: 'api_v3_ticker_price', priced_at: '2026-08-09T09:30:00Z' },
+        checked_at: '2026-08-09T09:30:00Z',
+        error: null
+      };
+      helpers.ingestSnapshot(repayFixture);
+      helpers.renderPrivatePanel();
+      let rBody = '';
+      let mark = fetchCallLog.length;
+
+      // -- 输入校验（镜像后端）：只收精确 "0" 或严格大于零的普通十进制 --
+      const badAmounts = ['', ' ', '0.0', '0.00', '00', '-5', '1e3', 'abc', '.5', '5.', '1.2.3', '0 ', ' 0.25', '0.25 '];
+      for (const bad of badAmounts) {
+        if (helpers.validateRepayAmount(bad).ok) {
+          throw new Error(`非法还款数量被放行: ${JSON.stringify(bad)}`);
+        }
+      }
+      const vAll = helpers.validateRepayAmount('0');
+      if (!vAll.ok || !vAll.repayAll || vAll.amount !== '0') throw new Error('精确 "0" 应表示全部且原样保留');
+      const vPart = helpers.validateRepayAmount('0.25');
+      if (!vPart.ok || vPart.repayAll || vPart.amount !== '0.25') throw new Error('正十进制应按原字符串通过');
+
+      // -- 确认前零请求 / 零请求号 / 零 localStorage 未决记录 --
+      helpers.setRepayAmount('BTC', '0.5');
+      mark = fetchCallLog.length;
+      helpers.requestMarginRepayConfirm('BTC');
+      if (fetchCallLog.length !== mark) throw new Error('还款确认前不应有任何请求');
+      if (localStorageData['funding_hedging_margin_repay_pending']) throw new Error('确认前不应有 localStorage 未决记录');
+      const rModal = helpers.getHedgeModal();
+      if (!rModal || rModal.title !== '确认还款') throw new Error('还款确认弹框标题错误: ' + JSON.stringify(rModal));
+      // 确认文案诚实：负债资产+指定数量、同币优先、USDT 只是后备、成本未知、快照滞后
+      for (const kw of ['BTC', '0.5 个 BTC', '优先使用账户中的 BTC', 'USDT', '手续费', '滑点', '无法预估', '60 秒', '可能已变化']) {
+        if (!rModal.body.includes(kw)) throw new Error(`确认文案缺少「${kw}」: ${rModal.body}`);
+      }
+      if (/只扣\s*USDT/.test(rModal.body)) throw new Error('确认文案不得宣称只扣 USDT');
+      if (elements['hedge-modal-confirm'].textContent !== '确认还款') throw new Error('确认词应为「确认还款」');
+
+      // -- 取消确认：零请求 / 零请求号 / 零未决记录 --
+      helpers.closeHedgeModal();
+      if (fetchCallLog.length !== mark) throw new Error('取消确认不应有任何请求');
+      if (localStorageData['funding_hedging_margin_repay_pending']) throw new Error('取消确认不应有未决记录');
+      if (helpers.getMarketActionPending()) throw new Error('取消后 pending 应清空');
+
+      // -- 非法输入不进确认、零请求 --
+      helpers.setRepayAmount('BTC', '0.0');
+      helpers.requestMarginRepayConfirm('BTC');
+      if (fetchCallLog.length !== mark) throw new Error('非法输入不应发出请求');
+      if (helpers.getMarketActionPending()) throw new Error('非法输入不应产生 pending');
+      const invModal = helpers.getHedgeModal();
+      if (!invModal || invModal.title !== '还款数量无效') throw new Error('数值零应提示数量无效且不进确认');
+      helpers.closeHedgeModal();
+
+      // -- 确认 → 发送前持久化 + 恰好一次 POST，body 冻结四字段（原始 amount 字符串）--
+      helpers.setRepayAmount('BTC', '0.5');
+      helpers.requestMarginRepayConfirm('BTC');
+      marginRepayPostResponse = { status: 200, body: {
+        client_request_id: 'r1', asset: 'BTC', amount: '0.5', repay_asset: 'USDT',
+        status: 'succeeded', repaid_amount: '0.5', update_time: '1786000000000',
+        error_code: null, error_message: null
+      } };
+      cacheRefreshPostResponse = { status: 200, body: { published: true, account_panels: 'complete' } };
+      await helpers.onHedgeModalConfirm();
+      let posts = fetchCallLog.slice(mark).filter(c => c.url === '/api/margin-repay');
+      if (posts.length !== 1) throw new Error(`确认后应恰好一次还款 POST，实际 ${posts.length}`);
+      if (posts[0].method !== 'POST') throw new Error('还款必须用 POST');
+      const sent = posts[0].body;  // mock fetch 已把 JSON body 解析成对象
+      const sentKeys = Object.keys(sent).sort();
+      if (sentKeys.join(',') !== 'amount,asset,client_request_id,confirm') {
+        throw new Error('请求体必须恰含 client_request_id/asset/amount/confirm 四字段: ' + sentKeys.join(','));
+      }
+      if (sent.confirm !== true) throw new Error('confirm 必须为 true');
+      if (sent.asset !== 'BTC' || sent.amount !== '0.5') throw new Error('asset/amount 必须是原始字符串: ' + JSON.stringify(sent));
+      if (!/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(sent.client_request_id)) {
+        throw new Error('client_request_id 必须是 UUID（幂等键）: ' + sent.client_request_id);
+      }
+      // 发送前持久化取证：mock 在 POST 到达瞬间抓取了 localStorage，
+      // 必须已存在同 UUID、同资产、同原始金额的未决记录。
+      const observed = marginRepayPostPendingSnapshot ? JSON.parse(marginRepayPostPendingSnapshot) : {};
+      if (!observed.BTC || observed.BTC.client_request_id !== sent.client_request_id) {
+        throw new Error('POST 之前必须把同一 UUID 持久化到 localStorage');
+      }
+      if (observed.BTC.asset !== 'BTC' || observed.BTC.amount !== '0.5') {
+        throw new Error('持久化记录应含 asset 与原始 amount: ' + JSON.stringify(observed));
+      }
+
+      // -- succeeded + 强制刷新 complete：清除未决、解锁、回显实际偿还资产/数量 --
+      // complete 路径内部 loadApi 会把快照换回默认 fixture，先重喂本用例快照再读 DOM。
+      helpers.ingestSnapshot(repayFixture);
+      rBody = elements['private-panel-body'].innerHTML;
+      if (!rBody.includes('还款成功')) throw new Error('缺少成功回显');
+      if (!rBody.includes('实际偿还 0.5 个 BTC')) throw new Error('成功回显应含实际还款资产/数量: ' + rBody.slice(rBody.indexOf('还款成功') - 200, rBody.indexOf('还款成功') + 600));
+      if (!rBody.includes('USDT')) throw new Error('成功回显应含指定偿还资产');
+      if (helpers.getMarginRepay().pending.BTC) throw new Error('刷新成功后应清除未决记录');
+      if (localStorageData['funding_hedging_margin_repay_pending']) throw new Error('localStorage 未决记录应已清除');
+      if (!fetchCallLog.slice(mark).some(c => c.url === '/api/public-market/cache-refresh')) {
+        throw new Error('成功后应强制刷新账户快照');
+      }
+      if (!rBody.includes('data-repay-preview="BTC">还款</button>')) throw new Error('解锁后按钮应恢复可点');
+
+      // -- failed（HTTP 200 + body.status）：明确展示 code/msg，结束该请求 --
+      helpers.setRepayAmount('BNB', '0.25');
+      marginRepayPostResponse = { status: 200, body: {
+        client_request_id: 'r2', asset: 'BNB', amount: '0.25', repay_asset: 'USDT',
+        status: 'failed', repaid_amount: null, update_time: null,
+        error_code: '-4015', error_message: '请求被币安拒绝（HTTP 400）：Insufficient balance'
+      } };
+      mark = fetchCallLog.length;
+      helpers.requestMarginRepayConfirm('BNB');
+      await helpers.onHedgeModalConfirm();
+      rBody = elements['private-panel-body'].innerHTML;
+      if (!rBody.includes('还款失败')) throw new Error('HTTP 200 + status=failed 必须显示失败（HTTP 200 不得当成功）');
+      if (!rBody.includes('-4015') || !rBody.includes('Insufficient balance')) throw new Error('失败回显应含交易所 code/msg');
+      if (helpers.getMarginRepay().pending.BNB) throw new Error('failed 应结束请求并清除未决记录');
+      if (!rBody.includes('data-repay-preview="BNB">还款</button>')) throw new Error('failed 后按钮应恢复可点（下一次重新确认）');
+
+      // -- unknown：锁资产、无重试入口、人工核对解锁；未锁定资产不受影响 --
+      helpers.setRepayAmount('BNB', '0.75');
+      marginRepayPostResponse = { status: 200, body: {
+        client_request_id: 'r3', asset: 'BNB', amount: '0.75', repay_asset: 'USDT',
+        status: 'unknown', repaid_amount: null, update_time: null,
+        error_code: null, error_message: '请求过于频繁，已触发币安限流（HTTP 429）'
+      } };
+      mark = fetchCallLog.length;
+      helpers.requestMarginRepayConfirm('BNB');
+      await helpers.onHedgeModalConfirm();
+      rBody = elements['private-panel-body'].innerHTML;
+      if (!rBody.includes('结果未知，请勿直接重试')) throw new Error('unknown 必须醒目警示');
+      if (!rBody.includes('可能已经执行')) throw new Error('unknown 必须说明钱可能已经还了');
+      if (/data-repay-retry|>重试</.test(rBody)) throw new Error('unknown 绝不能给重试按钮');
+      if (!helpers.getMarginRepay().pending.BNB) throw new Error('unknown 必须保留未决记录（锁）');
+      if (!JSON.parse(localStorageData['funding_hedging_margin_repay_pending']).BNB) throw new Error('localStorage 未决记录应保留');
+      if (!rBody.includes('data-repay-ack="BNB"')) throw new Error('unknown 应提供「我已核对」入口');
+      if (!rBody.includes('data-repay-recheck="BNB"')) throw new Error('unknown 应提供「查询结果」入口');
+      if (!/data-repay-preview="BNB" disabled>还款<\/button>/.test(rBody)) throw new Error('锁定期间该资产按钮应禁用');
+      if (!rBody.includes('data-repay-preview="BTC">还款</button>')) throw new Error('未锁定资产的按钮不应被误禁');
+      const lockedMark = fetchCallLog.length;
+      helpers.requestMarginRepayConfirm('BNB');
+      if (fetchCallLog.length !== lockedMark) throw new Error('锁定期间不得发出任何请求');
+      if (helpers.getMarketActionPending()) throw new Error('锁定期间不得进入确认');
+
+      // -- 「查询结果」恢复：同一 UUID 本地 GET 一次；恢复为 failed → 结束并解锁 --
+      const pendId = helpers.getMarginRepay().pending.BNB.client_request_id;
+      marginRepayGetResponse = { status: 200, body: {
+        client_request_id: pendId, asset: 'BNB', amount: '0.75', repay_asset: 'USDT',
+        status: 'failed', repaid_amount: null, update_time: null,
+        error_code: '-3000', error_message: '请求被币安拒绝（HTTP 400）：Exchange error'
+      } };
+      await helpers.recoverMarginRepay('BNB');
+      let gets = fetchCallLog.slice(lockedMark).filter(c => c.url.startsWith('/api/margin-repay?'));
+      if (gets.length !== 1) throw new Error(`恢复应恰好一次本地 GET（不轮询），实际 ${gets.length}`);
+      if (gets[0].method !== 'GET') throw new Error('恢复必须是 GET');
+      if (!gets[0].url.includes('client_request_id=' + pendId)) throw new Error('恢复必须用同一 UUID: ' + gets[0].url);
+      if (helpers.getMarginRepay().pending.BNB) throw new Error('恢复为 failed 应结束请求');
+      if (localStorageData['funding_hedging_margin_repay_pending']) throw new Error('failed 恢复后 localStorage 应清除');
+
+      // -- 再次 unknown → 「我已核对」纯本地解锁，零请求 --
+      helpers.setRepayAmount('BNB', '0.75');
+      marginRepayPostResponse = { status: 200, body: {
+        client_request_id: 'r4', asset: 'BNB', amount: '0.75', repay_asset: 'USDT',
+        status: 'unknown', repaid_amount: null, update_time: null,
+        error_code: null, error_message: 'transport_error:timeout'
+      } };
+      helpers.requestMarginRepayConfirm('BNB');
+      await helpers.onHedgeModalConfirm();
+      if (!helpers.getMarginRepay().pending.BNB) throw new Error('unknown 应锁定');
+      mark = fetchCallLog.length;
+      helpers.acknowledgeRepayUnknown('BNB');
+      if (fetchCallLog.length !== mark) throw new Error('「我已核对」不应发出任何请求');
+      if (helpers.getMarginRepay().pending.BNB) throw new Error('「我已核对」应清除未决记录');
+      if (localStorageData['funding_hedging_margin_repay_pending']) throw new Error('「我已核对」应清 localStorage');
+
+      // -- succeeded 但强制刷新失败：保留成功结果和锁，「再次刷新」成功后解锁 --
+      helpers.setRepayAmount('BTC', '0.1');
+      marginRepayPostResponse = { status: 200, body: {
+        client_request_id: 'r5', asset: 'BTC', amount: '0.1', repay_asset: 'USDT',
+        status: 'succeeded', repaid_amount: '0.1', update_time: '1786000000500',
+        error_code: null, error_message: null
+      } };
+      cacheRefreshPostResponse = { status: 200, body: { published: true, account_panels: 'partial' } };
+      helpers.requestMarginRepayConfirm('BTC');
+      await helpers.onHedgeModalConfirm();
+      helpers.ingestSnapshot(repayFixture);
+      rBody = elements['private-panel-body'].innerHTML;
+      if (!rBody.includes('还款已成功，但账户快照刷新失败')) throw new Error('部分刷新不得当成功，必须如实提示刷新失败');
+      if (!helpers.getMarginRepay().pending.BTC) throw new Error('刷新失败必须保留未决记录（锁）');
+      if (!rBody.includes('data-repay-refresh="BTC"')) throw new Error('应提供「再次刷新」恢复路径');
+      if (!/data-repay-preview="BTC" disabled>还款<\/button>/.test(rBody)) throw new Error('刷新失败期间按钮应禁用');
+      cacheRefreshPostResponse = { status: 200, body: { published: true, account_panels: 'complete' } };
+      await helpers.finalizeMarginRepaySuccess('BTC');
+      if (helpers.getMarginRepay().pending.BTC) throw new Error('再次刷新成功后应解锁');
+      if (localStorageData['funding_hedging_margin_repay_pending']) throw new Error('解锁后 localStorage 应清除');
+      helpers.ingestSnapshot(repayFixture);
+
+      // -- 传输错误（浏览器到本机服务中断/响应丢失）：保留同一未决请求并锁定，绝不换号重发 --
+      helpers.setRepayAmount('BTC', '0.2');
+      marginRepayPostThrow = new TypeError('fetch failed');
+      helpers.requestMarginRepayConfirm('BTC');
+      await helpers.onHedgeModalConfirm();
+      rBody = elements['private-panel-body'].innerHTML;
+      if (!helpers.getMarginRepay().pending.BTC) throw new Error('传输错误必须保留未决请求');
+      if (!rBody.includes('结果未知，请勿直接重试')) throw new Error('传输错误必须按结果未知提示');
+      if (!rBody.includes('data-repay-ack="BTC"') || !rBody.includes('data-repay-recheck="BTC"')) {
+        throw new Error('传输错误应提供恢复/核对入口');
+      }
+      // -- GET 404：不得擅自宣称未还款、不得清除未决 ID --
+      marginRepayGetResponse = { status: 404, body: { error: 'not_found', detail: '未找到该 client_request_id 的还款记录' } };
+      await helpers.recoverMarginRepay('BTC');
+      rBody = elements['private-panel-body'].innerHTML;
+      if (!helpers.getMarginRepay().pending.BTC) throw new Error('GET 404 不得清除未决 ID');
+      if (!rBody.includes('恢复查询未完成')) throw new Error('GET 404 应如实提示恢复查询未完成');
+      if (rBody.includes('尚未还款') || rBody.includes('未还款成功')) throw new Error('不得擅自宣称未还款');
+      helpers.acknowledgeRepayUnknown('BTC');
+      if (helpers.getMarginRepay().pending.BTC) throw new Error('人工核对后应解锁');
+
+      // -- 启动/重载恢复：localStorage 未决逐条按同一 UUID GET 一次；succeeded 走刷新解锁 --
+      helpers.setMarginRepayPending('BTC', { client_request_id: 'startup-1', asset: 'BTC', amount: '0' });
+      marginRepayGetResponse = { status: 200, body: {
+        client_request_id: 'startup-1', asset: 'BTC', amount: '0', repay_asset: 'USDT',
+        status: 'succeeded', repaid_amount: '0.44', update_time: '1786000001000',
+        error_code: null, error_message: null
+      } };
+      cacheRefreshPostResponse = { status: 200, body: { published: true, account_panels: 'complete' } };
+      mark = fetchCallLog.length;
+      await helpers.recoverMarginRepayAll();
+      gets = fetchCallLog.slice(mark).filter(c => c.url.startsWith('/api/margin-repay?'));
+      if (gets.length !== 1) throw new Error(`启动恢复每条未决应恰好 GET 一次（不轮询），实际 ${gets.length}`);
+      if (!gets[0].url.includes('client_request_id=startup-1')) throw new Error('启动恢复必须用同一 UUID');
+      if (helpers.getMarginRepay().pending.BTC) throw new Error('恢复 succeeded+刷新成功应清除未决');
+      if (!fetchCallLog.slice(mark).some(c => c.url === '/api/public-market/cache-refresh')) {
+        throw new Error('恢复成功后同样应强制刷新账户快照');
+      }
+      helpers.ingestSnapshot(repayFixture);
+      rBody = elements['private-panel-body'].innerHTML;
+      if (!rBody.includes('还款成功') || !rBody.includes('实际偿还 0.44 个 BTC')) {
+        throw new Error('启动恢复成功应展示实际还款资产/数量');
+      }
+
+      // -- 全局防连点：任一还款提交期间所有还款按钮禁用、确认入口被拒 --
+      const mm = helpers.getMarginRepay();
+      mm.submitting = true;
+      helpers.renderPrivatePanel();
+      rBody = elements['private-panel-body'].innerHTML;
+      if (!/data-repay-preview="BTC" disabled>还款<\/button>/.test(rBody)
+          || !/data-repay-preview="BNB" disabled>还款<\/button>/.test(rBody)) {
+        throw new Error('提交期间所有还款按钮必须禁用');
+      }
+      mark = fetchCallLog.length;
+      helpers.setRepayAmount('BTC', '0.3');
+      helpers.requestMarginRepayConfirm('BTC');
+      if (fetchCallLog.length !== mark || helpers.getMarketActionPending()) {
+        throw new Error('提交期间不得进入确认或发出请求');
+      }
+      mm.submitting = false;
+      helpers.renderPrivatePanel();
+
+      // -- 请求层失败（503 闸门关闭）：钱一定没动、未决撤销、按钮可点 --
+      helpers.setRepayAmount('BTC', '0.4');
+      marginRepayPostResponse = { status: 503, body: {
+        error: 'margin_repay_unavailable',
+        detail: '还款通道未配置（未开启 APP_MARGIN_REPAY_ENABLED、离线模式或缺少 API 凭证）'
+      } };
+      helpers.requestMarginRepayConfirm('BTC');
+      await helpers.onHedgeModalConfirm();
+      rBody = elements['private-panel-body'].innerHTML;
+      if (!rBody.includes('还款未发出')) throw new Error('请求层失败应显示「还款未发出」');
+      if (!rBody.includes('还款通道未配置')) throw new Error('请求层失败应带后端 detail');
+      if (helpers.getMarginRepay().pending.BTC) throw new Error('请求层失败应撤销未决记录');
+      if (localStorageData['funding_hedging_margin_repay_pending']) throw new Error('localStorage 不应残留');
+
+      // 复位，不污染后续断言
+      marginRepayPostResponse = null;
+      marginRepayGetResponse = null;
+      marginRepayPostThrow = null;
+      marginRepayPostPendingSnapshot = null;
+      cacheRefreshPostResponse = null;
+      helpers.acknowledgeRepayUnknown('BTC');
+      helpers.acknowledgeRepayUnknown('BNB');
+      helpers.setRepayAmount('BTC', '');
+      helpers.setRepayAmount('BNB', '');
+      delete localStorageData['funding_hedging_margin_repay_pending'];
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] 统一账户还款 T2 接线：校验镜像后端/确认文案诚实/取消零请求/body 恰四字段/发送前持久化同号取证/成功强制刷新解锁/failed 结束/unknown 锁+人工核对/查询结果同号恢复/刷新失败留锁+再次刷新/传输错误留锁/GET404 不清 ID/启动恢复一次 GET/全局防连点/请求层失败撤销');
+    }
+
     // 76. 无泄漏证明：fetch 同源白名单、无 Binance/外域、无新任务定时器、localStorage 白名单
     {
       const allowedPatterns = [
@@ -7533,7 +7863,11 @@ setTimeout(async () => {
         /^\/api\/private-ledger\/flow-log\?/,
         /^\/api\/private-ledger\/refresh$/,
         // 资产互转（stage 2026-08-06-asset-transfer-live-v1 T2）：同源、POST。
-        /^\/api\/asset-transfer$/
+        /^\/api\/asset-transfer$/,
+        // 统一账户还款（stage 2026-08-09-pm-margin-repay-v1 T2）：同源、POST；
+        // 纯本地恢复 GET（同一 UUID 查一次，不轮询）。
+        /^\/api\/margin-repay$/,
+        /^\/api\/margin-repay\?/
         // 注：`/api/private-account/max-withdraw` 端点仍在后端，但前端**不再调用**
         //（Human 2026-08-07 定稿：沿用快照，零请求）。故不列入白名单——若哪天前端
         // 又发起该请求，这条守卫会立刻抓到，那必须是一次显式决定而非悄悄回潮。
@@ -7586,6 +7920,12 @@ setTimeout(async () => {
         } else if (c.url === '/api/asset-transfer') {
           // 划转是写操作，只能 POST（GET 划转会被浏览器预取/重放，绝不允许）。
           if (c.method !== 'POST') throw new Error(`资产互转路由非法方法 ${c.method}`);
+        } else if (c.url === '/api/margin-repay') {
+          // 还款是写操作，只能 POST（同划转纪律）。
+          if (c.method !== 'POST') throw new Error(`还款路由非法方法 ${c.method}`);
+        } else if (c.url.startsWith('/api/margin-repay?')) {
+          // 还款恢复查询是纯本地 GET。
+          if (c.method !== 'GET') throw new Error(`还款恢复查询路由非法方法 ${c.method}`);
         } else if (c.method !== 'GET') {
           throw new Error(`只读路由非法方法 ${c.method}: ${c.url}`);
         }
@@ -7600,14 +7940,15 @@ setTimeout(async () => {
       if (intervalCalls.filter(call => call.delay === 2000).length !== 1) {
         throw new Error('执行状态与展开日志必须复用同一个 2s 显示轮询');
       }
-      // localStorage 白名单：仅隐私开关键（开单任务/持仓权威在后端 SQLite，不落 localStorage）
-      const allowedStorageKeys = ['funding_hedging_privacy_hidden'];
+      // localStorage 白名单：隐私开关键 + 还款未决请求号（按负债资产持久化的幂等
+      // 恢复记录；开单任务/持仓权威在后端 SQLite，不落 localStorage）
+      const allowedStorageKeys = ['funding_hedging_privacy_hidden', 'funding_hedging_margin_repay_pending'];
       for (const k of Object.keys(localStorageData)) {
         if (!allowedStorageKeys.includes(k)) {
           throw new Error(`localStorage 出现白名单外键: ${k}`);
         }
       }
-      console.log('[PASS] fetch 同源白名单（含开单 §3 路由）、零 Binance/外域、单一共享 2s 显示轮询、localStorage 白名单（仅隐私键）');
+      console.log('[PASS] fetch 同源白名单（含开单 §3 路由）、零 Binance/外域、单一共享 2s 显示轮询、localStorage 白名单（隐私键 + 还款未决请求号）');
     }
 
     // ---- 暂停原因：直读后端 pause_reason_zh（不再查前端残缺映射表）----
