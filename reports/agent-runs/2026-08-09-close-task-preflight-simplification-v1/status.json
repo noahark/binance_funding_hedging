@@ -1,13 +1,13 @@
 {
   "schema_version": "2",
-  "revision": 4,
+  "revision": 5,
   "stage_id": "2026-08-09-close-task-preflight-simplification-v1",
   "bookkeeper": "claude_glm",
-  "phase": "review-complete",
-  "checkpoint": "dual-review-accepted",
+  "phase": "closed",
+  "checkpoint": "merged-pending-deploy",
   "base_sha": "dc356cd7f6acdc8502cd6caa44a48f6e3c760cac",
   "delivery_sha": "e5f83f1c7f53bba4593a51f843fd1f45f52814bd",
-  "ledger_sha": "be8bf52350fc2b038974d99638b665da6b3ec4e5",
+  "ledger_sha": "9bdd76baf73c942cc94ef84d8f9aa1cb770f09bc",
   "current_task": {
     "id": "close-task-preflight-simplification-review-2-kimi",
     "state": "verified",
@@ -15,7 +15,7 @@
   },
   "next": {
     "actor": "human_operator",
-    "action": "final-acceptance-merge-deploy-decision"
+    "action": "deploy-restart-and-minimal-live-verification-authorization"
   },
   "rework_count": 0,
   "blockers": []

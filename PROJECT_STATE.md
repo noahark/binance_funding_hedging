@@ -77,8 +77,8 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   的 **open** 任务 fail-closed（`multiplier_contract_unsupported`）。
   **⚠️ 当前运行中服务的 close 放行 ≠ close 安全**：它仍会给两腿同一个
   `q_common`，自动平仓腿量同样错 1000 倍；真要处置这种仓位须人工去交易所平。
-  2026-08-09 本地待评审交付已为 close 增加建卡/dispatch 双判拦截，但尚未部署，
-  在独立双评审与 Human 决定前不能把该拦截当作运行时保护。
+  2026-08-09 交付已通过双评审并合并 main，为 close 增加了建卡/dispatch 双判拦截，
+  但尚未部署、未实盘验证；部署重启前不能把该拦截当作运行时保护。
   **换算改造（资金路径）见 Open Follow-ups 的「1000x 腿量换算」条，须 Human 授权。**
   另注意：持仓表 `single_leg_exposure` 对乘数币因量纲不同会误报，换算落地时跟着改。
 
@@ -176,13 +176,15 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Open Follow-ups
 
-- `[OPEN][PENDING-REVIEW][2026-08-09]` **平仓两段式建卡 + 启动后预检瘦身已在本地实现，
-  尚未部署或进入运行中服务。** 实现前计划已获 Opus 5/Anthropic 跨 provider
-  `ACCEPT`；本地交付落实 C1（`um_positions` 300s 上限 + 实时兜底）、C2（单条
-  INSERT 原子落 `paused` + 两个原因列）、C3（dry-run 两道新门放行且零 POST）及
-  活文档同步。下一关卡为独立 review-1 + review-2；两轮明确 `ACCEPT` 和 Human 最终
-  决定前，不得把本工作树描述成运行中行为，不得部署、重启服务或做实盘验证。
-  计划/计划评审：`docs/planning/close-task-preflight-simplification-2026-08-09.v2.*`。
+- `[OPEN][MERGED-PENDING-DEPLOY][2026-08-09]` **平仓两段式建卡 + 启动后预检瘦身已通过
+  独立双评审（Review-1 Opus 5/Anthropic `ACCEPT`、Review-2 Kimi/Moonshot `ACCEPT`，
+  三轮三 provider）并经 Human 验收，已合并 main（`dc356cd..e5f83f1` + 各轮封存控制提交），
+  但尚未部署、未重启服务、未做实盘验证。** 交付落实 C1（`um_positions` 300s 上限 +
+  实时兜底）、C2（单条 INSERT 原子落 `paused` + 两个原因列）、C3（dry-run 两道新门
+  放行且零 POST）及活文档同步。**当前运行中服务仍是旧行为**（创建即 `running` 的平仓卡、
+  close 侧无 1000x 拦截）；部署、重启服务与最小额度实盘验证须 Human 单独授权后方可进行。
+  计划/计划评审/双评审 handoff：`docs/planning/close-task-preflight-simplification-2026-08-09.v2.*`、
+  `reports/agent-runs/2026-08-09-close-task-preflight-simplification-v1/`。
 
 - `[OPEN][NEEDS-HUMAN-AUTHORIZATION][2026-08-07]` **1000x 腿量换算——未做的资金路径**。
   P0 止血只是把 6 个乘数币（BONK/FLOKI/LUNC/PEPE/SHIB/XEC）挡在门外（见 Live Risks
@@ -305,7 +307,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 ## Next Priority
 
 - **No active stage.** Current priorities (detail in the sections above):
-  1. 平仓两段式本地交付走独立 review-1 + review-2（未部署）；
+  1. 平仓两段式已合并 main（双评审 ACCEPT + Human 验收），下一步为部署 + 重启 + 最小额度实盘验证（须 Human 单独授权，未部署）；
   2. 1000x 腿量换算 —— 恢复乘数币能力仍须 Human 授权后单开一轮；
   3. launchd 损坏 —— Human 自 2026-08-03 决定不修（机器重启服务不会自动起来）。
 - Nothing open authorizes deployment, Start-gate changes, credentials, or live
