@@ -110,20 +110,20 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   touch credentials, control the service, or write the live task DB; an
   authorized read-only check must precede any live action.
 
-- `[OPEN][OPERATIONS][2026-08-03]` **The launchd service is broken and has been
-  failing in a tight loop** (unrepaired by Human decision 2026-08-03).
-  `com.aoke.funding-hedging.server` reports `last exit code = 126`; root cause
-  (2026-08-07): launchd-spawned bash cannot get TCC permission for `~/Desktop`
-  (`scripts/run-server.sh: Operation not permitted` + `getcwd` failure).
-  The service on `127.0.0.1:8787` is a manually started foreground process in
-  the operator's terminal, so killing it does NOT hand over to launchd — the
-  restart must be manual (`scripts/run-server.sh`, required because
-  `backend/config.py` never parses `.env` itself). Diagnose with
-  `scripts/service-control.py doctor` (read-only); every repair subcommand needs
-  `--confirm`.
-  **⚠️ `service-control.py status` 具有误导性**：它报的 `health 200` 来自手动
-  进程、`commit` 字段读的是当前 git HEAD 而非运行中进程加载的代码版本——据此
-  判断「服务已是最新代码」会出错，须以进程启动时间对比提交时间为准。
+- `[OPEN][OPERATIONS][2026-08-03, updated 2026-08-09]` **launchd 无法托管，已 disable，
+  改用手动前台模式。** 根因是 macOS TCC：launchd 启动的进程拿不到 `~/Desktop` 访问权限。
+  2026-08-09 Human 给 `/bin/bash` 加了「完全磁盘访问」后 bash 能进 Desktop（退出码 126→1），
+  但 `run-server.sh` 调的 python（`.venv/bin/python` → `/opt/homebrew/opt/python@3.11/bin/python3.11`）
+  仍未授权，读 `.venv/pyvenv.cfg` 时 `Operation not permitted` → launchd 仍起不来。Human 决定
+  **不逐个授权可执行文件**（homebrew python 一升级路径就变、TCC 失效，太脆弱），由 Bookkeeper
+  执行 `launchctl disable + bootout gui/501/com.aoke.funding-hedging.server` 停掉 fail loop
+  并防止 `RunAtLoad` 下次开机复发。**当前服务 = 手动前台进程**（如 PID 54099，2026-08-09 19:11
+  启动，跑最新 main 代码），在 `127.0.0.1:8787`；重启必须手动 `scripts/run-server.sh`
+  （`backend/config.py` 不自行解析 `.env`）。根治（想要重启自动起）：把项目移出 `~/Desktop`
+  到非 TCC 保护目录；给 python 也授权不可取（脆弱）。诊断用 `scripts/service-control.py doctor`
+  （只读），修复子命令需 `--confirm`。要恢复 launchd：`launchctl enable + bootstrap gui/501` 该 plist。
+  **⚠️ `service-control.py status` 具有误导性**：`health 200` 来自手动进程、`commit` 字段读当前
+  git HEAD 而非运行进程加载的代码版本——判断「服务最新」须以进程启动时间对比提交时间为准。
 
 - `[NOTE][2026-08-03]` The "no agent may control the service" rule was waived
   once, explicitly and narrowly: Human directly ordered a restart (read-only
@@ -298,7 +298,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 - **No active stage.** Current priorities (detail in the sections above):
   1. 1000x 腿量换算 —— 恢复乘数币能力仍须 Human 授权后单开一轮；
-  2. launchd 损坏 —— Human 自 2026-08-03 决定不修（机器重启服务不会自动起来）。
+  2. launchd 已 disable、改手动前台模式（TCC 部分修复但 python 未授权；根治须移项目出 ~/Desktop）。
 - Nothing open authorizes deployment, Start-gate changes, credentials, or live
   operation. Live actions follow the Live Risks gates above.
 
