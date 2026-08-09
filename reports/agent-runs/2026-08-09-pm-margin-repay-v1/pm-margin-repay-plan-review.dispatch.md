@@ -44,7 +44,10 @@
 10. `backend/services/hedge_open_live_client.py` 的 allowlist、签名 POST、资产划转方法
 11. `frontend/index.html` 的还款预览和资产划转交互
 12. 币安官方端点契约：
-    <https://developers.binance.com/zh-CN/docs/catalog/advanced-trading-derivatives-trading-portfolio-margin/api/rest-api/trade#margin-account-repay>
+    <https://developers.binance.com/zh-CN/docs/catalog/advanced-trading-derivatives-trading-portfolio-margin/api/rest-api/trade#margin-account-repay-debt>
+
+勘误（2026-08-09）：上一版只把上述链接锚点误写成 `#margin-account-repay`；现已更正。
+Goal 中冻结的接口始终为 `POST /papi/v1/margin/repay-debt`，任务范围与验收不变。
 
 创建 handoff 前必须遵守 `agents/roles.md` 的 Task Handoff Evidence Contract；Reviewer 只可
 创建上面指定的唯一文件。

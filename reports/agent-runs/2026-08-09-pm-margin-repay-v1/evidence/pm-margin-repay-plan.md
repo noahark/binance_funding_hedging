@@ -14,7 +14,11 @@
 ## 2. 币安官方契约与产品语义
 
 权威来源：
-<https://developers.binance.com/zh-CN/docs/catalog/advanced-trading-derivatives-trading-portfolio-margin/api/rest-api/trade#margin-account-repay>
+<https://developers.binance.com/zh-CN/docs/catalog/advanced-trading-derivatives-trading-portfolio-margin/api/rest-api/trade#margin-account-repay-debt>
+
+勘误（2026-08-09）：上一版仅将文档链接锚点误写为
+`#margin-account-repay`，现更正为 `#margin-account-repay-debt`。计划正文冻结的端点始终是
+`POST /papi/v1/margin/repay-debt`，本次只修正引用，不改变接口、范围或验收语义。
 
 - 端点为签名 `TRADE` 请求，IP 权重 3000。
 - `asset` 是被偿还的负债资产；`amount` 可选；`specifyRepayAssets` 是逗号分隔的
