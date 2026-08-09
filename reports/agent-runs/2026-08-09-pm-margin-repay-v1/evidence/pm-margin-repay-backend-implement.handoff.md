@@ -123,3 +123,33 @@ python3 -m pytest -q backend/tests/test_hedge_purity.py::test_allowlist_is_exact
 
 （由 Bookkeeper 核验后追加：源区块 SHA-256、核验时间、核对的 status revision、通过或拒收依据、
 可复现命令与后续状态。）
+
+- source_sha256: `f5633019b69092fcade42cd521b1363bb62ce767d1f4eac01a360e69871773e2`
+- verified_at: `2026-08-09 23:20:10 CST`
+- verified_status_revision: `2`
+- verifier: `codex`（Bookkeeper）
+- base_sha: `ee0d5320b319a5bacc708eb8680e8156328db338`
+- delivery_sha: `19c7096bb12c0cc3df2d722349bc2d580b4ba51e`
+- result: `accepted for T2 dispatch`
+- identity_and_commit: task、Implementer/zhipu_glm、stage、revision、base SHA 与
+  `status.json` 一致；`delivery_sha: pending` 已从唯一实现提交解析；base 是 delivery 祖先，
+  固定范围内的 Bookkeeper 控制提交仅作上下文。
+- file_scope: 实现提交仅含 dispatch 原八个产品/测试文件、handoff、允许的 reported 状态
+  更新，以及 Human 2026-08-09 明确扩入的 `backend/tests/test_hedge_purity.py`。该扩入只把
+  精确白名单加入 `repay-debt` 并更新 15→16 / 9→10 守卫计数，未放宽守卫逻辑。
+- source_contract: marker 前来源 SHA-256 如上；身份、实际范围、测试原始命令、八项 pass、
+  Human Brief 和 `delivery_sha: pending` 完整。marker 后的预留说明保持原字节，本核验只追加。
+- independent_checks:
+  - `git diff --check ee0d5320b319a5bacc708eb8680e8156328db338..19c7096bb12c0cc3df2d722349bc2d580b4ba51e` → pass
+  - dispatch 定向五文件：`181 passed in 57.67s`
+  - `python3 -m pytest -q backend/tests` → `1677 passed in 151.80s`
+  - 实现提交文件集合与授权范围逐项相等；工作区无未提交改动
+- safety_effect: 后端能力已写入代码但默认闸门关闭；核验未启动服务、未读取凭证、未访问
+  币安、未部署、未开闸。T1 核验只允许准备前端 T2，不授权资金操作或发布。
+
+## Errata (append-only)
+
+- `2026-08-09 / codex Bookkeeper`：Source Report 与 Human Brief 在 Bookkeeper 核验之后写了
+  “准备 review-1 dispatch”。已接受计划 §5/§6 的权威顺序是 **T1 核验 → T2 前端实现 →
+  固定完整 delivery → review-1 → review-2**。因此下一任务更正为 T2；这是路由文字勘误，
+  不改变 T1 代码、接口契约、八项检查 pass 或本次核验结论。
