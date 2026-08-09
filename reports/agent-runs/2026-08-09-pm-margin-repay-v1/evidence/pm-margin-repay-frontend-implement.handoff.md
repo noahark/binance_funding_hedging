@@ -113,3 +113,37 @@ git diff --check
 
 （任何更正均追加，说明日期、作者、改动原因与不改变的事实；不得改写 Source Report 或
 Human Brief。）
+
+## Bookkeeper Verification (Bookkeeper append-only, actual)
+
+- source_sha256: `757af6249dc1edf152f65756d6062eb4a6d07d7efeb21aa40df50018d544cecf`
+- verified_at: `2026-08-10 00:17:09 CST`
+- verified_status_revision: `3`
+- verifier: `codex`（Bookkeeper）
+- task_base_sha: `64bd81188a94a9e600c3e315ebaf1130d2a8a3b2`
+- delivery_sha: `5a81bdc1c40238053a07736faa64b34cab294987`
+- complete_delivery_base_sha: `ee0d5320b319a5bacc708eb8680e8156328db338`
+- result: `accepted for review-1 dispatch`
+- identity_and_commit: task、Implementer/moonshot、stage、revision、task base SHA 与
+  `status.json` 一致；`delivery_sha: pending` 已从唯一 T2 delivery commit 解析；task base
+  是 delivery 祖先。
+- file_scope: T2 实现提交只含 `frontend/index.html`、`frontend/self-check.js`、
+  `backend/tests/test_frontend_field_binding.py`、`docs/api/public-market-contract.md`、本 handoff
+  和允许的 reported 状态更新；没有后端实现、凭证、运行或部署文件改动。
+- source_contract: marker 前来源 SHA-256 如上；身份、实际范围、三条原始检查、八项 pass、
+  Human Brief 与下一关卡完整。实现者预留的 Bookkeeper/Errata 占位字节保持不变，本核验在
+  文件末尾追加。
+- independent_checks:
+  - `node frontend/self-check.js` → 全部自检通过，exit 0
+  - `python3 -m pytest -q backend/tests/test_frontend_field_binding.py` → `10 passed in 0.10s`
+  - `git diff --check 64bd81188a94a9e600c3e315ebaf1130d2a8a3b2..5a81bdc1c40238053a07736faa64b34cab294987` → pass
+  - T2 implementation commit 文件集合精确匹配 Allowed Files，`status.json` 只改
+    `dispatched`→`reported`，工作区无未提交改动
+- seam_check: 前端请求体与后端四字段一致；确认后生成 UUID、POST 前 localStorage、四态只
+  信 `body.status`、同号 GET 恢复、unknown/pending 人工锁、complete 刷新后解锁均有代码与
+  自包含测试证据；v0.17 公共契约同步。
+- fixed_review_range: 完整 T1+T2 产品交付固定为
+  `ee0d5320b319a5bacc708eb8680e8156328db338..5a81bdc1c40238053a07736faa64b34cab294987`；
+  区间内 stage dispatch/status/Bookkeeper 提交是评审上下文，不是产品交付。
+- safety_effect: 核验未启动服务、未读取凭证、未访问币安、未部署、未开闸。T2 核验只允许
+  派发 review-1，不授权合并、发布或资金操作。
