@@ -107,6 +107,11 @@ ALLOWLIST: Dict[tuple, str] = {
     # （fapi 域名；weight 1，写语义与订单一致——超时/5xx 不重试）。参数冻结
     # symbol + leverage，签名 POST。
     ("POST", "/papi/v1/um/leverage"): "https://papi.binance.com",
+    # 统一账户全仓杠杆还款（stage 2026-08-09-pm-margin-repay-v1）：POST /papi/v1/margin/repay-debt
+    # （PAPI 域名；TRADE，weight 3000）。one-shot：超时/5xx 不重试（钱可能已还）。参数在
+    # repay_margin_debt 内部冻结 asset + 固定 specifyRepayAssets=USDT，外部无法注入 host/path/
+    # 偿还资产。与 /papi/v1/repayLoan（经典逐仓，本通路禁止）是不同端点。
+    ("POST", "/papi/v1/margin/repay-debt"): "https://papi.binance.com",
 }
 
 # Order-write transport timeout (mirror borrow client §5.1). Module-level, NOT
@@ -136,6 +141,12 @@ UNIVERSAL_TRANSFER_PATH = "/sapi/v1/asset/transfer"
 # 账户端点，PM 账户调用 401 -2015，2026-08 修正。白名单
 # 硬绑定，配置不可覆盖）。
 LEVERAGE_PATH = "/papi/v1/um/leverage"
+# 统一账户全仓杠杆还款端点（stage 2026-08-09-pm-margin-repay-v1）。PAPI 域名；与
+# /papi/v1/repayLoan（经典逐仓借款还款，本通路禁止）是不同端点——白名单只放 repay-debt。
+MARGIN_REPAY_DEBT_PATH = "/papi/v1/margin/repay-debt"
+# 指定偿还资产首版冻结为 USDT（覆盖「欠 BNB、账户只有 USDT」等跨资产还款）。服务端固定，
+# 客户端无法覆盖；币安仍会先用负债同币资产，之后才用此指定资产。
+REPAY_SPECIFY_ASSET = "USDT"
 # 万向划转 type 冻结枚举（平仓现货卖出重设计）：统一账户 → 普通现货账户
 # （forward close 补足现货）/ 普通现货账户 → 统一账户（USDT 回流）。仅此两个。
 TRANSFER_TYPE_PM_MAIN = "PORTFOLIO_MARGIN_MAIN"
@@ -508,6 +519,29 @@ class HedgeOpenLiveClient:
             timestamp_ms,
             recv_window_ms,
         )
+
+    def repay_margin_debt(
+        self, asset: str, amount: Optional[str], *,
+        timestamp_ms: int, recv_window_ms: Optional[int] = None,
+    ) -> HedgeHttpResponse:
+        """POST /papi/v1/margin/repay-debt — 统一账户全仓杠杆还款（stage
+        2026-08-09-pm-margin-repay-v1）。
+
+        ``asset`` 是被偿还的负债资产（服务端按快照 ``cross_margin_borrowed > 0`` 校验后
+        传入）。``amount`` 语义遵循币安契约：
+
+        * ``None`` → 省略 amount（偿还资产足够时偿还**全部**负债）。页面的 ``0`` 在服务端
+          映射为 ``None``，绝不把字面量 ``0`` 发给币安；
+        * 非空字符串 → 按原始十进制字符串透传（数量单位是负债资产单位；全程不用 float）。
+
+        指定偿还资产 ``specifyRepayAssets`` 在此**内部固定**为 :data:`REPAY_SPECIFY_ASSET`
+        （USDT），方法签名不接受、也无法被调用方覆盖；host/path 由白名单硬绑定，不可注入。
+        One-shot：超时/5xx 不重试（写语义与订单/划转一致），由调用方 fail-closed 处理。
+        """
+        params = {"asset": asset, "specifyRepayAssets": REPAY_SPECIFY_ASSET}
+        if amount is not None:
+            params["amount"] = str(amount)
+        return self._post_signed(MARGIN_REPAY_DEBT_PATH, params, timestamp_ms, recv_window_ms)
 
     def get_spot_rate_limit_order(self, *, timestamp_ms: int,
                                   recv_window_ms: Optional[int] = None) -> HedgeHttpResponse:

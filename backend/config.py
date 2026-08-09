@@ -111,6 +111,11 @@ class Config:
     # so a Config repr/log can never leak the secret.
     binance_hedge_api_key: str = field(default="", repr=False)
     binance_hedge_api_secret: str = field(default="", repr=False)
+    # 统一账户全仓杠杆还款（stage 2026-08-09-pm-margin-repay-v1）：独立默认关闭闸门。
+    # 复用 hedge API 凭证（PAPI TRADE 端点，与开单同 key）；只有显式开启、非离线且
+    # key/secret 均存在时才构造还款 client，否则 POST /api/margin-repay 返回 503。
+    # 不受 APP_HEDGE_EXECUTOR 控制（该开关只管对冲开单）。
+    margin_repay_enabled: bool = False
 
 
 # Stage 2026-07-cache-refresh-scheduler-v2: fixed Group B shared/unified source
@@ -322,4 +327,10 @@ def from_env(environ: Mapping[str, str] | None = None) -> Config:
         # here). Empty by default — the live adapter refuses to POST without them.
         binance_hedge_api_key=_env(env, "BINANCE_HEDGE_API_KEY", "") or "",
         binance_hedge_api_secret=_env(env, "BINANCE_HEDGE_API_SECRET", "") or "",
+        margin_repay_enabled=_env_bool(
+            env,
+            "APP_MARGIN_REPAY_ENABLED",
+            DEFAULT.margin_repay_enabled,
+            "FUNDING_HEDGING_MARGIN_REPAY_ENABLED",
+        ),
     )

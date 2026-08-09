@@ -328,3 +328,65 @@ def test_regular_spot_writes_and_queries_hit_api_binance():
     ]
     assert all("timestamp=" in s for s in sent)
     assert all("signature=" in s for s in sent)
+
+
+# ---- 统一账户全仓杠杆还款：POST /papi/v1/margin/repay-debt（stage
+#      2026-08-09-pm-margin-repay-v1）----
+from urllib.parse import parse_qs  # noqa: E402
+
+from backend.services.hedge_open_live_client import (  # noqa: E402
+    MARGIN_REPAY_DEBT_PATH,
+    REPAY_SPECIFY_ASSET,
+)
+
+
+def _form(req):
+    """把 POST 表单 body 解析成单值字典（repay-debt 每个键只出现一次）。"""
+    return {k: v[0] for k, v in parse_qs(req.data.decode("utf-8")).items()}
+
+
+def test_allowlist_registers_margin_repay_debt_hardbound_to_papi():
+    # 精确 (POST, /papi/v1/margin/repay-debt) 硬绑定 papi.binance.com；经典逐仓
+    # /papi/v1/repayLoan（本通路禁止）不在白名单。
+    assert _ALLOWLIST[("POST", MARGIN_REPAY_DEBT_PATH)] == "https://papi.binance.com"
+    assert ("POST", "/papi/v1/repayLoan") not in _ALLOWLIST
+
+
+def test_repay_margin_debt_omits_amount_when_none_and_fixes_usdt():
+    # amount=None = 偿还全部：外发必须完全省略 amount（绝不发 amount=0），且固定
+    # specifyRepayAssets=USDT。方法签名不接受偿还资产，外部无法覆盖。
+    openr = _CapturingOpen([_FakeResp(200, b'{"success": true, "asset": "BNB", "amount": "1.5", "updateTime": 1700000000000}')])
+    resp = _client(openr).repay_margin_debt("BNB", None, timestamp_ms=1)
+    assert resp.http_status == 200 and resp.body["success"] is True
+    req = openr.requests[0]
+    assert req.method == "POST"
+    assert req.full_url == "https://papi.binance.com" + MARGIN_REPAY_DEBT_PATH
+    form = _form(req)
+    assert form["asset"] == "BNB"
+    assert form["specifyRepayAssets"] == REPAY_SPECIFY_ASSET
+    assert "amount" not in form, "amount=None 必须完全省略，绝不发字面量 0"
+    assert "signature" in form  # 签名在最后
+
+
+def test_repay_margin_debt_sends_amount_verbatim_when_provided():
+    # 正数十进制按原始字符串透传（全程不用 float）。
+    openr = _CapturingOpen([_FakeResp(200, b'{"success": true, "asset": "BNB"}')])
+    _client(openr).repay_margin_debt("BNB", "0.1250", timestamp_ms=1)
+    form = _form(openr.requests[0])
+    assert form["amount"] == "0.1250"  # 原样，不规格化
+    assert form["specifyRepayAssets"] == "USDT"
+
+
+def test_repay_margin_debt_is_one_shot_no_retry():
+    # 与订单/划转一致：5xx 不重试，urlopen 恰好一次。
+    openr = _CapturingOpen([_FakeResp(503, b'{"msg":"Unknown error"}')])
+    _client(openr).repay_margin_debt("BNB", None, timestamp_ms=1)
+    assert openr.call_count == 1
+
+
+def test_repay_margin_debt_never_accepts_caller_specify_repay_assets():
+    # 方法只接受 (asset, amount)：偿还资产在内部固定，无法由调用方注入第二个值。
+    openr = _CapturingOpen([_FakeResp(200, b'{"success": true, "asset": "BNB"}')])
+    _client(openr).repay_margin_debt("BNB", None, timestamp_ms=1)
+    values = parse_qs(openr.requests[0].data.decode("utf-8"))["specifyRepayAssets"]
+    assert values == ["USDT"]  # 单一值，无重复、无可覆盖

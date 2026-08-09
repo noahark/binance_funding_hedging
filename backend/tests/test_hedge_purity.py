@@ -73,6 +73,9 @@ _FROZEN_ALLOWLIST = {
     ("POST", "/sapi/v1/asset/transfer"): _SPOT_HOST,
     # 开单前自动设置合约杠杆（THE -2027 方案 B，2026-08）：fapi 域名，写语义与订单一致。
     ("POST", "/papi/v1/um/leverage"): _PAPI_HOST,
+    # 统一账户全仓杠杆还款（stage 2026-08-09-pm-margin-repay-v1）：PAPI TRADE，weight 3000，
+    # one-shot。与 /papi/v1/repayLoan（经典逐仓，禁止）是不同端点。
+    ("POST", "/papi/v1/margin/repay-debt"): _PAPI_HOST,
 }
 # The two host groups, for the per-group hardcoded-host assertion.
 _PAPI_KEYS = frozenset({
@@ -84,6 +87,7 @@ _PAPI_KEYS = frozenset({
     ("GET", "/papi/v1/um/positionSide/dual"),
     ("GET", "/papi/v1/rateLimit/order"),
     ("GET", "/papi/v1/um/positionRisk"),    ("POST", "/papi/v1/um/leverage"),  # 统一账户 UM 合约杠杆（2026-08：原 fapi 端点对 PM 账户 401，改 PAPI）
+    ("POST", "/papi/v1/margin/repay-debt"),  # 统一账户全仓杠杆还款（stage 2026-08-09-pm-margin-repay-v1）
 })
 _SPOT_KEYS = frozenset({
     ("GET", "/sapi/v1/margin/restricted-asset"),
@@ -135,12 +139,12 @@ def test_store_never_invokes_or_holds_an_executor():
 
 # ---- 2. frozen allowlist (recon §3.1/§3.2/§4.1 + decision §E-2 / §4) ----
 def test_allowlist_is_exactly_the_frozen_allowlist():
-    # Exact equality + length 15 (14 + 开单前设置杠杆 POST /papi/v1/um/leverage): the
-    # anti-expansion guard. A missing authorized one both fail here. Not a
+    # Exact equality + length 16 (15 + 统一账户全仓杠杆还款 POST /papi/v1/margin/repay-debt):
+    # the anti-expansion guard. A missing authorized one both fail here. Not a
     # subset/contains check.
     assert ALLOWLIST == _FROZEN_ALLOWLIST
-    assert len(ALLOWLIST) == 15  # 14 + THE -2027 方案 B 的杠杆设置 POST
-    assert len(_PAPI_KEYS) == 9  # 8 + 统一账户 UM 合约杠杆（2026-08 PAPI 端点）
+    assert len(ALLOWLIST) == 16  # 15 + 统一账户全仓杠杆还款 repay-debt POST（2026-08-09）
+    assert len(_PAPI_KEYS) == 10  # 9 + 统一账户全仓杠杆还款 repay-debt（PAPI TRADE，2026-08-09）
     assert len(_SPOT_KEYS) == 6
     assert len(_FAPI_KEYS) == 0  # 2026-08：杠杆端点改 PAPI 后无 fapi 端点
     assert _PAPI_KEYS.isdisjoint(_SPOT_KEYS)

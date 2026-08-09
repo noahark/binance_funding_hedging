@@ -241,3 +241,26 @@ def test_borrow_credentials_never_in_repr():
     assert "LEAK-KEY-AAAA" not in blob
     assert "LEAK-SECRET-BBBB" not in blob
     assert "binance_borrow_api_secret" not in blob  # field omitted entirely
+
+
+# --- 统一账户全仓杠杆还款：独立默认关闭闸门（stage 2026-08-09-pm-margin-repay-v1）---
+
+
+def test_margin_repay_defaults_disabled():
+    assert DEFAULT.margin_repay_enabled is False
+    assert from_env({}).margin_repay_enabled is False
+
+
+def test_margin_repay_env_override():
+    cfg = from_env({"APP_MARGIN_REPAY_ENABLED": "true"})
+    assert cfg.margin_repay_enabled is True
+    cfg2 = from_env({"APP_MARGIN_REPAY_ENABLED": "false"})
+    assert cfg2.margin_repay_enabled is False
+    # legacy alias honored
+    cfg3 = from_env({"FUNDING_HEDGING_MARGIN_REPAY_ENABLED": "on"})
+    assert cfg3.margin_repay_enabled is True
+
+
+def test_margin_repay_rejects_invalid_boolean():
+    with pytest.raises(ValueError, match="APP_MARGIN_REPAY_ENABLED"):
+        from_env({"APP_MARGIN_REPAY_ENABLED": "maybe"})

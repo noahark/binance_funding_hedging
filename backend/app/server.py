@@ -34,6 +34,7 @@ from ..asset_transfer.store import (
     STATUS_UNKNOWN,
     AssetTransferStore,
 )
+from ..margin_repay.store import MarginRepayStore
 from ..borrow_tasks import BorrowError, BorrowTaskService
 from ..borrow_tasks import domain as borrow_domain
 from ..config import Config, DEFAULT, from_env
@@ -186,6 +187,83 @@ def _transfer_error_message(http_status: int, msg) -> str:
     return label
 
 
+# ---- 统一账户全仓杠杆还款（stage 2026-08-09-pm-margin-repay-v1，T1）----
+# 复用资产划转已冻结的「无符号普通十进制」形状正则（同一目的：先挡负号、科学计数法与
+# 空白），再在本校验里实现还款特有的「精确 "0" = 全部，其余必须严格大于零」分支。
+# 偿还资产固定为 USDT（与客户端 REPAY_SPECIFY_ASSET 同源），由服务端写入，请求体不接受。
+_REPAY_REQUIRED_FIELDS = ("client_request_id", "asset", "amount", "confirm")
+_REPAY_ALLOWED_FIELDS = frozenset(_REPAY_REQUIRED_FIELDS)
+# 这些状态码结果不明（钱可能已还），归 unknown 而非 failed——failed 在界面上会引导重试，
+# 而重试换新编号万一那笔成功了就会还两次。比划转多一个 408（请求超时，结果不明）。
+_REPAY_UNKNOWN_HTTP_STATUSES = (408, 418, 429)
+
+
+def _opt_str(value) -> Optional[str]:
+    """币安回传字段的去类型化存库辅助：``None`` 透传，其余转字符串。"""
+    return None if value is None else str(value)
+
+
+def _parse_margin_repay_request(data):
+    """校验还款请求体，返回 ``(parsed, error)``；``error`` 为 ``(status, payload)``。
+
+    四个字段必填且不允许出现偿还资产等额外字段（``specifyRepayAssets`` 或任何未知键一律
+    拒绝，杜绝外部覆盖服务端固定的 USDT）。``amount`` 仅接受无符号普通十进制字符串：
+    精确 ``"0"`` 表示全部（外发时省略 amount），其余必须严格大于零；``"0.0"``、``"0.00"``、
+    ``"00"``、负数、科学计数法、空白与非字符串均拒绝（全程不用 float）。
+    """
+    if not isinstance(data, dict):
+        return None, (400, {"error": "invalid_request", "detail": "请求体必须是 JSON 对象"})
+    unknown = set(data) - _REPAY_ALLOWED_FIELDS
+    if unknown:
+        return None, (400, {
+            "error": "invalid_request",
+            "detail": f"不允许的字段: {', '.join(sorted(unknown))}（偿还资产由服务端固定）",
+        })
+    missing = [k for k in _REPAY_REQUIRED_FIELDS if k not in data]
+    if missing:
+        return None, (400, {
+            "error": "invalid_request",
+            "detail": f"缺少必填字段: {', '.join(missing)}",
+        })
+    client_request_id = data["client_request_id"]
+    if not isinstance(client_request_id, str) or not _TRANSFER_UUID_RE.match(client_request_id):
+        return None, (400, {
+            "error": "invalid_request",
+            "detail": "client_request_id 必须是 UUID 格式",
+        })
+    asset = data["asset"]
+    if not isinstance(asset, str) or not asset.strip():
+        return None, (400, {"error": "invalid_request", "detail": "asset 不能为空"})
+    amount = data["amount"]
+    if not isinstance(amount, str) or not _TRANSFER_AMOUNT_RE.match(amount):
+        return None, (400, {
+            "error": "invalid_request",
+            "detail": "amount 必须是无符号普通十进制字符串（不接受负号、科学计数法或空白）",
+        })
+    if amount == "0":
+        repay_all = True
+    elif Decimal(amount) > 0:
+        repay_all = False
+    else:
+        # 形状合法但既非精确 "0" 也非正数：如 "0.0" / "0.00" / "00"。拒绝，禁止外发
+        # amount=0* 一类的数值零（计划评审实现提示第 1 条）。
+        return None, (400, {
+            "error": "invalid_request",
+            "detail": 'amount 仅接受精确 "0"（全部）或严格大于零的正数',
+        })
+    if data["confirm"] is not True:
+        return None, (400, {
+            "error": "confirm_required",
+            "detail": "confirm 必须为 true",
+        })
+    return {
+        "client_request_id": client_request_id,
+        "asset": asset,
+        "amount": amount,
+        "repay_all": repay_all,
+    }, None
+
+
 def _parse_asset_transfer_request(data):
     """校验划转请求体，返回 ``(parsed, error)``；``error`` 为 ``(status, payload)``。
 
@@ -253,6 +331,10 @@ class _Handler(BaseHTTPRequestHandler):
     # 分别注入；任一为 None -> 该路由 503（不做静默降级）。
     asset_transfer_store = None
     asset_transfer_client = None
+    # 统一账户全仓杠杆还款（stage 2026-08-09-pm-margin-repay-v1）：store 总是注入（GET
+    # 恢复零上游），client 受 APP_MARGIN_REPAY_ENABLED 闸门控制——未注入时 POST 返回 503。
+    margin_repay_store = None
+    margin_repay_client = None
     frontend_dir = None
     server_version = "funding-hedging-public-market/1.0"
 
@@ -286,6 +368,9 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/private-account/max-withdraw":
             self._handle_max_withdraw()
             return
+        if path == "/api/margin-repay":
+            self._handle_margin_repay_get()
+            return
         self._serve_static(path)
 
     def do_POST(self):
@@ -298,6 +383,9 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/asset-transfer":
             self._handle_asset_transfer()
+            return
+        if path == "/api/margin-repay":
+            self._handle_margin_repay_post()
             return
         if self._try_hedge_open("POST"):
             return
@@ -706,6 +794,167 @@ class _Handler(BaseHTTPRequestHandler):
             "status": status,
             "error_code": None if code is None else str(code),
             "error_message": _transfer_error_message(resp.http_status, body.get("msg")),
+        }
+
+    # ---------------------------------------------------------- margin repay
+
+    def _handle_margin_repay_post(self):
+        """POST /api/margin-repay — 统一账户全仓杠杆还款（stage 2026-08-09-pm-margin-repay-v1）。
+
+        独立闸门 ``APP_MARGIN_REPAY_ENABLED`` 默认关闭，不受 ``APP_HEDGE_EXECUTOR`` 控制。
+        币安 ``/papi/v1/margin/repay-debt`` 没有客户端幂等键、也无法按本地请求号查结果——
+        重复提交会真的还两次（每次最多 50,000 USD）。幂等由本地 ``client_request_id`` 唯一
+        索引提供：``store.begin`` 返回 ``is_new=False`` 即直接回放首次结果，绝不二次外发。
+        外发 one-shot：超时/5xx/408/418/429 记 ``unknown``（钱可能已还），不重试。
+        """
+        if self.margin_repay_store is None or self.margin_repay_client is None:
+            self._send_borrow(503, {
+                "error": "margin_repay_unavailable",
+                "detail": "还款通道未配置（未开启 APP_MARGIN_REPAY_ENABLED、离线模式或缺少 API 凭证）",
+            })
+            return
+        data, error = self._read_json_body(required=True)
+        if error is not None:
+            self._send_borrow(*error)
+            return
+        parsed, verr = _parse_margin_repay_request(data)
+        if verr is not None:
+            self._send_borrow(*verr)
+            return
+        # 借款资产白名单：必须精确命中当前统一账户快照中 cross_margin_borrowed > 0 的资产，
+        # 杜绝任意资产注入与打字错误（也杜绝给未借款资产发起无意义还款）。
+        borrowed = self._margin_repay_borrowed_assets()
+        if borrowed is None:
+            self._send_borrow(503, {
+                "error": "snapshot_not_ready",
+                "detail": "账户快照未就绪，无法校验借款资产，请稍后重试",
+            })
+            return
+        if parsed["asset"] not in borrowed:
+            self._send_borrow(400, {
+                "error": "unknown_asset",
+                "detail": f"{parsed['asset']} 当前不在统一账户借款资产中（cross_margin_borrowed > 0）",
+            })
+            return
+        record, is_new = self.margin_repay_store.begin(
+            client_request_id=parsed["client_request_id"],
+            asset=parsed["asset"],
+            amount=parsed["amount"],
+            repay_asset="USDT",
+            now_us=_now_us(),
+        )
+        if not is_new:
+            # 幂等回放：该 client_request_id 已处理过，不再外发。
+            self._send_borrow(200, record)
+            return
+        resolution = self._dispatch_margin_repay(parsed["asset"], parsed["repay_all"], parsed["amount"])
+        record = self.margin_repay_store.resolve(
+            parsed["client_request_id"], now_us=_now_us(), **resolution
+        )
+        self._send_borrow(200, record)
+
+    def _handle_margin_repay_get(self):
+        """GET /api/margin-repay?client_request_id=<UUID> — 纯本地恢复查询。
+
+        只读 SQLite 记录，**不访问快照、不调用币安**（页面重载或浏览器到本机服务响应丢失后
+        用同一请求号恢复状态）。存在返回记录、不存在 404、非法/缺失/重复参数 400。
+        """
+        if self.margin_repay_store is None:
+            self._send_borrow(503, {
+                "error": "margin_repay_unavailable",
+                "detail": "还款存储未配置",
+            })
+            return
+        qs = parse_qs(urlparse(self.path).query, keep_blank_values=True)
+        if list(qs) != ["client_request_id"] or len(qs.get("client_request_id", [])) != 1:
+            self._send_borrow(400, {
+                "error": "invalid_request",
+                "detail": "仅接受单一参数 client_request_id",
+            })
+            return
+        client_request_id = qs["client_request_id"][0]
+        if not _TRANSFER_UUID_RE.match(client_request_id):
+            self._send_borrow(400, {
+                "error": "invalid_request",
+                "detail": "client_request_id 必须是 UUID 格式",
+            })
+            return
+        record = self.margin_repay_store.get(client_request_id)
+        if record is None:
+            self._send_borrow(404, {
+                "error": "not_found",
+                "detail": "未找到该 client_request_id 的还款记录",
+            })
+            return
+        self._send_borrow(200, record)
+
+    def _margin_repay_borrowed_assets(self):
+        """统一账户当前快照中 ``cross_margin_borrowed > 0`` 的资产集合；快照未就绪返回
+        ``None``（调用方 503，零外发）。不缓存负债额，每次按当前快照实时判定。"""
+        try:
+            snapshot = self.service.get_snapshot()
+        except Exception:
+            return None
+        private_account = (snapshot or {}).get("private_account") or {}
+        rows = private_account.get("balances_unified") or []
+        borrowed = set()
+        for row in rows:
+            if not isinstance(row, dict) or not row.get("asset"):
+                continue
+            raw = row.get("cross_margin_borrowed")
+            if raw is None or raw == "":
+                continue
+            try:
+                if Decimal(str(raw)) > 0:
+                    borrowed.add(row["asset"])
+            except (ValueError, TypeError):
+                continue
+        return borrowed
+
+    def _dispatch_margin_repay(self, asset: str, repay_all: bool, amount: str) -> dict:
+        """一次性外发并把结果分类成落库字段。
+
+        成功判定从严（计划 §3 / 验收 6）：仅 HTTP 200 + JSON 对象 + ``success is True`` +
+        响应 ``asset`` 与请求一致才归 ``succeeded``；否则即便 200 也归 ``unknown``。
+        明确普通 4xx 拒绝归 ``failed``；网络/超时/无 HTTP、408、418、429、5xx 与非典型状态码
+        归 ``unknown``（钱可能已还，禁止重试）。任何上游结果都落终态，不自动重试。
+        """
+        amount_arg = None if repay_all else amount
+        try:
+            resp = self.margin_repay_client.repay_margin_debt(
+                asset, amount_arg, timestamp_ms=_now_ms(),
+            )
+        except Exception as exc:
+            # 未预期异常也必须落终态，否则记录会永远停在 pending。
+            return {
+                "status": STATUS_UNKNOWN,
+                "error_message": f"transport_exception:{type(exc).__name__}",
+            }
+        if resp is None or resp.transport_error is not None or resp.http_status is None:
+            return {
+                "status": STATUS_UNKNOWN,
+                "error_message": f"transport_error:{getattr(resp, 'transport_error', None)}",
+            }
+        status_code = resp.http_status
+        body = resp.body if isinstance(resp.body, dict) else {}
+        if status_code == 200:
+            if body.get("success") is True and body.get("asset") == asset:
+                return {
+                    "status": STATUS_SUCCEEDED,
+                    "repaid_amount": _opt_str(body.get("amount")),
+                    "update_time": _opt_str(body.get("updateTime")),
+                }
+            return {"status": STATUS_UNKNOWN, "error_message": "http 200 但响应不满足严格成功条件"}
+        if status_code in _REPAY_UNKNOWN_HTTP_STATUSES or status_code >= 500:
+            status = STATUS_UNKNOWN
+        elif 400 <= status_code < 500:
+            status = STATUS_FAILED
+        else:
+            status = STATUS_UNKNOWN
+        return {
+            "status": status,
+            "error_code": _opt_str(body.get("code")),
+            "error_message": _transfer_error_message(status_code, body.get("msg")),
         }
 
     # ------------------------------------------------------------------ borrow
@@ -1366,6 +1615,29 @@ def _build_asset_transfer_client(config: Config):
     )
 
 
+def _build_margin_repay_client(config: Config):
+    """构造统一账户全仓杠杆还款用的 PAPI 客户端（stage 2026-08-09-pm-margin-repay-v1）。
+
+    **独立默认关闭闸门** ``APP_MARGIN_REPAY_ENABLED``（与划转不同：划转无独立开关，已接受
+    风险）。只有显式开启、非离线且还款所需 key/secret 均存在时才构造 client；否则返回
+    ``None``，POST 路由随即 503（零上游，不静默降级）。复用 hedge API 凭证（PAPI TRADE
+    端点，与开单同 key），不受 ``APP_HEDGE_EXECUTOR`` 控制（该开关只管对冲开单）。客户端
+    的 deny-by-default 白名单 + 硬编码 host 限制了它能做什么；本通路只调用
+    ``repay_margin_debt``，其 asset/amount 由服务端校验后传入，指定偿还资产固定 USDT。
+    """
+    if not config.margin_repay_enabled or config.offline:
+        return None
+    if not config.binance_hedge_api_key or not config.binance_hedge_api_secret:
+        return None
+    from ..services.hedge_open_live_client import HedgeOpenLiveClient
+
+    return HedgeOpenLiveClient(
+        api_key=config.binance_hedge_api_key,
+        api_secret=config.binance_hedge_api_secret,
+        user_agent=config.user_agent,
+    )
+
+
 def _build_restricted_asset_client(config: Config):
     """Build the read-only restricted-asset client injected into SnapshotService
     (decision §E-4 / interface §10). Uses the existing hedge API key and is
@@ -1440,6 +1712,27 @@ def run(config: Config = None) -> None:
         str(config.borrow_db_path.parent / "asset-transfer.sqlite3")
     )
     _Handler.asset_transfer_client = _build_asset_transfer_client(config)
+    # 统一账户全仓杠杆还款（stage 2026-08-09-pm-margin-repay-v1）：独立库 + 独立默认关闭
+    # 闸门。store 总是注入（GET 恢复零上游），client 受 APP_MARGIN_REPAY_ENABLED 控制。
+    _Handler.margin_repay_store = MarginRepayStore(
+        str(config.borrow_db_path.parent / "margin-repay.sqlite3")
+    )
+    _Handler.margin_repay_client = _build_margin_repay_client(config)
+    # 启动可见性（提示，非闸门）：清楚区分启用/未启用，且不泄露任何凭证。
+    if _Handler.margin_repay_client is None:
+        print(
+            "[MARGIN-REPAY] 还款端点未启用：APP_MARGIN_REPAY_ENABLED 未开启，或离线模式，"
+            "或缺少 hedge API 凭证。POST /api/margin-repay 一律返回 503（GET 仅读本地记录）。",
+            file=sys.stderr, flush=True,
+        )
+    else:
+        print(
+            "!!! [MARGIN-REPAY] 还款端点已启用：POST /api/margin-repay 会向币安"
+            "POST /papi/v1/margin/repay-debt 发起真实还款，**不受 APP_HEDGE_EXECUTOR 控制**。"
+            "指定偿还资产固定 USDT（同币资产仍优先）；单次最多 50,000 USD 由交易所终判；"
+            "全部还款记入 data/margin-repay.sqlite3（client_request_id 幂等，one-shot 不重试）。",
+            file=sys.stderr, flush=True,
+        )
     # review-1 R1：划转端点没有独立开关（Human O-1 决定），且不受
     # APP_HEDGE_EXECUTOR 控制。开单链路在禁用时会打醒目提示，划转此前什么都不打，
     # 启动后无从判断这个口子是死是活——这里补上可见性（是提示，不是闸门）。
