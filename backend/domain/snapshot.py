@@ -92,33 +92,6 @@ CONTRACT_WARNINGS = [
 ]
 
 
-def _abs_rate(rate_str) -> Decimal:
-    try:
-        return abs(Decimal(str(rate_str)))
-    except (InvalidOperation, ValueError, TypeError):
-        return Decimal(0)
-
-
-def top_symbols_by_abs_rate(
-    futures_symbols: List[dict],
-    premium_by_sym: Dict[str, dict],
-    top_n: int,
-) -> set:
-    """Return the set of top-N symbol names ranked by abs(last funding rate).
-
-    Funding history is fetched only for these symbols, bounding
-    /fapi/v1/fundingRate call volume.
-    """
-    ranked = sorted(
-        futures_symbols,
-        key=lambda obj: _abs_rate(
-            premium_by_sym.get(obj["symbol"], {}).get("lastFundingRate", "0")
-        ),
-        reverse=True,
-    )
-    return {obj["symbol"] for obj in ranked[: max(0, int(top_n))]}
-
-
 # Stage 2026-07-history-background-refresh-v1 (10-design D1): the default-view
 # history prewarm boundary. Strictly greater than 0.00030000 — the frontend's
 # hideLowDailyRate boundary is abs(daily_funding_rate) <= 0.00030000 (hidden), so

@@ -18,6 +18,11 @@ from backend.hedge_open_tasks.executor import AttemptOutcome
 from backend.hedge_open_tasks.service import settings_to_doc
 from backend.hedge_open_tasks.store import HedgeOpenStore
 
+CYCLE_COLUMNS = {
+    "id", "symbol", "direction", "opened_at_us",
+    "closed_at_us", "close_reason", "first_task_id", "last_task_id",
+}
+
 
 def _outcome(
     *, category=D.ATTEMPT_SUCCESS, spot_qty="0.5", perp_qty="0.5",
@@ -633,6 +638,36 @@ def test_restart_recovers_persisted_state(tmp_path):
     assert task["success_count"] == 2
     assert task["accepted_pair_count"] == 2
     assert task["status"] == D.STATUS_RUNNING
+    store2.close()
+
+
+# ---------------------------------------------------------------------------
+# 建表 / 迁移幂等
+# ---------------------------------------------------------------------------
+
+def test_migrate_creates_cycle_schema_idempotent(tmp_path):
+    db = str(tmp_path / "ho.sqlite3")
+    store = HedgeOpenStore(db)
+    cycle_cols = {r[1] for r in store._conn.execute("PRAGMA table_info(hedge_open_cycle)")}
+    assert cycle_cols == CYCLE_COLUMNS
+    attempt_cols = {r[1] for r in store._conn.execute("PRAGMA table_info(hedge_open_attempt)")}
+    assert "cycle_id" in attempt_cols
+    cycle_idx = {r[1] for r in store._conn.execute("PRAGMA index_list(hedge_open_cycle)")}
+    assert "idx_cycle_active" in cycle_idx
+    attempt_idx = {r[1] for r in store._conn.execute("PRAGMA index_list(hedge_open_attempt)")}
+    assert "idx_attempt_cycle" in attempt_idx
+    store.close()
+
+    # 重复构造：不重复加列、不重复建表、不报错
+    store2 = HedgeOpenStore(db)
+    cycle_cols2 = {r[1] for r in store2._conn.execute("PRAGMA table_info(hedge_open_cycle)")}
+    attempt_cols2 = {r[1] for r in store2._conn.execute("PRAGMA table_info(hedge_open_attempt)")}
+    assert cycle_cols2 == CYCLE_COLUMNS
+    assert attempt_cols2 == attempt_cols
+    assert {r[1] for r in store2._conn.execute("PRAGMA index_list(hedge_open_cycle)")} \
+        == cycle_idx
+    assert {r[1] for r in store2._conn.execute("PRAGMA index_list(hedge_open_attempt)")} \
+        == attempt_idx
     store2.close()
 
 

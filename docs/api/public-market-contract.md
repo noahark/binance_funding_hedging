@@ -1725,10 +1725,11 @@ The "Frontend Integration Rules" line above ("or matching fixture JSON
 generated from this schema") predates reality:
 `frontend/fixture/public-market-snapshot.json` had no runtime consumer —
 neither the frontend nor `self-check.js` loaded it (self-check uses
-`backend/tests/fixtures/private-account-v1-design.json`; two July discovery
-scripts, `scripts/discovery-capture-phase2.py` and
-`scripts/discovery-capture-private-v1.py`, read it inside try/except with a
-fallback, so its removal silently switches them to their fallback branches) —
+`backend/tests/fixtures/private-account-v1-design.json`; the historical Phase-2
+script is retained in Git with samples under
+`reports/api-samples/2026-07-phase2-borrow-sort-v1/`, while
+`scripts/discovery-capture-private-v1.py` still attempts that path inside
+try/except with a fallback) —
 and it FAILED schema
 validation (5 violations: `cross_margin_borrowed` missing on
 four unified-balance items, `notional_usdt` missing on a UM position). It was

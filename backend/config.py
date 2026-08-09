@@ -1,7 +1,7 @@
 """Backend configuration.
 
-Defaults match the stage design: funding_history top-N = 20, snapshot cache
-TTL = 60s, bind 127.0.0.1:8787. Offline mode reads the frozen raw-sample
+Defaults match the stage design: snapshot cache TTL = 60s, bind
+127.0.0.1:8787. Offline mode reads the frozen raw-sample
 directory captured in the contract stage (read-only reference to frozen
 evidence).
 """
@@ -31,7 +31,6 @@ FROZEN_GENERATED_AT = "2026-07-03T05:17:38Z"
 class Config:
     bind_host: str = "127.0.0.1"
     bind_port: int = 8787
-    top_n: int = 20
     cache_ttl_seconds: int = 60
     # Stage 2026-07: dedicated per-symbol successful-result cache for settled
     # /fapi/v1/fundingRate deep history (immutable records -> longer TTL than
@@ -227,7 +226,6 @@ def from_env(environ: Mapping[str, str] | None = None) -> Config:
     return Config(
         bind_host=_env(env, "APP_BIND_HOST", DEFAULT.bind_host, "FUNDING_HEDGING_BIND_HOST"),
         bind_port=_env_int(env, "APP_BIND_PORT", DEFAULT.bind_port, "FUNDING_HEDGING_BIND_PORT"),
-        top_n=_env_int(env, "APP_TOP_N", DEFAULT.top_n, "FUNDING_HEDGING_TOP_N"),
         cache_ttl_seconds=_env_int(
             env,
             "APP_CACHE_TTL_SECONDS",

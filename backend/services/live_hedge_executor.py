@@ -43,7 +43,6 @@ from typing import Callable, Optional
 
 from ..hedge_open_tasks import domain as D
 from ..hedge_open_tasks.executor import (
-    AttemptOutcome,
     _client_order_ids,
     build_perp_order_params,
     build_spot_order_params,
@@ -499,58 +498,6 @@ def classify_query_response(
             raw_response=raw,
         )
     return None
-
-
-def dispatch_to_outcome(
-    attempt_id: str, spot: LegDispatch, perp: LegDispatch, record_payload: dict,
-    ts_us: int,
-) -> AttemptOutcome:
-    """Build an :class:`AttemptOutcome` from two resolved leg dispatches.
-
-    Used when both legs already carry a definite acceptance verdict (ACCEPTED or
-    REJECTED). The scheduler counter keys off ``order_id`` presence
-    (:func:`domain.classify_attempt`); the leg dicts carry the observational fill
-    figures for accounting. ``ts_us`` is the settlement wall clock — the live
-    exposure timestamp (10-design §4(a)), mandatory (no safe default).
-    """
-    spot_leg = {
-        "status": _exchange_status_for_outcome(spot),
-        "filled_qty": spot.executed_qty,
-        "avg_price": spot.avg_price,
-        "order_id": spot.order_id,
-        "client_order_id": None,
-    }
-    perp_leg = {
-        "status": _exchange_status_for_outcome(perp),
-        "filled_qty": perp.executed_qty,
-        "avg_price": perp.avg_price,
-        "order_id": perp.order_id,
-        "client_order_id": None,
-    }
-    category = D.classify_attempt(spot_leg, perp_leg)
-    exposure = (
-        D.build_leg_exposure(spot_leg, perp_leg, ts_us) if category == D.ATTEMPT_SINGLE_LEG_EXPOSURE else None
-    )
-    return AttemptOutcome(
-        attempt_id=attempt_id,
-        category=category,
-        spot=spot_leg,
-        perp=perp_leg,
-        record_payload=record_payload,
-        exposure=exposure,
-    )
-
-
-def _exchange_status_for_outcome(leg: LegDispatch) -> str:
-    """Map a dispatch's exchange status to the domain LEG_* accounting status.
-
-    An accepted leg that is NEW/PARTIALLY_FILLED is still 'accepted' (orderId
-    present); for accounting it records its executed qty. A rejected leg maps to
-    LEG_REJECTED. FILLED passes through.
-    """
-    if leg.dispatch_state == LEG_REJECTED:
-        return D.LEG_REJECTED
-    return leg.exchange_status or D.LEG_NEW
 
 
 def leg_is_terminal_fill(leg: LegDispatch) -> bool:

@@ -24,7 +24,6 @@ from backend.services.live_hedge_executor import (
     LiveHedgeExecutor,
     classify_leg_response,
     classify_query_response,
-    dispatch_to_outcome,
     leg_is_terminal_fill,
 )
 
@@ -534,28 +533,7 @@ def test_query_leg_without_credentials_is_inconclusive():
     ) is None
 
 
-# ---- outcome + terminal helpers ----
-def test_dispatch_to_outcome_accepted_pair_is_success():
-    spot = _leg_dispatch(state=LEG_ACCEPTED, status=D.LEG_FILLED, order_id="1")
-    perp = _leg_dispatch(state=LEG_ACCEPTED, status=D.LEG_FILLED, order_id="2")
-    outcome = dispatch_to_outcome("att1", spot, perp, {"transport": "live"}, 1_784_448_000_000_000)
-    assert outcome.category == D.ATTEMPT_SUCCESS
-    assert outcome.spot["order_id"] == "1"
-
-
-def test_dispatch_to_outcome_single_leg_is_exposure():
-    spot = _leg_dispatch(state=LEG_ACCEPTED, status=D.LEG_FILLED, order_id="1")
-    perp = _leg_dispatch(state=LEG_REJECTED, order_id=None)
-    ts_us = 1_784_448_000_000_000
-    outcome = dispatch_to_outcome("att1", spot, perp, {"transport": "live"}, ts_us)
-    assert outcome.category == D.ATTEMPT_SINGLE_LEG_EXPOSURE
-    # T5 (stage 2026-07-hedge-order-truth-v1): the live exposure timestamp is the
-    # settlement wall clock, never the 1970 epoch a forgotten 0 would render.
-    assert outcome.exposure is not None
-    assert outcome.exposure["ts"] == D.us_to_iso(ts_us)
-    assert outcome.exposure["ts"] != "1970-01-01T00:00:00.000000Z"
-
-
+# ---- terminal helpers ----
 def test_leg_is_terminal_fill():
     assert leg_is_terminal_fill(_leg_dispatch(state=LEG_ACCEPTED, status=D.LEG_FILLED)) is True
     assert leg_is_terminal_fill(_leg_dispatch(state=LEG_ACCEPTED, status=D.LEG_NEW)) is False

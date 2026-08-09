@@ -137,37 +137,6 @@ def test_dedup_income_by_type_tranid_first_wins():
     assert out[0]["income"] == "0.1"  # first wins
 
 
-# ---- sort keys (final display order, time DESC + stable tie-break) ----
-def test_sort_interest_desc_by_time_then_txid():
-    rows = [
-        {"tx_id": "3", "accrued_at_ms": 100, "asset": "A"},
-        {"tx_id": "9", "accrued_at_ms": 300, "asset": "A"},
-        {"tx_id": "1", "accrued_at_ms": 100, "asset": "A"},  # same time as tx3
-    ]
-    out = D.sort_interest_desc(rows)
-    assert [(r["accrued_at_ms"], r["tx_id"]) for r in out] == [
-        (300, "9"), (100, "3"), (100, "1"),
-    ]
-
-
-def test_sort_income_desc_by_time_then_type_then_tranid():
-    rows = [
-        {"tran_id": "5", "income_type": "COMMISSION", "time_ms": 100},
-        {"tran_id": "2", "income_type": "FUNDING_FEE", "time_ms": 100},
-        {"tran_id": "9", "income_type": "FUNDING_FEE", "time_ms": 300},
-        {"tran_id": "1", "income_type": "FUNDING_FEE", "time_ms": 100},
-    ]
-    out = D.sort_income_desc(rows)
-    assert [(r["time_ms"], r["income_type"], r["tran_id"]) for r in out] == [
-        (300, "FUNDING_FEE", "9"),
-        # same time 100: income_type DESC -> FUNDING_FEE before COMMISSION,
-        # then tran_id DESC within FUNDING_FEE.
-        (100, "FUNDING_FEE", "2"),
-        (100, "FUNDING_FEE", "1"),
-        (100, "COMMISSION", "5"),
-    ]
-
-
 # ---- rule 3: Decimal summation (exact, format 'f', explicit localcontext) ----
 def test_summarize_interest_decimal_sum_exact_and_plain_format():
     rows = [

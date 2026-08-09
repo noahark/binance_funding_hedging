@@ -81,7 +81,6 @@ Useful environment variables:
   client timeout (default 15s).
 - `BINANCE_RECV_WINDOW` / `FUNDING_HEDGING_BINANCE_RECV_WINDOW`: signed-request
   recvWindow (default 10000 ms).
-- `APP_TOP_N` / `FUNDING_HEDGING_TOP_N`: funding-history top-N (default 20).
 - `APP_CACHE_TTL_SECONDS` / `FUNDING_HEDGING_CACHE_TTL_SECONDS`: whole-snapshot
   cache TTL (default 60s).
 

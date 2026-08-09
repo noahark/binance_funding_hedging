@@ -1498,7 +1498,7 @@ def run(config: Config = None) -> None:
         )
     print(
         f"serving public-market snapshot on http://{config.bind_host}:{config.bind_port}"
-        f" (offline={config.offline}, top_n={config.top_n}, ttl={config.cache_ttl_seconds}s,"
+        f" (offline={config.offline}, ttl={config.cache_ttl_seconds}s,"
         f" private_channel_enabled={config.private_channel_enabled},"
         f" background_refresh={config.background_refresh_enabled})"
     )

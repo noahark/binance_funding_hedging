@@ -13,7 +13,7 @@ import jsonschema
 
 from backend.config import Config
 from backend.domain.normalize import iso_from_ms, resolve_spot_leg
-from backend.domain.snapshot import build_rows, select_borrow_candidates, top_symbols_by_abs_rate
+from backend.domain.snapshot import build_rows, select_borrow_candidates
 from backend.services.snapshot_service import SnapshotService
 
 EXPECTED_6 = {
@@ -111,23 +111,6 @@ def test_only_fixture_symbols_have_funding_history(raw_inputs):
     # Offline uses every frozen funding fixture; only BTCUSDT has one.
     nonempty = [r["symbol"] for r in snap["rows"] if r["funding_history"]]
     assert nonempty == ["BTCUSDT"]
-
-
-def test_top_symbols_by_abs_rate_ranks_and_caps(raw_inputs):
-    from decimal import Decimal
-
-    premium = {p["symbol"]: p for p in raw_inputs["premium"]}
-    elig = _eligible(raw_inputs["futures"])
-    top5 = top_symbols_by_abs_rate(elig, premium, 5)
-    assert len(top5) == 5
-    ranked = sorted(
-        elig,
-        key=lambda o: abs(
-            Decimal(str(premium.get(o["symbol"], {}).get("lastFundingRate", "0")))
-        ),
-        reverse=True,
-    )
-    assert top5 == {o["symbol"] for o in ranked[:5]}
 
 
 def test_decimal_fields_are_strings_not_floats(raw_inputs):

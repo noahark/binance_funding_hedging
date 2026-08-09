@@ -244,26 +244,6 @@ def dedup_income_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 # --------------------------------------------------------------------------- #
-# sort (final display order — time DESC with a stable tie-breaker)
-# --------------------------------------------------------------------------- #
-def sort_interest_desc(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Sort interest rows ``(accrued_at_ms DESC, tx_id DESC)`` (design §13.2
-    rule 6 / §4.3). ``tx_id`` is a fixed-width decimal string, so descending
-    lexicographic order matches descending numeric order for the tie-break."""
-    return sorted(rows, key=lambda r: (r["accrued_at_ms"], r["tx_id"]), reverse=True)
-
-
-def sort_income_desc(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Sort income rows ``(time_ms DESC, income_type DESC, tran_id DESC)``
-    (design §13.2 rule 6)."""
-    return sorted(
-        rows,
-        key=lambda r: (r["time_ms"], r["income_type"], r["tran_id"]),
-        reverse=True,
-    )
-
-
-# --------------------------------------------------------------------------- #
 # summarize (Decimal sum; rule 3 localcontext; rule 4 unparseable -> null)
 # --------------------------------------------------------------------------- #
 def _sum_amounts(amounts: List[Optional[str]]) -> Tuple[Optional[str], int]:

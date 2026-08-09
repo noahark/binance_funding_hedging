@@ -20,7 +20,6 @@ def test_from_env_parses_runtime_values():
             "APP_BIND_HOST": "0.0.0.0",
             "APP_BIND_PORT": "9999",
             "APP_OFFLINE": "true",
-            "APP_TOP_N": "7",
             "APP_CACHE_TTL_SECONDS": "12",
             "APP_REQUEST_TIMEOUT": "2.5",
             "APP_OFFLINE_RAW_DIR": "~/fixtures",
@@ -34,7 +33,6 @@ def test_from_env_parses_runtime_values():
     assert cfg.bind_host == "0.0.0.0"
     assert cfg.bind_port == 9999
     assert cfg.offline is True
-    assert cfg.top_n == 7
     assert cfg.cache_ttl_seconds == 12
     assert cfg.request_timeout == 2.5
     assert cfg.offline_raw_dir == Path("~/fixtures").expanduser()

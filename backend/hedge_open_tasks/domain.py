@@ -1314,23 +1314,6 @@ def compute_preflight(
 # ---------------------------------------------------------------------------
 
 
-def leg_is_filled(leg: dict | None) -> bool:
-    """A leg is "filled" only when status is FILLED with positive executed qty.
-
-    Used for observational fill accounting (cumulative base/quote, averages,
-    residual) — never as the scheduler's pair-success signal (ADR-3).
-    """
-    if not leg:
-        return False
-    if leg.get("status") != LEG_FILLED:
-        return False
-    qty = leg.get("filled_qty")
-    try:
-        return Decimal(str(qty)) > 0 if qty is not None else False
-    except InvalidOperation:
-        return False
-
-
 def leg_is_accepted(leg: dict | None) -> bool:
     """A leg is "accepted" when Binance returned an orderId for it (ADR-3).
 
