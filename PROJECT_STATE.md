@@ -7,8 +7,8 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 ## Current Status (2026-08-08)
 
 - **No active stage.** `ACTIVE.json` 为 `null`。服务以 Human 手动前台进程运行
-  （2026-08-08 00:13 重启，已载入全部改动；launchd 损坏不修，见 Live Risks）。
-  测试基线 **1601 passed + self-check EXIT=0**。实盘库数据自 2026-08-06 清理后
+  （2026-08-09 18:03 重启，已载入含平仓两段式的全部改动；launchd 损坏不修，见 Live Risks）。
+  测试基线 **1610 passed + self-check EXIT=0**。实盘库数据自 2026-08-06 清理后
   从新起点累积（备份 `data/*.sqlite3.bak-clean-20260806-120813`）。
 
 - **[2026-08-07 已收口] 展示层诚实性整族修复**（Human 直接驱动，无 stage；交付
@@ -77,8 +77,8 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   的 **open** 任务 fail-closed（`multiplier_contract_unsupported`）。
   **⚠️ 当前运行中服务的 close 放行 ≠ close 安全**：它仍会给两腿同一个
   `q_common`，自动平仓腿量同样错 1000 倍；真要处置这种仓位须人工去交易所平。
-  2026-08-09 交付已通过双评审并合并 main，为 close 增加了建卡/dispatch 双判拦截，
-  但尚未部署、未实盘验证；部署重启前不能把该拦截当作运行时保护。
+  2026-08-09 交付已通过双评审、合并 main、部署生效并经 TSTUSDT 实盘平仓验证（见 Last
+  Completed）；close 侧建卡/dispatch 双判拦截已在运行中服务生效，但仅有离线 + 一笔实盘证据。
   **换算改造（资金路径）见 Open Follow-ups 的「1000x 腿量换算」条，须 Human 授权。**
   另注意：持仓表 `single_leg_exposure` 对乘数币因量纲不同会误报，换算落地时跟着改。
 
@@ -175,16 +175,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   path to `ensure_worker` appears.** Five elements: archive `32-` §7.3.
 
 ## Open Follow-ups
-
-- `[OPEN][MERGED-PENDING-DEPLOY][2026-08-09]` **平仓两段式建卡 + 启动后预检瘦身已通过
-  独立双评审（Review-1 Opus 5/Anthropic `ACCEPT`、Review-2 Kimi/Moonshot `ACCEPT`，
-  三轮三 provider）并经 Human 验收，已合并 main（`dc356cd..e5f83f1` + 各轮封存控制提交），
-  但尚未部署、未重启服务、未做实盘验证。** 交付落实 C1（`um_positions` 300s 上限 +
-  实时兜底）、C2（单条 INSERT 原子落 `paused` + 两个原因列）、C3（dry-run 两道新门
-  放行且零 POST）及活文档同步。**当前运行中服务仍是旧行为**（创建即 `running` 的平仓卡、
-  close 侧无 1000x 拦截）；部署、重启服务与最小额度实盘验证须 Human 单独授权后方可进行。
-  计划/计划评审/双评审 handoff：`docs/planning/close-task-preflight-simplification-2026-08-09.v2.*`、
-  `reports/agent-runs/2026-08-09-close-task-preflight-simplification-v1/`。
 
 - `[OPEN][NEEDS-HUMAN-AUTHORIZATION][2026-08-07]` **1000x 腿量换算——未做的资金路径**。
   P0 止血只是把 6 个乘数币（BONK/FLOKI/LUNC/PEPE/SHIB/XEC）挡在门外（见 Live Risks
@@ -307,23 +297,30 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 ## Next Priority
 
 - **No active stage.** Current priorities (detail in the sections above):
-  1. 平仓两段式已合并 main（双评审 ACCEPT + Human 验收），下一步为部署 + 重启 + 最小额度实盘验证（须 Human 单独授权，未部署）；
-  2. 1000x 腿量换算 —— 恢复乘数币能力仍须 Human 授权后单开一轮；
-  3. launchd 损坏 —— Human 自 2026-08-03 决定不修（机器重启服务不会自动起来）。
+  1. 1000x 腿量换算 —— 恢复乘数币能力仍须 Human 授权后单开一轮；
+  2. launchd 损坏 —— Human 自 2026-08-03 决定不修（机器重启服务不会自动起来）。
 - Nothing open authorizes deployment, Start-gate changes, credentials, or live
   operation. Live actions follow the Live Risks gates above.
 
 ## Last Completed
 
-- stage: `2026-08-06-asset-transfer-live-v1`
-- archive_ref: `archive/2026-08-06-asset-transfer-live-v1`
-  (delivery range `bb47d02..bbe81b0` + 各轮封存；T1/T2 `rework_count` 各 1；
-  review-1 deepseek 兼任、无 review-2，均 Human 越门)
-- recorded_completed_at: `2026-08-07`
-- outcome: 资产互转真实划转前后端打通，实盘首批三笔真实划转 `succeeded`
-  （1+50+50 USDT 带交易所流水号）；Human 实盘验收通过并授权合并推送。
-- follow-ups: 见 Live Risks R1 条与 Open Follow-ups（R3 `pending` 卡死不修、
-  仅 `unified→spot` 成功路径有实盘证据）。
+- stage: `2026-08-09-close-task-preflight-simplification-v1`
+- archive_ref: `archive/2026-08-09-close-task-preflight-simplification-v1`
+  (delivery range `dc356cd..e5f83f1` + 各轮封存控制提交；`rework_count` 0；
+  Review-1 Opus 5/Anthropic `ACCEPT` + Review-2 Kimi/Moonshot `ACCEPT`，三轮三 provider)
+- recorded_completed_at: `2026-08-09`
+- outcome: 平仓改两段式——建卡只做本地校验、原子落 `paused/awaiting_manual_start`、
+  零交易所读取立即回显；Human 点击「启动」后才异步预检并发单。启动后新增/重排安全门：
+  合约 UM 持仓方向/数量门（`um_positions` 300s 缓存 + 实时兜底）、forward 普通现货 base
+  每 attempt 按 `q_common × remaining` 校验/划转、1000x 乘数建卡+派发双判。删除 close 无
+  消费者的三项读取、position mode 改用固化值；open 与最终核实未动。**实盘验证**：TSTUSDT
+  forward close（target_n=2）建卡 paused → 启动 → 两腿各 FILLED 500×2 → done → 周期
+  `auto_close`（open 1000 / close 1000 对平）。服务 2026-08-09 18:03 重启加载新代码后生效；
+  Human 验收通过、合并 main 并 push origin。
+- follow-ups: 1000x 腿量换算仍未做（见 Open Follow-ups，须 Human 授权单开一轮）；多张同币
+  同向 close 卡竞争同一仓位本轮不做预留；两腿并发非原子等剩余风险见计划 §9。
+- previous stage: `2026-08-06-asset-transfer-live-v1` —— 资产互转真实划转打通，实盘三笔
+  `succeeded`，合并 main（`bb47d02..bbe81b0`）。归档 `archive/2026-08-06-asset-transfer-live-v1`。
 - previous stage: `2026-08-06-hedge-order-close-validation` —— 下单/平仓链路实盘验收
   通过，合并 main（`f153cdc..64f0051`）。归档 `archive/2026-08-06-hedge-order-close-validation`。
 - previous stage: `2026-08-04-dual-ledger-flow-log-v1` —— 双栏流水日志。归档
