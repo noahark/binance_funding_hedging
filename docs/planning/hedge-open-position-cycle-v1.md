@@ -308,6 +308,12 @@ cycle_closed_at  TEXT    -- ISO 或 null（活跃）
 
 ## 12. 平仓现货卖出路由重设计（2026-08-05 append-only，Human 已拍板）
 
+> **2026-08-09 supersession pointer:** 本节保留为历史设计记录；其中 §12.2
+> “首个 attempt 前一次性余额检查”已被两段式 close 方案取代。当前合同见
+> `docs/product/PRD.md` §6.3 与 `DEC-2026-08-09-001`：建卡只落 paused，启动后
+> 每个 attempt 按 fresh `q_common × remaining_attempts` 执行 UM/forward-base 门。
+> 划转端点、方向、审计与 USDT 回流语义未被改写。
+
 触发事实：COOKIEUSDT 平仓实测——开仓现货买在统一账户（`/papi/v1/margin/order`），平仓现货 SELL
 被 `decide_spot_route` 的 collateral-cap 预检误导到普通现货账户（`/api/v3/order`）→ `-2010
 insufficient_funds`（普通账户无货），合约腿已平、现货单腿 paused（Human 手工处理现货）。

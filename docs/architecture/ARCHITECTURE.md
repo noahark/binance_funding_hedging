@@ -62,6 +62,11 @@ future contract stage.
   (`backend/asset_transfer/`), and the live executor
   (`backend/services/live_hedge_executor.py`). See `PROJECT_STATE.md` for the
   current gates, operating premises, and live risks.
+- Close creation is a two-stage handoff: local checks atomically persist a
+  `paused / awaiting_manual_start` card with zero exchange I/O; only a later
+  Human Start launches the worker. Required dispatch facts remain
+  cache-first/live-fallback, with signed UM position and forward spot-base gates
+  completed before the durable attempt is prepared.
 
 ## Data Flow
 

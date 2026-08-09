@@ -661,13 +661,17 @@ class HedgeOpenStore:
         spot_symbol: str | None = None,
         spot_base_asset: str | None = None,
         symbol_match_type: str | None = None,
+        initial_status: str = D.STATUS_RUNNING,
+        initial_pause_reason: str | None = None,
+        initial_pause_reason_zh: str | None = None,
     ) -> dict:
         with self._lock, self._conn:
             creation_seq = self._conn.execute(
                 "SELECT COALESCE(MAX(creation_seq), 0) + 1 FROM hedge_open_task"
             ).fetchone()[0]
-            # New tasks start in the runnable ``running`` status so the scheduler
-            # can dispatch them once the global Start gate is on (10-design §6).
+            # Open tasks keep the historical runnable default. Close creation may
+            # atomically opt into ``paused`` + its display reason so there is
+            # never an intermediate runnable row for tick/restart recovery to see.
             self._conn.execute(
                 "INSERT INTO hedge_open_task"
                 " (id, coin, direction, mode, single_amount, target_n,"
@@ -676,10 +680,10 @@ class HedgeOpenStore:
                 "  creation_seq, created_at_us, updated_at_us,"
                 "  scheduled_attempt_count, accepted_pair_count,"
                 "  consecutive_submission_failures, failure_pause_threshold,"
-                "  pause_reason, task_type,"
+                "  pause_reason, pause_reason_zh, task_type,"
                 "  spot_symbol, spot_base_asset, symbol_match_type)"
                 " VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, NULL, ?, ?, ?, ?,"
-                "         0, 0, 0, ?, NULL, ?, ?, ?, ?)",
+                "         0, 0, 0, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     task_id,
                     coin,
@@ -687,7 +691,7 @@ class HedgeOpenStore:
                     mode,
                     single_amount,
                     target_n,
-                    D.STATUS_RUNNING,
+                    initial_status,
                     q_common,
                     position_side_mode,
                     json.dumps(preflight_snapshot) if preflight_snapshot is not None else None,
@@ -695,6 +699,8 @@ class HedgeOpenStore:
                     now_us,
                     now_us,
                     failure_pause_threshold,
+                    initial_pause_reason,
+                    initial_pause_reason_zh,
                     task_type,
                     spot_symbol,
                     spot_base_asset,

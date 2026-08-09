@@ -97,7 +97,9 @@ credentials, and first use of any new live path remain explicit human actions.
 - Account mode: regular Binance Portfolio Margin.
 - Futures market: USDⓈ-M perpetual futures.
 - Position mode: one-way; UM orders use `positionSide=BOTH`. The system never
-  changes position mode. A non-one-way account fails preflight.
+  changes position mode. Open tasks fail preflight on a non-one-way account;
+  close tasks inherit the origin task's frozen mode (`NULL` falls back to
+  `BOTH`) under the Human-confirmed premise that mode is not changed mid-cycle.
 - Quote asset: USDT. API keys must not allow withdrawals.
 - Primary execution is manual and operator-confirmed.
 - Binance permissions, regional availability, filters, and response semantics
@@ -119,8 +121,10 @@ and `target_n` (number of scheduled hedge-pair attempts).
 There are no product-level maximum amount, maximum count, maximum allocated
 margin, aggregate notional cap, residual tolerance, or slippage cap in this
 stage. The operator controls exposure by amount, count, and allocated margin.
-Valid filters, min/max quantities and notionals, account state, available
-balance, rate limits, executor mode, and Start gate remain mandatory.
+Valid filters, min/max quantities and notionals, the direction-specific funding
+facts described below, executor mode, and Start gate remain mandatory. Rate
+limits are enforced by exchange responses; close no longer pre-reads unused
+rate-limit fields.
 
 ### 6.2 Quantity and direction
 
@@ -145,8 +149,9 @@ borrow it.
    concurrent pair every second until it issues `target_n` planned attempts or
    is paused. Several running tasks may each submit their own pair in the same
    second; there is no product-level global one-pair serialization.
-2. Before each pair, current public/private preflight verifies market filters,
-   account/position mode, available balance, and rate-limit eligibility.
+2. Before each open pair, current public/private preflight verifies market
+   filters, account/position mode, and available balance. Before each close pair,
+   the two-stage close rules below apply instead.
 3. Before any POST, SQLite persistently records the immutable attempt, both
    deterministic client order IDs, sanitized request shapes, and preflight
    snapshot.
@@ -156,6 +161,33 @@ The next one-second pair is not blocked by a prior pair's fill quantity,
 notional difference, partial state, residual, or ongoing status query. Binance
 rate-limit responses and the durable Start/executor gates can still stop new
 submissions.
+
+#### Two-stage close creation and dispatch
+
+A close request first performs only local validation, active-cycle lookup,
+origin identity/mode inheritance, and the static 1000x guard. It is inserted in
+one transaction as `paused` with `pause_reason=awaiting_manual_start`, then
+returned immediately. Creation performs no exchange read, transfer, attempt, or
+worker launch. Only the task-card Start action changes it to `running` and hands
+off asynchronous preflight; fill-once/fill-all cannot bypass this first Start.
+
+Before every live close pair, and before `prepare_attempt`, the worker:
+
+1. rechecks the frozen/current static identity and blocks multiplier contracts;
+2. reads filters, trading status and price with cache-first/live-fallback;
+3. computes fresh `q_common` and validates quantity/notional constraints;
+4. validates a signed UM position against `q_common × remaining_attempts`, using
+   `um_positions` only within a 300-second ceiling and otherwise querying the
+   symbol live;
+5. for forward close, validates/optionally transfers ordinary-spot base for the
+   same remaining quantity; for reverse close, retains the unified-USDT gate.
+
+Close preflight deliberately does not read position mode, PAPI order rate
+limit, Spot order rate limit, or ordinary-Spot USDT. Position mode comes from
+the origin task; rate-limit responses remain handled after submission. Dry-run
+close bypasses the two new live-only position/base gates, uses the raw
+`single_amount` for its record, and never sends an order POST. Final flat
+verification remains a live UM position query after the attempt budget is used.
 
 ### 6.4 Order acceptance, reconciliation, and pause policy
 

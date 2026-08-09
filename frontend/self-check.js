@@ -702,6 +702,7 @@ function mockHedgeTask(overrides) {
     consecutive_submission_failures: 0,
     failure_pause_threshold: 3,
     pause_reason: null,
+    task_type: 'open',
     // I-4（15 号修正案）：stopped 为致命错误终止的新增字段，与 pause_reason 并存。
     stop_reason: null,
     created_at: '2026-07-22T08:00:00.000000Z',
@@ -4691,7 +4692,7 @@ setTimeout(async () => {
     }
 
     // 83b. 立即平仓列（功能三 UI 预览）：表头、输入框、按钮；已平仓/无周期行禁用；
-    //     点击可用行按钮 → 确认弹框 → 确认 → stub 提示（不发真实请求）。
+    //     点击可用行按钮 → 确认弹框 → 确认 → 创建待启动平仓卡。
     {
       hedgePositionsGetResponse = { status: 200, body: { positions: [
         { coin: 'AUSDT', direction: 'forward', cycle_id: 'c1', cycle_closed_at: null, match_status: 'normal',
@@ -4750,7 +4751,7 @@ setTimeout(async () => {
       console.log('[PASS] 立即平仓列：表头+输入框+禁用逻辑+确认弹框+真实 POST（task_type:close）');
     }
 
-    // 83c. 前端提前量检测（Human 2026-08）：forward close 与后端口径同步——
+    // 83c. 前端提前量检测（Human 2026-08）：forward close 的缓存提前提示——
     //     总量（单次×次数）对比统一账户余额 + 合约持仓；不足强制拦截（零请求）。
     {
       hedgePositionsGetResponse = { status: 200, body: { positions: [
@@ -5510,6 +5511,30 @@ setTimeout(async () => {
       if (startBtnDisabled('h-s2-4')) throw new Error('paused 启动按钮应 enabled');
       helpers.setActiveView('market');
       console.log('[PASS] S2 running 卡启动按钮四象限：dry-run/worker_active 三态 + paused（严格 === false）');
+    }
+
+    // 93b. 两段式平仓：待首次启动卡只能点“启动”，fill-once/fill-all 不得绕过。
+    {
+      helpers.resetHedgeStateForTest();
+      const waiting = mockHedgeTask({
+        id: 'h-close-waiting', task_type: 'close', status: 'paused',
+        pause_reason: 'awaiting_manual_start',
+        pause_reason_zh: '待启动：平仓任务已创建，点击启动后才会校验并发送真实订单'
+      });
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [waiting] } };
+      await helpers.loadHedgeTasks();
+      helpers.setActiveView('hedge-tasks');
+      helpers.setHedgeTaskFilter('all');
+      const card = elements['hedge-task-list'].innerHTML;
+      const start = card.match(/<button[^>]*data-hedge-action="start"[^>]*>/);
+      const fill1 = card.match(/<button[^>]*data-hedge-action="fill1"[^>]*>/);
+      if (!start || start[0].includes('disabled')) throw new Error('待启动平仓卡的启动按钮应启用');
+      if (!fill1 || !fill1[0].includes('disabled')) throw new Error('待启动平仓卡的成交1次按钮应禁用');
+      if (!card.includes('点击启动后才会校验并发送真实订单')) {
+        throw new Error('待启动平仓卡应展示后端中文原因');
+      }
+      helpers.setActiveView('market');
+      console.log('[PASS] 两段式平仓：待启动中文原因 + 启动可点 + fill 不可绕过');
     }
 
     // 94. S4a live-hardening：执行线程行三态 + 八个退出原因中文映射（10-design §2.4a）

@@ -121,6 +121,7 @@ def test_close_legs_excluded_from_open_cost_basis(tmp_path):
     close_tid = svc._store._conn.execute(
         "SELECT id FROM hedge_open_task WHERE task_type = 'close' ORDER BY creation_seq DESC LIMIT 1"
     ).fetchone()[0]
+    svc.post_start(close_tid)
     svc.post_fill_all(close_tid)
     after = svc._store.aggregate_positions()
     assert len(after) == 1
@@ -177,6 +178,13 @@ def test_close_execution_reversed_reduceonly_and_finalize(tmp_path):
     close_tid = svc._store._conn.execute(
         "SELECT id FROM hedge_open_task WHERE task_type='close' ORDER BY creation_seq DESC LIMIT 1"
     ).fetchone()[0]
+    svc.post_start(close_tid)
+
+    def _unexpected_dry_run_gate(*args, **kwargs):  # pragma: no cover - must not run
+        raise AssertionError("dry-run close must bypass live UM/base gates")
+
+    svc._close_um_position_error = _unexpected_dry_run_gate
+    svc._ensure_close_spot_balance = _unexpected_dry_run_gate
     svc.post_fill_all(close_tid)
 
     # 方向反转：forward 平仓 = 现货 SELL 卖回 + 合约 BUY 平空
@@ -188,6 +196,8 @@ def test_close_execution_reversed_reduceonly_and_finalize(tmp_path):
     assert shapes["perp"]["side"] == "BUY"
     assert shapes["perp"]["reduceOnly"] == "true"   # 平仓单防超平
     assert shapes["spot"].get("sideEffectType") == "NO_SIDE_EFFECT"  # 现货纯买卖不还币
+    attempt = svc._store.list_attempts_for_task(close_tid)[0]
+    assert attempt["q_common"] == "0.5"  # close 建卡 q=NULL；dry-run 接受原始 single_amount
 
     # dry-run 完成核实：模拟无仓 → 平完
     close_task = svc._store.get_task(close_tid)
@@ -597,6 +607,7 @@ def _make_forward_close_with_open(svc_factory, coin="COOKIEUSDT"):
     ctid = svc._store._conn.execute(
         "SELECT id FROM hedge_open_task WHERE task_type='close' ORDER BY creation_seq DESC LIMIT 1"
     ).fetchone()[0]
+    svc.post_start(ctid)
     return svc, ctid
 
 
@@ -615,7 +626,7 @@ def test_ensure_close_spot_balance_skips_reverse_close(tmp_path):
     ).fetchone()[0]
     task = svc._store.get_task(ctid)
     # reverse close（买现货走统一账户）：跳过划转检查
-    assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None
+    assert svc._ensure_close_spot_balance(task, svc._wall_us(), Decimal("10")) is None
 
 
 def test_ensure_close_spot_balance_sufficient_no_transfer(tmp_path):
@@ -623,7 +634,7 @@ def test_ensure_close_spot_balance_sufficient_no_transfer(tmp_path):
     svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
     svc, ctid = _make_forward_close_with_open(lambda: svc)
     task = svc._store.get_task(ctid)
-    assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None
+    assert svc._ensure_close_spot_balance(task, svc._wall_us(), Decimal("10")) is None
     assert exe.transfers == []  # 余额够 → 不划转直卖
 
 
@@ -632,7 +643,7 @@ def test_ensure_close_spot_balance_transfers_and_rechecks(tmp_path):
     svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
     svc, ctid = _make_forward_close_with_open(lambda: svc)
     task = svc._store.get_task(ctid)
-    assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None
+    assert svc._ensure_close_spot_balance(task, svc._wall_us(), Decimal("10")) is None
     assert exe.transfers == [("PORTFOLIO_MARGIN_MAIN", "COOKIE", "6")]
     logs = svc._store._conn.execute(
         "SELECT kind, payload FROM hedge_open_log WHERE kind='close_transfer'"
@@ -646,7 +657,7 @@ def test_ensure_close_spot_balance_transfer_failure_pauses(tmp_path):
     svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
     svc, ctid = _make_forward_close_with_open(lambda: svc)
     task = svc._store.get_task(ctid)
-    err = svc._ensure_close_spot_balance(task, svc._wall_us())
+    err = svc._ensure_close_spot_balance(task, svc._wall_us(), Decimal("10"))
     assert err is not None and "划转补足现货失败" in err
     logs = svc._store._conn.execute(
         "SELECT payload FROM hedge_open_log WHERE kind='close_transfer'"
@@ -661,7 +672,7 @@ def test_ensure_close_spot_balance_no_recheck_after_transfer(tmp_path):
     svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
     svc, ctid = _make_forward_close_with_open(lambda: svc)
     task = svc._store.get_task(ctid)
-    err = svc._ensure_close_spot_balance(task, svc._wall_us())
+    err = svc._ensure_close_spot_balance(task, svc._wall_us(), Decimal("10"))
     assert err is None  # 划转成功即放行（不再复检、不暂停）
     assert exe.transfers == [("PORTFOLIO_MARGIN_MAIN", "COOKIE", "6")]
     assert len(exe.free_calls) == 1  # 余额只查了一次（初始不足判断）
@@ -672,7 +683,7 @@ def test_ensure_close_spot_balance_query_failure(tmp_path):
     svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
     svc, ctid = _make_forward_close_with_open(lambda: svc)
     task = svc._store.get_task(ctid)
-    err = svc._ensure_close_spot_balance(task, svc._wall_us())
+    err = svc._ensure_close_spot_balance(task, svc._wall_us(), Decimal("10"))
     assert err is not None and "查询失败" in err
 
 
@@ -719,6 +730,7 @@ def test_transfer_back_usdt_skipped_for_reverse_close(tmp_path):
     ctid = svc._store._conn.execute(
         "SELECT id FROM hedge_open_task WHERE task_type='close' ORDER BY creation_seq DESC LIMIT 1"
     ).fetchone()[0]
+    svc.post_start(ctid)
     svc.post_fill_all(ctid)
     task = svc._store.get_task(ctid)
     svc._transfer_back_usdt(task, svc._wall_us())
@@ -730,7 +742,7 @@ def test_dry_run_ensure_and_transfer_are_noops(tmp_path):
     svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled")
     svc, ctid = _make_forward_close_with_open(lambda: svc)
     task = svc._store.get_task(ctid)
-    assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None
+    assert svc._ensure_close_spot_balance(task, svc._wall_us(), Decimal("10")) is None
     svc._transfer_back_usdt(task, svc._wall_us())  # 不抛错、不写日志
     logs = svc._store._conn.execute(
         "SELECT COUNT(*) FROM hedge_open_log WHERE kind='close_transfer'"
@@ -763,6 +775,7 @@ def test_close_worker_auto_finalize_on_flat(tmp_path):
     close_tid = svc._store._conn.execute(
         "SELECT id FROM hedge_open_task WHERE task_type='close' ORDER BY creation_seq DESC LIMIT 1"
     ).fetchone()[0]
+    svc.post_start(close_tid)
     svc.post_fill_all(close_tid)
     # 修复点 1：attempt 成交后任务不自动 done（suppress_done），保持 running 等核实
     after_fill = svc._store.get_task(close_tid)
@@ -801,6 +814,7 @@ def test_close_worker_partial_done_when_position_remains(tmp_path):
     close_tid = svc._store._conn.execute(
         "SELECT id FROM hedge_open_task ORDER BY creation_seq DESC LIMIT 1"
     ).fetchone()[0]
+    svc.post_start(close_tid)
     svc.post_fill_all(close_tid)
     after_fill = svc._store.get_task(close_tid)
     assert after_fill["status"] == D.STATUS_RUNNING  # 成交后不抢先 done
@@ -827,7 +841,9 @@ class _SpyPreflightProvider:
         self._snapshot = snapshot
         self.calls = []
 
-    def get_snapshot(self, coin, direction, task_type="open"):
+    def get_snapshot(
+        self, coin, direction, task_type="open", position_side_mode=None,
+    ):
         self.calls.append((coin, direction, task_type))
         return self._snapshot
 
@@ -866,9 +882,9 @@ def _make_live_svc(tmp_path, snapshot):
     return svc, provider
 
 
-def _make_close_task(svc, coin, direction):
+def _make_close_task(svc, coin, direction, *, target_n=1):
     task = svc._store.create_task(
-        "fx-close", coin, direction, D.MODE_IMMEDIATE, "100", 1, "100",
+        "fx-close", coin, direction, D.MODE_IMMEDIATE, "100", target_n, "100",
         D.POS_MODE_BOTH, None, 1_000, task_type=D.TASK_TYPE_CLOSE,
     )
     return svc._store.get_task(task["id"])
@@ -916,6 +932,146 @@ def test_live_fresh_preflight_reverse_close_checks_usdt(tmp_path):
     assert fp.fatal is False and fp.rejection is None
 
 
+class _GuardPreflightProvider(_SpyPreflightProvider):
+    def __init__(self, snapshot, cached_qty):
+        super().__init__(snapshot)
+        self.cached_qty = cached_qty
+        self.um_calls = []
+
+    def cached_um_position_qty(self, coin):
+        self.um_calls.append(coin)
+        return self.cached_qty
+
+
+class _GuardExecutor(_FakeLiveExecutor):
+    def __init__(self, realtime_qty=None):
+        self.realtime_qty = realtime_qty
+        self.query_calls = []
+
+    def query_symbol_um_qty(self, coin):
+        self.query_calls.append(coin)
+        return self.realtime_qty
+
+
+def _guard_snapshot(direction):
+    from backend.hedge_open_tasks.domain import PreflightSnapshot as _PS
+    route = (
+        D.SPOT_ROUTE_REGULAR_SPOT
+        if direction == D.DIR_FORWARD else D.SPOT_ROUTE_PAPI_MARGIN
+    )
+    return _PS(
+        spot_filters=_spot_filters_fx(), perp_filters=_perp_filters_fx(),
+        balances={"USDT": D.Decimal("100000")},
+        position_mode=D.POS_MODE_BOTH, est_price=D.Decimal("1"),
+        symbol_tradable=True, spot_route=route,
+        spot_route_endpoint=D.spot_route_endpoint(route),
+    )
+
+
+@pytest.mark.parametrize(
+    ("direction", "qty", "required", "ok"),
+    [
+        (D.DIR_FORWARD, "-300", "300", True),
+        (D.DIR_FORWARD, "300", "300", False),
+        (D.DIR_FORWARD, "-299", "300", False),
+        (D.DIR_FORWARD, "0", "300", False),
+        (D.DIR_FORWARD, "NaN", "300", False),
+        (D.DIR_REVERSE, "300", "300", True),
+        (D.DIR_REVERSE, "-300", "300", False),
+        (D.DIR_REVERSE, "299", "300", False),
+        (D.DIR_REVERSE, "0", "300", False),
+    ],
+)
+def test_close_um_gate_requires_matching_sign_and_remaining_qty(
+    tmp_path, direction, qty, required, ok,
+):
+    provider = _GuardPreflightProvider(_guard_snapshot(direction), D.Decimal(qty))
+    executor = _GuardExecutor()
+    svc = HedgeOpenTaskService(
+        str(tmp_path / "ho.sqlite3"), mode="live",
+        executor=executor, preflight_provider=provider,
+    )
+    task = _make_close_task(svc, "COOKIEUSDT", direction, target_n=3)
+    err = svc._close_um_position_error(task, D.Decimal(required))
+    assert (err is None) is ok
+    assert executor.query_calls == []  # fresh cache is authoritative
+
+
+def test_close_um_cache_miss_falls_back_to_live_query(tmp_path):
+    provider = _GuardPreflightProvider(_guard_snapshot(D.DIR_FORWARD), None)
+    executor = _GuardExecutor(realtime_qty=D.Decimal("-300"))
+    svc = HedgeOpenTaskService(
+        str(tmp_path / "ho.sqlite3"), mode="live",
+        executor=executor, preflight_provider=provider,
+    )
+    task = _make_close_task(svc, "COOKIEUSDT", D.DIR_FORWARD, target_n=3)
+    assert svc._close_um_position_error(task, D.Decimal("300")) is None
+    assert executor.query_calls == ["COOKIEUSDT"]
+
+
+def test_close_um_guard_failure_pauses_before_attempt_or_post(tmp_path):
+    provider = _GuardPreflightProvider(
+        _guard_snapshot(D.DIR_FORWARD), D.Decimal("300"),  # wrong sign
+    )
+    executor = _GuardExecutor()
+    svc = HedgeOpenTaskService(
+        str(tmp_path / "ho.sqlite3"), mode="live",
+        executor=executor, preflight_provider=provider,
+    )
+    svc.set_start_gate(True)
+    task = _make_close_task(svc, "COOKIEUSDT", D.DIR_FORWARD, target_n=3)
+    _, signal = svc._dispatch_one_for_task(task, svc._wall_us())
+    after = svc._store.get_task(task["id"])
+    assert signal == D.SIGNAL_CLOSE_GUARD_FAILED
+    assert after["status"] == D.STATUS_PAUSED
+    assert after["pause_reason"] == D.PAUSE_REASON_CLOSE_UM_POSITION
+    assert svc._store.list_attempts_for_task(task["id"]) == []
+
+
+def test_forward_close_balance_gate_uses_fresh_q_times_remaining(tmp_path):
+    provider = _GuardPreflightProvider(
+        _guard_snapshot(D.DIR_FORWARD), D.Decimal("-1000"),
+    )
+    svc = HedgeOpenTaskService(
+        str(tmp_path / "ho.sqlite3"), mode="live",
+        executor=_GuardExecutor(), preflight_provider=provider,
+    )
+    svc.set_start_gate(True)
+    task = _make_close_task(svc, "COOKIEUSDT", D.DIR_FORWARD, target_n=3)
+    required = []
+
+    def _record_and_block(_task, _now_us, required_base):
+        required.append(required_base)
+        return "test stop before attempt"
+
+    svc._ensure_close_spot_balance = _record_and_block
+    for scheduled in (0, 1, 2):
+        current = dict(task, scheduled_attempt_count=scheduled)
+        _, signal = svc._dispatch_one_for_task(current, svc._wall_us())
+        assert signal == D.SIGNAL_CLOSE_GUARD_FAILED
+    assert required == [D.Decimal("300"), D.Decimal("200"), D.Decimal("100")]
+    assert svc._store.list_attempts_for_task(task["id"]) == []
+
+
+def test_dispatch_blocks_legacy_null_multiplier_before_preflight(tmp_path):
+    provider = _GuardPreflightProvider(
+        _guard_snapshot(D.DIR_FORWARD), D.Decimal("-1000"),
+    )
+    svc = HedgeOpenTaskService(
+        str(tmp_path / "ho.sqlite3"), mode="live",
+        executor=_GuardExecutor(), preflight_provider=provider,
+    )
+    svc.set_start_gate(True)
+    task = _make_close_task(svc, "1000BONKUSDT", D.DIR_FORWARD)
+    assert task["symbol_match_type"] is None
+    _, signal = svc._dispatch_one_for_task(task, svc._wall_us())
+    after = svc._store.get_task(task["id"])
+    assert signal == D.SIGNAL_CLOSE_GUARD_FAILED
+    assert after["pause_reason"] == D.PAUSE_REASON_MULTIPLIER_CLOSE_UNSUPPORTED
+    assert provider.calls == []  # multiplier guard is before all external reads
+    assert svc._store.list_attempts_for_task(task["id"]) == []
+
+
 # ---------------------------------------------------------------------------
 # Stage 2026-08-06 task 05 §4.2（Human 决定 3）：划转改造——缓存放行 / 实时确认
 # 才动手 / 无后置复检 / sleep(100ms) / 余额不足文案带「划转尚未到账」提示。
@@ -938,7 +1094,7 @@ def test_close_balance_cache_sufficient_passes_without_realtime(tmp_path):
     )
     svc, ctid = _make_forward_close_with_open(lambda: svc)
     task = svc._store.get_task(ctid)
-    assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None
+    assert svc._ensure_close_spot_balance(task, svc._wall_us(), Decimal("10")) is None
     assert exe.transfers == []    # 缓存充足 → 未划转
     assert exe.free_calls == []   # 未实时查询
 
@@ -952,7 +1108,7 @@ def test_close_balance_cache_insufficient_confirms_realtime_then_transfers(tmp_p
     )
     svc, ctid = _make_forward_close_with_open(lambda: svc)
     task = svc._store.get_task(ctid)
-    assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None
+    assert svc._ensure_close_spot_balance(task, svc._wall_us(), Decimal("10")) is None
     assert exe.transfers == [("PORTFOLIO_MARGIN_MAIN", "COOKIE", "6")]  # 实时确认后划转
     assert len(exe.free_calls) == 1  # 恰好实时确认一次
 
@@ -968,7 +1124,7 @@ def test_close_balance_cache_sufficient_unified_skips_realtime_unified(tmp_path)
     )
     svc, ctid = _make_forward_close_with_open(lambda: svc)
     task = svc._store.get_task(ctid)
-    assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None
+    assert svc._ensure_close_spot_balance(task, svc._wall_us(), Decimal("10")) is None
     assert exe.transfers == [("PORTFOLIO_MARGIN_MAIN", "COOKIE", "6")]
     assert getattr(exe, "unified_calls", []) == []  # 未实时查统一账户
 
@@ -982,7 +1138,7 @@ def test_close_transfer_sleeps_100ms_and_no_recheck(tmp_path, monkeypatch):
     svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
     svc, ctid = _make_forward_close_with_open(lambda: svc)
     task = svc._store.get_task(ctid)
-    assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None
+    assert svc._ensure_close_spot_balance(task, svc._wall_us(), Decimal("10")) is None
     assert slept == [0.1]           # 划转成功后 sleep(100ms) 让余额同步
     assert len(exe.free_calls) == 1  # 后置复检已删除（只查了一次初始余额）
 
@@ -994,7 +1150,7 @@ def test_close_insufficient_pause_zh_notes_transfer_in_flight(tmp_path):
     svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
     svc, ctid = _make_forward_close_with_open(lambda: svc)
     task = svc._store.get_task(ctid)
-    assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None  # 划转 ok
+    assert svc._ensure_close_spot_balance(task, svc._wall_us(), Decimal("10")) is None  # 划转 ok
     zh = svc._close_insufficient_pause_zh(task, D.PAUSE_REASON_INSUFFICIENT_BALANCE)
     assert zh is not None
     assert "可能是划转尚未到账" in zh
@@ -1004,7 +1160,7 @@ def test_close_insufficient_pause_zh_notes_transfer_in_flight(tmp_path):
     svc2 = HedgeOpenTaskService(str(tmp_path / "h2.sqlite3"), mode="disabled", executor=exe2)
     svc2, ctid2 = _make_forward_close_with_open(lambda: svc2)
     task2 = svc2._store.get_task(ctid2)
-    assert svc2._ensure_close_spot_balance(task2, svc2._wall_us()) is None  # 充足未划转
+    assert svc2._ensure_close_spot_balance(task2, svc2._wall_us(), Decimal("10")) is None  # 充足未划转
     assert svc2._close_insufficient_pause_zh(task2, D.PAUSE_REASON_INSUFFICIENT_BALANCE) is None
 
 
@@ -1093,7 +1249,7 @@ def test_close_transfer_uses_frozen_spot_base_for_bstock(tmp_path):
     svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
     svc, ctid = _make_forward_close_with_open(lambda: svc, coin="SNXXUSDT")
     task = svc._store.get_task(ctid)
-    assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None
+    assert svc._ensure_close_spot_balance(task, svc._wall_us(), Decimal("10")) is None
     assert exe.transfers == [("PORTFOLIO_MARGIN_MAIN", "SNXXB", "6")]
 
 
@@ -1104,7 +1260,7 @@ def test_close_transfer_uses_frozen_spot_base_for_multiplier(tmp_path, monkeypat
     svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled", executor=exe)
     svc, ctid = _make_forward_close_with_open(lambda: svc, coin="1000BONKUSDT")
     task = svc._store.get_task(ctid)
-    assert svc._ensure_close_spot_balance(task, svc._wall_us()) is None
+    assert svc._ensure_close_spot_balance(task, svc._wall_us(), Decimal("10")) is None
     assert exe.transfers == [("PORTFOLIO_MARGIN_MAIN", "BONK", "6")]
 
 

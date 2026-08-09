@@ -139,13 +139,17 @@ class PreflightProvider(Protocol):
 
     def get_snapshot(
         self, coin: str, direction: str, task_type: str = "open",
+        position_side_mode: str | None = None,
     ) -> D.PreflightSnapshot | None: ...
 
 
 class DisabledPreflightProvider:
     """The default provider: no preflight data (dry-run, no network read)."""
 
-    def get_snapshot(self, coin: str, direction: str, task_type: str = "open") -> D.PreflightSnapshot | None:
+    def get_snapshot(
+        self, coin: str, direction: str, task_type: str = "open",
+        position_side_mode: str | None = None,
+    ) -> D.PreflightSnapshot | None:
         return None
 
 
@@ -775,6 +779,76 @@ class HedgeOpenTaskService:
                     f"{direction} {coin} 无活跃持仓周期，不可平仓（无仓不可平）",
                 )
 
+        # 现货腿身份是纯本地查表结果。close 优先继承周期首个开仓任务的历史真值，
+        # 同时保留当前映射用于 1000x 双判；整个分支零交易所 I/O。
+        current_spot_symbol, current_spot_base, current_match = resolve_spot_identity(coin)
+        spot_symbol = current_spot_symbol
+        spot_base_asset = current_spot_base
+        symbol_match_type = current_match
+        position_side_mode = None
+        if task_type == D.TASK_TYPE_CLOSE and active_cycle is not None:
+            origin = self._store.get_task(active_cycle.get("first_task_id") or "")
+            inherited = origin.get("spot_symbol") if origin else None
+            inherited_match = origin.get("symbol_match_type") if origin else None
+            if inherited:
+                spot_symbol = inherited
+                spot_base_asset = origin.get("spot_base_asset")
+                symbol_match_type = inherited_match
+            else:
+                print(
+                    f"[HEDGE-CREATE] close identity fallback: cycle="
+                    f"{str(active_cycle.get('id'))[:8]} origin_task="
+                    f"{str(active_cycle.get('first_task_id'))[:8]} 无固化身份，"
+                    f"回退查表 {spot_symbol}",
+                    file=sys.stderr, flush=True,
+                )
+            position_side_mode = (
+                (origin or {}).get("position_side_mode") or D.POS_MODE_BOTH
+            )
+            if (
+                inherited_match == SPOT_MATCH_MULTIPLIER
+                or current_match == SPOT_MATCH_MULTIPLIER
+            ):
+                raise D.HedgeError(
+                    400, "multiplier_contract_unsupported",
+                    f"{coin} 是 1000 倍乘数合约，两腿数量换算尚未实现，"
+                    "自动平仓会产生错误敞口，请人工到交易所处理",
+                    extra={"coin": coin, "spot_symbol": current_spot_symbol},
+                )
+
+            # 两段式 close：只做上面的本地校验并在同一条 INSERT 中落 paused。
+            # 不读 filters/price/balance/position/rate-limit，不划转、不建 attempt，
+            # 也不启动 worker；Human 点击任务卡“启动”后才进入完整预检。
+            task_id = str(uuid.uuid4())
+            now_us = self._wall_us()
+            task = self._store.create_task(
+                task_id,
+                coin,
+                direction,
+                mode,
+                single_amount,
+                target_n,
+                None,
+                position_side_mode,
+                {"available": False, "reason": "no_preflight_snapshot"},
+                now_us,
+                task_type=task_type,
+                spot_symbol=spot_symbol,
+                spot_base_asset=spot_base_asset,
+                symbol_match_type=symbol_match_type,
+                initial_status=D.STATUS_PAUSED,
+                initial_pause_reason=D.PAUSE_REASON_AWAITING_MANUAL_START,
+                initial_pause_reason_zh=D.pause_reason_zh(
+                    D.PAUSE_REASON_AWAITING_MANUAL_START
+                ),
+            )
+            print(
+                f"[HEDGE-CREATE] success task_id={task_id[:8]} task_type=close "
+                f"coin={coin} direction={direction} status=paused",
+                file=sys.stderr, flush=True,
+            )
+            return 201, self._doc(task)
+
         # S4b (ADR-H5): when the provider can probe leg existence, block creating
         # a task for a coin confirmed absent on spot and/or UM (e.g. KORUUSDT,
         # which has no spot leg -> Binance -1121). Only a confirmed-absent leg
@@ -799,9 +873,8 @@ class HedgeOpenTaskService:
         # 通过了上面的存在性探测，但腿量换算从未实现，故在此 fail-closed（「宁可
         # 无腿，不可错腿」）。换算实现后连同本拦截与其两个测试一起移除。
         #
-        # **只拦 open，但这不代表 close 安全**：close 走同一个 compute_preflight、
-        # 同样两腿发一个 q_common，自动平仓的腿量同样错 1000 倍。放行只是不再额外
-        # 添堵（历史库中并无此类仓位），真要处置这种仓位得人工去交易所平。
+        # open 在这里拦；close 已在上面的轻量建卡分支用“固化值 OR 当前映射”
+        # 双判拦截，并在 dispatch 再守一次历史 NULL 行。
         if task_type == D.TASK_TYPE_OPEN:
             mult_spot_symbol, _, mult_match = resolve_spot_identity(coin)
             if mult_match == SPOT_MATCH_MULTIPLIER:
@@ -879,30 +952,6 @@ class HedgeOpenTaskService:
             f"coin={coin} direction={direction} q={D.fmt_decimal(preflight.q_common)}",
             file=sys.stderr, flush=True,
         )
-        # 现货腿身份在建任务时解析一次并固化（symbol-identity-unification §3①）。
-        # 纯查表零 IO，与 live/dry-run 无关——修掉「身份是 live preflight 副产品」
-        # 导致的实盘缺陷（无预检的任务回退到合约 symbol，对 bStock/1000x 必错）。
-        # 它只答「叫什么」；「有没有现货腿」由上面的 check_symbol_legs 探测负责。
-        spot_symbol, spot_base_asset, symbol_match_type = resolve_spot_identity(coin)
-        # §3⑤：close 继承开仓任务的身份，不重新查表。对冲是跨时间的持仓——若映射表
-        # 在持仓期间变更，重新查表会让平仓腿与开仓腿对不上（方案 §2.1「固化优于
-        # 实时」）。继承链走 cycle.first_task_id，无需给 cycle 加列。
-        # origin 缺失/未回填 -> 保留上面的查表结果并记 warning，不阻断建 close。
-        if task_type == D.TASK_TYPE_CLOSE and active_cycle is not None:
-            origin = self._store.get_task(active_cycle.get("first_task_id") or "")
-            inherited = origin.get("spot_symbol") if origin else None
-            if inherited:
-                spot_symbol = inherited
-                spot_base_asset = origin.get("spot_base_asset")
-                symbol_match_type = origin.get("symbol_match_type")
-            else:
-                print(
-                    f"[HEDGE-CREATE] close identity fallback: cycle="
-                    f"{str(active_cycle.get('id'))[:8]} origin_task="
-                    f"{str(active_cycle.get('first_task_id'))[:8]} 无固化身份，"
-                    f"回退查表 {spot_symbol}",
-                    file=sys.stderr, flush=True,
-                )
         task = self._store.create_task(
             task_id,
             coin,
@@ -1035,6 +1084,15 @@ class HedgeOpenTaskService:
             raise D.HedgeError(409, "invalid_state", "cannot fill a deleted task")
         if status == D.STATUS_DONE:
             raise D.HedgeError(409, "invalid_state", "task already done")
+        if (
+            task.get("task_type") == D.TASK_TYPE_CLOSE
+            and task.get("pause_reason") == D.PAUSE_REASON_AWAITING_MANUAL_START
+        ):
+            raise D.HedgeError(
+                409,
+                "start_required",
+                "平仓任务首次执行必须点击启动，不能用成交按钮绕过启动确认",
+            )
         # Single-leg exposure does not block fill (advisory, §4.5).
 
     # ----------------------------------------------------------------- reads
@@ -1620,18 +1678,6 @@ class HedgeOpenTaskService:
         else:
             if task["scheduled_attempt_count"] >= task["target_n"]:
                 return self._worker_exit(task_id, D.WORKER_EXIT_TARGET_REACHED)
-        # 平仓现货卖出重设计（2026-08）：forward close 首个 attempt 发单前一次性
-        # 检查普通现货余额（不足划转补足，失败即停、不重试、不发单）；后续 attempt
-        # 不再进入该路径（幂等；paused 后 worker 被既有拦截挡住）。
-        if (task.get("task_type") == D.TASK_TYPE_CLOSE
-                and task["scheduled_attempt_count"] == 0):
-            err = self._ensure_close_spot_balance(task, now_us)
-            if err is not None:
-                self._pause_task_local(
-                    task, D.PAUSE_REASON_CLOSE_SPOT_BALANCE, err, now_us,
-                    kind="close_spot_balance",
-                )
-                return True
         # Dispatch the next pair (preflight -> reserve -> two-leg submit).
         _, signal = self._dispatch_one_for_task(task, now_us)
         if signal == D.SIGNAL_RATE_LIMITED:
@@ -1657,6 +1703,10 @@ class HedgeOpenTaskService:
         if signal == D.SIGNAL_SPOT_ROUTE_CHANGED:
             # 路由变化暂停已由 _dispatch_one_for_task 落库（spot_route_changed 事件）；
             # worker 直接退出本轮——不发单、不二次暂停（与杠杆失败同构）。
+            return False
+        if signal == D.SIGNAL_CLOSE_GUARD_FAILED:
+            # 1000x / UM 持仓 / forward base 门已在 dispatch 内用精准原因暂停；
+            # 不创建 attempt、不发单，也不再用通用原因覆盖。
             return False
         return False  # dispatched -> next round resolves/drains this pair
 
@@ -1703,8 +1753,10 @@ class HedgeOpenTaskService:
         if action == "ok" and amount is not None:
             self._close_transfer_done[task_id] = (amount, asset)
 
-    def _ensure_close_spot_balance(self, task: dict, now_us: int) -> str | None:
-        """forward close 发单前：普通现货账户余额检查 + 一次性划转补足（Human 拍板）。
+    def _ensure_close_spot_balance(
+        self, task: dict, now_us: int, required_base: Decimal,
+    ) -> str | None:
+        """forward close 每个 attempt 前：余额检查 + 必要时划转补足。
 
         仅 forward close（现货 SELL 走普通账户）；reverse close（买现货走统一账户）跳过：
         - 普通账户该币 free ≥ 计划卖量 → 无需划转，返回 None（§4.2：缓存放行——
@@ -1726,8 +1778,10 @@ class HedgeOpenTaskService:
         q_unified = getattr(self._executor, "query_unified_free", None)
         xfer = getattr(self._executor, "universal_transfer", None)
         if q_spot is None or xfer is None:
-            return None  # dry-run：模拟余额足够
-        sell_amount = D.Decimal(task["single_amount"])
+            if not self._live_dispatch_capable():
+                return None  # dry-run：新门放行，且 record transport 永远零 POST
+            return "现货余额查询/划转能力不可用（fail-closed，未发单）"
+        sell_amount = required_base
         # 统一解析器（2026-08-07 unified-resolver）：平仓侧不再剥合约 coin 字符串，
         # 而是读任务固化的现货资产名（bStock SNXXUSDT -> SNXXB、1000x -> BONK）。
         base_asset = D.spot_base_of(task)
@@ -1771,6 +1825,57 @@ class HedgeOpenTaskService:
         # §4.2（Human 决定 3）：不再后置复检——只认划转返回结果（tranId）；加
         # sleep(100ms) 让普通现货账户余额同步（经验值非保证，故余额不足文案带提示）。
         time.sleep(0.1)
+        return None
+
+    def _close_um_position_error(
+        self, task: dict, required_qty: Decimal,
+    ) -> str | None:
+        """Validate signed UM position for the close quantity still scheduled.
+
+        A fresh ``um_positions`` cache entry is preferred. Missing, malformed or
+        older-than-300s cache data falls back to the executor's real-time symbol
+        query. No row is flat (0), never an implicit pass.
+        """
+        qty = None
+        cached = getattr(self._preflight, "cached_um_position_qty", None)
+        if callable(cached):
+            qty = cached(task["coin"])
+        if qty is None:
+            query = getattr(self._executor, "query_symbol_um_qty", None)
+            if query is None:
+                return "合约持仓查询能力不可用，无法确认可平数量（fail-closed，未发单）"
+            try:
+                qty = query(task["coin"])
+            except Exception as exc:  # noqa: BLE001
+                detail = str(exc)[:200] or type(exc).__name__
+                return f"实时查询合约持仓失败（{detail}），未发单"
+        if qty is None:
+            return "实时查询合约持仓失败，无法确认可平数量（fail-closed，未发单）"
+        try:
+            position_qty = Decimal(str(qty))
+        except (InvalidOperation, ValueError, TypeError):
+            return "合约持仓数量无法解析（fail-closed，未发单）"
+        if not position_qty.is_finite():
+            return "合约持仓数量无法解析（fail-closed，未发单）"
+        if task["direction"] == D.DIR_FORWARD:
+            if position_qty >= 0:
+                return (
+                    f"正向平仓需要空头持仓，当前合约持仓为 "
+                    f"{D.fmt_decimal(position_qty)}，未发单"
+                )
+            available = -position_qty
+        else:
+            if position_qty <= 0:
+                return (
+                    f"反向平仓需要多头持仓，当前合约持仓为 "
+                    f"{D.fmt_decimal(position_qty)}，未发单"
+                )
+            available = position_qty
+        if available < required_qty:
+            return (
+                f"合约可平数量不足：当前 {D.fmt_decimal(available)}，"
+                f"剩余计划需 {D.fmt_decimal(required_qty)}，未发单"
+            )
         return None
 
     def _transfer_back_usdt(self, task: dict, now_us: int) -> None:
@@ -2429,18 +2534,27 @@ class HedgeOpenTaskService:
         rejections that are not incomplete (e.g. a transient balance gap on a
         non-fatal path) are also treated as fail-closed exit.
         """
-        # close 任务：与 create_task 一致用反转方向做余额检查（forward close 卖
-        # 现货需现货余额；provider 内 route_dir 再反转回持仓方向做路由决策）。
+        # close 任务用反转方向表达实际现货动作（forward close 卖、reverse close 买）；
+        # forward 的 base 余额改由 dispatch 在 fresh q_common 产生后按 remaining 校验。
         preflight_dir = task["direction"]
         if task.get("task_type") == D.TASK_TYPE_CLOSE:
             preflight_dir = (
                 D.DIR_REVERSE if task["direction"] == D.DIR_FORWARD
                 else D.DIR_FORWARD
             )
-        snapshot = self._preflight.get_snapshot(
-            task["coin"], preflight_dir,
-            task_type=task.get("task_type") or D.TASK_TYPE_OPEN,
-        )
+        task_type = task.get("task_type") or D.TASK_TYPE_OPEN
+        if task_type == D.TASK_TYPE_CLOSE:
+            snapshot = self._preflight.get_snapshot(
+                task["coin"], preflight_dir,
+                task_type=task_type,
+                position_side_mode=task.get("position_side_mode") or D.POS_MODE_BOTH,
+            )
+        else:
+            # Open keeps the existing provider call and all of its real-time
+            # fallbacks byte-for-byte.
+            snapshot = self._preflight.get_snapshot(
+                task["coin"], preflight_dir, task_type=task_type,
+            )
         if snapshot is None:
             return None
         preflight = D.compute_preflight(
@@ -2449,6 +2563,10 @@ class HedgeOpenTaskService:
             preflight_dir,  # 余额校验必须与路由决策同方向（close 用反转方向校验实际资金约束）
             D.Decimal(task["single_amount"]),
             task["target_n"],
+            check_balance=not (
+                task_type == D.TASK_TYPE_CLOSE
+                and task["direction"] == D.DIR_FORWARD
+            ),
         )
         if preflight.rejection == D.REJECT_PREFLIGHT_INCOMPLETE:
             return None
@@ -2591,7 +2709,32 @@ class HedgeOpenTaskService:
         reason naming the failed read (no attempt/POST/count). The dry-run record
         transport reuses the stored q_common/snapshot and never POSTs.
         """
+        task_type = task.get("task_type") or D.TASK_TYPE_OPEN
         live = self._live_dispatch_capable() and self.is_start_gate_on()
+        if live and task_type == D.TASK_TYPE_CLOSE:
+            # Historical rows may have NULL symbol_match_type. The stored value
+            # and today's pure mapping are both authoritative blockers until
+            # 1000x leg conversion is implemented.
+            current_spot_symbol, _, current_match = resolve_spot_identity(task["coin"])
+            if (
+                task.get("symbol_match_type") == SPOT_MATCH_MULTIPLIER
+                or current_match == SPOT_MATCH_MULTIPLIER
+            ):
+                self._pause_task_local(
+                    task,
+                    D.PAUSE_REASON_MULTIPLIER_CLOSE_UNSUPPORTED,
+                    D.SIGNAL_CLOSE_GUARD_FAILED,
+                    now_us,
+                    pause_zh=(
+                        f"{task['coin']} 是 1000 倍乘数合约（现货腿 "
+                        f"{current_spot_symbol}），两腿数量换算尚未实现，"
+                        "已暂停且未发单，请人工到交易所处理"
+                    ),
+                )
+                return (
+                    self._store.get_task(task["id"]) or task,
+                    D.SIGNAL_CLOSE_GUARD_FAILED,
+                )
         if live:
             fresh = self._resolve_fresh_preflight(task)
             if fresh is None or not fresh.ok:
@@ -2608,6 +2751,48 @@ class HedgeOpenTaskService:
             q_common = fresh.q_common
             position_side_mode = fresh.position_side_mode
             snapshot_record = fresh.snapshot_record
+            if task_type == D.TASK_TYPE_CLOSE:
+                if q_common is None:
+                    self._record_preflight_incomplete(task, now_us, "q_common")
+                    return (
+                        self._store.get_task(task["id"]) or task,
+                        D.SIGNAL_PREFLIGHT_INCOMPLETE,
+                    )
+                remaining_attempts = (
+                    task["target_n"] - task["scheduled_attempt_count"]
+                )
+                if remaining_attempts <= 0:
+                    return self._store.get_task(task["id"]) or task, None
+                required_qty = q_common * D.Decimal(remaining_attempts)
+                um_err = self._close_um_position_error(task, required_qty)
+                if um_err is not None:
+                    self._pause_task_local(
+                        task,
+                        D.PAUSE_REASON_CLOSE_UM_POSITION,
+                        D.SIGNAL_CLOSE_GUARD_FAILED,
+                        now_us,
+                        pause_zh=um_err,
+                    )
+                    return (
+                        self._store.get_task(task["id"]) or task,
+                        D.SIGNAL_CLOSE_GUARD_FAILED,
+                    )
+                if task["direction"] == D.DIR_FORWARD:
+                    balance_err = self._ensure_close_spot_balance(
+                        task, now_us, required_qty,
+                    )
+                    if balance_err is not None:
+                        self._pause_task_local(
+                            task,
+                            D.PAUSE_REASON_CLOSE_SPOT_BALANCE,
+                            D.SIGNAL_CLOSE_GUARD_FAILED,
+                            now_us,
+                            pause_zh=balance_err,
+                        )
+                        return (
+                            self._store.get_task(task["id"]) or task,
+                            D.SIGNAL_CLOSE_GUARD_FAILED,
+                        )
         else:
             q_common = D.Decimal(task["q_common"]) if task["q_common"] else None
             position_side_mode = task["position_side_mode"]
@@ -2615,7 +2800,6 @@ class HedgeOpenTaskService:
 
         attempt_uuid = uuid.uuid4().hex
         spot_cid, perp_cid = _client_order_ids(attempt_uuid)
-        task_type = task.get("task_type") or D.TASK_TYPE_OPEN
         # 备款/路由一致性核验（Human 2026-08 REWORK 问题1）：regular_spot 下单需已备款
         # （create_task 时划转，固化 frozen route=regular_spot）。若 fresh 要走 regular_spot
         # 但建卡时不是 regular_spot（建卡 PAPI 未备款、或建卡时 snapshot None 未固化路由

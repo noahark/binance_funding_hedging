@@ -167,7 +167,9 @@ class _SpyPreflightProvider:
         self._snapshot = snapshot
         self.calls = []
 
-    def get_snapshot(self, coin, direction, task_type="open"):
+    def get_snapshot(
+        self, coin, direction, task_type="open", position_side_mode=None,
+    ):
         self.calls.append((coin, direction, task_type))
         return self._snapshot
 
@@ -205,11 +207,21 @@ class _LeverageLiveExecutor:
         self.leverage_calls: list[tuple] = []
         self._leverage_error = leverage_error
         self._seq = 0
+        self.um_qty = None
 
     def set_leverage(self, coin: str, leverage: int) -> None:
         self.leverage_calls.append((coin, leverage))
         if self._leverage_error is not None:
             raise self._leverage_error
+
+    def query_symbol_um_qty(self, coin):
+        return self.um_qty
+
+    def query_spot_free(self, asset):
+        return D.Decimal("100000")
+
+    def universal_transfer(self, type_, asset, amount):  # pragma: no cover - balance is ample
+        raise AssertionError("unexpected transfer")
 
     def dispatch(self, ctx):
         self._seq += 1
@@ -332,6 +344,7 @@ def test_dry_run_skips_leverage(tmp_path):
 def test_close_task_never_sets_leverage(tmp_path):
     # 平仓任务不设杠杆（回归断言）。
     exe = _LeverageLiveExecutor()
+    exe.um_qty = D.Decimal("1000")  # reverse close 需要多头
     svc, _ = _make_svc(tmp_path, exe)
     _open_start_gate(svc)
     task = svc._store.create_task(
@@ -348,6 +361,7 @@ def test_close_task_never_sets_leverage(tmp_path):
 def test_close_task_with_leverage_capable_executor_skips(tmp_path):
     # 即使 executor 有 set_leverage，close 任务也绝不调用（task_type 门控）。
     exe = _LeverageLiveExecutor()
+    exe.um_qty = D.Decimal("-1000")  # forward close 需要空头
     svc, _ = _make_svc(tmp_path, exe)
     _open_start_gate(svc)
     task = svc._store.create_task(

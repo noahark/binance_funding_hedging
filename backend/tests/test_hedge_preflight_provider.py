@@ -846,10 +846,9 @@ class _TheSpotPrivate(_RoutingPrivate):
         )
 
 
-def test_close_forward_reads_standard_spot_base_free_the_scenario():
-    # THE 实盘场景（Human 复测暴露）：普通现货 THE 600、统一账户无 THE、
-    # close+forward 单次 200×2 → spot_account_base_free=600、balance_ok=True
-    # （不再误拦「当前可用 0」）。
+def test_close_forward_snapshot_skips_unused_spot_account_reads():
+    # 两段式平仓：forward base 余额在 service 用 fresh q_common × remaining
+    # 每轮校验；snapshot 不再为 close 读取 Spot USDT/rate-limit/base free。
     priv = _TheSpotPrivate(cap_assets=[])
     pub = _RoutingPublic(
         [_perp_sym("THEUSDT", "PERPETUAL", "THE")],
@@ -859,12 +858,18 @@ def test_close_forward_reads_standard_spot_base_free_the_scenario():
     snap = prov.get_snapshot("THEUSDT", _D.DIR_REVERSE, task_type=_D.TASK_TYPE_CLOSE)
     assert snap is not None
     assert snap.spot_route == _D.SPOT_ROUTE_REGULAR_SPOT
-    assert snap.spot_account_base_free == Decimal("600")
-    pf = _D.compute_preflight(snap, "THEUSDT", _D.DIR_REVERSE, Decimal("200"), 2)
+    assert snap.spot_account_usdt is None
+    assert snap.spot_rate_limit_order is None
+    assert snap.spot_account_base_free is None
+    assert "spot_account" not in priv.calls
+    assert "spot_rate_limit" not in priv.calls
+    pf = _D.compute_preflight(
+        snap, "THEUSDT", _D.DIR_REVERSE, Decimal("200"), 2,
+        check_balance=False,
+    )
     assert pf.rejection is None
     assert pf.balance_ok is True
-    assert pf.available == Decimal("600")
-    assert pf.required == Decimal("400")
+    assert pf.snapshot_record["balance_gate"] == "external_close_spot_gate"
 
 
 def test_compute_preflight_reverse_regular_spot_uses_standard_spot_base():
@@ -932,3 +937,41 @@ def test_non_regular_spot_never_reads_standard_spot_base():
     assert snap is not None
     assert snap.spot_route == _D.SPOT_ROUTE_PAPI_MARGIN
     assert snap.spot_account_base_free is None
+
+
+def test_close_snapshot_uses_frozen_mode_and_skips_four_unused_reads():
+    priv = _RoutingPrivate(cap_assets=[])
+    pub = _RoutingPublic(
+        [_perp_sym("THEUSDT", "PERPETUAL", "THE")],
+        {"THEUSDT": _spot_sym("THEUSDT", "THE", margin_allowed=False)},
+    )
+    snap = _route_provider(pub, priv).get_snapshot(
+        "THEUSDT", _D.DIR_REVERSE, task_type=_D.TASK_TYPE_CLOSE,
+        position_side_mode=_D.POS_MODE_BOTH,
+    )
+    assert snap is not None and snap.position_mode == _D.POS_MODE_BOTH
+    assert "position" not in priv.calls
+    assert "papi_ratelimit" not in priv.calls
+    assert "spot_ratelimit" not in priv.calls
+    assert "spot_account" not in priv.calls
+
+
+def test_cached_um_position_qty_has_300_second_staleness_ceiling():
+    now = _time.monotonic()
+    values = {
+        "um_positions": (
+            now,
+            [{"symbol": "BTCUSDT", "positionAmt": "-3"}],
+        ),
+    }
+    prov = HedgePreflightProvider(
+        now_ms=lambda: 0, snapshot_reader=lambda sid: values.get(sid),
+    )
+    assert prov.cached_um_position_qty("BTCUSDT") == Decimal("-3")
+    assert prov.cached_um_position_qty("ETHUSDT") == Decimal("0")
+
+    values["um_positions"] = (
+        now - 301,
+        [{"symbol": "BTCUSDT", "positionAmt": "-3"}],
+    )
+    assert prov.cached_um_position_qty("BTCUSDT") is None

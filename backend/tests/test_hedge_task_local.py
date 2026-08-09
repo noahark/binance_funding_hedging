@@ -91,9 +91,15 @@ def _ok_snapshot(*, usdt="1000000", step="0.1", est_price="50000") -> D.Prefligh
 class _FakeProvider:
     def __init__(self, snapshot=None):
         self.snapshot = snapshot
+        self.um_qty = None
 
-    def get_snapshot(self, coin, direction, task_type="open"):
+    def get_snapshot(
+        self, coin, direction, task_type="open", position_side_mode=None,
+    ):
         return self.snapshot
+
+    def cached_um_position_qty(self, coin):
+        return self.um_qty
 
 
 class _RoutingExecutor:
@@ -109,6 +115,12 @@ class _RoutingExecutor:
 
     def set_script(self, task_id, dispatches):
         self.scripts[task_id] = list(dispatches)
+
+    def query_spot_free(self, asset):
+        return Decimal("1000000")
+
+    def universal_transfer(self, type_, asset, amount):  # pragma: no cover - ample balance
+        raise AssertionError("unexpected transfer")
 
     def dispatch(self, ctx):
         self.dispatch_calls += 1
@@ -1554,7 +1566,9 @@ class _BarrierFatalProvider:
         self.started = started
         self.release = release
 
-    def get_snapshot(self, coin, direction, task_type="open"):
+    def get_snapshot(
+        self, coin, direction, task_type="open", position_side_mode=None,
+    ):
         self.started.set()
         self.release.wait(10.0)
         return self._snapshot
@@ -2227,7 +2241,9 @@ def test_r8_dry_run_worker_active_is_none_not_false(tmp_path):
 class _FailedReadProvider(_FakeProvider):
     last_failed_read = "balances"
 
-    def get_snapshot(self, coin, direction, task_type="open"):
+    def get_snapshot(
+        self, coin, direction, task_type="open", position_side_mode=None,
+    ):
         return None  # preflight incomplete
 
 
@@ -2282,6 +2298,8 @@ def test_close_flat_verify_only_at_target_reached(tmp_path):
     if wo is not None:
         wo.join(timeout=5.0)
     assert svc.store.get_active_cycle("BTCUSDT", "forward") is not None
+    provider = svc._preflight
+    provider.um_qty = Decimal("-10")  # 两轮发单前 UM 门走新鲜缓存，final 才实时查
     doc = svc.create_task({
         "coin": "BTCUSDT", "direction": D.DIR_FORWARD, "mode": "immediate",
         "single_amount": "0.5", "target_n": 2, "task_type": "close",

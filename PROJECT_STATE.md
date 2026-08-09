@@ -75,9 +75,10 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   合约空 N 张 → 净裸空 999N。实盘库从未开过此类仓位，无实际损失。
   **止血（已实施）**：`create_task` 对 `symbol_match_type == multiplier_strip_alias`
   的 **open** 任务 fail-closed（`multiplier_contract_unsupported`）。
-  **⚠️ close 放行 ≠ close 安全**：close 走同一个 `compute_preflight`、同样两腿一个
-  `q_common`，自动平仓腿量同样错 1000 倍；放行只是不再添堵，真要处置这种仓位须
-  人工去交易所平。
+  **⚠️ 当前运行中服务的 close 放行 ≠ close 安全**：它仍会给两腿同一个
+  `q_common`，自动平仓腿量同样错 1000 倍；真要处置这种仓位须人工去交易所平。
+  2026-08-09 本地待评审交付已为 close 增加建卡/dispatch 双判拦截，但尚未部署，
+  在独立双评审与 Human 决定前不能把该拦截当作运行时保护。
   **换算改造（资金路径）见 Open Follow-ups 的「1000x 腿量换算」条，须 Human 授权。**
   另注意：持仓表 `single_leg_exposure` 对乘数币因量纲不同会误报，换算落地时跟着改。
 
@@ -174,6 +175,14 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   path to `ensure_worker` appears.** Five elements: archive `32-` §7.3.
 
 ## Open Follow-ups
+
+- `[OPEN][PENDING-REVIEW][2026-08-09]` **平仓两段式建卡 + 启动后预检瘦身已在本地实现，
+  尚未部署或进入运行中服务。** 实现前计划已获 Opus 5/Anthropic 跨 provider
+  `ACCEPT`；本地交付落实 C1（`um_positions` 300s 上限 + 实时兜底）、C2（单条
+  INSERT 原子落 `paused` + 两个原因列）、C3（dry-run 两道新门放行且零 POST）及
+  活文档同步。下一关卡为独立 review-1 + review-2；两轮明确 `ACCEPT` 和 Human 最终
+  决定前，不得把本工作树描述成运行中行为，不得部署、重启服务或做实盘验证。
+  计划/计划评审：`docs/planning/close-task-preflight-simplification-2026-08-09.v2.*`。
 
 - `[OPEN][NEEDS-HUMAN-AUTHORIZATION][2026-08-07]` **1000x 腿量换算——未做的资金路径**。
   P0 止血只是把 6 个乘数币（BONK/FLOKI/LUNC/PEPE/SHIB/XEC）挡在门外（见 Live Risks
@@ -296,8 +305,9 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 ## Next Priority
 
 - **No active stage.** Current priorities (detail in the sections above):
-  1. 1000x 腿量换算 —— 唯一涉及资金路径的待办，须 Human 授权后单开一轮；
-  2. launchd 损坏 —— Human 自 2026-08-03 决定不修（机器重启服务不会自动起来）。
+  1. 平仓两段式本地交付走独立 review-1 + review-2（未部署）；
+  2. 1000x 腿量换算 —— 恢复乘数币能力仍须 Human 授权后单开一轮；
+  3. launchd 损坏 —— Human 自 2026-08-03 决定不修（机器重启服务不会自动起来）。
 - Nothing open authorizes deployment, Start-gate changes, credentials, or live
   operation. Live actions follow the Live Risks gates above.
 

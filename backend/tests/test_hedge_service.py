@@ -142,6 +142,61 @@ def test_create_default_provider_is_dry_run_no_q_common(tmp_path):
     assert doc["position_side_mode"] is None
 
 
+def test_close_create_is_atomic_paused_and_zero_external_reads(tmp_path):
+    executor = RecordTransportFake()
+    svc = _svc(
+        tmp_path,
+        executor=executor,
+        preflight=_StubPreflight(_snapshot({"USDT": Decimal("100000")})),
+    )
+    _, opened = svc.create_task(_create_body(target_n=1))
+    svc.post_fill_all(opened["id"])
+
+    class _NoCloseCreateReads:
+        def check_symbol_legs(self, coin):  # pragma: no cover - must not run
+            raise AssertionError("close create must not probe exchangeInfo")
+
+        def get_snapshot(self, *args, **kwargs):  # pragma: no cover - must not run
+            raise AssertionError("close create must not read a preflight snapshot")
+
+    svc._preflight = _NoCloseCreateReads()
+    status, doc = svc.create_task({
+        **_create_body(target_n=2), "task_type": D.TASK_TYPE_CLOSE,
+    })
+    assert status == 201
+    assert doc["status"] == D.STATUS_PAUSED
+    assert doc["pause_reason"] == D.PAUSE_REASON_AWAITING_MANUAL_START
+    assert "点击启动后" in doc["pause_reason_zh"]
+    assert doc["q_common"] is None
+    assert doc["position_side_mode"] == D.POS_MODE_BOTH
+    assert svc._store.get_task(doc["id"])["preflight_snapshot"] == {
+        "available": False, "reason": "no_preflight_snapshot",
+    }
+    assert svc._store.list_attempts_for_task(doc["id"]) == []
+
+    # paused 新卡不被重启恢复或 dry-run tick 抓走；fill 也不能绕过首次启动。
+    svc._recover_workers()
+    assert doc["id"] not in svc._workers
+    with pytest.raises(D.HedgeError) as exc:
+        svc.post_fill_once(doc["id"])
+    assert exc.value.code == "start_required"
+
+    # Live Start itself only arms the existing async worker; it must not call
+    # the exploding preflight provider synchronously.
+    class _LiveMarker:
+        def dispatch(self, ctx):  # pragma: no cover - worker is replaced by spy
+            raise AssertionError("not reached")
+
+    handoffs = []
+    svc._live_mode = True
+    svc._executor = _LiveMarker()
+    svc.ensure_worker = lambda task_id: handoffs.append(task_id)
+    started = svc.post_start(doc["id"])[1]
+    assert started["status"] == D.STATUS_RUNNING
+    assert started["pause_reason"] is None
+    assert handoffs == [doc["id"]]
+
+
 def test_create_insufficient_balance_raises_with_extra(tmp_path):
     svc = _svc(tmp_path, preflight=_StubPreflight(_snapshot({"USDT": Decimal("50000")})))
     with pytest.raises(D.HedgeError) as exc:
@@ -217,16 +272,36 @@ def test_create_open_blocks_multiplier_contract(tmp_path):
 
 
 def test_create_close_allows_multiplier_contract(tmp_path):
-    """The open block must NOT strand an existing position: a close task for a
-    1000x coin is rejected only by the ordinary no_active_cycle rule, never by
-    the multiplier guard. (There is no such position in this repo's history —
-    this keeps the escape hatch open if one ever exists.)"""
+    """Without an active cycle the local no-position check still wins first."""
     svc = _svc(tmp_path, preflight=_ProbePreflight({"spot": True, "perp": True}))
     with pytest.raises(D.HedgeError) as exc:
         svc.create_task({"coin": "1000BONKUSDT", "direction": "forward",
                          "mode": "immediate", "single_amount": "0.5",
                          "target_n": 1, "task_type": "close"})
     assert exc.value.code == "no_active_cycle"
+
+
+def test_create_close_blocks_multiplier_after_active_cycle_lookup(tmp_path):
+    svc = _svc(tmp_path)
+    origin = svc._store.create_task(
+        "origin-1000", "1000BONKUSDT", D.DIR_FORWARD, D.MODE_IMMEDIATE,
+        "1", 1, "1", D.POS_MODE_BOTH, None, 1,
+        spot_symbol="BONKUSDT", spot_base_asset="BONK",
+        symbol_match_type=None,  # F3: historical nullable column
+    )
+    svc._store.create_cycle(
+        "1000BONKUSDT", D.DIR_FORWARD, 1, origin["id"],
+    )
+    with pytest.raises(D.HedgeError) as exc:
+        svc.create_task({
+            "coin": "1000BONKUSDT", "direction": D.DIR_FORWARD,
+            "mode": D.MODE_IMMEDIATE, "single_amount": "1", "target_n": 1,
+            "task_type": D.TASK_TYPE_CLOSE,
+        })
+    assert exc.value.code == "multiplier_contract_unsupported"
+    assert svc._store._conn.execute(
+        "SELECT COUNT(*) FROM hedge_open_task WHERE task_type = 'close'"
+    ).fetchone()[0] == 0
 
 
 def test_create_blocks_when_perp_leg_confirmed_absent(tmp_path):

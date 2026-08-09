@@ -161,6 +161,12 @@ PAUSE_REASON_CLOSE_VERIFY_FAILED = "close_verify_failed"
 # 平仓现货卖出重设计（2026-08）：forward close 发单前现货余额检查/划转/复检失败
 # → 任务暂停（fail-closed，不重试、不发单），错误原因随 pause_reason 展示。
 PAUSE_REASON_CLOSE_SPOT_BALANCE = "close_spot_balance"
+# 两段式平仓：建卡先落 paused，只有 Human 点击“启动”后才进入交易所预检。
+PAUSE_REASON_AWAITING_MANUAL_START = "awaiting_manual_start"
+# 平仓每轮发单前，合约持仓方向/剩余数量门失败（缓存超龄时实时兜底）。
+PAUSE_REASON_CLOSE_UM_POSITION = "close_um_position"
+# 1000x 乘数合约尚未实现两腿数量换算；历史 NULL 行也在 dispatch 再拦一次。
+PAUSE_REASON_MULTIPLIER_CLOSE_UNSUPPORTED = "multiplier_close_unsupported"
 # 开单前自动设置合约杠杆（THE -2027 方案 B，Human 拍板）：设置失败 → 任务暂停
 # （fail-closed，不创建 attempt、不发单——避免在错误杠杆下开仓，仓位风险不可控）。
 PAUSE_REASON_LEVERAGE_SET_FAILED = "leverage_set_failed"
@@ -190,6 +196,10 @@ ALL_PAUSE_REASONS = (
     PAUSE_REASON_COLLATERAL_CAP_FULL,
     PAUSE_REASON_ORDER_STATE_UNKNOWN,
     PAUSE_REASON_PREFLIGHT_INCOMPLETE,
+    PAUSE_REASON_AWAITING_MANUAL_START,
+    PAUSE_REASON_CLOSE_UM_POSITION,
+    PAUSE_REASON_CLOSE_SPOT_BALANCE,
+    PAUSE_REASON_MULTIPLIER_CLOSE_UNSUPPORTED,
 )
 
 # Amendment 21 task-local worker dispatch/drain signals (internal contract between
@@ -233,6 +243,9 @@ SIGNAL_LEVERAGE_SET_FAILED = "signal_leverage_set_failed"
 # 开仓路由变化暂停（Human 2026-08）：_dispatch_one_for_task 内已落库暂停，worker 收到
 # 直接退出本轮（与 leverage 失败同构）。
 SIGNAL_SPOT_ROUTE_CHANGED = "signal_spot_route_changed"
+# 平仓专用安全门已经在 dispatch 内落库暂停并记录精准中文原因；worker 只退出，
+# 不再用通用 preflight pause 覆盖原因。
+SIGNAL_CLOSE_GUARD_FAILED = "signal_close_guard_failed"
 
 # Fatal-stop reasons (amendment error-matrix rows 1–2 / breakdown I-4). Recorded
 # on the task as the nullable `stop_reason` alongside `status=stopped`. A fatal
@@ -1135,6 +1148,8 @@ def compute_preflight(
     direction: str,
     single_amount: Decimal,
     target_n: int,
+    *,
+    check_balance: bool = True,
 ) -> PreflightResult:
     """Run the pure preflight computation (10-design §5).
 
@@ -1259,6 +1274,20 @@ def compute_preflight(
             required=None,
             available=None,
             rejection=filter_reject,
+            snapshot_record=snapshot_record,
+        )
+    # forward close 的普通现货余额门需要按“本轮 fresh q_common × 剩余次数”
+    # 每个 attempt 重算，故由 service 在 prepare_attempt 前执行。过滤器、价格、
+    # min/max/minNotional 仍全部在这里校验；其它路径默认保持原余额语义。
+    if not check_balance:
+        snapshot_record["balance_gate"] = "external_close_spot_gate"
+        return PreflightResult(
+            q_common=q_common,
+            position_side_mode=snapshot.position_mode,
+            balance_ok=True,
+            required=None,
+            available=None,
+            rejection=None,
             snapshot_record=snapshot_record,
         )
     # Balance gate (ADR-3): forward needs USDT >= q*N*price; reverse needs base
@@ -1709,6 +1738,9 @@ _PAUSE_REASON_ZH = {
     PAUSE_REASON_ORDER_STATE_UNKNOWN: "订单状态经 10 次重试查询仍不明，无法确认是否已被交易所接受，任务已暂停。请到交易所核对订单后手动恢复（恢复后仅按既有 clientOrderId 重查，不重发下单）",
     PAUSE_REASON_CLOSE_VERIFY_FAILED: "平仓完成核实失败（查交易所合约持仓未成功），任务已暂停。请到交易所核对该币种合约仓位后手动恢复——「查不到」绝不视为「已平完」",
     PAUSE_REASON_CLOSE_SPOT_BALANCE: "平仓现货余额检查/划转失败，任务已暂停（fail-closed，未发单）。详情见任务卡日志，请人工核对后手动恢复",
+    PAUSE_REASON_AWAITING_MANUAL_START: "待启动：平仓任务已创建，点击启动后才会校验并发送真实订单",
+    PAUSE_REASON_CLOSE_UM_POSITION: "合约持仓方向或可平数量不足，任务已暂停（fail-closed，未发单）。详情见任务卡日志，请人工核对后手动恢复",
+    PAUSE_REASON_MULTIPLIER_CLOSE_UNSUPPORTED: "1000 倍乘数合约的两腿数量换算尚未实现，任务已暂停（fail-closed，未发单），请人工到交易所处理",
     PAUSE_REASON_LEVERAGE_SET_FAILED: "设置合约杠杆失败，任务已暂停（fail-closed，未发单）。详情见任务卡日志，请人工核对后手动恢复",
     PAUSE_REASON_PREFLIGHT_INCOMPLETE: "预检数据不完整，任务已暂停（fail-closed，未发单）；请检查网络后手动恢复",
 }

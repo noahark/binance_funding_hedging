@@ -8,8 +8,8 @@ read-only sources immediately before a live send:
    filters come from each market's public endpoint), plus a conservative spot
    ``GET /api/v3/ticker/price`` for the min-notional estimate.
 2. **Private PM reads** (signed): ``GET /papi/v1/balance`` (crossMarginFree),
-   ``GET /papi/v1/um/positionSide/dual`` (one-way vs hedge), and
-   ``GET /papi/v1/rateLimit/order`` (the account's real order-rate limit).
+   plus position-mode and order-rate reads for open tasks. Close tasks use the
+   origin task's frozen position mode and do not pre-read unused rate limits.
 
 The private reads reuse the single signer through :class:`HedgeOpenLiveClient`
 (the hedge client owns its own allowlist for these three preflight endpoints;
@@ -24,9 +24,8 @@ Default-off: with no live client (or no credentials) :meth:`get_snapshot` return
 still be created under the disabled executor). In live mode the service
 fails the pair closed when a snapshot cannot be assembled.
 
-Any partial read failure (a hedge-mode account, a missing step/filter, a failed
-balance/position read) yields ``None`` rather than a half-populated snapshot, so
-a live send is never authorized on incomplete facts.
+Any required read failure yields ``None`` rather than a half-populated snapshot,
+so a live send is never authorized on incomplete facts.
 """
 from __future__ import annotations
 
@@ -534,6 +533,32 @@ class HedgePreflightProvider:
                 continue
         return out
 
+    def cached_um_position_qty(self, coin: str) -> Optional[Decimal]:
+        """Signed UM position from a fresh SnapshotService cache entry.
+
+        ``um_positions`` uses the same 300-second ceiling as the other private
+        account balances. ``None`` means missing/stale/bad and tells the service
+        to use the hedge executor's real-time symbol query; a fresh list with no
+        matching row is the authoritative flat value ``0``.
+        """
+        cached = self._cached("um_positions", _CACHE_MAX_AGE_BALANCE)
+        if cached is None:
+            return None
+        if not isinstance(cached, list):
+            self._degrade_note("um_positions", "bad shape")
+            return None
+        total = Decimal(0)
+        for row in cached:
+            if not isinstance(row, dict) or row.get("symbol") != coin:
+                continue
+            raw = row.get("positionAmt")
+            try:
+                total += Decimal(str(raw))
+            except (InvalidOperation, ValueError, TypeError):
+                self._degrade_note("um_positions", f"bad positionAmt for {coin}")
+                return None
+        return total
+
     def _read_position_mode(self) -> Optional[str]:
         cached, hit = self._cached_account("position_mode")
         if hit:
@@ -789,12 +814,13 @@ class HedgePreflightProvider:
 
     def get_snapshot(
         self, coin: str, direction: str, task_type: str = D.TASK_TYPE_OPEN,
+        position_side_mode: str | None = None,
     ) -> Optional[D.PreflightSnapshot]:
         """Assemble a fresh preflight snapshot, or ``None`` on any gap.
 
         ``None`` covers both the disabled default (no live client) and a live read
         that could not be fully assembled (a missing filter/step, a failed
-        balance/position/rate-limit read, or an ambiguous one-way confirmation).
+        required balance read, or (for open) position/rate-limit read).
         The service never authorizes a live send on a ``None`` snapshot. A
         readable-but-not-tradable symbol or a two-way position mode is NOT ``None``
         here — it is a fully-read fatal fact surfaced via the snapshot so
@@ -826,8 +852,12 @@ class HedgePreflightProvider:
             else None
         )
         balances = self._read_balances()
-        position_mode = self._read_position_mode()
-        rate_limit = self._read_rate_limit_order()
+        is_close = task_type == D.TASK_TYPE_CLOSE
+        if is_close:
+            position_mode = position_side_mode or D.POS_MODE_BOTH
+        else:
+            position_mode = self._read_position_mode()
+        rate_limit = None if is_close else self._read_rate_limit_order()
         spot_symbol = spot[2] if spot is not None else coin
         est_price = self._read_est_price(spot_symbol)
         # Any base read gap fails closed — never assemble a half-populated snapshot.
@@ -839,14 +869,14 @@ class HedgePreflightProvider:
             self._mark_failed_read("balances")
         if position_mode is None:
             self._mark_failed_read("position_mode")
-        if rate_limit is None:
+        if rate_limit is None and not is_close:
             self._mark_failed_read("rate_limit")
         if (
             spot is None
             or perp is None
             or balances is None
             or position_mode is None
-            or rate_limit is None
+            or (rate_limit is None and not is_close)
         ):
             return None
         spot_filters, spot_tradable, spot_symbol, spot_base_asset, spot_margin_allowed = spot
@@ -895,7 +925,7 @@ class HedgePreflightProvider:
                 route_dir, contract_type, spot_base_asset, cap_exceeded,
                 task_type=task_type,
             )
-        if spot_route == D.SPOT_ROUTE_REGULAR_SPOT:
+        if spot_route == D.SPOT_ROUTE_REGULAR_SPOT and not is_close:
             spot_account_usdt = self._read_spot_account_usdt()
             spot_rate_limit = self._read_spot_rate_limit_order()
             # Stage 2026-08-06 task 06：regular_spot 路由同时补读可卖 base 资产的

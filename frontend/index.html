@@ -5164,7 +5164,7 @@
               <div class="borrow-op-error" id="hedge-close-error-${sym}" role="alert" aria-live="polite"></div>`;
       }
 
-      // 立即平仓按钮：本地校验后弹确认；后端未实现，确认后走 submitHedgeClose（stub）。
+      // 立即平仓按钮：本地缓存先做数量提示，确认后创建“待启动”的平仓任务卡。
       function requestHedgeCloseConfirm(coin, direction) {
         const errEl = document.getElementById(`hedge-close-error-${coin}`);
         const amountEl = document.getElementById(`hedge-close-amount-${coin}`);
@@ -5180,12 +5180,12 @@
           setErr('计划尝试次数需为 ≥1 的整数');
           return { ok: false, error: 'invalid_count' };
         }
-        // Human 2026-08-05：前端提前量检测（强制拦截，不发请求）。**与后端 create_task
-        // 校验同步**：后端 close 用 preflight_direction=reverse 分支——required = 单次×次数
-        // （总量）、available = 统一账户该币余额（PAPI crossMarginFree，不看普通账户）。
+        // Human 2026-08-05：前端提前量检测（强制拦截，不发请求）。这是约 60 秒缓存的
+        // 用户体验提示；后端 create 只轻量落卡，Human 点击“启动”后 worker 才用 fresh
+        // q_common、剩余次数和持仓/余额门做最终校验。
         // 前端口径：总量 = 单次×次数；现货侧用 unified_balance（统一账户，total ≥ free，
         // 宁拦勿放）；合约侧用 um_position_amt（防超平，reduceOnly 超量交易所会拒）。
-        // 无数据字段 → 跳过对应侧（不误拦，后端实时兜底）。后端校验保持不动（Human 决定）。
+        // 无数据字段 → 跳过对应侧（不误拦，启动后的后端校验兜底）。
         if (direction === 'forward') {
           const posRow = (state.hedgePositions || []).find(r => r.coin === coin);
           const total = Number(amountStr) * n;
@@ -5498,7 +5498,9 @@
           !(task.status === 'running' && task.worker_active === false)
         ) ? ' disabled' : '';
         const deleteDisabled = task.status === 'deleted' ? ' disabled' : '';
-        const fillDisabled = inactive ? ' disabled' : '';
+        const awaitingCloseStart = task.task_type === 'close'
+          && task.pause_reason === 'awaiting_manual_start';
+        const fillDisabled = (inactive || awaitingCloseStart) ? ' disabled' : '';
         const idAttr = escapeHtml(task.id);
         // 任务卡内嵌日志展开状态：重渲染时据此恢复（state.hedgeLogExpanded 跨刷新保持）。
         const logExpanded = !!(state.hedgeLogExpanded && state.hedgeLogExpanded.has(task.id));
@@ -5510,7 +5512,7 @@
         const countersLine = `<div>已调度 <strong>${hedgeText(task.scheduled_attempt_count)}</strong> 组 · 已受理 <strong>${hedgeText(task.accepted_pair_count)}</strong> 组 · 连续提交失败 <strong>${hedgeText(task.consecutive_submission_failures)}</strong> / 暂停阈值 <strong>${hedgeText(task.failure_pause_threshold)}</strong></div>`;
         // live-hardening v1（10-design §2.4a）：worker 运行时事实行，恒展示；字段缺失降级 —。
         const workerLine = `<div>执行线程：<strong>${hedgeWorkerActiveText(task.worker_active)}</strong> · 上次退出原因：<strong>${escapeHtml(hedgeWorkerExitReasonText(task.last_worker_exit_reason))}</strong></div>`;
-        // 暂停原因直读后端 pause_reason_zh：后端有 11 种 PAUSE_REASON_*，且中文里带着
+        // 暂停原因直读后端 pause_reason_zh；新增原因也无需前端维护映射表，且中文里带着
         // 排查指引（如 -2015 会点名 IP 白名单与「订单未发出」）。前端不再维护映射表——
         // 那张表只收录了 1 种，其余全部裸露英文枚举，且新增原因必然漏掉。
         // 后端未给中文时回退原始枚举，至少不空白。
