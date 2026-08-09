@@ -1,5 +1,11 @@
 # Codex 影响核验 + 条件执行：现役死代码清理
 
+## 修订记录
+
+- 2026-08-09：第一次影响核验返回 `IMPACT_STOP`。本版保留现役周期 schema / migration
+  幂等测试，并明确把模块级 `dispatch_to_outcome` 的专属私有 helper 一并纳入删除范围；
+  其余范围不变，须重新执行全部六项影响核验。
+
 ## 任务性质
 
 - 执行者：另一个独立 Codex 终端，由 Human 启动。
@@ -48,7 +54,9 @@ Human 授权：先检查下列删除是否存在遗漏影响；若整份清单�
    `HedgeOpenTaskService._dispatch_to_outcome`。
 4. `Config.top_n` / `APP_TOP_N` 是否只剩配置解析、启动日志、示例和文档，没有快照、历史
    拉取或其他生产消费者？
-5. 删除专用测试是否只是随被删实现一起移除，不会删掉仍生效的行为合同覆盖？
+5. 删除专用测试是否只是随被删实现一起移除，不会删掉仍生效的行为合同覆盖？特别核对
+   周期 schema / migration 幂等测试已迁入 `backend/tests/test_hedge_store.py`，且迁移前后
+   断言等价。
 6. 是否能在不触碰“禁止范围”的前提下完整完成？若必须增加未授权文件，返回
    `IMPACT_STOP` 并列出文件和原因。
 
@@ -78,7 +86,11 @@ Human 授权：先检查下列删除是否存在遗漏影响；若整份清单�
 3. `scripts/backfill-cycles.py`
    - 持仓周期存量回填已完成，审计证据已归档；新数据库走当前 schema/migration。
 4. `backend/tests/test_hedge_cycle_backfill.py`
-   - 只覆盖上一项一次性脚本，随脚本删除。
+   - 先把 `test_migrate_creates_cycle_schema_idempotent` 迁入
+     `backend/tests/test_hedge_store.py`，保留原有字段、`cycle_id`、两个索引以及重复打开
+     数据库的全部断言；
+   - 除该测试外，其余内容只覆盖一次性回填脚本，迁移完成后删除本文件；
+   - 不得借迁移改写、扩充或抽象该测试。
 
 报告声称“一次性脚本约 1973 行”，但上述三个脚本/测试实际约 1083 行；不要为了追求
 删行数字额外寻找或删除其他 cleanup、backfill、discovery 脚本。
@@ -92,7 +104,8 @@ Human 授权：先检查下列删除是否存在遗漏影响；若整份清单�
    - 删除 `top_symbols_by_abs_rate` import；
    - 删除 `test_top_symbols_by_abs_rate_ranks_and_caps`。
 3. `backend/services/live_hedge_executor.py`
-   - 只删除模块级 `dispatch_to_outcome`。
+   - 删除模块级 `dispatch_to_outcome`；
+   - 同步删除只被它调用的私有函数 `_exchange_status_for_outcome`；
    - **严禁删除或修改**
      `backend/hedge_open_tasks/service.py::_dispatch_to_outcome`；它仍有生产调用。
 4. `backend/tests/test_live_hedge_executor.py`
@@ -108,7 +121,8 @@ Human 授权：先检查下列删除是否存在遗漏影响；若整份清单�
 7. `backend/tests/test_ledger_flow_domain.py`
    - 删除上述两个排序函数的专用测试。
 
-只移除删除直接造成的孤儿 import；不得重排、格式化或重构相邻代码。
+只移除本清单明确列出的专属私有 helper 和删除直接造成的孤儿 import；不得重排、格式化
+或重构相邻代码。
 
 ### C. 删除失效的 `APP_TOP_N` 配置面
 
@@ -165,7 +179,7 @@ test ! -e scripts/discovery-capture-phase2.py
 test ! -e scripts/backfill-cycles.py
 test ! -e backend/tests/test_hedge_cycle_backfill.py
 
-rg -n 'top_symbols_by_abs_rate|\bdispatch_to_outcome\b|\bleg_is_filled\b|sort_interest_desc|sort_income_desc' \
+rg -n 'top_symbols_by_abs_rate|\bdispatch_to_outcome\b|_exchange_status_for_outcome|\bleg_is_filled\b|sort_interest_desc|sort_income_desc' \
   backend --glob '!backend/hedge_open_tasks/service.py'
 
 rg -n 'APP_TOP_N|FUNDING_HEDGING_TOP_N|\.top_n\b' \
