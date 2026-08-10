@@ -180,6 +180,10 @@ const ids = [
   'flow-log-filter-funding', 'flow-log-filter-commission', 'flow-log-filter-realized',
   'flow-log-filter-transfer', 'flow-log-filter-other',
   'flow-log-interest-status', 'flow-log-interest-summary', 'flow-log-interest-body',
+  'flow-log-capital-col', 'flow-log-capital-status', 'flow-log-capital-summary', 'flow-log-capital-body',
+  'flow-log-capital-filters',
+  'flow-log-capital-filter-transfer', 'flow-log-capital-filter-borrow', 'flow-log-capital-filter-repay',
+  'flow-log-capital-filter-trade', 'flow-log-capital-filter-other',
   'flow-log-income-status', 'flow-log-income-summary', 'flow-log-income-body',
   'drawer', 'drawer-backdrop', 'drawer-title', 'drawer-body', 'drawer-close',
   'nav-market', 'nav-borrow-tasks', 'borrow-task-count', 'market-view', 'flow-log-view', 'borrow-task-view', 'borrow-task-list',
@@ -5950,6 +5954,10 @@ setTimeout(async () => {
         'flow-log-filter-funding', 'flow-log-filter-commission', 'flow-log-filter-realized',
         'flow-log-filter-transfer', 'flow-log-filter-other',
         'flow-log-interest-status', 'flow-log-interest-summary', 'flow-log-interest-body',
+        'flow-log-capital-col', 'flow-log-capital-status', 'flow-log-capital-summary', 'flow-log-capital-body',
+        'flow-log-capital-filters',
+        'flow-log-capital-filter-transfer', 'flow-log-capital-filter-borrow', 'flow-log-capital-filter-repay',
+        'flow-log-capital-filter-trade', 'flow-log-capital-filter-other',
         'flow-log-income-status', 'flow-log-income-summary', 'flow-log-income-body',
       ];
       for (const id of flowIds) {
@@ -5991,7 +5999,19 @@ setTimeout(async () => {
       }
       if (html.includes('资金费率日志')) throw new Error('右栏不得命名为资金费率日志');
       if (!html.includes('合约资金流水') || !html.includes('借币利息流水')) {
-        throw new Error('双栏标题缺失');
+        throw new Error('利息/合约栏标题缺失');
+      }
+      if (!html.includes('全仓杠杆流水')) {
+        throw new Error('中栏须有「全仓杠杆流水」标题（假数据预览）');
+      }
+      // 合约类型筛选在合约栏内（表头上方），不得再占全局「右栏类型」工具条
+      if (html.includes('右栏类型')) {
+        throw new Error('合约类型筛选已迁入合约栏内，不得保留「右栏类型」全局文案');
+      }
+      const incomeColIdx = html.indexOf('id="flow-log-income-col"');
+      const filtersIdx = html.indexOf('id="flow-log-filters"');
+      if (incomeColIdx < 0 || filtersIdx < 0 || filtersIdx < incomeColIdx) {
+        throw new Error('合约类型筛选 #flow-log-filters 须位于 #flow-log-income-col 内');
       }
       // 同页双看板：flow-log 内容在 market-view 内
       const marketViewStart = html.indexOf('id="market-view"');

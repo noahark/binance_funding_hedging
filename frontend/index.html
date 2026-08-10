@@ -360,8 +360,8 @@
     }
     .flow-log-columns {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--space-4);
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: var(--space-3);
       align-items: start;
     }
     .flow-log-col {
@@ -369,6 +369,9 @@
       border-radius: var(--radius);
       min-width: 0;
       background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      align-items: stretch; /* 标题区仍拉满；表体单独 fit-content 见 .flow-log-col-body */
     }
     .flow-log-col-head {
       padding: var(--space-3);
@@ -387,25 +390,78 @@
       font-size: 0.88rem;
       line-height: 1.45;
     }
+    /* 合约栏类型筛选：贴在本栏表头内、表头 th 之上 */
+    .flow-log-col-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.65rem;
+      align-items: center;
+      margin-top: var(--space-2);
+      padding-top: var(--space-2);
+      border-top: 1px dashed var(--line);
+      font-size: 0.82rem;
+    }
+    .flow-log-col-filters label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .flow-log-fake-badge {
+      display: inline-block;
+      margin-left: 0.35rem;
+      padding: 0.05rem 0.35rem;
+      border-radius: 3px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #8a3b10;
+      background: #fff3e0;
+      vertical-align: middle;
+    }
+    /* 表体随栏位拉满，table 以 100% 宽度横向填满所在栏位 */
     .flow-log-col-body {
       padding: 0;
       overflow-x: auto;
+      align-self: stretch;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
     }
     .flow-log-table {
       width: 100%;
+      min-width: 0; /* 覆盖全局 table { min-width: 980px }，宽度由栏位决定 */
       border-collapse: collapse;
+      border-spacing: 0;
       font-size: 0.86rem;
+      font-variant-numeric: tabular-nums;
     }
     .flow-log-table th,
     .flow-log-table td {
-      padding: 0.45rem 0.55rem;
+      /* 列间距：仅右侧 0.5ch；文字上下左右居中 */
+      padding: 0.32rem 0;
+      padding-right: 0.5ch;
       border-bottom: 1px solid var(--line);
-      text-align: left;
+      text-align: center;
       white-space: nowrap;
+      vertical-align: middle;
+    }
+    .flow-log-table th:first-child,
+    .flow-log-table td:first-child {
+      padding-left: 0.4rem;
+    }
+    .flow-log-table th:last-child,
+    .flow-log-table td:last-child {
+      padding-right: 0.4rem;
     }
     .flow-log-table th {
       background: var(--surface-2, #f6f7f9);
       font-weight: 600;
+    }
+    .flow-log-table .amt-pos,
+    .flow-log-table .amt-neg {
+      text-align: center;
     }
     .flow-log-table .amt-pos { color: #1a7f37; }
     .flow-log-table .amt-neg { color: #c62828; }
@@ -1422,14 +1478,6 @@
               <div class="flow-log-today-body"></div>
             </div>
           </div>
-          <div class="flow-log-filters" id="flow-log-filters" role="group" aria-label="合约流水类型筛选">
-            <span>右栏类型：</span>
-            <label><input type="checkbox" id="flow-log-filter-funding" checked /> 资金费</label>
-            <label><input type="checkbox" id="flow-log-filter-commission" checked /> 手续费</label>
-            <label><input type="checkbox" id="flow-log-filter-realized" /> 已实现盈亏</label>
-            <label><input type="checkbox" id="flow-log-filter-transfer" /> 划转</label>
-            <label><input type="checkbox" id="flow-log-filter-other" /> 其他</label>
-          </div>
           <div class="flow-log-columns">
             <div class="flow-log-col" id="flow-log-interest-col">
               <div class="flow-log-col-head">
@@ -1439,11 +1487,35 @@
               </div>
               <div class="flow-log-col-body" id="flow-log-interest-body"></div>
             </div>
+            <div class="flow-log-col" id="flow-log-capital-col">
+              <div class="flow-log-col-head">
+                <h3>全仓杠杆流水 <span class="flow-log-fake-badge" title="前端假数据预览，尚未接本地账本">预览</span></h3>
+                <p class="flow-log-col-status" id="flow-log-capital-status"></p>
+                <div class="flow-log-summary" id="flow-log-capital-summary"></div>
+                <div class="flow-log-col-filters" id="flow-log-capital-filters" role="group" aria-label="全仓杠杆流水类型筛选">
+                  <span>类型：</span>
+                  <label><input type="checkbox" id="flow-log-capital-filter-transfer" checked /> 转账</label>
+                  <label><input type="checkbox" id="flow-log-capital-filter-borrow" checked /> 借款</label>
+                  <label><input type="checkbox" id="flow-log-capital-filter-repay" checked /> 还款</label>
+                  <label><input type="checkbox" id="flow-log-capital-filter-trade" /> 买卖/手续费</label>
+                  <label><input type="checkbox" id="flow-log-capital-filter-other" /> 其他</label>
+                </div>
+              </div>
+              <div class="flow-log-col-body" id="flow-log-capital-body"></div>
+            </div>
             <div class="flow-log-col" id="flow-log-income-col">
               <div class="flow-log-col-head">
                 <h3>合约资金流水</h3>
                 <p class="flow-log-col-status" id="flow-log-income-status"></p>
                 <div class="flow-log-summary" id="flow-log-income-summary"></div>
+                <div class="flow-log-col-filters flow-log-filters" id="flow-log-filters" role="group" aria-label="合约流水类型筛选">
+                  <span>类型：</span>
+                  <label><input type="checkbox" id="flow-log-filter-funding" checked /> 资金费</label>
+                  <label><input type="checkbox" id="flow-log-filter-commission" checked /> 手续费</label>
+                  <label><input type="checkbox" id="flow-log-filter-realized" /> 已实现盈亏</label>
+                  <label><input type="checkbox" id="flow-log-filter-transfer" /> 划转</label>
+                  <label><input type="checkbox" id="flow-log-filter-other" /> 其他</label>
+                </div>
               </div>
               <div class="flow-log-col-body" id="flow-log-income-body"></div>
             </div>
@@ -1731,6 +1803,14 @@
           TRANSFER: false,
           OTHER: false,
         },
+        // 全仓杠杆流水筛选（中栏假数据预览；接账本后沿用同一状态）
+        flowLogCapitalFilters: {
+          TRANSFER: true,
+          BORROW: true,
+          REPAY: true,
+          TRADE: false,
+          OTHER: false,
+        },
         // 任务卡内嵌日志缓存（task id → { loading, attempts, error }）：展开时拉取该任务
         // 全部 attempt（GET /api/hedge-open-logs?task_id=…），随既有 tick 重取，不新增定时器。
         hedgeTaskLogs: {},
@@ -1796,6 +1876,14 @@
         flowLogInterestStatus: document.getElementById('flow-log-interest-status'),
         flowLogInterestSummary: document.getElementById('flow-log-interest-summary'),
         flowLogInterestBody: document.getElementById('flow-log-interest-body'),
+        flowLogCapitalStatus: document.getElementById('flow-log-capital-status'),
+        flowLogCapitalSummary: document.getElementById('flow-log-capital-summary'),
+        flowLogCapitalBody: document.getElementById('flow-log-capital-body'),
+        flowLogCapitalFilterTransfer: document.getElementById('flow-log-capital-filter-transfer'),
+        flowLogCapitalFilterBorrow: document.getElementById('flow-log-capital-filter-borrow'),
+        flowLogCapitalFilterRepay: document.getElementById('flow-log-capital-filter-repay'),
+        flowLogCapitalFilterTrade: document.getElementById('flow-log-capital-filter-trade'),
+        flowLogCapitalFilterOther: document.getElementById('flow-log-capital-filter-other'),
         flowLogIncomeStatus: document.getElementById('flow-log-income-status'),
         flowLogIncomeSummary: document.getElementById('flow-log-income-summary'),
         flowLogIncomeBody: document.getElementById('flow-log-income-body'),
@@ -6832,6 +6920,39 @@
         REALIZED_PNL: '已实现盈亏',
         TRANSFER: '划转',
       };
+      // 全仓 capital-flow type → 中文（recon / 官方 capital-flow 枚举）
+      const FLOW_LOG_CAPITAL_TYPE_ZH = {
+        TRANSFER: '转账',
+        BORROW: '借款',
+        REPAY: '还款',
+        BUY_INCOME: '买单收入',
+        BUY_EXPENSE: '买单支出',
+        SELL_INCOME: '卖单收入',
+        SELL_EXPENSE: '卖单支出',
+        TRADING_COMMISSION: '交易手续费',
+        BUY_LIQUIDATION: '强平买入',
+        SELL_LIQUIDATION: '强平卖出',
+        REPAY_LIQUIDATION: '强平还款',
+        OTHER_LIQUIDATION: '其他强平',
+        LIQUIDATION_FEE: '强平清算费',
+        SMALL_BALANCE_CONVERT: '小额兑换',
+        COMMISSION_RETURN: '手续费返还',
+        SMALL_CONVERT: '强平小额转换',
+      };
+      // 假数据：形状对齐 GET /sapi/v1/margin/capital-flow（不传 symbol=全仓）
+      // 时间/类型/金额取自 2026-08-10 实盘摸排最近样本（仅 UI 预览，非账本）。
+      const FLOW_LOG_CAPITAL_FAKE_ROWS = [
+        { id: 159745763323, tran_id: '399260348988', time_ms: 1786341345000, asset: 'USDT', type: 'TRANSFER', amount: '10' },
+        { id: 159745756972, tran_id: '399260281458', time_ms: 1786341331000, asset: 'USDT', type: 'TRANSFER', amount: '-10' },
+        { id: 159745629068, tran_id: '399258471825', time_ms: 1786341080000, asset: 'BNB', type: 'TRADING_COMMISSION', amount: '-0.00002055' },
+        { id: 159745629067, tran_id: '399258471825', time_ms: 1786341080000, asset: 'USDT', type: 'SELL_INCOME', amount: '16.533' },
+        { id: 159745629066, tran_id: '399258471825', time_ms: 1786341080000, asset: 'WLD', type: 'SELL_EXPENSE', amount: '-49.5' },
+        { id: 159745608216, tran_id: '399258959843', time_ms: 1786341042000, asset: 'WLD', type: 'REPAY', amount: '-400.46529829' },
+        { id: 159740883914, tran_id: '399216264416', time_ms: 1786331287000, asset: 'USDT', type: 'TRANSFER', amount: '43.6806814' },
+        { id: 159740680107, tran_id: '399213582687', time_ms: 1786330811000, asset: 'BNB', type: 'TRADING_COMMISSION', amount: '-0.00002029' },
+        { id: 159740680106, tran_id: '399213582687', time_ms: 1786330811000, asset: 'USDT', type: 'BUY_LIQUIDATION', amount: '-16.32' },
+        { id: 159740680105, tran_id: '399213582687', time_ms: 1786330811000, asset: 'XLM', type: 'BUY_LIQUIDATION', amount: '100' },
+      ];
       const FLOW_LOG_ERROR_ZH = {
         interest_history_failed: '利息历史拉取失败',
         um_income_failed: '合约流水拉取失败',
@@ -6853,8 +6974,37 @@
         return FLOW_LOG_INCOME_TYPE_ZH[t] || t || '其他';
       }
 
+      function flowLogCapitalTypeZh(t) {
+        return FLOW_LOG_CAPITAL_TYPE_ZH[t] || t || '其他';
+      }
+
       function flowLogInterestTypeZh(t) {
         return FLOW_LOG_INTEREST_TYPE_ZH[t] || t || '—';
+      }
+
+      // capital-flow TRANSFER：正=入全仓，负=出全仓（相对全仓钱包）
+      function flowLogCapitalTransferDir(amountStr) {
+        const n = Number(amountStr);
+        if (!Number.isFinite(n) || n === 0) return '';
+        return n > 0 ? '入全仓' : '出全仓';
+      }
+
+      function flowLogCapitalTypeBucket(type) {
+        if (type === 'TRANSFER') return 'TRANSFER';
+        if (type === 'BORROW') return 'BORROW';
+        if (type === 'REPAY') return 'REPAY';
+        if (
+          type === 'BUY_INCOME' || type === 'BUY_EXPENSE' ||
+          type === 'SELL_INCOME' || type === 'SELL_EXPENSE' ||
+          type === 'TRADING_COMMISSION'
+        ) return 'TRADE';
+        return 'OTHER';
+      }
+
+      function flowLogCapitalTypeAllowed(type) {
+        const f = state.flowLogCapitalFilters || {};
+        const bucket = flowLogCapitalTypeBucket(type);
+        return !!f[bucket];
       }
 
       function flowLogErrorZh(code) {
@@ -6912,6 +7062,7 @@
       function flowLogSourceZh(src) {
         if (src === 'interest') return '借币利息';
         if (src === 'income') return '合约资金';
+        if (src === 'capital' || src === 'margin_capital') return '全仓杠杆';
         return String(src || '未知源');
       }
 
@@ -7028,6 +7179,10 @@
         if (!state.flowLogPayload) {
           if (els.flowLogInterestBody) {
             els.flowLogInterestBody.innerHTML = '<div class="flow-log-skeleton">加载中…</div>';
+          }
+          if (els.flowLogCapitalBody) {
+            // 中栏暂为假数据，加载其它栏时仍可渲染预览
+            renderFlowLogCapitalCol(null);
           }
           if (els.flowLogIncomeBody) {
             els.flowLogIncomeBody.innerHTML = '<div class="flow-log-skeleton">加载中…</div>';
@@ -7421,6 +7576,122 @@
         }
       }
 
+      // 全仓杠杆流水中栏：后端未交付前用 FLOW_LOG_CAPITAL_FAKE_ROWS 预览；
+      // 若 payload.margin_capital / capital_flow 将来有 rows 则优先真实数据。
+      function flowLogCapitalRowsFromPayload(payload) {
+        const block =
+          (payload && (payload.margin_capital || payload.capital_flow || payload.cross_margin_flow)) ||
+          null;
+        if (block && Array.isArray(block.rows) && block.rows.length) {
+          return {
+            rows: block.rows.map((r) => ({
+              id: r.id,
+              tran_id: r.tran_id != null ? String(r.tran_id) : (r.tranId != null ? String(r.tranId) : ''),
+              time_ms: r.time_ms != null ? r.time_ms : r.timestamp,
+              asset: r.asset,
+              type: r.type || r.flow_type,
+              amount: r.amount,
+            })),
+            source: 'live',
+            row_count: block.row_count != null ? block.row_count : block.rows.length,
+          };
+        }
+        return {
+          rows: FLOW_LOG_CAPITAL_FAKE_ROWS.slice(),
+          source: 'fake',
+          row_count: FLOW_LOG_CAPITAL_FAKE_ROWS.length,
+        };
+      }
+
+      function renderFlowLogCapitalCol(payload) {
+        if (!els.flowLogCapitalBody) return;
+        const pack = flowLogCapitalRowsFromPayload(payload);
+        const allRows = pack.rows;
+        const filteredAll = allRows.filter((r) => flowLogCapitalTypeAllowed(r.type));
+        const rows = filteredAll; // 假数据量小，不做 20 条截断
+        const srcNote =
+          pack.source === 'fake'
+            ? '假数据预览（capital-flow 实盘样本形状）· 未接本地账本'
+            : '本地账本';
+        if (els.flowLogCapitalStatus) {
+          els.flowLogCapitalStatus.textContent =
+            srcNote +
+            ' · 显示 ' +
+            String(rows.length) +
+            ' 条（筛选后 ' +
+            String(filteredAll.length) +
+            ' / 全量 ' +
+            String(pack.row_count) +
+            '）';
+        }
+        // 简易汇总：按 type 计数（假数据不做 Decimal 合计，避免与正式口径混淆）
+        const byType = {};
+        filteredAll.forEach((r) => {
+          const k = r.type || '—';
+          byType[k] = (byType[k] || 0) + 1;
+        });
+        const sumHtml = Object.keys(byType)
+          .sort()
+          .map(
+            (k) =>
+              '<div>' +
+              escapeHtml(flowLogCapitalTypeZh(k)) +
+              '：' +
+              String(byType[k]) +
+              ' 条</div>'
+          )
+          .join('');
+        if (els.flowLogCapitalSummary) {
+          els.flowLogCapitalSummary.innerHTML =
+            '<div class="meta-note">筛选内条数（预览；正式版将按资产/类型汇总金额）</div>' +
+            (sumHtml || '<div class="meta-note">无</div>');
+        }
+        if (!filteredAll.length) {
+          els.flowLogCapitalBody.innerHTML =
+            '<div class="flow-log-empty">' +
+            escapeHtml(
+              allRows.length
+                ? '当前类型筛选下无明细（筛选为纯前端）'
+                : '该时间窗无记录'
+            ) +
+            '</div>';
+          return;
+        }
+        const trs = rows
+          .map((r) => {
+            const typeLabel = flowLogCapitalTypeZh(r.type);
+            const dir =
+              r.type === 'TRANSFER' ? flowLogCapitalTransferDir(r.amount) : '';
+            const typeCell = dir ? typeLabel + '·' + dir : typeLabel;
+            const cls = flowLogAmtClass(r.amount);
+            return (
+              '<tr>' +
+              '<td>' +
+              escapeHtml(formatBeijing(r.time_ms)) +
+              '</td>' +
+              '<td>' +
+              escapeHtml(typeCell) +
+              '</td>' +
+              '<td>' +
+              escapeHtml(r.asset == null || r.asset === '' ? '—' : r.asset) +
+              '</td>' +
+              '<td class="' +
+              cls +
+              '">' +
+              escapeHtml(flowLogMaskAmt(r.amount)) +
+              '</td>' +
+              '</tr>'
+            );
+          })
+          .join('');
+        els.flowLogCapitalBody.innerHTML =
+          '<table class="flow-log-table"><thead><tr>' +
+          '<th>时间</th><th>类型</th><th>资产</th><th>金额</th>' +
+          '</tr></thead><tbody>' +
+          trs +
+          '</tbody></table>';
+      }
+
       function renderFlowLogIncomeCol(payload) {
         const block = (payload && payload.um_income) || {};
         const last = payload ? payload.last_run : null;
@@ -7526,6 +7797,7 @@
         renderFlowLogDelta(payload);
         renderFlowLogToday(payload);
         renderFlowLogInterestCol(payload);
+        renderFlowLogCapitalCol(payload);
         renderFlowLogIncomeCol(payload);
       }
 
@@ -7575,6 +7847,18 @@
         bindFilter(els.flowLogFilterRealized, 'REALIZED_PNL');
         bindFilter(els.flowLogFilterTransfer, 'TRANSFER');
         bindFilter(els.flowLogFilterOther, 'OTHER');
+        const bindCapitalFilter = (el, key) => {
+          if (!el) return;
+          el.addEventListener('change', () => {
+            state.flowLogCapitalFilters[key] = !!el.checked;
+            if (isFlowBoard()) renderFlowLogCapitalCol(state.flowLogPayload);
+          });
+        };
+        bindCapitalFilter(els.flowLogCapitalFilterTransfer, 'TRANSFER');
+        bindCapitalFilter(els.flowLogCapitalFilterBorrow, 'BORROW');
+        bindCapitalFilter(els.flowLogCapitalFilterRepay, 'REPAY');
+        bindCapitalFilter(els.flowLogCapitalFilterTrade, 'TRADE');
+        bindCapitalFilter(els.flowLogCapitalFilterOther, 'OTHER');
       }
 
       function bindEvents() {
