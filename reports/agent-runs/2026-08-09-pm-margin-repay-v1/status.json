@@ -1,13 +1,13 @@
 {
   "schema_version": "2",
-  "revision": 7,
+  "revision": 8,
   "stage_id": "2026-08-09-pm-margin-repay-v1",
   "bookkeeper": "codex",
-  "phase": "human-decision",
-  "checkpoint": "review-2-accepted",
+  "phase": "complete",
+  "checkpoint": "human-accepted-gate-on",
   "base_sha": "ee0d5320b319a5bacc708eb8680e8156328db338",
   "delivery_sha": "5a81bdc1c40238053a07736faa64b34cab294987",
-  "ledger_sha": "4d3707f02c758a05fcc6c4bf41b0c2f9fd3ea355",
+  "ledger_sha": "6f6371be159f3493e86e00b258c1af7aa22346a3",
   "current_task": {
     "id": "pm-margin-repay-review-2",
     "state": "verified",
@@ -15,7 +15,7 @@
   },
   "next": {
     "actor": "human_operator",
-    "action": "final-acceptance-and-gate-decision"
+    "action": "stage-archive-and-cleanup"
   },
   "rework_count": 0,
   "blockers": []

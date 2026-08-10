@@ -2,7 +2,7 @@
 
 Status: current product baseline, reflecting delivered live functionality
 
-Last updated: 2026-08-08
+Last updated: 2026-08-10
 
 This document evolves with delivered stages; where it and the code disagree,
 the code and `PROJECT_STATE.md` are authoritative.
@@ -47,6 +47,12 @@ close, borrow, repay, or transfer assets as a response to an order outcome.
 - Asset transfer between the unified and regular-spot accounts via
   `POST /api/asset-transfer`, live-verified with three real transfers
   (`data/asset-transfer.sqlite3`).
+- Manual Portfolio Margin debt repayment from borrowed unified-account asset
+  cards via `POST /api/margin-repay`: exact `0` means repay all, a positive
+  decimal means repay that debt-asset quantity, and the server fixes USDT as
+  the fallback repay asset while Binance still spends same-coin assets first.
+  It is one-shot, locally idempotent in `data/margin-repay.sqlite3`, gated by
+  `APP_MARGIN_REPAY_ENABLED`, and live-verified with XLM and INJ repayments.
 - A dual-column flow log backed by local SQLite ledgers: borrow interest and
   UM income (funding fee, commission, realized PnL, transfer) are pulled from
   Binance and recorded (`data/ledger-flow.sqlite3`).
@@ -59,7 +65,7 @@ close, borrow, repay, or transfer assets as a response to an order outcome.
 ### 2.2 Not implemented yet
 
 - Smooth/WebSocket-gated execution.
-- Repay workflows and full holdings reconciliation.
+- Automatic repayment and full holdings reconciliation.
 - User-data-stream persistence and any automatic risk response.
 - 1000x multiplier-contract leg-quantity conversion (the six multiplier
   symbols are currently fail-closed at task creation; the conversion touches
@@ -260,7 +266,10 @@ signed POST write paths — order and borrow behind gated executors
 `backend/services/hedge_open_live_client.py`,
 `backend/services/portfolio_margin_borrow_client.py`); the asset-transfer
 endpoint is not executor-gated (`confirm: true` only, accepted exposure,
-`PROJECT_STATE.md` Live Risks R1). Raw samples stay under
+`PROJECT_STATE.md` Live Risks R1). Manual margin repayment uses the same
+deny-by-default PAPI adapter behind its independent
+`APP_MARGIN_REPAY_ENABLED` gate; it is not controlled by
+`APP_HEDGE_EXECUTOR`. Raw samples stay under
 `reports/api-samples/` with credentials redacted.
 
 ### 8.2 Immediate-open implementation requirements
@@ -297,6 +306,9 @@ work and are not current capabilities.
   ledger with refresh and coverage status.
 - Asset-transfer UI: unified ⇄ regular-spot transfers with idempotency key,
   status lock on `unknown`, and manual-unlock wording.
+- Manual margin-repay UI on borrowed unified-account asset cards: explicit
+  confirmation, local request-id persistence before send, four-state recovery,
+  and account refresh before the asset unlocks after success.
 
 ### 9.2 Immediate-open additions
 
@@ -314,8 +326,8 @@ or contacts Binance directly.
   domain logic, and `jsonschema` validation where appropriate.
 - Frontend: same-origin static HTML/CSS/vanilla JavaScript with contract
   self-checks and no build step.
-- Persistence: local SQLite for the borrow, hedge-open, ledger-flow, and
-  asset-transfer domains (`data/*.sqlite3`).
+- Persistence: local SQLite for the borrow, hedge-open, ledger-flow,
+  asset-transfer, and margin-repay domains (`data/*.sqlite3`).
 - Runtime: launchd-based service scripts exist, but launchd has been broken
   since 2026-08-03 (TCC authorization failure); the service actually runs as
   a manually started foreground process via `scripts/run-server.sh` (see
@@ -332,8 +344,9 @@ they are not committed migrations.
 ### 11.1 Accepted baseline
 
 Public discovery, optional private read-only enrichment, live-gated borrowing,
-live immediate hedge-open, manual close, asset transfer, and the flow-log
-ledger are accepted repository state (delivery history in `PROJECT_STATE.md`).
+live immediate hedge-open, manual close, asset transfer, manual margin
+repayment, and the flow-log ledger are accepted repository state (delivery
+history in `PROJECT_STATE.md`).
 
 ### 11.2 Real immediate-open stage (delivered)
 
@@ -351,7 +364,7 @@ path remain explicit human actions.
 ### 11.3 Later stages
 
 - Smooth/WebSocket basis-aware execution.
-- Repay workflows and complete position reconciliation.
+- Automatic repayment and complete position reconciliation.
 - 1000x multiplier-contract leg-quantity conversion (awaiting explicit human
   authorization — `PROJECT_STATE.md` Open Follow-ups).
 - User data streams and broader accounting beyond the delivered flow-log
@@ -365,5 +378,5 @@ path remain explicit human actions.
 - PM-Pro support is not claimed.
 - Future response to residual exposure is deliberately deferred; immediate mode
   records it without special action.
-- Smooth-mode conditions, depth-stream ownership, and close/repay semantics
-  require separate design stages.
+- Smooth-mode conditions, depth-stream ownership, and automatic close/repay
+  semantics require separate design stages.

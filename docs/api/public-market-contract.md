@@ -1756,10 +1756,13 @@ Delivered 2026-08-09/10 as one delivery range (T1 backend + T2 frontend wiring;
 the earlier frontend preview's "repay backend not wired yet" state is superseded
 — the controls now drive the real local route). This is the SECOND MONEY-MOVING
 route in this document's scope and the first one that repays debt.
-**Deployment, enabling `APP_MARGIN_REPAY_ENABLED`, and any real repayment are NOT
-authorized by this delivery** — each requires separate explicit Human
-authorization, and the dual review gates still stand between this code and any
-live use. Implementation authority: `backend/app/server.py`
+The delivery itself did not authorize deployment or live use; Human separately
+deployed it, enabled `APP_MARGIN_REPAY_ENABLED`, completed XLM specified-amount
+and INJ full-repayment live checks, accepted both independent reviews, and on
+2026-08-10 gave final business acceptance with the repayment gate kept enabled.
+This is ongoing authorization for Human-confirmed manual use, not for models to
+change the gate or initiate money movement. Implementation authority:
+`backend/app/server.py`
 (`_parse_margin_repay_request`, `_handle_margin_repay_post`,
 `_handle_margin_repay_get`, `_dispatch_margin_repay`),
 `backend/margin_repay/store.py`,
@@ -1773,6 +1776,15 @@ debt asset; omitting `amount` repays the full debt when the repay assets suffice
 same-coin assets FIRST, using the specified USDT only afterwards. Binance
 discloses no conversion price, fee, or slippage for the cross-asset leg, and
 offers no client idempotency key and no public by-id result query.
+
+Live evidence at final acceptance: the local audit contains exactly two
+successful requests — XLM requested/repaid `5`, and INJ requested with local
+amount `"0"` and refreshed to zero debt. Binance omitted response `amount` for
+the INJ full repayment, so `repaid_amount` is honestly `null`; its exact repaid
+quantity and actual spend asset cannot be reconstructed from the local record.
+Operationally use one browser tab, verify full repayment from the refreshed
+debt balance, and avoid concurrent bulk refresh/open activity around this
+weight-3000 endpoint.
 
 ### `POST /api/margin-repay`
 
@@ -1868,3 +1880,7 @@ card cannot induce a duplicate repayment. A GET 404 or request-layer error
 during recovery never claims "not repaid" and never clears the pending id.
 There is no automatic retry, no polling, no scheduled repayment, no
 `/repayLoan`, and no editable repay-asset parameter anywhere in the page.
+The pending lock is page-memory-backed after startup and is not synchronized
+across already-open tabs; concurrent repayment work must therefore use a single
+tab. Reopen this limitation if automated submission or multi-tab/multi-device
+operation becomes a real requirement.

@@ -1,6 +1,6 @@
 # Architecture
 
-Status: as-built snapshot, 2026-08-08
+Status: as-built snapshot, 2026-08-10
 
 This document describes an evolving system; where it and the code disagree,
 the code and `PROJECT_STATE.md` are authoritative.
@@ -14,7 +14,8 @@ Model drafts must not be written here directly. Drafts belong in
 
 The project is a manual Binance funding-rate hedging workstation. Beyond the
 read-only snapshot and operator review surface, it now includes live,
-human-gated execution (hedge open/close, borrowing, and asset transfer):
+human-gated execution (hedge open/close, borrowing, asset transfer, and manual
+margin repayment):
 
 1. Backend fetches or replays Binance public market data and normalizes it into
    a backend-owned snapshot contract.
@@ -27,13 +28,17 @@ human-gated execution (hedge open/close, borrowing, and asset transfer):
    `backend/services/portfolio_margin_borrow_client.py`), while
    `POST /api/asset-transfer` has no executor gate — `confirm: true` is the
    only threshold (accepted exposure, `PROJECT_STATE.md` Live Risks R1).
+   `POST /api/margin-repay` uses a separate default-off
+   `APP_MARGIN_REPAY_ENABLED` gate, is independent of `APP_HEDGE_EXECUTOR`, and
+   hard-codes the Binance `repay-debt` path and USDT fallback repay asset.
 3. Backend serves the normalized snapshot from
    `GET /api/public-market/snapshot`.
 4. Frontend consumes only the backend snapshot contract. It does not call
    Binance directly.
-5. Live order placement, manual close, live borrowing, and asset transfer are
-   delivered and human-gated; websocket execution and automatic repayment
-   remain future stages. Current gates and live risks: `PROJECT_STATE.md`.
+5. Live order placement, manual close, live borrowing, asset transfer, and
+   manual debt repayment are delivered and human-gated; websocket execution
+   and automatic repayment remain future stages. Current gates and live risks:
+   `PROJECT_STATE.md`.
 
 The `/api/public-market/snapshot` route name is historical and
 backward-compatible. The payload now includes additive private read-only fields
@@ -48,18 +53,21 @@ future contract stage.
   and deterministic tests.
 - Frontend boundary: opportunity table, private read-only account panels,
   borrowability display, holdings/overview presentation, task/flow-log/history
-  views, asset-transfer form, and contract-driven API integration.
+  views, asset-transfer and margin-repay forms, and contract-driven API
+  integration.
 - No frontend component calls Binance directly.
 - The private channels are disabled by default and, when enabled, are limited
   to explicit deny-by-default whitelists: signed GETs for reads, plus a small
-  set of signed POST write paths — order and borrow behind gated executors;
-  the asset-transfer endpoint is not executor-gated (`confirm: true` only,
-  accepted exposure, `PROJECT_STATE.md` Live Risks R1).
+  set of signed POST write paths — order and borrow behind gated executors,
+  manual repayment behind its independent default-off gate; the asset-transfer
+  endpoint is not executor-gated (`confirm: true` only, accepted exposure,
+  `PROJECT_STATE.md` Live Risks R1).
 - Live trading side effects exist and are human-gated: hedge open/close tasks
   with a 1s scheduler and close worker (`backend/hedge_open_tasks/`), borrow
   tasks (`backend/borrow_tasks/`), the interest and UM income ledger
   (`backend/ledger_flow/`), idempotent asset transfer
-  (`backend/asset_transfer/`), and the live executor
+  (`backend/asset_transfer/`), idempotent manual debt repayment
+  (`backend/margin_repay/`), and the live executor
   (`backend/services/live_hedge_executor.py`). See `PROJECT_STATE.md` for the
   current gates, operating premises, and live risks.
 - Close creation is a two-stage handoff: local checks atomically persist a

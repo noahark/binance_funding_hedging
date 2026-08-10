@@ -1,6 +1,8 @@
 # Development Guide
 
-Status: as-built hedge execution system with live order, borrow, and asset-transfer paths, 2026-08-08. Current runtime state and live risks: `PROJECT_STATE.md`.
+Status: as-built hedge execution system with live order, borrow, asset-transfer,
+and manual margin-repay paths, 2026-08-10. Current runtime state and live risks:
+`PROJECT_STATE.md`.
 
 This file is the canonical approved development guide for the project.
 
@@ -14,7 +16,7 @@ Model drafts must not be written here directly. Drafts belong in
 - `schemas/api/`: JSON schemas for API payloads and sample validation.
 - `backend/`: stdlib HTTP server, Binance adapters, normalization, hedge-open
   task execution (order/close), borrow tasks, ledger flow, asset transfer,
-  private account enrichment, and tests.
+  manual margin repayment, private account enrichment, and tests.
 - `frontend/`: same-origin static workstation UI and self-check script.
 - `reports/agent-runs/<stage-id>/`: stage blackboard, model handoffs, reviews,
   and raw transcripts.
@@ -74,6 +76,13 @@ Useful environment variables:
 - `BINANCE_HEDGE_API_KEY` / `BINANCE_HEDGE_API_SECRET`: dedicated hedge-open
   credentials. Empty keys in live mode block dispatch (the live adapter never
   POSTs).
+- `APP_MARGIN_REPAY_ENABLED` /
+  `FUNDING_HEDGING_MARGIN_REPAY_ENABLED`: independent boolean gate for
+  `POST /api/margin-repay` (default `false`). A real client is injected only
+  when this gate is true, `APP_OFFLINE=false`, and both hedge API credentials
+  exist. It is independent of `APP_HEDGE_EXECUTOR`. Human final acceptance on
+  2026-08-10 keeps this gate enabled in the current manual foreground runtime;
+  changing it still requires a service restart.
 - `APP_CACHE_REFRESH_TIMEOUT_SECONDS` /
   `FUNDING_HEDGING_CACHE_REFRESH_TIMEOUT_SECONDS`: bounded wait for the manual
   「更新缓存」 whole-cycle refresh command (default 20s).
@@ -87,6 +96,23 @@ Useful environment variables:
 The private channel is deny-by-default. API keys may exist in the environment,
 but signed private GET requests are not used unless
 `BINANCE_PRIVATE_CHANNEL_ENABLED=true` or its `FUNDING_HEDGING_` alias is set.
+
+### Manual margin repayment (as of 2026-08-10)
+
+Borrowed unified-account asset cards call the local
+`POST /api/margin-repay`, which is the only caller of Binance
+`POST /papi/v1/margin/repay-debt`. Exact input `0` omits upstream `amount` and
+requests full repayment; a positive plain decimal is forwarded as the debt
+asset quantity. The server fixes `specifyRepayAssets=USDT`, while Binance still
+spends same-coin assets first. Requests are stored in
+`data/margin-repay.sqlite3` (derived from the borrow DB directory), sent once,
+and never automatically retried; `pending`/`unknown` require Human exchange
+verification.
+
+Operationally, use one browser tab, avoid concurrent bulk refresh/open activity
+around this weight-3000 endpoint, and after full repayment trust the refreshed
+borrowed balance rather than expecting `repaid_amount` to be present. XLM 5 and
+INJ full repayment were live-verified before final Human acceptance.
 
 ### Market table filters & 近 24h (as of 2026-07-22)
 
@@ -230,8 +256,9 @@ No project-wide lint or typecheck command is currently defined.
   orders and account transfers (`backend/services/hedge_open_live_client.py`,
   gated by `APP_HEDGE_EXECUTOR`), and the asset-transfer endpoint
   (`POST /api/asset-transfer`, which has no executor gate; see
-  `PROJECT_STATE.md` Live Risks). There are still no repay paths and no user
-  data streams or websocket order execution.
+  `PROJECT_STATE.md` Live Risks). The same exact-path adapter also contains the
+  independently gated manual `repay-debt` path; there is still no automatic
+  repayment, user-data stream, or websocket order execution.
 - Raw samples must be stored under `reports/api-samples/<scope>/<timestamp>/`
   with a sample index that records source endpoint, capture time, and auth
   requirements.

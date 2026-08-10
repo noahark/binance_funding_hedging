@@ -9,7 +9,8 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 - **Active stage:** `2026-08-09-pm-margin-repay-v1`。Grok 4.5（xAI）计划评审、修订要求后的
   Codex review-1 与 Opus 5（Anthropic）review-2 均已明确 `ACCEPT` 并经 Bookkeeper 核验；
   首轮 review-1 的唯一测试要求已由 Human 撤销，不改代码、不计返工。当前等待 Human 最终
-  业务验收与 `APP_MARGIN_REPAY_ENABLED` 是否保持开启的决定。完整交付已具备
+  业务验收已通过，Human 明确决定 `APP_MARGIN_REPAY_ENABLED` 保持开启；当前执行本地归档
+  与 stage 收口。完整交付已具备
   默认关闭的还款闸门、本地幂等审计和离线 API。冻结端点为
   `POST /papi/v1/margin/repay-debt`，界面 `0` 映射为省略币安 `amount`，指定偿还资产
   首版固定 USDT。2026-08-10 Human 已手动重启前台服务并开启
@@ -87,8 +88,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   还款成立，但本地审计不能证明实际偿还数量。临时口径：全额还款记录若
   `repaid_amount` 为空，只能结合币安账户/刷新后负债归零确认，不得从本地记录宣称精确
   数量。若以后出现 `success: true` 但完整刷新后负债仍非零，须重开并把“全部已偿还”文案
-  改为以刷新结果为准。双评审已接受当前口径；闸门最后记录为开启，本轮未读运行环境确认，
-  是否保持开启由 Human 决定。
+  改为以刷新结果为准。双评审已接受当前口径；Human 2026-08-10 最终决定闸门保持开启。
 
 - `[OPEN][OBSERVATION][2026-08-10]` **还款未决锁不跨浏览器标签页共享。** 每个标签页只在
   启动时读取一次 localStorage 到内存；两个已打开的同源标签页可各生成新 UUID，对同一借款
@@ -206,8 +206,8 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   Human 已提前部署、开闸并完成 XLM/INJ 两笔真实成功验证。** 仅
   `cross_margin_borrowed > 0` 的卡展示，输入框提示 `0 自动还所有`；实现由
   `reports/agent-runs/2026-08-09-pm-margin-repay-v1/` 跟踪，完整 delivery 固定为
-  `ee0d532..5a81bdc`；review-1/review-2 均已 `ACCEPT` 并经 Bookkeeper 核验，等待 Human
-  最终业务验收与还款闸门决定。stage 收口时同步 docs 活文档的已部署/开闸/实盘现实。
+  `ee0d532..5a81bdc`；review-1/review-2 均已 `ACCEPT` 并经 Bookkeeper 核验，Human 最终
+  业务验收通过并决定还款闸门保持开启；stage 正在收口。
 
 - `[OPEN][NEEDS-HUMAN-AUTHORIZATION][2026-08-07]` **1000x 腿量换算——未做的资金路径**。
   P0 止血只是把 6 个乘数币（BONK/FLOKI/LUNC/PEPE/SHIB/XEC）挡在门外（见 Live Risks

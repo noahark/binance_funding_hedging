@@ -1,6 +1,6 @@
 # Roadmap
 
-Status: as-built roadmap sync, 2026-08-08. Live detail and acceptance state:
+Status: as-built roadmap sync, 2026-08-10. Live detail and acceptance state:
 `PROJECT_STATE.md`.
 
 This file is the canonical approved roadmap.
@@ -28,6 +28,10 @@ This file is the canonical approved roadmap.
 8. Accounting, reconciliation, and alerting. Future.
 9. **Position cycle + per-cycle cost statistics. Done — developed,
    live-validated, Human acceptance 2026-08-05 (see below).**
+10. **Manual Portfolio Margin debt repayment. Done — T1/T2 delivered, dual
+    review accepted, XLM specified-amount and INJ full repayment live-verified,
+    Human final acceptance 2026-08-10.** The independent repayment gate remains
+    enabled by Human decision; automatic repayment is still out of scope.
 
 ## 持仓周期三功能（2026-08 交付，Human 验收通过）
 
