@@ -246,3 +246,55 @@ def test_validate_window_has_no_30_day_cap():
     # The page reads the local ledger; custom windows may exceed 30 days.
     big = 31 * 24 * 3600 * 1000
     assert D.validate_window(0, big) == (0, big)
+
+
+# ---- cross-margin capital-flow normalization (stage 2026-08-10) ----
+def test_normalize_capital_rows_maps_fields_and_id_as_string():
+    # id/tranId arrive as JSON numbers (Python int, exact) -> str idempotency
+    # key; amount passed through verbatim with its sign preserved.
+    rows = D.normalize_capital_rows([
+        {"id": 159745763323, "tranId": 399260348988, "timestamp": 1786341345000,
+         "asset": "USDT", "type": "TRANSFER", "amount": "10"},
+        {"id": 159745756972, "tranId": 399260281458, "timestamp": 1786341331000,
+         "asset": "USDT", "type": "TRANSFER", "amount": "-10"},
+    ])
+    assert rows == [
+        {"id": "159745763323", "tran_id": "399260348988", "time_ms": 1786341345000,
+         "asset": "USDT", "flow_type": "TRANSFER", "amount": "10"},
+        {"id": "159745756972", "tran_id": "399260281458", "time_ms": 1786341331000,
+         "asset": "USDT", "flow_type": "TRANSFER", "amount": "-10"},
+    ]
+
+
+def test_normalize_capital_rows_drops_missing_id_or_time_or_asset_or_tranid():
+    # id is the PK/dedup key; time_ms/asset/tran_id are NOT NULL. Missing any
+    # -> the row is dropped (cannot be stored / placed in time / cross-ref'd).
+    rows = D.normalize_capital_rows([
+        {"id": 1, "tranId": 1, "timestamp": 1, "asset": "USDT"},          # ok
+        {"tranId": 2, "timestamp": 1, "asset": "USDT"},                   # no id
+        {"id": 3, "tranId": 3, "asset": "USDT"},                          # no time
+        {"id": 4, "tranId": 4, "timestamp": 1},                           # no asset
+        {"id": 5, "timestamp": 1, "asset": "USDT"},                       # no tranId
+        "not-a-dict",
+    ])
+    assert [r["id"] for r in rows] == ["1"]
+
+
+def test_normalize_capital_rows_non_list_is_empty():
+    assert D.normalize_capital_rows(None) == []
+    assert D.normalize_capital_rows({}) == []
+
+
+def test_dedup_capital_rows_by_id_keeps_multi_type_same_tranid():
+    # recon §3.3 / frontend baseline: same tranId with different flow_type has
+    # DIFFERENT id and must all survive (they are distinct ledger lines).
+    rows = [
+        {"id": "601", "tran_id": "399258471825", "time_ms": 1, "asset": "USDT",
+         "flow_type": "SELL_INCOME", "amount": "16.533"},
+        {"id": "602", "tran_id": "399258471825", "time_ms": 1, "asset": "WLD",
+         "flow_type": "SELL_EXPENSE", "amount": "-49.5"},
+        {"id": "601", "tran_id": "399258471825", "time_ms": 1, "asset": "USDT",
+         "flow_type": "SELL_INCOME", "amount": "16.533"},  # exact id dup
+    ]
+    out = D.dedup_capital_rows(rows)
+    assert [r["id"] for r in out] == ["601", "602"]  # dup dropped, both types kept

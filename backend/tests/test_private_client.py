@@ -131,10 +131,10 @@ def test_whitelist_rejects_delete_on_whitelisted_path():
         PrivateClient._require_whitelisted("DELETE", "/papi/v1/margin/maxBorrowable")
 
 
-def test_whitelist_accepts_exactly_sixteen_get_endpoints():
-    # 16th = /papi/v1/margin/maxWithdraw (Q4, 2026-08-07). 这个计数是 deny-by-default
-    # 的守卫：每加一个端点都必须在这里显式承认，不能悄悄溜进白名单。
-    assert len(private_client.WHITELIST) == 16
+def test_whitelist_accepts_exactly_seventeen_get_endpoints():
+    # 17th = /sapi/v1/margin/capital-flow (全仓资金流水, 2026-08-10). 这个计数是
+    # deny-by-default 的守卫：每加一个端点都必须在这里显式承认，不能悄悄溜进白名单。
+    assert len(private_client.WHITELIST) == 17
     for method, path in private_client.WHITELIST:
         assert method == "GET"
         assert PrivateClient._require_whitelisted(method, path)
@@ -173,6 +173,9 @@ def test_whitelist_base_urls_match_2A_appendix():
     assert "/sapi/v1/margin/interestHistory" in api
     assert private_client.WHITELIST[("GET", "/sapi/v1/margin/interestHistory")] == "https://api.binance.com"
     assert private_client.WHITELIST[("GET", "/papi/v1/um/income")] == "https://papi.binance.com"
+    # Cross-margin capital-flow (2026-08-10): sapi on the api host.
+    assert "/sapi/v1/margin/capital-flow" in api
+    assert private_client.WHITELIST[("GET", "/sapi/v1/margin/capital-flow")] == "https://api.binance.com"
 
 
 def test_whitelist_rejects_unknown_papi_path():
@@ -703,5 +706,66 @@ def test_flow_log_fetchers_bypass_ttl_cache(monkeypatch):
     ])
     client.fetch_interest_history_page(start_time=1, end_time=2, current=1, size=100)
     client.fetch_interest_history_page(start_time=1, end_time=2, current=1, size=100)
+    assert len(client.audit_log) == 2  # two real signed GETs, no cache reuse
+    assert client._cache == {}
+
+
+# ---- 11b. cross-margin capital-flow single-page fetcher (2026-08-10) ----
+def test_capital_flow_page_returns_raw_array_single_call(monkeypatch):
+    # Single-page reader: one signed GET, raw array (no envelope) back. No
+    # last_error write, no TTL cache entry — same discipline as the other two.
+    client = _make_client(monkeypatch, [
+        (json.dumps([
+            {"id": 159745763323, "tranId": 399260348988, "timestamp": 1786341345000,
+             "asset": "USDT", "type": "TRANSFER", "amount": "10"},
+        ]), 200),
+    ])
+    data = client.fetch_capital_flow_page(
+        start_time=1786254945000, end_time=1786341345000, limit=1000
+    )
+    assert isinstance(data, list)
+    assert data[0]["type"] == "TRANSFER" and data[0]["tranId"] == 399260348988
+    endpoints = [e["logical_endpoint"] for e in client.audit_log]
+    assert endpoints == ["/sapi/v1/margin/capital-flow"]
+    assert client.last_error is None
+    assert client._cache == {}
+
+
+def test_capital_flow_page_sends_no_symbol_and_no_fromid(monkeypatch):
+    # 全仓 = omit symbol; single page = no fromId. The signed query must carry
+    # only startTime/endTime/limit (+ recvWindow/timestamp/signature).
+    captured = {}
+    real_payload = private_client.binance_signing.signed_payload
+
+    def spy(params, secret):
+        captured.update(params)
+        return real_payload(params, secret)
+
+    monkeypatch.setattr(
+        private_client.binance_signing, "signed_payload", spy)
+    client = _make_client(monkeypatch, [(json.dumps([]), 200)])
+    client.fetch_capital_flow_page(start_time=1, end_time=2, limit=1000)
+    assert captured["startTime"] == "1" and captured["endTime"] == "2"
+    assert captured["limit"] == "1000"
+    assert "symbol" not in captured and "fromId" not in captured
+
+
+def test_capital_flow_page_raises_on_failure_without_last_error(monkeypatch):
+    client = _make_client(monkeypatch, [_http_error(500, "upstream")])
+    with pytest.raises(PrivateEndpointError):
+        client.fetch_capital_flow_page(start_time=1, end_time=2, limit=1000)
+    assert client.last_error is None
+    assert client._cache == {}
+
+
+def test_capital_flow_page_bypasses_ttl_cache(monkeypatch):
+    # Each call issues a REAL signed GET (refresh never reads stale data).
+    client = _make_client(monkeypatch, [
+        (json.dumps([]), 200),
+        (json.dumps([{"id": 1, "tranId": 1, "timestamp": 1,
+                      "asset": "USDT", "type": "BORROW", "amount": "1"}]), 200),
+    ])
+    client.fetch_capital_flow_page(start_time=1, end_time=2, limit=1000)
+    client.fetch_capital_flow_page(start_time=1, end_time=2, limit=1000)
     assert len(client.audit_log) == 2  # two real signed GETs, no cache reuse
     assert client._cache == {}

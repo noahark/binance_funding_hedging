@@ -44,6 +44,9 @@ class _StubClient:
         self.income_pages = [[{"symbol": "MUUSDT", "incomeType": "FUNDING_FEE",
                                "income": "0.08", "asset": "USDT", "info": "FUNDING_FEE",
                                "time": NOW - 1000, "tranId": 9, "tradeId": ""}]]
+        self.capital_pages = [[
+            {"id": 159745763323, "tranId": 399260348988, "timestamp": NOW - 1000,
+             "asset": "USDT", "type": "TRANSFER", "amount": "10"}]]
 
     def fetch_interest_history_page(self, *, start_time, end_time, current, size):
         idx = current - 1
@@ -52,6 +55,9 @@ class _StubClient:
     def fetch_um_income_page(self, *, start_time, end_time, page, limit):
         idx = page - 1
         return self.income_pages[idx] if idx < len(self.income_pages) else []
+
+    def fetch_capital_flow_page(self, *, start_time, end_time, limit):
+        return self.capital_pages[0] if self.capital_pages else []
 
 
 def _ledger_svc(tmp_path, enabled=True):
@@ -114,6 +120,27 @@ def test_get_flow_log_200_has_no_store_and_shape(tmp_path):
     assert payload["interest"]["summary_by_asset"][0]["interest_total"] == "0.00008975"
 
 
+def test_get_flow_log_200_includes_capital_flow_block(tmp_path):
+    svc = _ledger_svc(tmp_path)
+    svc.run_once("backfill")  # populates all three sources
+    with _server(svc) as (host, port):
+        status, _, body = _req(host, port, "GET",
+                               f"/api/private-ledger/flow-log?start=0&end={NOW}")
+    payload = json.loads(body)
+    assert status == 200
+    assert payload["schema_version"] == "private-ledger/v2"   # NOT bumped
+    cap = payload["capital_flow"]
+    assert cap["row_count"] == 1
+    assert cap["rows"][0]["id"] == "159745763323"             # id is a string
+    assert cap["rows"][0]["flow_type"] == "TRANSFER"
+    assert cap["rows"][0]["amount"] == "10"                    # verbatim, signed kept
+    # capital coverage is display-only in by_source; aggregate end is the
+    # two-source value (== NOW), not a capital-affected value.
+    assert payload["coverage"]["by_source"]["capital_flow"] == {
+        "start_ms": NOW - 24 * 3600 * 1000, "end_ms": NOW}
+    assert payload["coverage"]["end_ms"] == NOW
+
+
 def test_get_flow_log_empty_state_returns_200_not_503(tmp_path):
     svc = _ledger_svc(tmp_path)  # empty store, never run
     with _server(svc) as (host, port):
@@ -124,7 +151,8 @@ def test_get_flow_log_empty_state_returns_200_not_503(tmp_path):
     assert cache_ctrl == "no-store"
     assert payload["last_run"] is None
     assert payload["coverage"]["start_ms"] is None and payload["coverage"]["end_ms"] is None
-    assert payload["coverage"]["by_source"] == {"interest": None, "income": None}
+    assert payload["coverage"]["by_source"] == {
+        "interest": None, "income": None, "capital_flow": None}
     assert payload["delta"]["complete"] is False
 
 

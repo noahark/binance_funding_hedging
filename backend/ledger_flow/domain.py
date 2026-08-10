@@ -244,6 +244,65 @@ def dedup_income_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 # --------------------------------------------------------------------------- #
+# cross-margin capital-flow normalization (stage 2026-08-10-cross-margin-flow-log-v1)
+# --------------------------------------------------------------------------- #
+# Normalized capital row (from ``GET /sapi/v1/margin/capital-flow`` array):
+#
+#   {
+#     "id": str,         # id; long -> str (PRIMARY KEY + dedup key;翻页键)
+#     "tran_id": str,    # tranId; long -> str (与 asset-transfer 审计可对齐;
+#                        #   同 tran_id 多 flow_type 行各自有不同 id,全部保留)
+#     "time_ms": int,    # timestamp
+#     "asset": str,
+#     "flow_type": Optional[str],   # type 枚举 (TRANSFER/BORROW/REPAY/...)
+#     "amount": Optional[str],      # 原样; 正=入全仓, 负=出全仓
+#   }
+def normalize_capital_rows(raw_rows: Any) -> List[Dict[str, Any]]:
+    """Normalize the raw ``capital-flow`` array into the capital row shape.
+
+    Drops a row whose ``id`` (PRIMARY KEY / dedup key), ``tran_id``, ``timestamp``
+    or ``asset`` is missing — ``id``/``time_ms``/``asset``/``tran_id`` are
+    ``NOT NULL`` in the store and ``id`` is the idempotency key. Non-dict
+    entries are skipped, same as the other two sources. Dedup/sort are separate.
+    """
+    out: List[Dict[str, Any]] = []
+    if not isinstance(raw_rows, list):
+        return out
+    for raw in raw_rows:
+        if not isinstance(raw, dict):
+            continue
+        row_id = _id_to_str(raw.get("id"))
+        tran_id = _id_to_str(raw.get("tranId"))
+        time_ms = _ms(raw.get("timestamp"))
+        asset = _opt_text(raw.get("asset"))
+        if row_id is None or tran_id is None or time_ms is None or asset is None:
+            continue
+        out.append(
+            {
+                "id": row_id,
+                "tran_id": tran_id,
+                "time_ms": time_ms,
+                "asset": asset,
+                "flow_type": _opt_text(raw.get("type")),
+                "amount": _amount_str(raw.get("amount")),
+            }
+        )
+    return out
+
+
+def dedup_capital_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Deduplicate capital rows by ``id``; first occurrence wins (an already-
+    stored row is never overwritten). The same ``tran_id`` with different
+    ``flow_type`` has a different ``id`` and is fully retained."""
+    seen: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
+    for r in rows:
+        key = r["id"]
+        if key not in seen:
+            seen[key] = r
+    return list(seen.values())
+
+
+# --------------------------------------------------------------------------- #
 # summarize (Decimal sum; rule 3 localcontext; rule 4 unparseable -> null)
 # --------------------------------------------------------------------------- #
 def _sum_amounts(amounts: List[Optional[str]]) -> Tuple[Optional[str], int]:

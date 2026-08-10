@@ -37,6 +37,11 @@ class StubClient:
         self.income_fn = None
         self.interest_raise = None    # (page, exc)
         self.income_raise = None
+        # cross-margin capital-flow (single page, no fromId paging)
+        self.capital_pages = []       # list of list-of-raw-rows; call i -> index i
+        self.capital_fn = None        # callable(start_time, end_time, limit) -> page
+        self.capital_raise = None     # exc (single page)
+        self._capital_seen = []       # records (start, end, limit) per call
 
     def fetch_interest_history_page(self, *, start_time, end_time, current, size):
         if self.interest_raise and current == self.interest_raise[0]:
@@ -53,6 +58,15 @@ class StubClient:
             return self.income_fn(page)
         idx = page - 1
         return self.income_pages[idx] if idx < len(self.income_pages) else []
+
+    def fetch_capital_flow_page(self, *, start_time, end_time, limit):
+        if self.capital_raise is not None:
+            raise self.capital_raise
+        if self.capital_fn is not None:
+            return self.capital_fn(start_time, end_time, limit)
+        idx = len(self._capital_seen)
+        self._capital_seen.append((start_time, end_time, limit))
+        return self.capital_pages[idx] if idx < len(self.capital_pages) else []
 
 
 def _svc(tmp_path, client=None, now=NOW):
@@ -309,11 +323,14 @@ def test_get_flow_log_empty_state_shape(tmp_path):
     assert resp["last_run"] is None
     assert resp["coverage"] == {
         "start_ms": None, "end_ms": None, "complete": False, "pending_tail_ms": None,
-        "by_source": {"interest": None, "income": None}, "gaps": []}
+        "by_source": {"interest": None, "income": None, "capital_flow": None}, "gaps": []}
     assert resp["delta"]["complete"] is False and resp["delta"]["baseline_ms"] is None
     assert resp["interest"]["rows"] == [] and resp["interest"]["row_count"] == 0
     assert resp["um_income"]["rows"] == [] and resp["um_income"]["row_count"] == 0
     assert resp["interest"]["row_limit_applied"] is False
+    # capital block: empty-state (NOT an error state); last_run null (never pulled).
+    assert resp["capital_flow"]["rows"] == [] and resp["capital_flow"]["row_count"] == 0
+    assert resp["capital_flow"]["last_run"] is None
 
 
 def test_today_attribution_by_beijing_day(tmp_path):
@@ -479,3 +496,148 @@ def test_coverage_for_window_wraps_gap_aware_judgement(tmp_path):
     # 窗口起点早于 coverage 起点 → 不完整（诚实降级，绝不把未覆盖窗口当真值）
     early = svc.coverage_for_window(NOW - 30 * 24 * 3600 * 1000 - 3600_000, NOW)
     assert early["complete"] is False
+
+
+# --------------------------------------------------------------------------- #
+# cross-margin capital-flow (stage 2026-08-10) — isolated third source
+# --------------------------------------------------------------------------- #
+_D = 24 * 60 * 60 * 1000
+_3H = 3 * 60 * 60 * 1000
+
+
+def _crow(i, ms, tran_id=399260348988, ftype="TRANSFER", asset="USDT", amount="10"):
+    return {"id": i, "tranId": tran_id, "timestamp": ms, "asset": asset,
+            "type": ftype, "amount": amount}
+
+
+def _seed_two(client):
+    client.interest_pages = [{"total": 0, "rows": []}]
+    client.income_pages = [[]]
+
+
+def test_capital_first_run_window_is_one_day(tmp_path):
+    client = StubClient()
+    _seed_two(client)
+    client.capital_pages = [[_crow(159745763323, NOW - 1000)]]
+    svc = _svc(tmp_path, client)
+    out = svc.run_once("backfill")
+    # first-ever capital → [now-1d, now], single page, limit 1000.
+    assert client._capital_seen == [(NOW - _D, NOW, 1000)]
+    assert out["capital"] == {"status": "ok", "error": None,
+                              "fetched_row_count": 1, "new_row_count": 1,
+                              "possibly_incomplete": False}
+    state = svc._store.get_capital_flow_state()
+    assert state["start_ms"] == NOW - _D and state["end_ms"] == NOW
+    assert state["last_run"]["possibly_incomplete"] is False
+
+
+def test_capital_incremental_window_3h_overlap(tmp_path):
+    client = StubClient()
+    _seed_two(client)
+    client.capital_pages = [[], []]  # two scheduled pulls, both empty
+    svc = _svc(tmp_path, client)
+    svc.run_once("backfill")          # first call window = [now-1d, now], end=NOW
+    later = NOW + 4 * 3600 * 1000
+    svc._set_now(later)
+    svc.run_once("scheduled")         # second call window = [end-3h, later]
+    assert client._capital_seen[1] == (NOW - _3H, later, 1000)
+
+
+def test_capital_full_page_marks_possibly_incomplete(tmp_path):
+    client = StubClient()
+    _seed_two(client)
+    client.capital_pages = [[_crow(i, NOW - i) for i in range(1000)]]
+    svc = _svc(tmp_path, client)
+    out = svc.run_once("backfill")
+    assert out["capital"]["possibly_incomplete"] is True  # == limit
+    assert out["capital"]["new_row_count"] == 1000
+    # coverage still advances to now (full page is a success, not a failure):
+    assert svc._store.get_capital_flow_state()["end_ms"] == NOW
+
+
+def test_capital_failure_isolated_and_does_not_advance_end(tmp_path):
+    client = StubClient()
+    client.interest_pages = [{"total": 1, "rows": [
+        {"txId": 1, "interestAccuredTime": NOW - 1000, "asset": "HOME", "interest": "0.1"}]}]
+    client.income_pages = [[{"symbol": "MUUSDT", "incomeType": "FUNDING_FEE",
+                             "income": "0.1", "asset": "USDT", "info": "FUNDING_FEE",
+                             "time": NOW - 1000, "tranId": 9, "tradeId": ""}]]
+    client.capital_raise = PrivateEndpointError(
+        "/sapi/v1/margin/capital-flow", 500, "HTTP 500")
+    svc = _svc(tmp_path, client)
+    out = svc.run_once("backfill")
+    # capital failed, but interest/income succeeded and coverage advanced:
+    assert out["capital"]["status"] == "error"
+    assert out["interest_new"] == 1 and out["income_new"] == 1
+    cov = svc._store.get_coverage()
+    assert cov["interest_end_ms"] == NOW and cov["income_end_ms"] == NOW
+    cstate = svc._store.get_capital_flow_state()
+    assert cstate["start_ms"] is None and cstate["end_ms"] is None  # NOT advanced
+    assert cstate["last_run"]["error"] == "capital_flow_failed"
+
+
+def test_capital_never_succeeded_leaves_coverage_for_window_untouched(tmp_path):
+    # P0-1: capital (never succeeded) must not change coverage_for_window's
+    # aggregate vs a capital-less baseline. coverage_for_window is the server.py
+    # consumer that gates hedging net-PnL display.
+    client = StubClient()
+    _seed_two(client)
+    client.capital_raise = PrivateEndpointError("/sapi/v1/margin/capital-flow", 500, "x")
+    svc = _svc(tmp_path, client)
+    svc.run_once("backfill")
+    cov = svc.coverage_for_window(NOW - 1000, NOW)
+    assert set(cov.keys()) == {"start_ms", "end_ms", "complete",
+                               "pending_tail_ms", "by_source", "gaps"}
+    assert set(cov["by_source"].keys()) == {"interest", "income"}  # no capital here
+    assert cov["complete"] is True
+
+
+def test_capital_succeeding_does_not_shrink_coverage_aggregate(tmp_path):
+    # P0-1 (the regression): capital succeeding has start=now-1d, far more
+    # recent than the two-source start=now-30d. If it leaked into the aggregate,
+    # cov_start would jump to now-1d and a 5-day-old window would flip
+    # complete→False (the exact regression plan-review P0-1 named).
+    client = StubClient()
+    _seed_two(client)
+    client.capital_pages = [[_crow(1, NOW - 1000)]]
+    svc = _svc(tmp_path, client)
+    svc.run_once("backfill")
+    assert svc._store.get_capital_flow_state()["start_ms"] == NOW - _D  # capital start
+    payload = svc.get_flow_log(NOW - 5 * _D, NOW)
+    # capital present in by_source (display-only) but the aggregate start stays
+    # at the two-source 30d floor, and the 5-day window stays complete:
+    assert payload["coverage"]["by_source"]["capital_flow"] == {
+        "start_ms": NOW - _D, "end_ms": NOW}
+    assert payload["coverage"]["start_ms"] == NOW - 30 * _D
+    assert payload["coverage"]["complete"] is True
+
+
+def test_flow_log_capital_block_shape_and_schema_not_bumped(tmp_path):
+    client = StubClient()
+    _seed_two(client)
+    client.capital_pages = [[_crow(159745763323, NOW - 1000)]]
+    svc = _svc(tmp_path, client)
+    svc.run_once("backfill")
+    payload = svc.get_flow_log(NOW - _D, NOW)
+    assert payload["schema_version"] == "private-ledger/v2"   # NOT bumped
+    cap = payload["capital_flow"]
+    assert cap["row_count"] == 1
+    assert cap["rows"][0] == {"id": "159745763323", "tran_id": "399260348988",
+                              "time_ms": NOW - 1000, "asset": "USDT",
+                              "flow_type": "TRANSFER", "amount": "10"}
+    assert cap["last_run"]["status"] == "ok"
+
+
+def test_flow_log_capital_empty_state_when_never_pulled(tmp_path):
+    # Never-run store: capital_flow block present with empty rows + null last_run
+    # (empty-state, NOT an error state). schema_version still v2.
+    client = StubClient()
+    _seed_two(client)
+    client.capital_pages = [[]]  # first pull empty -> end advances, but block ok
+    svc = _svc(tmp_path, client)
+    svc.run_once("backfill")
+    payload = svc.get_flow_log(NOW - _D, NOW)
+    assert payload["capital_flow"]["row_count"] == 0
+    assert payload["capital_flow"]["rows"] == []
+    assert payload["coverage"]["by_source"]["capital_flow"] == {
+        "start_ms": NOW - _D, "end_ms": NOW}

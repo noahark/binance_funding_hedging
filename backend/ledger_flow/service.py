@@ -26,6 +26,7 @@ from .store import LedgerStore
 # ---- window / pagination constants (design §13.5 / §15.2) ----
 _3H_MS = 3 * 60 * 60 * 1000
 _30D_MS = 30 * 24 * 60 * 60 * 1000
+_1D_MS = 24 * 60 * 60 * 1000
 _1H_MS = 60 * 60 * 1000
 _5M_MS = 5 * 60 * 1000
 
@@ -33,12 +34,15 @@ _INTEREST_PAGE_SIZE = 100
 _INTEREST_MAX_PAGES = 40
 _INCOME_PAGE_LIMIT = 1000
 _INCOME_MAX_PAGES = 10
+# Cross-margin capital-flow (stage 2026-08-10): SINGLE page, no fromId paging.
+_CAPITAL_PAGE_LIMIT = 1000
 
 _ROW_LIMIT = 500  # §13.2 rule 8: detail cap per pane
 
 # Stable short error codes (§13.2 rule 9). Never carry Binance bodies/URLs.
 _ERR_INTEREST = "interest_history_failed"
 _ERR_INCOME = "um_income_failed"
+_ERR_CAPITAL = "capital_flow_failed"
 _ERR_RATE_LIMITED = "rate_limited"
 _ERR_DISABLED = "private_channel_disabled"
 
@@ -57,6 +61,9 @@ _INTEREST_PUBLIC_KEYS = (
 _INCOME_PUBLIC_KEYS = (
     "tran_id", "income_type", "time_ms", "symbol", "income",
     "asset", "info", "trade_id",
+)
+_CAPITAL_PUBLIC_KEYS = (
+    "id", "tran_id", "time_ms", "asset", "flow_type", "amount",
 )
 
 
@@ -173,9 +180,16 @@ class LedgerFlowService:
         i_new = self._commit_interest(run_id, first_seen, i_res, cov, i_ws, i_we, i_gap)
         u_new = self._commit_income(run_id, first_seen, u_res, cov, u_ws, u_we, u_gap)
 
+        # Capital pull is fully isolated (plan §4.2.6): it runs after the
+        # two-source run record + commits, never touches flow_refresh_runs, and
+        # any failure is recorded only in capital's own meta — it cannot change
+        # the interest/income outcome above.
+        cap_outcome = self._run_capital_flow(now)
+
         run = self._store.recent_runs(1)
         run_record = run[0] if run else None
-        return {"run": run_record, "interest_new": i_new, "income_new": u_new}
+        return {"run": run_record, "interest_new": i_new, "income_new": u_new,
+                "capital": cap_outcome}
 
     # ---- per-source window (§15.2) ----
     def _compute_window(self, src, cov_end_ms, now):
@@ -300,6 +314,96 @@ class LedgerFlowService:
         return result["new_row_count"]
 
     # ------------------------------------------------------------------ #
+    # cross-margin capital-flow (stage 2026-08-10) — isolated third source
+    # ------------------------------------------------------------------ #
+    def _compute_capital_window(self, cap_end_ms, now):
+        """Capital pull window (plan §4.1.2): first-ever → ``[now-1d, now]``;
+        otherwise ``[cap_end-3h, now]``. No 30d floor and no gap — capital
+        coverage is fully separate from the two-source coverage aggregate
+        (plan §4.2), so a downtime gap is never recorded for it."""
+        if cap_end_ms is None:
+            return now - _1D_MS, now
+        return cap_end_ms - _3H_MS, now
+
+    def _fetch_capital(self, ws, we) -> _FetchResult:
+        """Single-page capital-flow pull. A FULL page (== limit) is flagged
+        ``truncated`` (= "possibly incomplete"); no ``fromId`` paging is done
+        (plan §4.1.2 / non-goal §4.3)."""
+        try:
+            data = self._client.fetch_capital_flow_page(
+                start_time=ws, end_time=we, limit=_CAPITAL_PAGE_LIMIT)
+        except PrivateEndpointError as exc:
+            return _FetchResult("error", self._classify(exc, _ERR_CAPITAL),
+                                [], 0, False, None)
+        page_rows = data if isinstance(data, list) else []
+        rows = domain.dedup_capital_rows(domain.normalize_capital_rows(page_rows))
+        possibly_incomplete = len(page_rows) >= _CAPITAL_PAGE_LIMIT
+        newest = max((r["time_ms"] for r in rows), default=None)
+        return _FetchResult("ok", None, rows, len(rows), possibly_incomplete, newest)
+
+    def _run_capital_flow(self, now) -> Dict[str, Any]:
+        """One capital pull + commit, fully isolated from the interest/income
+        run (plan §4.2.6). Any failure is recorded in capital's own
+        ``last_run`` meta only; it never raises into the caller and never
+        touches the two-source run record / coverage aggregate.
+
+        On a successful single page, coverage_end advances to ``now``
+        regardless of ``possibly_incomplete`` — a full page is a success, not a
+        failure (plan §5.4 frozen: only failure blocks the advance); the flag
+        is carried in ``last_run`` for display."""
+        try:
+            state = self._store.get_capital_flow_state()
+            ws, we = self._compute_capital_window(state["end_ms"], now)
+            res = self._fetch_capital(ws, we)
+            first_seen = self._now_ms()
+            last_run = self._capital_last_run(first_seen, res, ws, we)
+            if res.status != "ok":
+                # Failed pull: record last_run, advance NOTHING.
+                self._store.commit_capital_flow(
+                    rows=[], first_seen_at_ms=first_seen,
+                    coverage_start_ms=None, coverage_end_ms=None,
+                    last_run=last_run)
+                return {"status": "error", "error": res.error,
+                        "fetched_row_count": 0, "new_row_count": 0,
+                        "possibly_incomplete": False}
+            cov_start = min(state["start_ms"] if state["start_ms"] is not None else ws, ws)
+            result = self._store.commit_capital_flow(
+                rows=res.rows, first_seen_at_ms=first_seen,
+                coverage_start_ms=cov_start, coverage_end_ms=we,
+                last_run=last_run)
+            return {"status": "ok", "error": None,
+                    "fetched_row_count": result["fetched_row_count"],
+                    "new_row_count": result["new_row_count"],
+                    "possibly_incomplete": bool(res.truncated)}
+        except Exception:  # isolation guard: capital must never break the run
+            try:
+                self._store.commit_capital_flow(
+                    rows=[], first_seen_at_ms=self._now_ms(),
+                    coverage_start_ms=None, coverage_end_ms=None,
+                    last_run={"finished_at_ms": self._now_ms(), "status": "error",
+                              "error": "capital_internal_error",
+                              "possibly_incomplete": False,
+                              "window_start_ms": None, "window_end_ms": None})
+            except Exception:
+                pass
+            return {"status": "error", "error": "capital_internal_error",
+                    "fetched_row_count": 0, "new_row_count": 0,
+                    "possibly_incomplete": False}
+
+    @staticmethod
+    def _capital_last_run(finished_at, res, ws, we):
+        """Build the capital ``last_run`` JSON (fetched/new counts are stamped
+        by the store, which is the authority for them)."""
+        return {
+            "finished_at_ms": finished_at,
+            "status": res.status,
+            "error": res.error,
+            "possibly_incomplete": bool(res.truncated),
+            "window_start_ms": ws,
+            "window_end_ms": we,
+        }
+
+    # ------------------------------------------------------------------ #
     # run classification (§15.4 / F3) — service authority, not store
     # ------------------------------------------------------------------ #
     @staticmethod
@@ -398,18 +502,32 @@ class LedgerFlowService:
 
         i_full = self._store.query_interest_rows(start_ms, end_ms)
         u_full = self._store.query_income_rows(start_ms, end_ms)
+        cap_full = self._store.query_capital_flow_rows(start_ms, end_ms)
+
+        coverage = self._build_coverage(start_ms, end_ms, store_cov)
+        # capital coverage is DISPLAY-ONLY (plan §4.1.5): merged into by_source
+        # AFTER _build_coverage returns, so the aggregate start_ms/end_ms/
+        # complete/pending_tail_ms — and therefore coverage_for_window, the
+        # P0-1 protection point consumed by server.py — are provably unchanged
+        # by the capital source (whether it never succeeded or is failing).
+        cap_state = self._store.get_capital_flow_state()
+        coverage["by_source"]["capital_flow"] = (
+            None if (cap_state["start_ms"] is None and cap_state["end_ms"] is None)
+            else {"start_ms": cap_state["start_ms"], "end_ms": cap_state["end_ms"]}
+        )
 
         return {
             "schema_version": "private-ledger/v2",
             "served_at_ms": now,
             "scheduler_enabled": self._scheduler_enabled,
             "window": {"start_ms": start_ms, "end_ms": end_ms},
-            "coverage": self._build_coverage(start_ms, end_ms, store_cov),
+            "coverage": coverage,
             "last_run": self._format_last_run(),
             "delta": self._compute_delta(),
             "today": self._build_today(now),
             "interest": self._interest_block(i_full),
             "um_income": self._income_block(u_full),
+            "capital_flow": self._capital_block(cap_full, cap_state),
         }
 
     def _build_coverage(self, window_start, window_end, store_cov):
@@ -518,6 +636,22 @@ class LedgerFlowService:
             "row_limit_applied": count > _ROW_LIMIT,
         }
 
+    @staticmethod
+    def _capital_block(full_rows, cap_state):
+        """The cross-margin capital-flow pane. Unlike interest/um_income it
+        carries no Decimal amount summary: summing capital ``amount`` across
+        flow_type values (a BORROW and a REPAY, a buy and a sell) has no clear
+        product meaning, so a per-type row COUNT is the frontend's job (plan
+        §4.1.5 — "可选 status 摘要"). ``last_run`` is capital's own run state,
+        separate from the two-source ``last_run``."""
+        count = len(full_rows)
+        return {
+            "rows": [{k: r.get(k) for k in _CAPITAL_PUBLIC_KEYS} for r in full_rows[:_ROW_LIMIT]],
+            "row_count": count,
+            "row_limit_applied": count > _ROW_LIMIT,
+            "last_run": cap_state["last_run"],
+        }
+
     # ------------------------------------------------------------------ #
     # POST refresh (§13.4)
     # ------------------------------------------------------------------ #
@@ -539,4 +673,5 @@ class LedgerFlowService:
             "income_error": run["income_error"],
             "income_new_row_count": outcome["income_new"],
             "truncated": bool(run["truncated"]),
+            "capital_flow": outcome["capital"],
         }

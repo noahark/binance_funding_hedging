@@ -409,17 +409,6 @@
       color: var(--text);
       cursor: pointer;
     }
-    .flow-log-fake-badge {
-      display: inline-block;
-      margin-left: 0.35rem;
-      padding: 0.05rem 0.35rem;
-      border-radius: 3px;
-      font-size: 0.72rem;
-      font-weight: 600;
-      color: #8a3b10;
-      background: #fff3e0;
-      vertical-align: middle;
-    }
     /* 表体随栏位拉满，table 以 100% 宽度横向填满所在栏位 */
     .flow-log-col-body {
       padding: 0;
@@ -1489,7 +1478,7 @@
             </div>
             <div class="flow-log-col" id="flow-log-capital-col">
               <div class="flow-log-col-head">
-                <h3>全仓杠杆流水 <span class="flow-log-fake-badge" title="前端假数据预览，尚未接本地账本">预览</span></h3>
+                <h3>全仓杠杆流水</h3>
                 <p class="flow-log-col-status" id="flow-log-capital-status"></p>
                 <div class="flow-log-summary" id="flow-log-capital-summary"></div>
                 <div class="flow-log-col-filters" id="flow-log-capital-filters" role="group" aria-label="全仓杠杆流水类型筛选">
@@ -6939,20 +6928,6 @@
         COMMISSION_RETURN: '手续费返还',
         SMALL_CONVERT: '强平小额转换',
       };
-      // 假数据：形状对齐 GET /sapi/v1/margin/capital-flow（不传 symbol=全仓）
-      // 时间/类型/金额取自 2026-08-10 实盘摸排最近样本（仅 UI 预览，非账本）。
-      const FLOW_LOG_CAPITAL_FAKE_ROWS = [
-        { id: 159745763323, tran_id: '399260348988', time_ms: 1786341345000, asset: 'USDT', type: 'TRANSFER', amount: '10' },
-        { id: 159745756972, tran_id: '399260281458', time_ms: 1786341331000, asset: 'USDT', type: 'TRANSFER', amount: '-10' },
-        { id: 159745629068, tran_id: '399258471825', time_ms: 1786341080000, asset: 'BNB', type: 'TRADING_COMMISSION', amount: '-0.00002055' },
-        { id: 159745629067, tran_id: '399258471825', time_ms: 1786341080000, asset: 'USDT', type: 'SELL_INCOME', amount: '16.533' },
-        { id: 159745629066, tran_id: '399258471825', time_ms: 1786341080000, asset: 'WLD', type: 'SELL_EXPENSE', amount: '-49.5' },
-        { id: 159745608216, tran_id: '399258959843', time_ms: 1786341042000, asset: 'WLD', type: 'REPAY', amount: '-400.46529829' },
-        { id: 159740883914, tran_id: '399216264416', time_ms: 1786331287000, asset: 'USDT', type: 'TRANSFER', amount: '43.6806814' },
-        { id: 159740680107, tran_id: '399213582687', time_ms: 1786330811000, asset: 'BNB', type: 'TRADING_COMMISSION', amount: '-0.00002029' },
-        { id: 159740680106, tran_id: '399213582687', time_ms: 1786330811000, asset: 'USDT', type: 'BUY_LIQUIDATION', amount: '-16.32' },
-        { id: 159740680105, tran_id: '399213582687', time_ms: 1786330811000, asset: 'XLM', type: 'BUY_LIQUIDATION', amount: '100' },
-      ];
       const FLOW_LOG_ERROR_ZH = {
         interest_history_failed: '利息历史拉取失败',
         um_income_failed: '合约流水拉取失败',
@@ -7056,6 +7031,23 @@
         const f = state.flowLogFilters || {};
         return Object.keys(FLOW_LOG_DEFAULT_FILTERS).every(
           (k) => !!f[k] === FLOW_LOG_DEFAULT_FILTERS[k]
+        );
+      }
+
+      // 全仓杠杆流水默认筛选（与 state.flowLogCapitalFilters 初值一致）：
+      // TRANSFER/BORROW/REPAY 默认开，TRADE/OTHER 默认关。
+      const FLOW_LOG_CAPITAL_DEFAULT_FILTERS = {
+        TRANSFER: true,
+        BORROW: true,
+        REPAY: true,
+        TRADE: false,
+        OTHER: false,
+      };
+
+      function flowLogCapitalFiltersAreDefault() {
+        const f = state.flowLogCapitalFilters || {};
+        return Object.keys(FLOW_LOG_CAPITAL_DEFAULT_FILTERS).every(
+          (k) => !!f[k] === FLOW_LOG_CAPITAL_DEFAULT_FILTERS[k]
         );
       }
 
@@ -7181,8 +7173,7 @@
             els.flowLogInterestBody.innerHTML = '<div class="flow-log-skeleton">加载中…</div>';
           }
           if (els.flowLogCapitalBody) {
-            // 中栏暂为假数据，加载其它栏时仍可渲染预览
-            renderFlowLogCapitalCol(null);
+            els.flowLogCapitalBody.innerHTML = '<div class="flow-log-skeleton">加载中…</div>';
           }
           if (els.flowLogIncomeBody) {
             els.flowLogIncomeBody.innerHTML = '<div class="flow-log-skeleton">加载中…</div>';
@@ -7576,31 +7567,26 @@
         }
       }
 
-      // 全仓杠杆流水中栏：后端未交付前用 FLOW_LOG_CAPITAL_FAKE_ROWS 预览；
-      // 若 payload.margin_capital / capital_flow 将来有 rows 则优先真实数据。
+      // 全仓杠杆流水中栏：只读本地账本 payload.capital_flow.rows（stage
+      // 2026-08-10 接入 GET /sapi/v1/margin/capital-flow 全仓缓存）。缺块 → 空态。
       function flowLogCapitalRowsFromPayload(payload) {
-        const block =
-          (payload && (payload.margin_capital || payload.capital_flow || payload.cross_margin_flow)) ||
-          null;
-        if (block && Array.isArray(block.rows) && block.rows.length) {
+        const block = (payload && payload.capital_flow) || null;
+        if (block && Array.isArray(block.rows)) {
           return {
             rows: block.rows.map((r) => ({
               id: r.id,
-              tran_id: r.tran_id != null ? String(r.tran_id) : (r.tranId != null ? String(r.tranId) : ''),
+              tran_id: r.tran_id != null ? String(r.tran_id) : '',
               time_ms: r.time_ms != null ? r.time_ms : r.timestamp,
               asset: r.asset,
-              type: r.type || r.flow_type,
+              type: r.flow_type || r.type,
               amount: r.amount,
             })),
-            source: 'live',
             row_count: block.row_count != null ? block.row_count : block.rows.length,
+            row_limit_applied: !!block.row_limit_applied,
+            last_run: block.last_run || null,
           };
         }
-        return {
-          rows: FLOW_LOG_CAPITAL_FAKE_ROWS.slice(),
-          source: 'fake',
-          row_count: FLOW_LOG_CAPITAL_FAKE_ROWS.length,
-        };
+        return { rows: [], row_count: 0, row_limit_applied: false, last_run: null };
       }
 
       function renderFlowLogCapitalCol(payload) {
@@ -7608,23 +7594,20 @@
         const pack = flowLogCapitalRowsFromPayload(payload);
         const allRows = pack.rows;
         const filteredAll = allRows.filter((r) => flowLogCapitalTypeAllowed(r.type));
-        const rows = filteredAll; // 假数据量小，不做 20 条截断
-        const srcNote =
-          pack.source === 'fake'
-            ? '假数据预览（capital-flow 实盘样本形状）· 未接本地账本'
-            : '本地账本';
-        if (els.flowLogCapitalStatus) {
-          els.flowLogCapitalStatus.textContent =
-            srcNote +
-            ' · 显示 ' +
-            String(rows.length) +
-            ' 条（筛选后 ' +
-            String(filteredAll.length) +
-            ' / 全量 ' +
-            String(pack.row_count) +
-            '）';
-        }
-        // 简易汇总：按 type 计数（假数据不做 Decimal 合计，避免与正式口径混淆）
+        // 与合约资金栏同口径：默认筛选下保持「最近 20 条」；用户改筛选即取消上限
+        // （否则加勾的类型会被全局时间序挤出前 20，勾了也看不到）。
+        const rows = flowLogCapitalFiltersAreDefault()
+          ? flowLogSliceLatest(filteredAll, FLOW_LOG_DEFAULT_DISPLAY_LIMIT)
+          : filteredAll;
+        const last = pack.last_run || null;
+        let status = '本地账本 · 显示 ' + String(rows.length) +
+          ' 条（筛选后 ' + String(filteredAll.length) +
+          ' / 全量 ' + String(pack.row_count) + '）';
+        if (pack.row_limit_applied) status += ' · 后端最多返回 500 条';
+        if (last && last.possibly_incomplete) status += ' · 上次拉取可能不全（满 1000 行）';
+        if (last && last.status === 'error') status += ' · 上次失败：' + flowLogErrorZh(last.error);
+        if (els.flowLogCapitalStatus) els.flowLogCapitalStatus.textContent = status;
+        // 简易汇总：按 type 计数（capital-flow 跨类型金额无统一口径，只计条数）
         const byType = {};
         filteredAll.forEach((r) => {
           const k = r.type || '—';
@@ -7643,7 +7626,7 @@
           .join('');
         if (els.flowLogCapitalSummary) {
           els.flowLogCapitalSummary.innerHTML =
-            '<div class="meta-note">筛选内条数（预览；正式版将按资产/类型汇总金额）</div>' +
+            '<div class="meta-note">筛选内条数（capital-flow 跨类型不计金额合计）</div>' +
             (sumHtml || '<div class="meta-note">无</div>');
         }
         if (!filteredAll.length) {
@@ -7651,8 +7634,10 @@
             '<div class="flow-log-empty">' +
             escapeHtml(
               allRows.length
-                ? '当前类型筛选下无明细（筛选为纯前端）'
-                : '该时间窗无记录'
+                ? '当前类型筛选下无明细'
+                : (last && last.status === 'error')
+                  ? '上次拉取失败：' + flowLogErrorZh(last.error)
+                  : '该时间窗无记录'
             ) +
             '</div>';
           return;

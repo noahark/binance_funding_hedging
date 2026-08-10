@@ -71,6 +71,17 @@ CREATE TABLE IF NOT EXISTS um_income_rows (
 CREATE INDEX IF NOT EXISTS idx_income_time ON um_income_rows(time_ms);
 CREATE INDEX IF NOT EXISTS idx_income_seen ON um_income_rows(first_seen_at_ms);
 
+CREATE TABLE IF NOT EXISTS margin_capital_flow_rows (
+  id               TEXT PRIMARY KEY,
+  tran_id          TEXT NOT NULL,
+  time_ms          INTEGER NOT NULL,
+  asset            TEXT NOT NULL,
+  flow_type        TEXT,
+  amount           TEXT,
+  first_seen_at_ms INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_capital_time ON margin_capital_flow_rows(time_ms);
+
 CREATE TABLE IF NOT EXISTS flow_refresh_runs (
   id                         INTEGER PRIMARY KEY AUTOINCREMENT,
   kind                       TEXT NOT NULL,
@@ -103,6 +114,13 @@ _META_INTEREST_END = "interest_coverage_end_ms"
 _META_INCOME_START = "income_coverage_start_ms"
 _META_INCOME_END = "income_coverage_end_ms"
 _META_COVERAGE_GAPS = "coverage_gaps"
+
+# Cross-margin capital-flow meta (stage 2026-08-10). Fully separate from the
+# two-source coverage above: capital never enters ``flow_refresh_runs`` and
+# never participates in the shared coverage aggregate / gaps list.
+_META_CAPITAL_START = "capital_flow_coverage_start_ms"
+_META_CAPITAL_END = "capital_flow_coverage_end_ms"
+_META_CAPITAL_LAST_RUN = "capital_flow_last_run"
 
 _SCHEMA_VERSION_VALUE = "private-ledger/v2"
 
@@ -317,6 +335,107 @@ class LedgerStore:
                 )
             self._append_gaps_locked(self._conn, new_gaps)
             return {"fetched_row_count": len(rows), "new_row_count": new}
+
+    # ------------------------------------------------------------------ #
+    # cross-margin capital-flow (stage 2026-08-10) — own table + own meta,
+    # fully isolated from flow_refresh_runs / interest / income coverage.
+    # ------------------------------------------------------------------ #
+    def commit_capital_flow(
+        self,
+        *,
+        rows: List[Dict[str, Any]],
+        first_seen_at_ms: int,
+        coverage_start_ms: Optional[int],
+        coverage_end_ms: Optional[int],
+        last_run: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, int]:
+        """Idempotently insert cross-margin capital-flow rows and advance
+        capital coverage + last_run, all in ONE transaction.
+
+        ``ON CONFLICT(id) DO NOTHING`` so an already-stored row is never
+        overwritten (``first_seen_at_ms`` keeps its first value). The same
+        ``tran_id`` with different ``flow_type`` has a different ``id`` and is
+        fully retained — multiple rows per tranId are expected. ``coverage_*``
+        of ``None`` means "do not advance" (a failed pull). ``last_run`` is
+        stamped with the authoritative ``fetched_row_count`` /
+        ``new_row_count`` by this method (the service does not know the new
+        count until the insert runs).
+
+        Never touches ``flow_refresh_runs``, the shared ``coverage_gaps`` list,
+        or the interest/income coverage keys.
+        """
+        with self._lock, self._conn:
+            new = 0
+            for r in rows:
+                cur = self._conn.execute(
+                    "INSERT INTO margin_capital_flow_rows"
+                    " (id, tran_id, time_ms, asset, flow_type, amount,"
+                    "  first_seen_at_ms)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?)"
+                    " ON CONFLICT(id) DO NOTHING",
+                    (
+                        r["id"],
+                        r["tran_id"],
+                        r["time_ms"],
+                        r["asset"],
+                        r.get("flow_type"),
+                        r.get("amount"),
+                        first_seen_at_ms,
+                    ),
+                )
+                new += cur.rowcount
+            if coverage_start_ms is not None:
+                self._upsert_meta_locked(
+                    self._conn, _META_CAPITAL_START, str(coverage_start_ms)
+                )
+            if coverage_end_ms is not None:
+                self._upsert_meta_locked(
+                    self._conn, _META_CAPITAL_END, str(coverage_end_ms)
+                )
+            if last_run is not None:
+                stamped = dict(last_run)
+                stamped["fetched_row_count"] = len(rows)
+                stamped["new_row_count"] = new
+                self._upsert_meta_locked(
+                    self._conn, _META_CAPITAL_LAST_RUN, json.dumps(stamped)
+                )
+            return {"fetched_row_count": len(rows), "new_row_count": new}
+
+    def query_capital_flow_rows(
+        self, start_ms: int, end_ms: int, *, limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """Capital rows in ``[start_ms, end_ms]``, ``(time_ms DESC, id DESC)``.
+        Empty-safe (returns ``[]`` on an empty DB)."""
+        sql = (
+            "SELECT * FROM margin_capital_flow_rows"
+            " WHERE time_ms >= ? AND time_ms <= ?"
+            " ORDER BY time_ms DESC, id DESC"
+        )
+        params: list = [start_ms, end_ms]
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
+        with self._lock:
+            return [dict(r) for r in self._conn.execute(sql, params).fetchall()]
+
+    def get_capital_flow_state(self) -> Dict[str, Any]:
+        """Capital-only coverage + last_run, fully separate from the
+        two-source :meth:`get_coverage`. Returns ``{"start_ms", "end_ms",
+        "last_run"}`` where ``start_ms``/``end_ms`` are ``int | None`` (``None``
+        when capital has never succeeded) and ``last_run`` is the parsed JSON
+        dict or ``None``. Empty-safe."""
+        with self._lock:
+            raw_last = self._get_meta_locked(self._conn, _META_CAPITAL_LAST_RUN)
+            last_run = json.loads(raw_last) if raw_last else None
+            return {
+                "start_ms": _opt_int(
+                    self._get_meta_locked(self._conn, _META_CAPITAL_START)
+                ),
+                "end_ms": _opt_int(
+                    self._get_meta_locked(self._conn, _META_CAPITAL_END)
+                ),
+                "last_run": last_run,
+            }
 
     # ------------------------------------------------------------------ #
     # queries for the service (task B); all empty-safe

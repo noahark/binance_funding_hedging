@@ -74,6 +74,10 @@ WHITELIST: Dict[Tuple[str, str], str] = {
     # the service layer's concern, not the client's.
     ("GET", "/sapi/v1/margin/interestHistory"): "https://api.binance.com",
     ("GET", "/papi/v1/um/income"): "https://papi.binance.com",
+    # Cross-margin capital-flow (stage 2026-08-10-cross-margin-flow-log-v1):
+    # 全仓资金流水；不传 symbol = cross-margin / PM wallet (recon §3.1). sapi,
+    # api host (100 IP weight pool, same as the other sapi flow-log source).
+    ("GET", "/sapi/v1/margin/capital-flow"): "https://api.binance.com",
 }
 
 # Gate B (gate-b-endpoint-recon.md §9): next-hourly single-call `assets` hard
@@ -718,6 +722,31 @@ class PrivateClient:
                 "startTime": str(start_time),
                 "endTime": str(end_time),
                 "page": str(page),
+                "limit": str(limit),
+            },
+        )
+
+    def fetch_capital_flow_page(
+        self, *, start_time: int, end_time: int, limit: int
+    ) -> List[Any]:
+        """Single-page ``GET /sapi/v1/margin/capital-flow`` (全仓, no ``symbol``).
+
+        Cross-margin (PM-wallet) flow is selected by OMITTING ``symbol``
+        (recon §3.1); a per-symbol query would be isolated-margin and is a
+        non-goal. Returns the raw array ``[...]`` (no envelope). ``limit`` is
+        capped at 1000 (recon §3.1); the caller passes 1000 and treats a FULL
+        page (== limit) as "possibly incomplete". NO ``fromId`` paging is done
+        — by design the service pulls a single page per window (stage plan
+        §4.1.2 / non-goal §4.3). Same discipline as the other two flow-log
+        fetchers: no ``last_error`` write, no TTL cache, raises
+        ``PrivateEndpointError`` on a non-2xx response.
+        """
+        return self._signed_get(
+            "GET",
+            "/sapi/v1/margin/capital-flow",
+            {
+                "startTime": str(start_time),
+                "endTime": str(end_time),
                 "limit": str(limit),
             },
         )

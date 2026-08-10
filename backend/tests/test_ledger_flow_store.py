@@ -319,3 +319,124 @@ def test_reopen_existing_db_is_idempotent(tmp_path):
     assert s2.get_meta("schema_version") == "private-ledger/v2"
     assert len(s2.query_interest_rows(0, 10_000_000_000)) == 1
     s2.close()
+
+
+# --------------------------------------------------------------------------- #
+# cross-margin capital-flow (stage 2026-08-10) — isolated table + own meta
+# --------------------------------------------------------------------------- #
+def _cap(row_id, ms, tran_id="399258471825", asset="USDT", ftype="TRANSFER",
+         amount="10"):
+    return {"id": str(row_id), "tran_id": str(tran_id), "time_ms": ms,
+            "asset": asset, "flow_type": ftype, "amount": amount}
+
+
+def test_capital_table_created(store):
+    names = {r[0] for r in store._conn.execute(
+        "SELECT name FROM sqlite_master WHERE type IN ('table','index')")}
+    assert "margin_capital_flow_rows" in names
+    assert "idx_capital_time" in names
+
+
+def test_capital_amount_column_is_text(store):
+    cols = {r[1]: r[2] for r in store._conn.execute(
+        "PRAGMA table_info(margin_capital_flow_rows)")}
+    for c in ("amount", "id", "tran_id", "asset", "flow_type"):
+        assert cols[c] == "TEXT", f"margin_capital_flow_rows.{c} must be TEXT"
+
+
+def test_capital_commit_idempotent_no_overwrite(store):
+    r1 = store.commit_capital_flow(
+        rows=[_cap("601", 100)], first_seen_at_ms=1000,
+        coverage_start_ms=0, coverage_end_ms=2000,
+        last_run={"status": "ok"})
+    assert r1 == {"fetched_row_count": 1, "new_row_count": 1}
+    # re-insert the SAME id under a later clock -> new=0, first_seen kept.
+    r2 = store.commit_capital_flow(
+        rows=[_cap("601", 100)], first_seen_at_ms=9999,
+        coverage_start_ms=None, coverage_end_ms=None)
+    assert r2 == {"fetched_row_count": 1, "new_row_count": 0}
+    got = store.query_capital_flow_rows(0, 10_000_000_000)
+    assert len(got) == 1 and got[0]["first_seen_at_ms"] == 1000  # NOT overwritten
+
+
+def test_capital_multi_type_same_tranid_all_retained(store):
+    # same tranId, different flow_type, different id -> all kept (recon §3.3).
+    store.commit_capital_flow(
+        rows=[_cap("601", 100, ftype="SELL_INCOME", amount="16.533"),
+              _cap("602", 100, asset="WLD", ftype="SELL_EXPENSE", amount="-49.5")],
+        first_seen_at_ms=1000, coverage_start_ms=0, coverage_end_ms=2000)
+    rows = store.query_capital_flow_rows(0, 10_000_000_000)
+    assert {r["id"] for r in rows} == {"601", "602"}
+    assert {r["tran_id"] for r in rows} == {"399258471825"}  # both share tranId
+
+
+def test_capital_coverage_and_last_run_stamped(store):
+    out = store.commit_capital_flow(
+        rows=[_cap("601", 100), _cap("602", 200)],
+        first_seen_at_ms=1500, coverage_start_ms=0, coverage_end_ms=2000,
+        last_run={"finished_at_ms": 1500, "status": "ok", "error": None,
+                  "possibly_incomplete": True, "window_start_ms": 0,
+                  "window_end_ms": 2000})
+    # store stamps the authoritative fetched/new counts into last_run.
+    assert out == {"fetched_row_count": 2, "new_row_count": 2}
+    state = store.get_capital_flow_state()
+    assert state["start_ms"] == 0 and state["end_ms"] == 2000
+    assert state["last_run"]["fetched_row_count"] == 2
+    assert state["last_run"]["new_row_count"] == 2
+    assert state["last_run"]["possibly_incomplete"] is True
+
+
+def test_capital_failed_pull_advances_nothing(store):
+    # coverage_*=None on a failed pull -> coverage stays None, last_run still
+    # recorded (error trace) but fetched/new stamped to 0.
+    store.commit_capital_flow(
+        rows=[], first_seen_at_ms=1500, coverage_start_ms=None,
+        coverage_end_ms=None,
+        last_run={"finished_at_ms": 1500, "status": "error",
+                  "error": "capital_flow_failed", "possibly_incomplete": False})
+    state = store.get_capital_flow_state()
+    assert state["start_ms"] is None and state["end_ms"] is None
+    assert state["last_run"]["status"] == "error"
+    assert state["last_run"]["new_row_count"] == 0
+
+
+def test_capital_empty_db_state_safe(store):
+    state = store.get_capital_flow_state()
+    assert state == {"start_ms": None, "end_ms": None, "last_run": None}
+    assert store.query_capital_flow_rows(0, 10_000_000_000) == []
+
+
+def test_capital_query_window_desc_and_limit(store):
+    store.commit_capital_flow(
+        rows=[_cap(str(i), 100 + i) for i in range(5)],
+        first_seen_at_ms=1500, coverage_start_ms=0, coverage_end_ms=2000)
+    full = store.query_capital_flow_rows(0, 10_000_000_000)
+    assert [r["time_ms"] for r in full] == sorted(
+        (r["time_ms"] for r in full), reverse=True)  # DESC by time
+    limited = store.query_capital_flow_rows(0, 10_000_000_000, limit=2)
+    assert len(limited) == 2
+
+
+def test_capital_isolated_from_two_source_coverage(store):
+    # Writing capital must NOT touch flow_refresh_runs, the shared
+    # coverage_gaps, or interest/income coverage (P0-1/P0-2 isolation).
+    run_id = store.insert_run(_run())
+    store.commit_income(rows=[_income("1", 100)], run_id=run_id,
+                        first_seen_at_ms=1500, coverage_start_ms=100,
+                        coverage_end_ms=200)
+    store.commit_capital_flow(
+        rows=[_cap("601", 150)], first_seen_at_ms=1500,
+        coverage_start_ms=0, coverage_end_ms=2000,
+        last_run={"status": "ok"})
+    # the two-source coverage is byte-identical to a capital-less baseline:
+    cov = store.get_coverage()
+    assert set(cov.keys()) == {"interest_start_ms", "interest_end_ms",
+                               "income_start_ms", "income_end_ms", "gaps"}
+    assert cov["interest_start_ms"] is None          # never set
+    assert cov["income_start_ms"] == 100 and cov["income_end_ms"] == 200
+    assert cov["gaps"] == []
+    # the shared run table has exactly ONE row (the interest/income run), and
+    # it carries NO capital column (zero-migration):
+    assert len(store.recent_runs(5)) == 1
+    cols = {r[1] for r in store._conn.execute("PRAGMA table_info(flow_refresh_runs)")}
+    assert not any("capital" in c for c in cols)

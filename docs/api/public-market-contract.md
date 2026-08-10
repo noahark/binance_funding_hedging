@@ -1389,7 +1389,7 @@ snapshot cadence, cache-refresh, and every existing endpoint are unchanged.
 ### `GET flow-log` 200 response (`schema_version: "private-ledger/v2"`)
 
 Top-level: `schema_version`, `served_at_ms`, `scheduler_enabled`, `window{start_ms,end_ms}`,
-`coverage`, `last_run`, `delta`, `today`, `interest`, `um_income`.
+`coverage`, `last_run`, `delta`, `today`, `interest`, `um_income`, `capital_flow`.
 
 - **`scheduler_enabled`** (bool): whether the hourly cadence thread has started.
   `false` when the private channel is off / offline (§15.3). History is still
@@ -1470,7 +1470,7 @@ next run). Error short codes: `interest_history_failed`, `um_income_failed`,
 
 | Case | Status | Body |
 |---|---|---|
-| done (panes may differ) | `200` | `{run_id, kind:"manual", finished_at_ms, interest_status, interest_error, interest_new_row_count, income_status, income_error, income_new_row_count, truncated}` |
+| done (panes may differ) | `200` | `{run_id, kind:"manual", finished_at_ms, interest_status, interest_error, interest_new_row_count, income_status, income_error, income_new_row_count, truncated, capital_flow:{status,error,fetched_row_count,new_row_count,possibly_incomplete}}` |
 | a run is in flight | `429` | `{"error":"flow_log_busy","detail":"另一次流水拉取正在进行"}` |
 | private channel off | `409` | `{"error":"private_channel_disabled","detail":"私有只读通道未启用"}` |
 | service not wired | `503` | `{"error":"flow_log_unavailable","detail":"…"}` |
@@ -1479,6 +1479,50 @@ next run). Error short codes: `interest_history_failed`, `um_income_failed`,
 count consecutive most-recent runs where either pane is `error`, stopping at the
 first run with neither pane in error; `disabled` is not a failure; no runs ⇒ `0`.
 It is not a stored column.
+
+### Cross-margin capital-flow source (additive, stage `2026-08-10-cross-margin-flow-log-v1`)
+
+A third read-only ledger source added to `GET flow-log` as an **additive**
+top-level block. `schema_version` stays `private-ledger/v2` (NOT bumped). The
+middle pane renders it between interest and `um_income`.
+
+- **Endpoint.** `GET /sapi/v1/margin/capital-flow` (sapi, `api.binance.com`,
+  100 IP weight). **全仓**: `symbol` is OMITTED (cross-margin / PM wallet);
+  per-symbol (isolated) is a non-goal. Response is a bare JSON array; each row
+  has `id, tranId, timestamp, asset, type, amount` (`amount` signed: `+` into
+  the cross-margin wallet, `−` out — the recon is from the cross-margin
+  wallet's viewpoint, so MAIN↔UM/CM direct transfers that bypass it do not
+  appear here).
+- **Single page, no paging.** One request per run, `limit=1000`, **no
+  `fromId`** paging, no 7-day slicing. A full page (`== 1000`) sets
+  `possibly_incomplete: true` (a flag, not a failure); the next hourly run's
+  3h overlap re-pulls. Window: first-ever `[now-1d, now]`; thereafter
+  `[capital_flow_coverage_end_ms - 3h, now]`.
+- **`capital_flow` block**: `{rows (≤500, time-desc), row_count,
+  row_limit_applied, last_run}`. `last_run` is capital's own run state
+  (`{finished_at_ms, status, error, fetched_row_count, new_row_count,
+  possibly_incomplete, window_start_ms, window_end_ms}` or `null` when never
+  pulled) — it is NOT the two-source `last_run`. There is **no** Decimal
+  amount summary: summing capital `amount` across `type` values has no clear
+  product meaning, so the pane shows a per-type row COUNT only.
+- **Hard isolation.** Capital lives in its own table
+  (`margin_capital_flow_rows`, PK `id`) and its own `ledger_meta` keys
+  (`capital_flow_coverage_start_ms` / `_end_ms` / `_last_run`). It **never**
+  enters `flow_refresh_runs` (no new column, no new row), the shared
+  `coverage_gaps` list, the coverage **aggregate** (`start_ms`/`end_ms`/
+  `complete`/`pending_tail_ms`), the delta baseline, success-run
+  classification, or the two-source `last_run`. A capital failure is recorded
+  only in capital's own `last_run` and advances nothing; the interest/income
+  run is unaffected. The cross-margin idempotency key is `id` (a Binance flow
+  id); the same `tranId` with different `type` has different `id` and is fully
+  retained (multiple rows per tranId).
+- **`coverage.by_source.capital_flow`** is display-only (`{start_ms, end_ms}`
+  or `null`); it is merged in AFTER the two-source aggregate is computed, so
+  `coverage_for_window` — the gate the hedging net-PnL display consumes — is
+  provably unchanged whether capital never succeeded or is failing. Empty
+  state: `by_source.capital_flow: null`, `capital_flow: {rows:[], row_count:0,
+  last_run:null}` (empty-state, NOT an error state). Error short code:
+  `capital_flow_failed` (plus `rate_limited` / `capital_internal_error`).
 
 
 ## Asset Transfer Amendment (v0.13, stage `2026-08-06-asset-transfer-live-v1`)

@@ -605,6 +605,7 @@ function buildMockFlowLogPayload(overrides) {
       by_source: {
         interest: { start_ms: now - 10 * day, end_ms: now - 30 * 60000 },
         income: { start_ms: now - 10 * day, end_ms: now - 30 * 60000 },
+        capital_flow: { start_ms: now - 1 * day, end_ms: now - 30 * 60000 },
       },
       gaps: [],
     },
@@ -660,6 +661,28 @@ function buildMockFlowLogPayload(overrides) {
       ],
       row_count: 25,
       row_limit_applied: false,
+    },
+    capital_flow: {
+      rows: [
+        { id: '159745763323', tran_id: '399260348988', time_ms: now - 600000,
+          asset: 'USDT', flow_type: 'TRANSFER', amount: '10' },
+        { id: '159745756972', tran_id: '399260281458', time_ms: now - 1200000,
+          asset: 'USDT', flow_type: 'TRANSFER', amount: '-10' },
+        { id: '159745608216', tran_id: '399258959843', time_ms: now - 3600000,
+          asset: 'WLD', flow_type: 'REPAY', amount: '-400.46529829' },
+      ],
+      row_count: 3,
+      row_limit_applied: false,
+      last_run: {
+        finished_at_ms: now - 60000,
+        status: 'ok',
+        error: null,
+        fetched_row_count: 3,
+        new_row_count: 3,
+        possibly_incomplete: false,
+        window_start_ms: now - 1 * day,
+        window_end_ms: now - 60000,
+      },
     },
   };
   if (!overrides) return base;
