@@ -1,0 +1,361 @@
+{
+  "captured_at_utc": "20260810T062742Z",
+  "captured_at_cst": "2026-08-10 14:27:53 CST",
+  "nature": "read-only signed GET recon; no order/transfer/gate change",
+  "primary_path": "/papi/v1/margin/marginAccountFlow",
+  "local_transfer_tranIds_checked": [
+    "399260348988",
+    "399260281458",
+    "399216264416"
+  ],
+  "probes": [
+    {
+      "name": "papi_marginAccountFlow__default_no_time",
+      "path": "/papi/v1/margin/marginAccountFlow",
+      "params": {},
+      "status": 404,
+      "ok": false,
+      "latency_ms": 594,
+      "body_bytes": 1434,
+      "analysis_row_count": null,
+      "by_type": null,
+      "local_matches": null,
+      "error": {
+        "_raw": "<!DOCTYPE html>\n<!-- saved from url=(0032)https://www.binance.com/en/error -->\n<html>\n\n<head>\n  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n\n  <meta name=\"format-detection\" content=\"telephone=no,email=no,address=no\">\n  <title>Binance</title>\n  <link rel=\"Shortcut Icon\" href=\"https://www.binance.com/en/favicon.ico\">\n  <style>\n    body {\n      margin: 0\n    }\n\n    .img {\n      width: 611px;\n      margin: 68px auto 0\n    }\n\n    .info {\n      width: 370px;\n      margin: 0 auto;\n      text-align: center;\n      font-family: Arial;\n    }\n\n    .info h3 {\n      margin: 0;\n      font-size: 25px;\n      color: #333;\n      font-weight: normal;\n    }\n\n    .info p {\n      font-size: 14px;\n      font-family: Arial;\n      color: #333;\n      line-height: 18px;\n      margin: 0\n    }\n\n"
+      },
+      "top_keys": null,
+      "shape_kind": null
+    },
+    {
+      "name": "papi_marginAccountFlow__last_1d",
+      "path": "/papi/v1/margin/marginAccountFlow",
+      "params": {
+        "startTime": "1786256862321",
+        "endTime": "1786343262321"
+      },
+      "status": 404,
+      "ok": false,
+      "latency_ms": 469,
+      "body_bytes": 1434,
+      "analysis_row_count": null,
+      "by_type": null,
+      "local_matches": null,
+      "error": {
+        "_raw": "<!DOCTYPE html>\n<!-- saved from url=(0032)https://www.binance.com/en/error -->\n<html>\n\n<head>\n  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n\n  <meta name=\"format-detection\" content=\"telephone=no,email=no,address=no\">\n  <title>Binance</title>\n  <link rel=\"Shortcut Icon\" href=\"https://www.binance.com/en/favicon.ico\">\n  <style>\n    body {\n      margin: 0\n    }\n\n    .img {\n      width: 611px;\n      margin: 68px auto 0\n    }\n\n    .info {\n      width: 370px;\n      margin: 0 auto;\n      text-align: center;\n      font-family: Arial;\n    }\n\n    .info h3 {\n      margin: 0;\n      font-size: 25px;\n      color: #333;\n      font-weight: normal;\n    }\n\n    .info p {\n      font-size: 14px;\n      font-family: Arial;\n      color: #333;\n      line-height: 18px;\n      margin: 0\n    }\n\n"
+      },
+      "top_keys": null,
+      "shape_kind": null
+    },
+    {
+      "name": "papi_marginAccountFlow__last_7d",
+      "path": "/papi/v1/margin/marginAccountFlow",
+      "params": {
+        "startTime": "1785738462321",
+        "endTime": "1786343262321"
+      },
+      "status": 404,
+      "ok": false,
+      "latency_ms": 495,
+      "body_bytes": 1434,
+      "analysis_row_count": null,
+      "by_type": null,
+      "local_matches": null,
+      "error": {
+        "_raw": "<!DOCTYPE html>\n<!-- saved from url=(0032)https://www.binance.com/en/error -->\n<html>\n\n<head>\n  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n\n  <meta name=\"format-detection\" content=\"telephone=no,email=no,address=no\">\n  <title>Binance</title>\n  <link rel=\"Shortcut Icon\" href=\"https://www.binance.com/en/favicon.ico\">\n  <style>\n    body {\n      margin: 0\n    }\n\n    .img {\n      width: 611px;\n      margin: 68px auto 0\n    }\n\n    .info {\n      width: 370px;\n      margin: 0 auto;\n      text-align: center;\n      font-family: Arial;\n    }\n\n    .info h3 {\n      margin: 0;\n      font-size: 25px;\n      color: #333;\n      font-weight: normal;\n    }\n\n    .info p {\n      font-size: 14px;\n      font-family: Arial;\n      color: #333;\n      line-height: 18px;\n      margin: 0\n    }\n\n"
+      },
+      "top_keys": null,
+      "shape_kind": null
+    },
+    {
+      "name": "papi_marginAccountFlow__last_7d_limit_100",
+      "path": "/papi/v1/margin/marginAccountFlow",
+      "params": {
+        "startTime": "1785738462321",
+        "endTime": "1786343262321",
+        "limit": "100"
+      },
+      "status": 404,
+      "ok": false,
+      "latency_ms": 564,
+      "body_bytes": 1434,
+      "analysis_row_count": null,
+      "by_type": null,
+      "local_matches": null,
+      "error": {
+        "_raw": "<!DOCTYPE html>\n<!-- saved from url=(0032)https://www.binance.com/en/error -->\n<html>\n\n<head>\n  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n\n  <meta name=\"format-detection\" content=\"telephone=no,email=no,address=no\">\n  <title>Binance</title>\n  <link rel=\"Shortcut Icon\" href=\"https://www.binance.com/en/favicon.ico\">\n  <style>\n    body {\n      margin: 0\n    }\n\n    .img {\n      width: 611px;\n      margin: 68px auto 0\n    }\n\n    .info {\n      width: 370px;\n      margin: 0 auto;\n      text-align: center;\n      font-family: Arial;\n    }\n\n    .info h3 {\n      margin: 0;\n      font-size: 25px;\n      color: #333;\n      font-weight: normal;\n    }\n\n    .info p {\n      font-size: 14px;\n      font-family: Arial;\n      color: #333;\n      line-height: 18px;\n      margin: 0\n    }\n\n"
+      },
+      "top_keys": null,
+      "shape_kind": null
+    },
+    {
+      "name": "papi_marginAccountFlow__last_7d_type_TRANSFER",
+      "path": "/papi/v1/margin/marginAccountFlow",
+      "params": {
+        "startTime": "1785738462321",
+        "endTime": "1786343262321",
+        "type": "TRANSFER"
+      },
+      "status": 404,
+      "ok": false,
+      "latency_ms": 401,
+      "body_bytes": 1434,
+      "analysis_row_count": null,
+      "by_type": null,
+      "local_matches": null,
+      "error": {
+        "_raw": "<!DOCTYPE html>\n<!-- saved from url=(0032)https://www.binance.com/en/error -->\n<html>\n\n<head>\n  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n\n  <meta name=\"format-detection\" content=\"telephone=no,email=no,address=no\">\n  <title>Binance</title>\n  <link rel=\"Shortcut Icon\" href=\"https://www.binance.com/en/favicon.ico\">\n  <style>\n    body {\n      margin: 0\n    }\n\n    .img {\n      width: 611px;\n      margin: 68px auto 0\n    }\n\n    .info {\n      width: 370px;\n      margin: 0 auto;\n      text-align: center;\n      font-family: Arial;\n    }\n\n    .info h3 {\n      margin: 0;\n      font-size: 25px;\n      color: #333;\n      font-weight: normal;\n    }\n\n    .info p {\n      font-size: 14px;\n      font-family: Arial;\n      color: #333;\n      line-height: 18px;\n      margin: 0\n    }\n\n"
+      },
+      "top_keys": null,
+      "shape_kind": null
+    },
+    {
+      "name": "papi_marginAccountFlow__asset_USDT_7d",
+      "path": "/papi/v1/margin/marginAccountFlow",
+      "params": {
+        "startTime": "1785738462321",
+        "endTime": "1786343262321",
+        "asset": "USDT"
+      },
+      "status": 404,
+      "ok": false,
+      "latency_ms": 890,
+      "body_bytes": 1434,
+      "analysis_row_count": null,
+      "by_type": null,
+      "local_matches": null,
+      "error": {
+        "_raw": "<!DOCTYPE html>\n<!-- saved from url=(0032)https://www.binance.com/en/error -->\n<html>\n\n<head>\n  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n\n  <meta name=\"format-detection\" content=\"telephone=no,email=no,address=no\">\n  <title>Binance</title>\n  <link rel=\"Shortcut Icon\" href=\"https://www.binance.com/en/favicon.ico\">\n  <style>\n    body {\n      margin: 0\n    }\n\n    .img {\n      width: 611px;\n      margin: 68px auto 0\n    }\n\n    .info {\n      width: 370px;\n      margin: 0 auto;\n      text-align: center;\n      font-family: Arial;\n    }\n\n    .info h3 {\n      margin: 0;\n      font-size: 25px;\n      color: #333;\n      font-weight: normal;\n    }\n\n    .info p {\n      font-size: 14px;\n      font-family: Arial;\n      color: #333;\n      line-height: 18px;\n      margin: 0\n    }\n\n"
+      },
+      "top_keys": null,
+      "shape_kind": null
+    },
+    {
+      "name": "alt__papi_v1_margin_capital-flow",
+      "path": "/papi/v1/margin/capital-flow",
+      "params": {
+        "startTime": "1785738462321",
+        "endTime": "1786343262321",
+        "limit": "50"
+      },
+      "status": 404,
+      "ok": false,
+      "latency_ms": 888,
+      "body_bytes": 1434,
+      "analysis_row_count": null,
+      "by_type": null,
+      "local_matches": null,
+      "error": {
+        "_raw": "<!DOCTYPE html>\n<!-- saved from url=(0032)https://www.binance.com/en/error -->\n<html>\n\n<head>\n  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n\n  <meta name=\"format-detection\" content=\"telephone=no,email=no,address=no\">\n  <title>Binance</title>\n  <link rel=\"Shortcut Icon\" href=\"https://www.binance.com/en/favicon.ico\">\n  <style>\n    body {\n      margin: 0\n    }\n\n    .img {\n      width: 611px;\n      margin: 68px auto 0\n    }\n\n    .info {\n      width: 370px;\n      margin: 0 auto;\n      text-align: center;\n      font-family: Arial;\n    }\n\n    .info h3 {\n      margin: 0;\n      font-size: 25px;\n      color: #333;\n      font-weight: normal;\n    }\n\n    .info p {\n      font-size: 14px;\n      font-family: Arial;\n      color: #333;\n      line-height: 18px;\n      margin: 0\n    }\n\n"
+      },
+      "top_keys": null,
+      "shape_kind": null
+    },
+    {
+      "name": "alt__papi_v1_margin_capitalFlow",
+      "path": "/papi/v1/margin/capitalFlow",
+      "params": {
+        "startTime": "1785738462321",
+        "endTime": "1786343262321",
+        "limit": "50"
+      },
+      "status": 404,
+      "ok": false,
+      "latency_ms": 883,
+      "body_bytes": 1434,
+      "analysis_row_count": null,
+      "by_type": null,
+      "local_matches": null,
+      "error": {
+        "_raw": "<!DOCTYPE html>\n<!-- saved from url=(0032)https://www.binance.com/en/error -->\n<html>\n\n<head>\n  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n\n  <meta name=\"format-detection\" content=\"telephone=no,email=no,address=no\">\n  <title>Binance</title>\n  <link rel=\"Shortcut Icon\" href=\"https://www.binance.com/en/favicon.ico\">\n  <style>\n    body {\n      margin: 0\n    }\n\n    .img {\n      width: 611px;\n      margin: 68px auto 0\n    }\n\n    .info {\n      width: 370px;\n      margin: 0 auto;\n      text-align: center;\n      font-family: Arial;\n    }\n\n    .info h3 {\n      margin: 0;\n      font-size: 25px;\n      color: #333;\n      font-weight: normal;\n    }\n\n    .info p {\n      font-size: 14px;\n      font-family: Arial;\n      color: #333;\n      line-height: 18px;\n      margin: 0\n    }\n\n"
+      },
+      "top_keys": null,
+      "shape_kind": null
+    },
+    {
+      "name": "alt__papi_v1_margin_flow",
+      "path": "/papi/v1/margin/flow",
+      "params": {
+        "startTime": "1785738462321",
+        "endTime": "1786343262321",
+        "limit": "50"
+      },
+      "status": 404,
+      "ok": false,
+      "latency_ms": 467,
+      "body_bytes": 1434,
+      "analysis_row_count": null,
+      "by_type": null,
+      "local_matches": null,
+      "error": {
+        "_raw": "<!DOCTYPE html>\n<!-- saved from url=(0032)https://www.binance.com/en/error -->\n<html>\n\n<head>\n  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n\n  <meta name=\"format-detection\" content=\"telephone=no,email=no,address=no\">\n  <title>Binance</title>\n  <link rel=\"Shortcut Icon\" href=\"https://www.binance.com/en/favicon.ico\">\n  <style>\n    body {\n      margin: 0\n    }\n\n    .img {\n      width: 611px;\n      margin: 68px auto 0\n    }\n\n    .info {\n      width: 370px;\n      margin: 0 auto;\n      text-align: center;\n      font-family: Arial;\n    }\n\n    .info h3 {\n      margin: 0;\n      font-size: 25px;\n      color: #333;\n      font-weight: normal;\n    }\n\n    .info p {\n      font-size: 14px;\n      font-family: Arial;\n      color: #333;\n      line-height: 18px;\n      margin: 0\n    }\n\n"
+      },
+      "top_keys": null,
+      "shape_kind": null
+    },
+    {
+      "name": "alt__sapi_v1_margin_capital-flow",
+      "path": "/sapi/v1/margin/capital-flow",
+      "params": {
+        "startTime": "1785738462321",
+        "endTime": "1786343262321",
+        "limit": "50"
+      },
+      "status": 200,
+      "ok": true,
+      "latency_ms": 403,
+      "body_bytes": 6110,
+      "analysis_row_count": 50,
+      "by_type": {
+        "TRANSFER": 13,
+        "TRADING_COMMISSION": 9,
+        "SELL_INCOME": 3,
+        "SELL_EXPENSE": 2,
+        "REPAY": 4,
+        "BUY_LIQUIDATION": 2,
+        "SMALL_CONVERT": 4,
+        "BUY_EXPENSE": 5,
+        "BUY_INCOME": 5,
+        "BORROW": 3
+      },
+      "local_matches": [
+        {
+          "local_tran": "399260348988",
+          "direction": "spot->unified",
+          "row_type": "TRANSFER",
+          "asset": "USDT",
+          "amount_raw_present": true
+        },
+        {
+          "local_tran": "399260281458",
+          "direction": "unified->spot",
+          "row_type": "TRANSFER",
+          "asset": "USDT",
+          "amount_raw_present": true
+        },
+        {
+          "local_tran": "399216264416",
+          "direction": "spot->unified",
+          "row_type": "TRANSFER",
+          "asset": "USDT",
+          "amount_raw_present": true
+        }
+      ],
+      "error": null,
+      "top_keys": null,
+      "shape_kind": "array"
+    },
+    {
+      "name": "sapi_asset_transfer__default",
+      "path": "/sapi/v1/asset/transfer",
+      "params": {},
+      "status": 400,
+      "ok": false,
+      "latency_ms": 611,
+      "body_bytes": 93,
+      "analysis_row_count": null,
+      "by_type": null,
+      "local_matches": null,
+      "error": {
+        "code": -1102,
+        "msg": "Mandatory parameter 'type' was not sent, was empty/null, or malformed."
+      },
+      "top_keys": null,
+      "shape_kind": null
+    },
+    {
+      "name": "sapi_asset_transfer__7d",
+      "path": "/sapi/v1/asset/transfer",
+      "params": {
+        "startTime": "1785738462321",
+        "endTime": "1786343262321",
+        "size": "100"
+      },
+      "status": 400,
+      "ok": false,
+      "latency_ms": 284,
+      "body_bytes": 93,
+      "analysis_row_count": null,
+      "by_type": null,
+      "local_matches": null,
+      "error": {
+        "code": -1102,
+        "msg": "Mandatory parameter 'type' was not sent, was empty/null, or malformed."
+      },
+      "top_keys": null,
+      "shape_kind": null
+    },
+    {
+      "name": "sapi_asset_transfer__type_MAIN_PORTFOLIO_MARGIN",
+      "path": "/sapi/v1/asset/transfer",
+      "params": {
+        "type": "MAIN_PORTFOLIO_MARGIN",
+        "startTime": "1785738462321",
+        "endTime": "1786343262321",
+        "size": "100"
+      },
+      "status": 200,
+      "ok": true,
+      "latency_ms": 429,
+      "body_bytes": 1223,
+      "analysis_row_count": 9,
+      "by_type": {
+        "MAIN_PORTFOLIO_MARGIN": 9
+      },
+      "local_matches": [
+        {
+          "local_tran": "399260348988",
+          "direction": "spot->unified",
+          "row_type": "MAIN_PORTFOLIO_MARGIN",
+          "asset": "USDT",
+          "amount_raw_present": true
+        },
+        {
+          "local_tran": "399216264416",
+          "direction": "spot->unified",
+          "row_type": "MAIN_PORTFOLIO_MARGIN",
+          "asset": "USDT",
+          "amount_raw_present": true
+        }
+      ],
+      "error": null,
+      "top_keys": [
+        "total",
+        "rows"
+      ],
+      "shape_kind": "object"
+    },
+    {
+      "name": "sapi_asset_transfer__type_PORTFOLIO_MARGIN_MAIN",
+      "path": "/sapi/v1/asset/transfer",
+      "params": {
+        "type": "PORTFOLIO_MARGIN_MAIN",
+        "startTime": "1785738462321",
+        "endTime": "1786343262321",
+        "size": "100"
+      },
+      "status": 200,
+      "ok": true,
+      "latency_ms": 288,
+      "body_bytes": 1350,
+      "analysis_row_count": 10,
+      "by_type": {
+        "PORTFOLIO_MARGIN_MAIN": 10
+      },
+      "local_matches": [
+        {
+          "local_tran": "399260281458",
+          "direction": "unified->spot",
+          "row_type": "PORTFOLIO_MARGIN_MAIN",
+          "asset": "USDT",
+          "amount_raw_present": true
+        }
+      ],
+      "error": null,
+      "top_keys": [
+        "total",
+        "rows"
+      ],
+      "shape_kind": "object"
+    }
+  ]
+}

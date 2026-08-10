@@ -1,0 +1,197 @@
+{
+  "meta": {
+    "name": "alt__sapi_v1_margin_capital-flow",
+    "method": "GET",
+    "base": "https://api.binance.com",
+    "path": "/sapi/v1/margin/capital-flow",
+    "params_logical": {
+      "startTime": "1785738462321",
+      "endTime": "1786343262321",
+      "limit": "50"
+    },
+    "status": 200,
+    "ok": true,
+    "latency_ms": 403,
+    "headers": {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Date": "Mon, 10 Aug 2026 06:27:50 GMT",
+      "X-SAPI-USED-IP-WEIGHT-1M": "100"
+    },
+    "body_bytes": 6110
+  },
+  "shape": {
+    "kind": "array",
+    "len": 50,
+    "keys_in_first_50": {
+      "id": 50,
+      "tranId": 50,
+      "timestamp": 50,
+      "asset": 50,
+      "type": 50,
+      "amount": 50
+    },
+    "type_tags_first_50": {
+      "id:int": 50,
+      "tranId:int": 50,
+      "timestamp:int": 50,
+      "asset:str": 50,
+      "type:str": 50,
+      "amount:str": 50
+    },
+    "type_values_first_50": {
+      "TRANSFER": 13,
+      "TRADING_COMMISSION": 9,
+      "SELL_INCOME": 3,
+      "SELL_EXPENSE": 2,
+      "REPAY": 4,
+      "BUY_LIQUIDATION": 2,
+      "SMALL_CONVERT": 4,
+      "BUY_EXPENSE": 5,
+      "BUY_INCOME": 5,
+      "BORROW": 3
+    },
+    "item0_redacted": {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1786341345000,
+      "asset": "USDT",
+      "type": "TRANSFER",
+      "amount": "<AMOUNT>"
+    },
+    "item_last_redacted": {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1786038603000,
+      "asset": "USDT",
+      "type": "SELL_INCOME",
+      "amount": "<AMOUNT>"
+    }
+  },
+  "analysis": {
+    "row_count": 50,
+    "type_field": "type",
+    "by_type": {
+      "TRANSFER": 13,
+      "TRADING_COMMISSION": 9,
+      "SELL_INCOME": 3,
+      "SELL_EXPENSE": 2,
+      "REPAY": 4,
+      "BUY_LIQUIDATION": 2,
+      "SMALL_CONVERT": 4,
+      "BUY_EXPENSE": 5,
+      "BUY_INCOME": 5,
+      "BORROW": 3
+    },
+    "by_asset_top": {
+      "USDT": 24,
+      "BNB": 9,
+      "WLD": 9,
+      "XLM": 4,
+      "INJ": 4
+    },
+    "time_min": "2026-08-07 01:50:03 CST",
+    "time_max": "2026-08-10 13:55:45 CST",
+    "time_min_ms": 1786038603000,
+    "time_max_ms": 1786341345000,
+    "local_transfer_matches": [
+      {
+        "local_tran": "399260348988",
+        "direction": "spot->unified",
+        "row_type": "TRANSFER",
+        "asset": "USDT",
+        "amount_raw_present": true
+      },
+      {
+        "local_tran": "399260281458",
+        "direction": "unified->spot",
+        "row_type": "TRANSFER",
+        "asset": "USDT",
+        "amount_raw_present": true
+      },
+      {
+        "local_tran": "399216264416",
+        "direction": "spot->unified",
+        "row_type": "TRANSFER",
+        "asset": "USDT",
+        "amount_raw_present": true
+      }
+    ],
+    "fields_union": [
+      "amount",
+      "asset",
+      "id",
+      "timestamp",
+      "tranId",
+      "type"
+    ]
+  },
+  "error": null,
+  "rows_redacted_head": [
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1786341345000,
+      "asset": "USDT",
+      "type": "TRANSFER",
+      "amount": "<AMOUNT>"
+    },
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1786341331000,
+      "asset": "USDT",
+      "type": "TRANSFER",
+      "amount": "<AMOUNT>"
+    },
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1786341080000,
+      "asset": "BNB",
+      "type": "TRADING_COMMISSION",
+      "amount": "<AMOUNT>"
+    },
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1786341080000,
+      "asset": "USDT",
+      "type": "SELL_INCOME",
+      "amount": "<AMOUNT>"
+    },
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1786341080000,
+      "asset": "WLD",
+      "type": "SELL_EXPENSE",
+      "amount": "<AMOUNT>"
+    }
+  ],
+  "rows_redacted_tail": [
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1786038604000,
+      "asset": "WLD",
+      "type": "SELL_EXPENSE",
+      "amount": "<AMOUNT>"
+    },
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1786038603000,
+      "asset": "BNB",
+      "type": "TRADING_COMMISSION",
+      "amount": "<AMOUNT>"
+    },
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1786038603000,
+      "asset": "USDT",
+      "type": "SELL_INCOME",
+      "amount": "<AMOUNT>"
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "name": "capital_flow_type_BORROW",
+  "path": "/sapi/v1/margin/capital-flow",
+  "row_count": 8,
+  "fields": [
+    "amount",
+    "asset",
+    "id",
+    "timestamp",
+    "tranId",
+    "type"
+  ],
+  "by_type_or_status": {
+    "BORROW": 8
+  },
+  "by_asset": {
+    "INJ": 2,
+    "WLD": 2,
+    "XLM": 2,
+    "T": 1,
+    "SPELL": 1
+  },
+  "envelope": null,
+  "time_min_cst": "2026-08-05 21:20:00",
+  "time_max_cst": "2026-08-07 02:07:31",
+  "local_matches": [],
+  "sample_TRANSFER_redacted": [],
+  "sample_head_redacted": [
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1786039651000,
+      "asset": "INJ",
+      "type": "BORROW",
+      "amount": "<POS>",
+      "amount_len": 2
+    },
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1786038678000,
+      "asset": "INJ",
+      "type": "BORROW",
+      "amount": "<POS>",
+      "amount_len": 2
+    },
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1786038660000,
+      "asset": "WLD",
+      "type": "BORROW",
+      "amount": "<POS>",
+      "amount_len": 3
+    }
+  ],
+  "status": 200,
+  "ok": true,
+  "latency_ms": 251,
+  "weight": {
+    "X-SAPI-USED-IP-WEIGHT-1M": "400"
+  }
+}

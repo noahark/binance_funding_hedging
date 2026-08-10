@@ -1,0 +1,925 @@
+{
+  "out": "/Users/ark/Desktop/ai code/funding_hedging/reports/api-samples/2026-08-margin-account-flow-recon-v1/20260810T062742Z",
+  "probes_compact": [
+    {
+      "name": "capital_flow_limit50",
+      "path": "/sapi/v1/margin/capital-flow",
+      "status": 200,
+      "ok": true,
+      "row_count": 50,
+      "fields": [
+        "amount",
+        "asset",
+        "id",
+        "timestamp",
+        "tranId",
+        "type"
+      ],
+      "by_type_or_status": {
+        "TRANSFER": 13,
+        "TRADING_COMMISSION": 9,
+        "SELL_INCOME": 3,
+        "SELL_EXPENSE": 2,
+        "REPAY": 4,
+        "BUY_LIQUIDATION": 2,
+        "SMALL_CONVERT": 4,
+        "BUY_EXPENSE": 5,
+        "BUY_INCOME": 5,
+        "BORROW": 3
+      },
+      "local_matches": [
+        {
+          "tranId": "399260348988",
+          "type": "TRANSFER",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786341345000,
+          "time_cst": "2026-08-10 13:55:45",
+          "all_keys": [
+            "id",
+            "tranId",
+            "timestamp",
+            "asset",
+            "type",
+            "amount"
+          ],
+          "row_redacted": {
+            "id": "<ID>",
+            "tranId": "<ID>",
+            "timestamp": 1786341345000,
+            "asset": "USDT",
+            "type": "TRANSFER",
+            "amount": "<POS>",
+            "amount_len": 2
+          }
+        },
+        {
+          "tranId": "399260281458",
+          "type": "TRANSFER",
+          "asset": "USDT",
+          "amount_sign": "neg",
+          "timestamp": 1786341331000,
+          "time_cst": "2026-08-10 13:55:31",
+          "all_keys": [
+            "id",
+            "tranId",
+            "timestamp",
+            "asset",
+            "type",
+            "amount"
+          ],
+          "row_redacted": {
+            "id": "<ID>",
+            "tranId": "<ID>",
+            "timestamp": 1786341331000,
+            "asset": "USDT",
+            "type": "TRANSFER",
+            "amount": "<NEG>",
+            "amount_len": 3
+          }
+        },
+        {
+          "tranId": "399216264416",
+          "type": "TRANSFER",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786331287000,
+          "time_cst": "2026-08-10 11:08:07",
+          "all_keys": [
+            "id",
+            "tranId",
+            "timestamp",
+            "asset",
+            "type",
+            "amount"
+          ],
+          "row_redacted": {
+            "id": "<ID>",
+            "tranId": "<ID>",
+            "timestamp": 1786331287000,
+            "asset": "USDT",
+            "type": "TRANSFER",
+            "amount": "<POS>",
+            "amount_len": 10
+          }
+        },
+        {
+          "tranId": "399072495589",
+          "type": "TRANSFER",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786294024000,
+          "time_cst": "2026-08-10 00:47:04",
+          "all_keys": [
+            "id",
+            "tranId",
+            "timestamp",
+            "asset",
+            "type",
+            "amount"
+          ],
+          "row_redacted": {
+            "id": "<ID>",
+            "tranId": "<ID>",
+            "timestamp": 1786294024000,
+            "asset": "USDT",
+            "type": "TRANSFER",
+            "amount": "<POS>",
+            "amount_len": 5
+          }
+        }
+      ],
+      "time_min_cst": "2026-08-07 01:50:03",
+      "time_max_cst": "2026-08-10 13:55:45",
+      "envelope": null
+    },
+    {
+      "name": "capital_flow_7d_limit1000",
+      "path": "/sapi/v1/margin/capital-flow",
+      "status": 200,
+      "ok": true,
+      "row_count": 149,
+      "fields": [
+        "amount",
+        "asset",
+        "id",
+        "timestamp",
+        "tranId",
+        "type"
+      ],
+      "by_type_or_status": {
+        "TRANSFER": 24,
+        "TRADING_COMMISSION": 28,
+        "SELL_INCOME": 11,
+        "SELL_EXPENSE": 11,
+        "REPAY": 4,
+        "BUY_LIQUIDATION": 22,
+        "SMALL_CONVERT": 14,
+        "BUY_EXPENSE": 5,
+        "BUY_INCOME": 5,
+        "BORROW": 8,
+        "SELL_LIQUIDATION": 2,
+        "REPAY_LIQUIDATION": 15
+      },
+      "local_matches": [
+        {
+          "tranId": "399260348988",
+          "type": "TRANSFER",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786341345000,
+          "time_cst": "2026-08-10 13:55:45",
+          "all_keys": [
+            "id",
+            "tranId",
+            "timestamp",
+            "asset",
+            "type",
+            "amount"
+          ],
+          "row_redacted": {
+            "id": "<ID>",
+            "tranId": "<ID>",
+            "timestamp": 1786341345000,
+            "asset": "USDT",
+            "type": "TRANSFER",
+            "amount": "<POS>",
+            "amount_len": 2
+          }
+        },
+        {
+          "tranId": "399260281458",
+          "type": "TRANSFER",
+          "asset": "USDT",
+          "amount_sign": "neg",
+          "timestamp": 1786341331000,
+          "time_cst": "2026-08-10 13:55:31",
+          "all_keys": [
+            "id",
+            "tranId",
+            "timestamp",
+            "asset",
+            "type",
+            "amount"
+          ],
+          "row_redacted": {
+            "id": "<ID>",
+            "tranId": "<ID>",
+            "timestamp": 1786341331000,
+            "asset": "USDT",
+            "type": "TRANSFER",
+            "amount": "<NEG>",
+            "amount_len": 3
+          }
+        },
+        {
+          "tranId": "399216264416",
+          "type": "TRANSFER",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786331287000,
+          "time_cst": "2026-08-10 11:08:07",
+          "all_keys": [
+            "id",
+            "tranId",
+            "timestamp",
+            "asset",
+            "type",
+            "amount"
+          ],
+          "row_redacted": {
+            "id": "<ID>",
+            "tranId": "<ID>",
+            "timestamp": 1786331287000,
+            "asset": "USDT",
+            "type": "TRANSFER",
+            "amount": "<POS>",
+            "amount_len": 10
+          }
+        },
+        {
+          "tranId": "399072495589",
+          "type": "TRANSFER",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786294024000,
+          "time_cst": "2026-08-10 00:47:04",
+          "all_keys": [
+            "id",
+            "tranId",
+            "timestamp",
+            "asset",
+            "type",
+            "amount"
+          ],
+          "row_redacted": {
+            "id": "<ID>",
+            "tranId": "<ID>",
+            "timestamp": 1786294024000,
+            "asset": "USDT",
+            "type": "TRANSFER",
+            "amount": "<POS>",
+            "amount_len": 5
+          }
+        }
+      ],
+      "time_min_cst": "2026-08-05 21:20:00",
+      "time_max_cst": "2026-08-10 13:55:45",
+      "envelope": null
+    },
+    {
+      "name": "capital_flow_type_TRANSFER",
+      "path": "/sapi/v1/margin/capital-flow",
+      "status": 200,
+      "ok": true,
+      "row_count": 24,
+      "fields": [
+        "amount",
+        "asset",
+        "id",
+        "timestamp",
+        "tranId",
+        "type"
+      ],
+      "by_type_or_status": {
+        "TRANSFER": 24
+      },
+      "local_matches": [
+        {
+          "tranId": "399260348988",
+          "type": "TRANSFER",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786341345000,
+          "time_cst": "2026-08-10 13:55:45",
+          "all_keys": [
+            "id",
+            "tranId",
+            "timestamp",
+            "asset",
+            "type",
+            "amount"
+          ],
+          "row_redacted": {
+            "id": "<ID>",
+            "tranId": "<ID>",
+            "timestamp": 1786341345000,
+            "asset": "USDT",
+            "type": "TRANSFER",
+            "amount": "<POS>",
+            "amount_len": 2
+          }
+        },
+        {
+          "tranId": "399260281458",
+          "type": "TRANSFER",
+          "asset": "USDT",
+          "amount_sign": "neg",
+          "timestamp": 1786341331000,
+          "time_cst": "2026-08-10 13:55:31",
+          "all_keys": [
+            "id",
+            "tranId",
+            "timestamp",
+            "asset",
+            "type",
+            "amount"
+          ],
+          "row_redacted": {
+            "id": "<ID>",
+            "tranId": "<ID>",
+            "timestamp": 1786341331000,
+            "asset": "USDT",
+            "type": "TRANSFER",
+            "amount": "<NEG>",
+            "amount_len": 3
+          }
+        },
+        {
+          "tranId": "399216264416",
+          "type": "TRANSFER",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786331287000,
+          "time_cst": "2026-08-10 11:08:07",
+          "all_keys": [
+            "id",
+            "tranId",
+            "timestamp",
+            "asset",
+            "type",
+            "amount"
+          ],
+          "row_redacted": {
+            "id": "<ID>",
+            "tranId": "<ID>",
+            "timestamp": 1786331287000,
+            "asset": "USDT",
+            "type": "TRANSFER",
+            "amount": "<POS>",
+            "amount_len": 10
+          }
+        },
+        {
+          "tranId": "399072495589",
+          "type": "TRANSFER",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786294024000,
+          "time_cst": "2026-08-10 00:47:04",
+          "all_keys": [
+            "id",
+            "tranId",
+            "timestamp",
+            "asset",
+            "type",
+            "amount"
+          ],
+          "row_redacted": {
+            "id": "<ID>",
+            "tranId": "<ID>",
+            "timestamp": 1786294024000,
+            "asset": "USDT",
+            "type": "TRANSFER",
+            "amount": "<POS>",
+            "amount_len": 5
+          }
+        }
+      ],
+      "time_min_cst": "2026-08-05 21:51:57",
+      "time_max_cst": "2026-08-10 13:55:45",
+      "envelope": null
+    },
+    {
+      "name": "capital_flow_type_BORROW",
+      "path": "/sapi/v1/margin/capital-flow",
+      "status": 200,
+      "ok": true,
+      "row_count": 8,
+      "fields": [
+        "amount",
+        "asset",
+        "id",
+        "timestamp",
+        "tranId",
+        "type"
+      ],
+      "by_type_or_status": {
+        "BORROW": 8
+      },
+      "local_matches": [],
+      "time_min_cst": "2026-08-05 21:20:00",
+      "time_max_cst": "2026-08-07 02:07:31",
+      "envelope": null
+    },
+    {
+      "name": "capital_flow_asset_USDT",
+      "path": "/sapi/v1/margin/capital-flow",
+      "status": 200,
+      "ok": true,
+      "row_count": 50,
+      "fields": [
+        "amount",
+        "asset",
+        "id",
+        "timestamp",
+        "tranId",
+        "type"
+      ],
+      "by_type_or_status": {
+        "TRANSFER": 19,
+        "SELL_INCOME": 11,
+        "BUY_LIQUIDATION": 11,
+        "SMALL_CONVERT": 3,
+        "BUY_EXPENSE": 5,
+        "SELL_LIQUIDATION": 1
+      },
+      "local_matches": [
+        {
+          "tranId": "399260348988",
+          "type": "TRANSFER",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786341345000,
+          "time_cst": "2026-08-10 13:55:45",
+          "all_keys": [
+            "id",
+            "tranId",
+            "timestamp",
+            "asset",
+            "type",
+            "amount"
+          ],
+          "row_redacted": {
+            "id": "<ID>",
+            "tranId": "<ID>",
+            "timestamp": 1786341345000,
+            "asset": "USDT",
+            "type": "TRANSFER",
+            "amount": "<POS>",
+            "amount_len": 2
+          }
+        },
+        {
+          "tranId": "399260281458",
+          "type": "TRANSFER",
+          "asset": "USDT",
+          "amount_sign": "neg",
+          "timestamp": 1786341331000,
+          "time_cst": "2026-08-10 13:55:31",
+          "all_keys": [
+            "id",
+            "tranId",
+            "timestamp",
+            "asset",
+            "type",
+            "amount"
+          ],
+          "row_redacted": {
+            "id": "<ID>",
+            "tranId": "<ID>",
+            "timestamp": 1786341331000,
+            "asset": "USDT",
+            "type": "TRANSFER",
+            "amount": "<NEG>",
+            "amount_len": 3
+          }
+        },
+        {
+          "tranId": "399216264416",
+          "type": "TRANSFER",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786331287000,
+          "time_cst": "2026-08-10 11:08:07",
+          "all_keys": [
+            "id",
+            "tranId",
+            "timestamp",
+            "asset",
+            "type",
+            "amount"
+          ],
+          "row_redacted": {
+            "id": "<ID>",
+            "tranId": "<ID>",
+            "timestamp": 1786331287000,
+            "asset": "USDT",
+            "type": "TRANSFER",
+            "amount": "<POS>",
+            "amount_len": 10
+          }
+        },
+        {
+          "tranId": "399072495589",
+          "type": "TRANSFER",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786294024000,
+          "time_cst": "2026-08-10 00:47:04",
+          "all_keys": [
+            "id",
+            "tranId",
+            "timestamp",
+            "asset",
+            "type",
+            "amount"
+          ],
+          "row_redacted": {
+            "id": "<ID>",
+            "tranId": "<ID>",
+            "timestamp": 1786294024000,
+            "asset": "USDT",
+            "type": "TRANSFER",
+            "amount": "<POS>",
+            "amount_len": 5
+          }
+        }
+      ],
+      "time_min_cst": "2026-08-06 06:26:47",
+      "time_max_cst": "2026-08-10 13:55:45",
+      "envelope": null
+    },
+    {
+      "name": "capital_flow_fromId_0",
+      "path": "/sapi/v1/margin/capital-flow",
+      "status": 200,
+      "ok": true,
+      "row_count": 10,
+      "fields": [
+        "amount",
+        "asset",
+        "id",
+        "timestamp",
+        "tranId",
+        "type"
+      ],
+      "by_type_or_status": {
+        "REPAY_LIQUIDATION": 2,
+        "TRANSFER": 6,
+        "BORROW": 2
+      },
+      "local_matches": [],
+      "time_min_cst": "2026-08-05 21:20:00",
+      "time_max_cst": "2026-08-06 12:06:34",
+      "envelope": null
+    },
+    {
+      "name": "asset_transfer_MAIN_PM_size100",
+      "path": "/sapi/v1/asset/transfer",
+      "status": 200,
+      "ok": true,
+      "row_count": 10,
+      "fields": [
+        "amount",
+        "asset",
+        "status",
+        "timestamp",
+        "tranId",
+        "type"
+      ],
+      "by_type_or_status": {
+        "MAIN_PORTFOLIO_MARGIN": 10
+      },
+      "local_matches": [
+        {
+          "tranId": "399260348988",
+          "type": "MAIN_PORTFOLIO_MARGIN",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786341345000,
+          "time_cst": "2026-08-10 13:55:45",
+          "all_keys": [
+            "timestamp",
+            "asset",
+            "amount",
+            "type",
+            "status",
+            "tranId"
+          ],
+          "row_redacted": {
+            "timestamp": 1786341345000,
+            "asset": "USDT",
+            "amount": "<POS>",
+            "amount_len": 2,
+            "type": "MAIN_PORTFOLIO_MARGIN",
+            "status": "CONFIRMED",
+            "tranId": "<ID>"
+          }
+        },
+        {
+          "tranId": "399216264416",
+          "type": "MAIN_PORTFOLIO_MARGIN",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786331287000,
+          "time_cst": "2026-08-10 11:08:07",
+          "all_keys": [
+            "timestamp",
+            "asset",
+            "amount",
+            "type",
+            "status",
+            "tranId"
+          ],
+          "row_redacted": {
+            "timestamp": 1786331287000,
+            "asset": "USDT",
+            "amount": "<POS>",
+            "amount_len": 10,
+            "type": "MAIN_PORTFOLIO_MARGIN",
+            "status": "CONFIRMED",
+            "tranId": "<ID>"
+          }
+        },
+        {
+          "tranId": "399072495589",
+          "type": "MAIN_PORTFOLIO_MARGIN",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786294024000,
+          "time_cst": "2026-08-10 00:47:04",
+          "all_keys": [
+            "timestamp",
+            "asset",
+            "amount",
+            "type",
+            "status",
+            "tranId"
+          ],
+          "row_redacted": {
+            "timestamp": 1786294024000,
+            "asset": "USDT",
+            "amount": "<POS>",
+            "amount_len": 5,
+            "type": "MAIN_PORTFOLIO_MARGIN",
+            "status": "CONFIRMED",
+            "tranId": "<ID>"
+          }
+        }
+      ],
+      "time_min_cst": "2026-07-21 10:39:57",
+      "time_max_cst": "2026-08-10 13:55:45",
+      "envelope": {
+        "total": "<n>"
+      }
+    },
+    {
+      "name": "asset_transfer_PM_MAIN_size100",
+      "path": "/sapi/v1/asset/transfer",
+      "status": 200,
+      "ok": true,
+      "row_count": 11,
+      "fields": [
+        "amount",
+        "asset",
+        "status",
+        "timestamp",
+        "tranId",
+        "type"
+      ],
+      "by_type_or_status": {
+        "PORTFOLIO_MARGIN_MAIN": 11
+      },
+      "local_matches": [
+        {
+          "tranId": "399260281458",
+          "type": "PORTFOLIO_MARGIN_MAIN",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786341331000,
+          "time_cst": "2026-08-10 13:55:31",
+          "all_keys": [
+            "timestamp",
+            "asset",
+            "amount",
+            "type",
+            "status",
+            "tranId"
+          ],
+          "row_redacted": {
+            "timestamp": 1786341331000,
+            "asset": "USDT",
+            "amount": "<POS>",
+            "amount_len": 2,
+            "type": "PORTFOLIO_MARGIN_MAIN",
+            "status": "CONFIRMED",
+            "tranId": "<ID>"
+          }
+        }
+      ],
+      "time_min_cst": "2026-07-21 10:40:21",
+      "time_max_cst": "2026-08-10 13:55:31",
+      "envelope": {
+        "total": "<n>"
+      }
+    },
+    {
+      "name": "asset_transfer_MAIN_PM_current",
+      "path": "/sapi/v1/asset/transfer",
+      "status": 200,
+      "ok": true,
+      "row_count": 9,
+      "fields": [
+        "amount",
+        "asset",
+        "status",
+        "timestamp",
+        "tranId",
+        "type"
+      ],
+      "by_type_or_status": {
+        "MAIN_PORTFOLIO_MARGIN": 9
+      },
+      "local_matches": [
+        {
+          "tranId": "399260348988",
+          "type": "MAIN_PORTFOLIO_MARGIN",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786341345000,
+          "time_cst": "2026-08-10 13:55:45",
+          "all_keys": [
+            "timestamp",
+            "asset",
+            "amount",
+            "type",
+            "status",
+            "tranId"
+          ],
+          "row_redacted": {
+            "timestamp": 1786341345000,
+            "asset": "USDT",
+            "amount": "<POS>",
+            "amount_len": 2,
+            "type": "MAIN_PORTFOLIO_MARGIN",
+            "status": "CONFIRMED",
+            "tranId": "<ID>"
+          }
+        },
+        {
+          "tranId": "399216264416",
+          "type": "MAIN_PORTFOLIO_MARGIN",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786331287000,
+          "time_cst": "2026-08-10 11:08:07",
+          "all_keys": [
+            "timestamp",
+            "asset",
+            "amount",
+            "type",
+            "status",
+            "tranId"
+          ],
+          "row_redacted": {
+            "timestamp": 1786331287000,
+            "asset": "USDT",
+            "amount": "<POS>",
+            "amount_len": 10,
+            "type": "MAIN_PORTFOLIO_MARGIN",
+            "status": "CONFIRMED",
+            "tranId": "<ID>"
+          }
+        },
+        {
+          "tranId": "399072495589",
+          "type": "MAIN_PORTFOLIO_MARGIN",
+          "asset": "USDT",
+          "amount_sign": "pos",
+          "timestamp": 1786294024000,
+          "time_cst": "2026-08-10 00:47:04",
+          "all_keys": [
+            "timestamp",
+            "asset",
+            "amount",
+            "type",
+            "status",
+            "tranId"
+          ],
+          "row_redacted": {
+            "timestamp": 1786294024000,
+            "asset": "USDT",
+            "amount": "<POS>",
+            "amount_len": 5,
+            "type": "MAIN_PORTFOLIO_MARGIN",
+            "status": "CONFIRMED",
+            "tranId": "<ID>"
+          }
+        }
+      ],
+      "time_min_cst": "2026-08-06 12:07:27",
+      "time_max_cst": "2026-08-10 13:55:45",
+      "envelope": {
+        "total": "<n>"
+      }
+    }
+  ],
+  "type_enum_probe": {
+    "TRANSFER": {
+      "status": 200,
+      "ok": true,
+      "n": 10,
+      "err": null
+    },
+    "BORROW": {
+      "status": 200,
+      "ok": true,
+      "n": 8,
+      "err": null
+    },
+    "REPAY": {
+      "status": 200,
+      "ok": true,
+      "n": 4,
+      "err": null
+    },
+    "BUY_INCOME": {
+      "status": 200,
+      "ok": true,
+      "n": 5,
+      "err": null
+    },
+    "BUY_EXPENSE": {
+      "status": 200,
+      "ok": true,
+      "n": 5,
+      "err": null
+    },
+    "SELL_INCOME": {
+      "status": 200,
+      "ok": true,
+      "n": 10,
+      "err": null
+    },
+    "SELL_EXPENSE": {
+      "status": 200,
+      "ok": true,
+      "n": 10,
+      "err": null
+    },
+    "TRADING_COMMISSION": {
+      "status": 200,
+      "ok": true,
+      "n": 10,
+      "err": null
+    },
+    "BUY_LIQUIDATION": {
+      "status": 200,
+      "ok": true,
+      "n": 10,
+      "err": null
+    },
+    "SELL_LIQUIDATION": {
+      "status": 200,
+      "ok": true,
+      "n": 2,
+      "err": null
+    },
+    "REPAY_LIQUIDATION": {
+      "status": 200,
+      "ok": true,
+      "n": 10,
+      "err": null
+    },
+    "OTHER_LIQUIDATION": {
+      "status": 200,
+      "ok": true,
+      "n": 0,
+      "err": null
+    },
+    "LIQUIDATION_FEE": {
+      "status": 200,
+      "ok": true,
+      "n": 0,
+      "err": null
+    },
+    "SMALL_BALANCE_CONVERT": {
+      "status": 200,
+      "ok": true,
+      "n": 0,
+      "err": null
+    },
+    "COMMISSION_RETURN": {
+      "status": 200,
+      "ok": true,
+      "n": 0,
+      "err": null
+    },
+    "SMALL_CONVERT": {
+      "status": 200,
+      "ok": true,
+      "n": 10,
+      "err": null
+    },
+    "INVALID_TYPE_XYZ": {
+      "status": 400,
+      "ok": false,
+      "n": null,
+      "err": {
+        "code": -1102,
+        "msg": "Mandatory parameter 'type' was not sent, was empty/null, or malformed."
+      }
+    }
+  }
+}

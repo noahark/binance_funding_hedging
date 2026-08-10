@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "name": "alt__papi_v1_margin_capitalFlow",
+    "method": "GET",
+    "base": "https://papi.binance.com",
+    "path": "/papi/v1/margin/capitalFlow",
+    "params_logical": {
+      "startTime": "1785738462321",
+      "endTime": "1786343262321",
+      "limit": "50"
+    },
+    "status": 404,
+    "ok": false,
+    "latency_ms": 883,
+    "headers": {
+      "X-Frame-Options": "SAMEORIGIN",
+      "X-Xss-Protection": "1; mode=block",
+      "X-Content-Type-Options": "nosniff"
+    },
+    "body_bytes": 1434
+  },
+  "shape": null,
+  "analysis": null,
+  "error": {
+    "_raw": "<!DOCTYPE html>\n<!-- saved from url=(0032)https://www.binance.com/en/error -->\n<html>\n\n<head>\n  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n\n  <meta name=\"format-detection\" content=\"telephone=no,email=no,address=no\">\n  <title>Binance</title>\n  <link rel=\"Shortcut Icon\" href=\"https://www.binance.com/en/favicon.ico\">\n  <style>\n    body {\n      margin: 0\n    }\n\n    .img {\n      width: 611px;\n      margin: 68px auto 0\n    }\n\n    .info {\n      width: 370px;\n      margin: 0 auto;\n      text-align: center;\n      font-family: Arial;\n    }\n\n    .info h3 {\n      margin: 0;\n      font-size: 25px;\n      color: #333;\n      font-weight: normal;\n    }\n\n    .info p {\n      font-size: 14px;\n      font-family: Arial;\n      color: #333;\n      line-height: 18px;\n      margin: 0\n    }\n\n"
+  }
+}

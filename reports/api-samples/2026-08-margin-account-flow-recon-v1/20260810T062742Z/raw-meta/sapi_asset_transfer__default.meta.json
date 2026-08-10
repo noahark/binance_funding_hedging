@@ -1,0 +1,20 @@
+{
+  "name": "sapi_asset_transfer__default",
+  "path": "/sapi/v1/asset/transfer",
+  "params_logical": {},
+  "status": 400,
+  "ok": false,
+  "latency_ms": 611,
+  "headers": {
+    "X-SAPI-USED-IP-WEIGHT-1M": "1",
+    "X-Frame-Options": "SAMEORIGIN",
+    "X-Xss-Protection": "1; mode=block",
+    "X-Content-Type-Options": "nosniff",
+    "X-Content-Security-Policy": "default-src 'self'",
+    "X-WebKit-CSP": "default-src 'self'",
+    "X-Cache": "Error from cloudfront",
+    "X-Amz-Cf-Pop": "HKG61-P1",
+    "X-Amz-Cf-Id": "zBLxTO01QQtGE0jOu3BivRP5Morq2I84R6TPnU-v0yxwTHIeGf4UDQ=="
+  },
+  "body_bytes": 93
+}

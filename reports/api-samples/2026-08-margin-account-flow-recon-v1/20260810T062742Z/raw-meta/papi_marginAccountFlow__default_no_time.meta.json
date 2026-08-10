@@ -1,0 +1,14 @@
+{
+  "name": "papi_marginAccountFlow__default_no_time",
+  "path": "/papi/v1/margin/marginAccountFlow",
+  "params_logical": {},
+  "status": 404,
+  "ok": false,
+  "latency_ms": 594,
+  "headers": {
+    "X-Frame-Options": "SAMEORIGIN",
+    "X-Xss-Protection": "1; mode=block",
+    "X-Content-Type-Options": "nosniff"
+  },
+  "body_bytes": 1434
+}

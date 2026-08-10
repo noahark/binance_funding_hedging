@@ -1,0 +1,34 @@
+{
+  "meta": {
+    "name": "sapi_asset_transfer__7d",
+    "method": "GET",
+    "base": "https://api.binance.com",
+    "path": "/sapi/v1/asset/transfer",
+    "params_logical": {
+      "startTime": "1785738462321",
+      "endTime": "1786343262321",
+      "size": "100"
+    },
+    "status": 400,
+    "ok": false,
+    "latency_ms": 284,
+    "headers": {
+      "X-SAPI-USED-IP-WEIGHT-1M": "2",
+      "X-Frame-Options": "SAMEORIGIN",
+      "X-Xss-Protection": "1; mode=block",
+      "X-Content-Type-Options": "nosniff",
+      "X-Content-Security-Policy": "default-src 'self'",
+      "X-WebKit-CSP": "default-src 'self'",
+      "X-Cache": "Error from cloudfront",
+      "X-Amz-Cf-Pop": "HKG61-P1",
+      "X-Amz-Cf-Id": "7KFCEsERHPF07CxZo6V8vfHJT0WUoli5vSPk9hyZCIeFwBJUnZS3WA=="
+    },
+    "body_bytes": 93
+  },
+  "shape": null,
+  "analysis": null,
+  "error": {
+    "code": -1102,
+    "msg": "Mandatory parameter 'type' was not sent, was empty/null, or malformed."
+  }
+}

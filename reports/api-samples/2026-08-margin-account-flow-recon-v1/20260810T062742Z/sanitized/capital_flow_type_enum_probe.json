@@ -1,0 +1,107 @@
+{
+  "TRANSFER": {
+    "status": 200,
+    "ok": true,
+    "n": 10,
+    "err": null
+  },
+  "BORROW": {
+    "status": 200,
+    "ok": true,
+    "n": 8,
+    "err": null
+  },
+  "REPAY": {
+    "status": 200,
+    "ok": true,
+    "n": 4,
+    "err": null
+  },
+  "BUY_INCOME": {
+    "status": 200,
+    "ok": true,
+    "n": 5,
+    "err": null
+  },
+  "BUY_EXPENSE": {
+    "status": 200,
+    "ok": true,
+    "n": 5,
+    "err": null
+  },
+  "SELL_INCOME": {
+    "status": 200,
+    "ok": true,
+    "n": 10,
+    "err": null
+  },
+  "SELL_EXPENSE": {
+    "status": 200,
+    "ok": true,
+    "n": 10,
+    "err": null
+  },
+  "TRADING_COMMISSION": {
+    "status": 200,
+    "ok": true,
+    "n": 10,
+    "err": null
+  },
+  "BUY_LIQUIDATION": {
+    "status": 200,
+    "ok": true,
+    "n": 10,
+    "err": null
+  },
+  "SELL_LIQUIDATION": {
+    "status": 200,
+    "ok": true,
+    "n": 2,
+    "err": null
+  },
+  "REPAY_LIQUIDATION": {
+    "status": 200,
+    "ok": true,
+    "n": 10,
+    "err": null
+  },
+  "OTHER_LIQUIDATION": {
+    "status": 200,
+    "ok": true,
+    "n": 0,
+    "err": null
+  },
+  "LIQUIDATION_FEE": {
+    "status": 200,
+    "ok": true,
+    "n": 0,
+    "err": null
+  },
+  "SMALL_BALANCE_CONVERT": {
+    "status": 200,
+    "ok": true,
+    "n": 0,
+    "err": null
+  },
+  "COMMISSION_RETURN": {
+    "status": 200,
+    "ok": true,
+    "n": 0,
+    "err": null
+  },
+  "SMALL_CONVERT": {
+    "status": 200,
+    "ok": true,
+    "n": 10,
+    "err": null
+  },
+  "INVALID_TYPE_XYZ": {
+    "status": 400,
+    "ok": false,
+    "n": null,
+    "err": {
+      "code": -1102,
+      "msg": "Mandatory parameter 'type' was not sent, was empty/null, or malformed."
+    }
+  }
+}

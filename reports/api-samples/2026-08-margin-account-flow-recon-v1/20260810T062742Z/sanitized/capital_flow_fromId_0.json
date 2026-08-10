@@ -1,0 +1,112 @@
+{
+  "name": "capital_flow_fromId_0",
+  "path": "/sapi/v1/margin/capital-flow",
+  "row_count": 10,
+  "fields": [
+    "amount",
+    "asset",
+    "id",
+    "timestamp",
+    "tranId",
+    "type"
+  ],
+  "by_type_or_status": {
+    "REPAY_LIQUIDATION": 2,
+    "TRANSFER": 6,
+    "BORROW": 2
+  },
+  "by_asset": {
+    "COOKIE": 3,
+    "T": 2,
+    "USDT": 2,
+    "CETUS": 1,
+    "BNB": 1,
+    "SPELL": 1
+  },
+  "envelope": null,
+  "time_min_cst": "2026-08-05 21:20:00",
+  "time_max_cst": "2026-08-06 12:06:34",
+  "local_matches": [],
+  "sample_TRANSFER_redacted": [
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1785989189000,
+      "asset": "USDT",
+      "type": "TRANSFER",
+      "amount": "<NEG>",
+      "amount_len": 12
+    },
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1785989185000,
+      "asset": "BNB",
+      "type": "TRANSFER",
+      "amount": "<POS>",
+      "amount_len": 10
+    },
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1785968807000,
+      "asset": "USDT",
+      "type": "TRANSFER",
+      "amount": "<NEG>",
+      "amount_len": 11
+    },
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1785943399000,
+      "asset": "COOKIE",
+      "type": "TRANSFER",
+      "amount": "<NEG>",
+      "amount_len": 4
+    },
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1785939354000,
+      "asset": "COOKIE",
+      "type": "TRANSFER",
+      "amount": "<NEG>",
+      "amount_len": 5
+    }
+  ],
+  "sample_head_redacted": [
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1785989194000,
+      "asset": "T",
+      "type": "REPAY_LIQUIDATION",
+      "amount": "<NEG>",
+      "amount_len": 2
+    },
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1785989194000,
+      "asset": "CETUS",
+      "type": "REPAY_LIQUIDATION",
+      "amount": "<NEG>",
+      "amount_len": 2
+    },
+    {
+      "id": "<ID>",
+      "tranId": "<ID>",
+      "timestamp": 1785989189000,
+      "asset": "USDT",
+      "type": "TRANSFER",
+      "amount": "<NEG>",
+      "amount_len": 12
+    }
+  ],
+  "status": 200,
+  "ok": true,
+  "latency_ms": 246,
+  "weight": {
+    "X-SAPI-USED-IP-WEIGHT-1M": "600"
+  }
+}

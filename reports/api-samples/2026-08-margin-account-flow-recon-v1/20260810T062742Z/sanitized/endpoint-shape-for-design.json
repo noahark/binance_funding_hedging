@@ -1,0 +1,67 @@
+{
+  "recon": "2026-08-margin-account-flow-recon-v1/20260810T062742Z",
+  "rejected": {
+    "GET /papi/v1/margin/marginAccountFlow": {
+      "host": "https://papi.binance.com",
+      "live_status": 404,
+      "note": "HTML error page; not in official PM connector path list"
+    }
+  },
+  "recommended_sources": [
+    {
+      "id": "margin_capital_flow",
+      "method": "GET",
+      "path": "/sapi/v1/margin/capital-flow",
+      "host": "https://api.binance.com",
+      "security": "USER_DATA",
+      "weight_ip_doc": 100,
+      "response": "array",
+      "row_fields": ["id", "tranId", "timestamp", "asset", "type", "amount"],
+      "transfer_semantics": {
+        "type": "TRANSFER",
+        "amount_positive": "into cross-margin / PM wallet",
+        "amount_negative": "out of cross-margin / PM wallet",
+        "matches_universal_transfer_tranId": true
+      },
+      "window": {
+        "history_days_doc": 90,
+        "max_start_end_span_days_doc": 7,
+        "pagination": "fromId + limit(max 1000)"
+      },
+      "types_observed_7d": [
+        "TRANSFER",
+        "BORROW",
+        "REPAY",
+        "BUY_INCOME",
+        "BUY_EXPENSE",
+        "SELL_INCOME",
+        "SELL_EXPENSE",
+        "TRADING_COMMISSION",
+        "BUY_LIQUIDATION",
+        "SELL_LIQUIDATION",
+        "REPAY_LIQUIDATION",
+        "SMALL_CONVERT"
+      ]
+    },
+    {
+      "id": "universal_transfer_history",
+      "method": "GET",
+      "path": "/sapi/v1/asset/transfer",
+      "host": "https://api.binance.com",
+      "security": "USER_DATA",
+      "response": "object{total, rows}",
+      "row_fields": ["timestamp", "asset", "amount", "type", "status", "tranId"],
+      "required_params": ["type"],
+      "types_for_spot_pm": {
+        "MAIN_PORTFOLIO_MARGIN": "spot -> unified",
+        "PORTFOLIO_MARGIN_MAIN": "unified -> spot"
+      },
+      "amount_sign_observed": "always positive; direction in type",
+      "status_observed": ["CONFIRMED"],
+      "matches_local_asset_transfer_tranId": true
+    }
+  ],
+  "not_for_spot_pm_transfer": {
+    "GET /papi/v1/um/income": "UM futures income; TRANSFER here is not MAIN<->PM"
+  }
+}

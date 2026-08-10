@@ -1,0 +1,224 @@
+{
+  "meta": {
+    "name": "sapi_asset_transfer__type_MAIN_PORTFOLIO_MARGIN",
+    "method": "GET",
+    "base": "https://api.binance.com",
+    "path": "/sapi/v1/asset/transfer",
+    "params_logical": {
+      "type": "MAIN_PORTFOLIO_MARGIN",
+      "startTime": "1785738462321",
+      "endTime": "1786343262321",
+      "size": "100"
+    },
+    "status": 200,
+    "ok": true,
+    "latency_ms": 429,
+    "headers": {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Date": "Mon, 10 Aug 2026 06:27:52 GMT",
+      "X-SAPI-USED-IP-WEIGHT-1M": "3"
+    },
+    "body_bytes": 1223
+  },
+  "shape": {
+    "kind": "object",
+    "keys": [
+      "total",
+      "rows"
+    ],
+    "redacted": {
+      "total": 9,
+      "rows": [
+        {
+          "timestamp": 1786341345000,
+          "asset": "USDT",
+          "amount": "<AMOUNT>",
+          "type": "MAIN_PORTFOLIO_MARGIN",
+          "status": "CONFIRMED",
+          "tranId": "<ID>"
+        },
+        {
+          "timestamp": 1786331287000,
+          "asset": "USDT",
+          "amount": "<AMOUNT>",
+          "type": "MAIN_PORTFOLIO_MARGIN",
+          "status": "CONFIRMED",
+          "tranId": "<ID>"
+        },
+        {
+          "timestamp": 1786294024000,
+          "asset": "USDT",
+          "amount": "<AMOUNT>",
+          "type": "MAIN_PORTFOLIO_MARGIN",
+          "status": "CONFIRMED",
+          "tranId": "<ID>"
+        },
+        {
+          "timestamp": 1786270225000,
+          "asset": "USDT",
+          "amount": "<AMOUNT>",
+          "type": "MAIN_PORTFOLIO_MARGIN",
+          "status": "CONFIRMED",
+          "tranId": "<ID>"
+        },
+        {
+          "timestamp": 1786188719000,
+          "asset": "USDT",
+          "amount": "<AMOUNT>",
+          "type": "MAIN_PORTFOLIO_MARGIN",
+          "status": "CONFIRMED",
+          "tranId": "<ID>"
+        },
+        {
+          "timestamp": 1786095415000,
+          "asset": "USDT",
+          "amount": "<AMOUNT>",
+          "type": "MAIN_PORTFOLIO_MARGIN",
+          "status": "CONFIRMED",
+          "tranId": "<ID>"
+        },
+        {
+          "timestamp": 1786038650000,
+          "asset": "USDT",
+          "amount": "<AMOUNT>",
+          "type": "MAIN_PORTFOLIO_MARGIN",
+          "status": "CONFIRMED",
+          "tranId": "<ID>"
+        },
+        {
+          "timestamp": 1786021667000,
+          "asset": "USDT",
+          "amount": "<AMOUNT>",
+          "type": "MAIN_PORTFOLIO_MARGIN",
+          "status": "CONFIRMED",
+          "tranId": "<ID>"
+        },
+        {
+          "timestamp": 1785989247000,
+          "asset": "BNB",
+          "amount": "<AMOUNT>",
+          "type": "MAIN_PORTFOLIO_MARGIN",
+          "status": "CONFIRMED",
+          "tranId": "<ID>"
+        }
+      ]
+    }
+  },
+  "analysis": {
+    "row_count": 9,
+    "type_field": "type",
+    "by_type": {
+      "MAIN_PORTFOLIO_MARGIN": 9
+    },
+    "by_asset_top": {
+      "USDT": 8,
+      "BNB": 1
+    },
+    "time_min": "2026-08-06 12:07:27 CST",
+    "time_max": "2026-08-10 13:55:45 CST",
+    "time_min_ms": 1785989247000,
+    "time_max_ms": 1786341345000,
+    "local_transfer_matches": [
+      {
+        "local_tran": "399260348988",
+        "direction": "spot->unified",
+        "row_type": "MAIN_PORTFOLIO_MARGIN",
+        "asset": "USDT",
+        "amount_raw_present": true
+      },
+      {
+        "local_tran": "399216264416",
+        "direction": "spot->unified",
+        "row_type": "MAIN_PORTFOLIO_MARGIN",
+        "asset": "USDT",
+        "amount_raw_present": true
+      }
+    ],
+    "fields_union": [
+      "amount",
+      "asset",
+      "status",
+      "timestamp",
+      "tranId",
+      "type"
+    ]
+  },
+  "error": null,
+  "object_redacted": {
+    "total": 9,
+    "rows": [
+      {
+        "timestamp": 1786341345000,
+        "asset": "USDT",
+        "amount": "<AMOUNT>",
+        "type": "MAIN_PORTFOLIO_MARGIN",
+        "status": "CONFIRMED",
+        "tranId": "<ID>"
+      },
+      {
+        "timestamp": 1786331287000,
+        "asset": "USDT",
+        "amount": "<AMOUNT>",
+        "type": "MAIN_PORTFOLIO_MARGIN",
+        "status": "CONFIRMED",
+        "tranId": "<ID>"
+      },
+      {
+        "timestamp": 1786294024000,
+        "asset": "USDT",
+        "amount": "<AMOUNT>",
+        "type": "MAIN_PORTFOLIO_MARGIN",
+        "status": "CONFIRMED",
+        "tranId": "<ID>"
+      },
+      {
+        "timestamp": 1786270225000,
+        "asset": "USDT",
+        "amount": "<AMOUNT>",
+        "type": "MAIN_PORTFOLIO_MARGIN",
+        "status": "CONFIRMED",
+        "tranId": "<ID>"
+      },
+      {
+        "timestamp": 1786188719000,
+        "asset": "USDT",
+        "amount": "<AMOUNT>",
+        "type": "MAIN_PORTFOLIO_MARGIN",
+        "status": "CONFIRMED",
+        "tranId": "<ID>"
+      },
+      {
+        "timestamp": 1786095415000,
+        "asset": "USDT",
+        "amount": "<AMOUNT>",
+        "type": "MAIN_PORTFOLIO_MARGIN",
+        "status": "CONFIRMED",
+        "tranId": "<ID>"
+      },
+      {
+        "timestamp": 1786038650000,
+        "asset": "USDT",
+        "amount": "<AMOUNT>",
+        "type": "MAIN_PORTFOLIO_MARGIN",
+        "status": "CONFIRMED",
+        "tranId": "<ID>"
+      },
+      {
+        "timestamp": 1786021667000,
+        "asset": "USDT",
+        "amount": "<AMOUNT>",
+        "type": "MAIN_PORTFOLIO_MARGIN",
+        "status": "CONFIRMED",
+        "tranId": "<ID>"
+      },
+      {
+        "timestamp": 1785989247000,
+        "asset": "BNB",
+        "amount": "<AMOUNT>",
+        "type": "MAIN_PORTFOLIO_MARGIN",
+        "status": "CONFIRMED",
+        "tranId": "<ID>"
+      }
+    ]
+  }
+}

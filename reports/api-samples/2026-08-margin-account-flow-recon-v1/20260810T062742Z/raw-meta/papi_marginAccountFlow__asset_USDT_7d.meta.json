@@ -1,0 +1,18 @@
+{
+  "name": "papi_marginAccountFlow__asset_USDT_7d",
+  "path": "/papi/v1/margin/marginAccountFlow",
+  "params_logical": {
+    "startTime": "1785738462321",
+    "endTime": "1786343262321",
+    "asset": "USDT"
+  },
+  "status": 404,
+  "ok": false,
+  "latency_ms": 890,
+  "headers": {
+    "X-Frame-Options": "SAMEORIGIN",
+    "X-Xss-Protection": "1; mode=block",
+    "X-Content-Type-Options": "nosniff"
+  },
+  "body_bytes": 1434
+}

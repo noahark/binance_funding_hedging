@@ -1,0 +1,19 @@
+{
+  "name": "sapi_asset_transfer__type_MAIN_PORTFOLIO_MARGIN",
+  "path": "/sapi/v1/asset/transfer",
+  "params_logical": {
+    "type": "MAIN_PORTFOLIO_MARGIN",
+    "startTime": "1785738462321",
+    "endTime": "1786343262321",
+    "size": "100"
+  },
+  "status": 200,
+  "ok": true,
+  "latency_ms": 429,
+  "headers": {
+    "Content-Type": "application/json;charset=UTF-8",
+    "Date": "Mon, 10 Aug 2026 06:27:52 GMT",
+    "X-SAPI-USED-IP-WEIGHT-1M": "3"
+  },
+  "body_bytes": 1223
+}

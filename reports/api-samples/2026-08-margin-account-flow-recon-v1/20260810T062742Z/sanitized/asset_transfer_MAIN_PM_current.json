@@ -1,0 +1,135 @@
+{
+  "name": "asset_transfer_MAIN_PM_current",
+  "path": "/sapi/v1/asset/transfer",
+  "row_count": 9,
+  "fields": [
+    "amount",
+    "asset",
+    "status",
+    "timestamp",
+    "tranId",
+    "type"
+  ],
+  "by_type_or_status": {
+    "MAIN_PORTFOLIO_MARGIN": 9
+  },
+  "by_asset": {
+    "USDT": 8,
+    "BNB": 1
+  },
+  "envelope": {
+    "total": "<n>"
+  },
+  "time_min_cst": "2026-08-06 12:07:27",
+  "time_max_cst": "2026-08-10 13:55:45",
+  "local_matches": [
+    {
+      "tranId": "399260348988",
+      "type": "MAIN_PORTFOLIO_MARGIN",
+      "asset": "USDT",
+      "amount_sign": "pos",
+      "timestamp": 1786341345000,
+      "time_cst": "2026-08-10 13:55:45",
+      "all_keys": [
+        "timestamp",
+        "asset",
+        "amount",
+        "type",
+        "status",
+        "tranId"
+      ],
+      "row_redacted": {
+        "timestamp": 1786341345000,
+        "asset": "USDT",
+        "amount": "<POS>",
+        "amount_len": 2,
+        "type": "MAIN_PORTFOLIO_MARGIN",
+        "status": "CONFIRMED",
+        "tranId": "<ID>"
+      }
+    },
+    {
+      "tranId": "399216264416",
+      "type": "MAIN_PORTFOLIO_MARGIN",
+      "asset": "USDT",
+      "amount_sign": "pos",
+      "timestamp": 1786331287000,
+      "time_cst": "2026-08-10 11:08:07",
+      "all_keys": [
+        "timestamp",
+        "asset",
+        "amount",
+        "type",
+        "status",
+        "tranId"
+      ],
+      "row_redacted": {
+        "timestamp": 1786331287000,
+        "asset": "USDT",
+        "amount": "<POS>",
+        "amount_len": 10,
+        "type": "MAIN_PORTFOLIO_MARGIN",
+        "status": "CONFIRMED",
+        "tranId": "<ID>"
+      }
+    },
+    {
+      "tranId": "399072495589",
+      "type": "MAIN_PORTFOLIO_MARGIN",
+      "asset": "USDT",
+      "amount_sign": "pos",
+      "timestamp": 1786294024000,
+      "time_cst": "2026-08-10 00:47:04",
+      "all_keys": [
+        "timestamp",
+        "asset",
+        "amount",
+        "type",
+        "status",
+        "tranId"
+      ],
+      "row_redacted": {
+        "timestamp": 1786294024000,
+        "asset": "USDT",
+        "amount": "<POS>",
+        "amount_len": 5,
+        "type": "MAIN_PORTFOLIO_MARGIN",
+        "status": "CONFIRMED",
+        "tranId": "<ID>"
+      }
+    }
+  ],
+  "sample_TRANSFER_redacted": [],
+  "sample_head_redacted": [
+    {
+      "timestamp": 1786341345000,
+      "asset": "USDT",
+      "amount": "<POS>",
+      "amount_len": 2,
+      "type": "MAIN_PORTFOLIO_MARGIN",
+      "status": "CONFIRMED",
+      "tranId": "<ID>"
+    },
+    {
+      "timestamp": 1786331287000,
+      "asset": "USDT",
+      "amount": "<POS>",
+      "amount_len": 10,
+      "type": "MAIN_PORTFOLIO_MARGIN",
+      "status": "CONFIRMED",
+      "tranId": "<ID>"
+    },
+    {
+      "timestamp": 1786294024000,
+      "asset": "USDT",
+      "amount": "<POS>",
+      "amount_len": 5,
+      "type": "MAIN_PORTFOLIO_MARGIN",
+      "status": "CONFIRMED",
+      "tranId": "<ID>"
+    }
+  ],
+  "status": 200,
+  "ok": true,
+  "latency_ms": 456
+}

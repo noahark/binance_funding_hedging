@@ -1,0 +1,18 @@
+{
+  "name": "alt__sapi_v1_margin_capital-flow",
+  "path": "/sapi/v1/margin/capital-flow",
+  "params_logical": {
+    "startTime": "1785738462321",
+    "endTime": "1786343262321",
+    "limit": "50"
+  },
+  "status": 200,
+  "ok": true,
+  "latency_ms": 403,
+  "headers": {
+    "Content-Type": "application/json;charset=UTF-8",
+    "Date": "Mon, 10 Aug 2026 06:27:50 GMT",
+    "X-SAPI-USED-IP-WEIGHT-1M": "100"
+  },
+  "body_bytes": 6110
+}
