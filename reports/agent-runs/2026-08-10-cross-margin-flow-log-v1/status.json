@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 7,
+  "revision": 8,
   "stage_id": "2026-08-10-cross-margin-flow-log-v1",
   "bookkeeper": "grok4.5",
-  "phase": "review_2",
-  "checkpoint": "fix_f1_verified_await_review2_recheck",
+  "phase": "awaiting_human_merge",
+  "checkpoint": "review_2_recheck_accept_formal_review_closed",
   "base_sha": "a11a8734a3da988501fa5cac5baa52dcea3ea2ef",
   "delivery_sha": "cf247fbf7060e18afeda0c6366c5724b27ef0ce0",
   "ledger_sha": "cf247fbf7060e18afeda0c6366c5724b27ef0ce0",
   "current_task": {
     "id": "review-2-recheck-capital-error-zh-v1",
-    "state": "dispatched",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-08-10-cross-margin-flow-log-v1/06-review-2-recheck-capital-error-zh.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-task"
+    "action": "decide-merge-deploy"
   },
   "rework_count": 1,
   "blockers": []

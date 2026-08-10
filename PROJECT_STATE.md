@@ -6,10 +6,10 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-10)
 
-- **Active stage:** `2026-08-10-cross-margin-flow-log-v1`。F-1 窄修复已封存
-  `delivery_sha=cf247fb`（capital 失败中文映射 + self-check 断言）。当前 **review-2 复审**
-  packet `06-review-2-recheck-capital-error-zh.dispatch.md`（**sonnet5**/anthropic），
-  区间 `a11a873..cf247fb`，`rework_count=1`。bookkeeper=`grok4.5`。**未 merge、未部署。**
+- **Active stage:** `2026-08-10-cross-margin-flow-log-v1`。形式评审已闭环：
+  交付 `a11a873..cf247fb`（主交付 `9a4e019` + F-1 修复 `cf247fb`）；review-1 ACCEPT；
+  review-2 REWORK→窄修→复审 **ACCEPT**。phase=`awaiting_human_merge`，**待 Human
+  决定是否合并/部署/重启**（评审通过≠授权部署）。bookkeeper=`grok4.5`。
 
 - 前一 stage `2026-08-10-local-net-position-v1` 已合并本机 `main` 并归档；本地持仓
   数量按活跃周期逐腿 `open - close` 汇总。**未部署、未重启服务** 的约束仍适用于该批
