@@ -6,13 +6,11 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-10)
 
-- **Active stage：`2026-08-10-local-net-position-v1`，正在归档。** 本地持仓数量已改为按
-  活跃周期逐腿 `open - close` 汇总，不给 `hedge_open_cycle` 增加数量双写；开仓成本基、API
-  字段集合、domain、前端和下单闸门不变。交付
-  `b67862aa188d96247db7c807d33846ce4750e8e2` 已由 Kimi/moonshot review-1 明确
-  `ACCEPT`，Bookkeeper 再次独立复跑 224 项全过。Human 对本 stage 一次性豁免 review-2，
-  并已预授权 review-1 通过后合并 `main`；当前执行本地合并与归档。该例外不推广，不含部署、
-  服务重启、开关或实盘操作授权。
+- **No active stage.** `2026-08-10-local-net-position-v1` 已合并本机 `main` 并归档；本地持仓
+  数量现在按活跃周期逐腿 `open - close` 汇总，开仓成本基、API 字段集合、domain、前端和
+  下单闸门不变。Kimi/moonshot review-1 `ACCEPT`，Bookkeeper 独立复跑 224 项全过；本 stage
+  的 review-2 由 Human 一次性豁免。**未部署、未重启服务**，当前运行中的前台进程仍不会加载
+  这次代码，激活仍须 Human 单独授权。
 
 - 当前服务仍以 Human 手动前台进程运行；统一账户手动还款已最终验收，
   `APP_MARGIN_REPAY_ENABLED` 按 Human 决定保持开启。XLM 指定 5 与 INJ 全部还款各一笔成功；
@@ -351,17 +349,19 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Last Completed
 
-- stage: `2026-08-09-pm-margin-repay-v1`
-- archive_ref: `archive/2026-08-09-pm-margin-repay-v1`
-  (delivery range `ee0d532..5a81bdc` + 完整计划/实现/双评审/实盘证据与活文档同步，archive
-  commit `ee927a1`；`rework_count` 0；Codex review-1 与 Opus 5/Anthropic review-2 均
-  `ACCEPT`)
+- stage: `2026-08-10-local-net-position-v1`
+- archive_ref: `archive/2026-08-10-local-net-position-v1`
+  (delivery `b67862aa188d96247db7c807d33846ce4750e8e2` + 完整计划/实现/review-1/核验证据，
+  archive commit `62619b40b41962e4860581614fc1f448e047cf37`；`rework_count` 0；Kimi/moonshot
+  review-1 `ACCEPT`；Human 一次性豁免 review-2)
 - recorded_completed_at: `2026-08-10`
-- outcome: 统一账户借款资产卡接入手动还款；精确 `0` 省略上游 amount 做全部还款，正十进制
-  原样透传，后备偿还资产固定 USDT/同币优先；SQLite 本地幂等、one-shot、严格四态与刷新
-  恢复已交付。XLM 5 与 INJ 全部还款实盘成功，Human 最终验收并决定闸门保持开启。
-- follow-ups: 多标签页锁不共享、全额还款响应可能没有实际数量均作为 Live Risks 保留；操作时
-  只用一个标签页并以刷新后负债为准。重开条件见对应条目。
+- outcome: 持仓中央聚合改为按真实成交腿 `open +q / close -q` 计算本地剩余量；close 不进入
+  开仓成本基。XVG 部分平仓误报修复，XLM 型单腿平仓可由本地账本显现；API 字段 shape 不变。
+- follow-ups: 本地净量不是交易所对账，两个弱标记为 false 也不代表一致；权威口径见
+  `docs/api/public-market-contract.md` v0.18。当前仅合并，尚未部署或重启。
+- previous stage: `2026-08-09-pm-margin-repay-v1` —— 统一账户借款资产卡手动还款，XLM 5 与
+  INJ 全部还款实盘成功；归档 `archive/2026-08-09-pm-margin-repay-v1`
+  （`ee0d532..5a81bdc`，archive commit `ee927a1`）。
 - previous stage: `2026-08-09-close-task-preflight-simplification-v1` —— 平仓两段式与派发前
   安全门，TSTUSDT 实盘闭环；归档
   `archive/2026-08-09-close-task-preflight-simplification-v1`（`dc356cd..e5f83f1`）。
