@@ -103,3 +103,16 @@ direction_sign: forward=-1, reverse=+1
 - 测试可证明“部分平仓误报修复”且不会把真实单腿平仓掩盖；
 - 本 stage 的 review-2 豁免与合并授权只是一条 Human 流程决定，不改变产品代码验收口径。
 
+## 8. Planner 裁定补充（2026-08-10）
+
+首轮计划评审的主干核验被采纳；其唯一阻塞发现 F-1「只有 close 腿的空周期」不纳入本轮代码范围，理由与反证如下：
+
+1. 合法的 `auto_close` 与 `manual_verify` 都在交易所 UM 已确认归零后关闭周期；首轮评审把“周期已关闭但交易所仍有可平仓位”当作当前前提，证据不匹配。
+2. live close 在 `prepare_attempt` 之前执行 `_close_um_position_error`；零仓、反向仓、数量不足或不可读都会暂停且不建 attempt。当前对应测试 10 项通过。
+3. 合约 close 单使用 `reduceOnly`。周期在合法流程中已因 UM flat 关闭后，首轮 R2 要求构造的“空周期双腿都成交”不是 live 可达验收形状；dry-run fake 双腿成交不能证明交易所路径可达。
+4. 2026-08-10 12:19 CST 本机账本查询没有任何“close 有成交而 open 成交为 0”的周期，也没有“paused/running close 任务但无活跃周期”的当前实例。
+5. 若未来真出现 close-only 成交，它代表异常订单事实；按首轮 R1 直接不输出该桶会继续隐藏证据，不是安全修复。正确处置应基于真实 trace 阻止 stale close 派发或新增明确异常语义，而不是在本次净额聚合中静默丢行。
+
+因此本计划不增加“无 open 腿就隐藏桶”的过滤，也不增加用 dry-run 制造不可达双成交的测试。重开条件：出现真实或可复现的 live-capable trace，证明 close attempt 在所属 cycle 没有任何 open 实际成交时仍越过 UM 门并产生实际成交。
+
+首轮 R3 降为非阻塞文档澄清并并入 §5：`docs/api/public-market-contract.md` 的新增段落必须说明三个本地数量是应用成交账本的剩余量，不是交易所对账结果；`um_position_amt` 才是同次账户快照里的交易所合约持仓，`single_leg_exposure=false` 与 `drift=false` 都不得解释为两边已经对账一致。本澄清不新增标记或控制逻辑。
