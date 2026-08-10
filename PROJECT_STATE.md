@@ -6,14 +6,13 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-10)
 
-- **Active stage:** `2026-08-10-cross-margin-flow-log-v1`。形式评审已闭环：
-  交付 `a11a873..cf247fb`（主交付 `9a4e019` + F-1 修复 `cf247fb`）；review-1 ACCEPT；
-  review-2 REWORK→窄修→复审 **ACCEPT**。phase=`awaiting_human_merge`，**待 Human
-  决定是否合并/部署/重启**（评审通过≠授权部署）。bookkeeper=`grok4.5`。
+- **No active stage.** `2026-08-10-cross-margin-flow-log-v1` 已 push 到 `origin/main`
+  并归档（`archive/2026-08-10-cross-margin-flow-log-v1`）。全仓 capital-flow 本地缓存 +
+  流水中栏真数据已在 main（交付 `a11a873..cf247fb`）。**服务是否已加载本批代码取决于
+  你是否在 push 后重启过**；若进程仍是旧代码，需再重启才生效。
 
-- 前一 stage `2026-08-10-local-net-position-v1` 已合并本机 `main` 并归档；本地持仓
-  数量按活跃周期逐腿 `open - close` 汇总。**未部署、未重启服务** 的约束仍适用于该批
-  代码直至 Human 单独授权激活。
+- 前一 stage `2026-08-10-local-net-position-v1` 已归档；本地持仓按活跃周期逐腿
+  `open - close` 汇总。
 
 - 当前服务仍以 Human 手动前台进程运行；统一账户手动还款已最终验收，
   `APP_MARGIN_REPAY_ENABLED` 按 Human 决定保持开启。XLM 指定 5 与 INJ 全部还款各一笔成功；
@@ -352,16 +351,17 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Last Completed
 
-- stage: `2026-08-10-local-net-position-v1`
-- archive_ref: `archive/2026-08-10-local-net-position-v1`
-  (delivery `b67862aa188d96247db7c807d33846ce4750e8e2` + 完整计划/实现/review-1/核验证据，
-  archive commit `62619b40b41962e4860581614fc1f448e047cf37`；`rework_count` 0；Kimi/moonshot
-  review-1 `ACCEPT`；Human 一次性豁免 review-2)
+- stage: `2026-08-10-cross-margin-flow-log-v1`
+- archive_ref: `archive/2026-08-10-cross-margin-flow-log-v1`（指向 push 后 main 上的
+  归档提交；完整 plan/dispatch/handoff 在该分支 tip 的树内）
+- delivery: `a11a873..cf247fb`（主实现 `9a4e019` + F-1 中文映射 `cf247fb`）；
+  `rework_count` 1；review-1 kimi ACCEPT；review-2 sonnet5 REWORK→修→复审 ACCEPT
 - recorded_completed_at: `2026-08-10`
-- outcome: 持仓中央聚合改为按真实成交腿 `open +q / close -q` 计算本地剩余量；close 不进入
-  开仓成本基。XVG 部分平仓误报修复，XLM 型单腿平仓可由本地账本显现；API 字段 shape 不变。
-- follow-ups: 本地净量不是交易所对账，两个弱标记为 false 也不代表一致；权威口径见
-  `docs/api/public-market-contract.md` v0.18。当前仅合并，尚未部署或重启。
+- outcome: 全仓 `GET /sapi/v1/margin/capital-flow` 本地缓存（新表 + 独立 ledger_meta）；
+  流水日志三栏中栏真数据；与利息/合约 coverage 硬隔离；失败短码中文。
+- follow-ups: 首次实盘拉取权重/满页概率靠运行时观察；中栏是全仓钱包视角非全部互转全集。
+- previous stage: `2026-08-10-local-net-position-v1` —— 本地净持仓 open−close；归档
+  `archive/2026-08-10-local-net-position-v1`。
 - previous stage: `2026-08-09-pm-margin-repay-v1` —— 统一账户借款资产卡手动还款，XLM 5 与
   INJ 全部还款实盘成功；归档 `archive/2026-08-09-pm-margin-repay-v1`
   （`ee0d532..5a81bdc`，archive commit `ee927a1`）。
