@@ -6,11 +6,16 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-10)
 
-- **No active stage.** `2026-08-10-local-net-position-v1` 已合并本机 `main` 并归档；本地持仓
-  数量现在按活跃周期逐腿 `open - close` 汇总，开仓成本基、API 字段集合、domain、前端和
-  下单闸门不变。Kimi/moonshot review-1 `ACCEPT`，Bookkeeper 独立复跑 224 项全过；本 stage
-  的 review-2 由 Human 一次性豁免。**未部署、未重启服务**，当前运行中的前台进程仍不会加载
-  这次代码，激活仍须 Human 单独授权。
+- **Active stage:** `2026-08-10-cross-margin-flow-log-v1`。目标：`GET /sapi/v1/margin/capital-flow`
+  （全仓）本地缓存，并在流水日志中于借币利息与合约资金之间增加「全仓杠杆流水」栏。
+  输入基线：capital-flow 摸排 `reports/api-samples/2026-08-margin-account-flow-recon-v1/`；
+  计划稿 `00-change-plan.md`；当前任务 **计划评审** packet
+  `01-plan-review.dispatch.md`（target `opus5`），待 Human 启动。Bookkeeper=`codex`。
+  **未实现、未部署。**
+
+- 前一 stage `2026-08-10-local-net-position-v1` 已合并本机 `main` 并归档；本地持仓
+  数量按活跃周期逐腿 `open - close` 汇总。**未部署、未重启服务** 的约束仍适用于该批
+  代码直至 Human 单独授权激活。
 
 - 当前服务仍以 Human 手动前台进程运行；统一账户手动还款已最终验收，
   `APP_MARGIN_REPAY_ENABLED` 按 Human 决定保持开启。XLM 指定 5 与 INJ 全部还款各一笔成功；
