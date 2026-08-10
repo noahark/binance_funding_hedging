@@ -11,7 +11,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   独立表+meta 不碰共用 run/coverage 聚合）已写入改写计划。前端三栏假数据基线已提交
   （`a11a873`）。当前任务 **实现** packet
   `02-implement-capital-flow.dispatch.md`（target `claude_glm`），`base_sha=a11a873`，
-  待 Human 启动。Bookkeeper 槽位名义 `codex`（本轮核验/派工由 Human 指定 grok 代行）。
+  待 Human 启动。`status.json.bookkeeper`=`grok4.5`（Human 确认中途交接）。
   **未部署。**
 
 - 前一 stage `2026-08-10-local-net-position-v1` 已合并本机 `main` 并归档；本地持仓
