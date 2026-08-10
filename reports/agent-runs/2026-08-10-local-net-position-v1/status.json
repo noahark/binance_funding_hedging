@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 2,
+  "revision": 3,
   "stage_id": "2026-08-10-local-net-position-v1",
   "bookkeeper": "codex",
-  "phase": "plan_review",
-  "checkpoint": "plan_review_rework_contested",
+  "phase": "implementation",
+  "checkpoint": "plan_review_finding_downgraded",
   "base_sha": "53ed646f4b97d07ea478a834ed8eb6acb83bbedf",
   "delivery_sha": null,
-  "ledger_sha": "38a384045382a10352d80e0546ec47277c460a60",
+  "ledger_sha": "34c465ae7a03809025194669587a9d2c6a3dc612",
   "current_task": {
-    "id": "local-net-position-plan-review-r2",
+    "id": "local-net-position-quantity-implement",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-10-local-net-position-v1/02-plan-review-r2.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-10-local-net-position-v1/03-implement.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
