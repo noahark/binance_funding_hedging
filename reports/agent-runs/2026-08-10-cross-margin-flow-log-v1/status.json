@@ -1,13 +1,13 @@
 {
   "schema_version": "2",
-  "revision": 2,
+  "revision": 3,
   "stage_id": "2026-08-10-cross-margin-flow-log-v1",
-  "bookkeeper": "codex",
+  "bookkeeper": "grok4.5",
   "phase": "implement",
   "checkpoint": "plan_rework_human_accepted_ready_to_implement",
   "base_sha": "a11a8734a3da988501fa5cac5baa52dcea3ea2ef",
   "delivery_sha": null,
-  "ledger_sha": "a11a8734a3da988501fa5cac5baa52dcea3ea2ef",
+  "ledger_sha": "dacf02fb58a452265a26ad49f896d2bf4f9329a3",
   "current_task": {
     "id": "implement-cross-margin-capital-flow-v1",
     "state": "dispatched",
