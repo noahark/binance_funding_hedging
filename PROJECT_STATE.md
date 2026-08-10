@@ -6,20 +6,18 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-10)
 
-- **Active stage:** `2026-08-09-pm-margin-repay-v1`。Grok 4.5（xAI）独立计划评审已
-  `ACCEPT`；T1 后端 `19c7096` 与 T2 前端 `5a81bdc` 均已由 Bookkeeper 核验，当前准备
-  HIGH_RISK review-1。首轮 review-1 仅因缺少组合根闸门提交级测试返回 `REWORK`；Human
-  2026-08-10 明确撤销该测试要求，不改代码、不计返工；修订后的 fresh review-1 已明确
-  `ACCEPT` 并经 Bookkeeper 核验。Human 指定 Opus 5（Anthropic）执行 review-2，dispatch
-  已准备，等待 Human 启动。完整交付已具备
+- **Active stage:** `2026-08-09-pm-margin-repay-v1`。Grok 4.5（xAI）计划评审、修订要求后的
+  Codex review-1 与 Opus 5（Anthropic）review-2 均已明确 `ACCEPT` 并经 Bookkeeper 核验；
+  首轮 review-1 的唯一测试要求已由 Human 撤销，不改代码、不计返工。当前等待 Human 最终
+  业务验收与 `APP_MARGIN_REPAY_ENABLED` 是否保持开启的决定。完整交付已具备
   默认关闭的还款闸门、本地幂等审计和离线 API。冻结端点为
   `POST /papi/v1/margin/repay-debt`，界面 `0` 映射为省略币安 `amount`，指定偿还资产
   首版固定 USDT。2026-08-10 Human 已手动重启前台服务并开启
   `APP_MARGIN_REPAY_ENABLED`，在双评审前完成两笔真实验证：XLM 指定 5 成功、INJ 输入
-  `0` 全部还款成功；本地审计见 `data/margin-repay.sqlite3`。review-1/review-2 仍未完成，
-  该提前启用事实及 INJ 响应缺少实际金额见 Live Risks。
+  `0` 全部还款成功；本地审计见 `data/margin-repay.sqlite3`。提前启用事实、INJ 响应缺少
+  实际金额及 review-2 两条观察见 Live Risks。
   服务仍以 Human 手动前台进程运行（launchd 损坏不修，见 Live Risks）。
-  测试基线 **后端 1677 passed + 前端 self-check EXIT=0 + 字段绑定 10 passed**。实盘库数据自 2026-08-06 清理后
+  测试基线 **后端 1683 passed + 前端 self-check EXIT=0 + 定向六文件 191 passed**。实盘库数据自 2026-08-06 清理后
   从新起点累积（备份 `data/*.sqlite3.bak-clean-20260806-120813`）。
 
 - **[2026-08-07 已收口] 展示层诚实性整族修复**（Human 直接驱动，无 stage；交付
@@ -88,8 +86,15 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   响应未提供官方响应模型列出的 `amount`，故 `repaid_amount=null`；这不影响本次全部
   还款成立，但本地审计不能证明实际偿还数量。临时口径：全额还款记录若
   `repaid_amount` 为空，只能结合币安账户/刷新后负债归零确认，不得从本地记录宣称精确
-  数量。review-1 须把该真实响应差异纳入契约与可观测性核对；继续实盘前由 Human 决定
-  是否保持闸门开启。
+  数量。若以后出现 `success: true` 但完整刷新后负债仍非零，须重开并把“全部已偿还”文案
+  改为以刷新结果为准。双评审已接受当前口径；闸门最后记录为开启，本轮未读运行环境确认，
+  是否保持开启由 Human 决定。
+
+- `[OPEN][OBSERVATION][2026-08-10]` **还款未决锁不跨浏览器标签页共享。** 每个标签页只在
+  启动时读取一次 localStorage 到内存；两个已打开的同源标签页可各生成新 UUID，对同一借款
+  资产分别二次确认并提交。它不是系统自动重发，每笔仍须 Human 主动输入并确认，因此
+  review-2 不阻塞交付。临时操作边界：还款时只保留一个页面，不在多标签页/多窗口并行操作。
+  重开条件：出现自动化/定时提交路径，或 Human 实际需要多标签页/多设备并行还款。
 
 - `[RESOLVED-BY-BLOCKING][2026-08-07]` **1000x 乘数合约两腿数量口径错配（资金安全）**。
   执行链两腿发同一个 `q_common`，但 1 张 1000x 合约 = 1000 个现货币：现货买 N 个、
@@ -201,7 +206,8 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   Human 已提前部署、开闸并完成 XLM/INJ 两笔真实成功验证。** 仅
   `cross_margin_borrowed > 0` 的卡展示，输入框提示 `0 自动还所有`；实现由
   `reports/agent-runs/2026-08-09-pm-margin-repay-v1/` 跟踪，完整 delivery 固定为
-  `ee0d532..5a81bdc`，review-1 dispatch 已准备但尚未执行；双评审与正式发布验收仍待完成。
+  `ee0d532..5a81bdc`；review-1/review-2 均已 `ACCEPT` 并经 Bookkeeper 核验，等待 Human
+  最终业务验收与还款闸门决定。stage 收口时同步 docs 活文档的已部署/开闸/实盘现实。
 
 - `[OPEN][NEEDS-HUMAN-AUTHORIZATION][2026-08-07]` **1000x 腿量换算——未做的资金路径**。
   P0 止血只是把 6 个乘数币（BONK/FLOKI/LUNC/PEPE/SHIB/XEC）挡在门外（见 Live Risks
