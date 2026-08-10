@@ -6,11 +6,11 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-10)
 
-- **Active stage:** `2026-08-10-cross-margin-flow-log-v1`。实现已 Bookkeeper 核验封存：
-  `base_sha=a11a873` … `delivery_sha=9a4e019`（全仓 capital-flow 本地缓存 + 流水中栏真数据；
-  硬隔离 coverage/run）。当前任务 **review-1** packet
-  `03-review-1-capital-flow.dispatch.md`（target **kimi**/moonshot，跨 provider），
-  待 Human 启动。bookkeeper=`grok4.5`。**未 merge、未部署。**
+- **Active stage:** `2026-08-10-cross-margin-flow-log-v1`。实现已封存
+  `a11a873..9a4e019`；review-1（kimi/moonshot）**ACCEPT** 已 Bookkeeper 核验。
+  当前任务 **review-2** packet `04-review-2-capital-flow.dispatch.md`
+  （target **sonnet5**/anthropic），待 Human 启动。bookkeeper=`grok4.5`。
+  **未 merge、未部署。**
 
 - 前一 stage `2026-08-10-local-net-position-v1` 已合并本机 `main` 并归档；本地持仓
   数量按活跃周期逐腿 `open - close` 汇总。**未部署、未重启服务** 的约束仍适用于该批
