@@ -1,0 +1,22 @@
+{
+  "schema_version": "2",
+  "revision": 1,
+  "stage_id": "2026-08-10-local-net-position-v1",
+  "bookkeeper": "codex",
+  "phase": "plan_review",
+  "checkpoint": "stage_initialized",
+  "base_sha": "53ed646f4b97d07ea478a834ed8eb6acb83bbedf",
+  "delivery_sha": null,
+  "ledger_sha": "53ed646f4b97d07ea478a834ed8eb6acb83bbedf",
+  "current_task": {
+    "id": "local-net-position-plan-review",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-10-local-net-position-v1/01-plan-review.dispatch.md"
+  },
+  "next": {
+    "actor": "human_operator",
+    "action": "start-prepared-task"
+  },
+  "rework_count": 0,
+  "blockers": []
+}

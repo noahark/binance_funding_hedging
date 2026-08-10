@@ -6,7 +6,14 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-10)
 
-- **No active stage.** 当前服务仍以 Human 手动前台进程运行；统一账户手动还款已最终验收，
+- **Active stage：`2026-08-10-local-net-position-v1`。** Human 已决定用现有成交腿账本按
+  `open - close` 逐腿计算本地剩余持仓量，不给 `hedge_open_cycle` 增加数量双写；目标实现者
+  为 `claude_glm`。当前停在跨 provider 计划评审 dispatch，尚未授权实现。Human 对本 stage
+  明确一次性豁免 review-2：计划评审通过后由 GLM 实现，只做 Kimi review-1；review-1
+  `ACCEPT` 且 Bookkeeper 核验通过后已授权合并到 `main`。该例外不推广，不含部署、服务重启、
+  开关或实盘操作授权。
+
+- 当前服务仍以 Human 手动前台进程运行；统一账户手动还款已最终验收，
   `APP_MARGIN_REPAY_ENABLED` 按 Human 决定保持开启。XLM 指定 5 与 INJ 全部还款各一笔成功；
   日常操作只用一个标签页，全额还款以刷新后负债为准。归档与操作限制见 Last Completed / Live
   Risks。实盘库数据自 2026-08-06 清理后从新起点累积（备份
