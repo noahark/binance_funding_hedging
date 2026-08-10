@@ -30,7 +30,7 @@ Allowed Files
 - `frontend/self-check.js`
 - `docs/api/public-market-contract.md`（private-ledger additive，不 bump schema_version）
 - create-only handoff：`reports/agent-runs/2026-08-10-cross-margin-flow-log-v1/evidence/implement-cross-margin-capital-flow-v1.handoff.md`
-- `backend/app/server.py` 为**只读输入**（见 Inputs 15），不在可写清单：`capital_flow` 块在 service 层装配，`_handle_flow_log` 原样转发即可；该文件含 P0-1 要保护的 `coverage_for_window` 消费点。确需改动即停止并报 blocker，由 Human 单独授权。
+- `backend/app/server.py` 为**只读输入**（见下方输入清单第 15 条），不在可写清单：`capital_flow` 块在 service 层装配，`_handle_flow_log` 原样转发即可；该文件含 P0-1 要保护的 `coverage_for_window` 消费点。确需改动即停止并报 blocker，由 Human 单独授权。
 - 禁止：改 `flow_refresh_runs` schema、改既有两源 coverage 聚合公式、接入 asset/transfer、分页 UI、部署/重启/实盘写、改资产互转 POST。
 - 禁止：对 `data/*.sqlite3` 执行任何写操作或迁移演练。现网 `data/ledger-flow.sqlite3` 含真实账本（利息 279 行 / 合约 196 行 / 运行记录 130 行）；建表与入库验证一律使用临时库（`LedgerStore` 的 `db_path` 本就是注入参数）。
 
