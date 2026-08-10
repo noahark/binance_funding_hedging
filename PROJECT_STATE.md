@@ -11,8 +11,9 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   为 `claude_glm`。首轮 Opus 5 计划评审主干通过但以“close-only 空周期”返回 REWORK；
   Planner 用 live UM 门、reduce-only 语义、当前库零实例和 10 项测试反证其唯一 finding，
   已记为 contested；Human 随后转述 Opus 5 自认该 finding 比例失当、应降为非阻塞注记。
-  未启动的 Sonnet 5 复评包已被 status revision 3 取代，当前 `claude_glm` 实现 dispatch
-  已准备。Human 对本 stage
+  未启动的 Sonnet 5 复评包已被 status revision 3 取代。`claude_glm` 已完成实现，交付固定为
+  `b67862aa188d96247db7c807d33846ce4750e8e2`；Bookkeeper 独立复跑指定 5 个测试文件共
+  224 项全过并核验范围，当前已准备 Kimi 只读 review-1 dispatch。Human 对本 stage
   明确一次性豁免 review-2：计划评审通过后由 GLM 实现，只做 Kimi review-1；review-1
   `ACCEPT` 且 Bookkeeper 核验通过后已授权合并到 `main`。该例外不推广，不含部署、服务重启、
   开关或实盘操作授权。

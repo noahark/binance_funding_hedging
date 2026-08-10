@@ -156,3 +156,23 @@ grep -rln "aggregate_positions" backend/tests/   # 仅这 5 个文件调用，�
 ```
 
 <!-- BOOKKEEPER_APPEND_ONLY: all bytes before this marker are the source payload -->
+
+## Bookkeeper Verification (Bookkeeper append-only)
+
+- source_sha256: `f02aee0d1a09e4ebb1e01283f22023780109e4b8a1e6ef931f5c2d358cd011c0`
+- verified_at: `2026-08-10 12:56:44 CST`
+- status_revision_checked: `3`
+- identity_check: `pass` — task_id、role、provider、stage_id、base_sha 与 dispatch/status/Git 一致。
+- create_only_check: `pass` — handoff 随本任务 delivery commit 首次创建，marker 存在且作者区未被改写。
+- delivery_commit: `b67862aa188d96247db7c807d33846ce4750e8e2`
+- delivery_parent: `f0a95355517455331349411577913aefa5cf97dc`
+- commit_shape: `pass` — `f0a95355517455331349411577913aefa5cf97dc..b67862aa188d96247db7c807d33846ce4750e8e2` 恰好一个 commit。
+- allowed_files: `pass` — 实际改动仅为 dispatch 允许的 `store.py`、两个测试文件、API 文档、status 单一状态位及本 handoff。
+- status_transition: `pass` — 实现者仅把本任务 `current_task.state` 从 `dispatched` 改为 `reported`，其余 status 字段未动。
+- acceptance_reproduction: `pass` — 指定 5 个测试文件独立复跑 `224 passed in 24.84s`；`git diff --check f0a95355517455331349411577913aefa5cf97dc..b67862aa188d96247db7c807d33846ce4750e8e2` 通过。
+- scope_check: `pass` — 无 schema/DB/data、domain、前端、服务、闸门、订单、借还款或划转变化。
+- decision: `verified` — 将上述 commit 固定为 `status.json.delivery_sha`，进入 Kimi review-1。
+
+## Errata (append-only)
+
+- none.
