@@ -6,12 +6,13 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-10)
 
-- **Active stage:** `2026-08-10-cross-margin-flow-log-v1`。目标：`GET /sapi/v1/margin/capital-flow`
-  （全仓）本地缓存，并在流水日志中于借币利息与合约资金之间增加「全仓杠杆流水」栏。
-  输入基线：capital-flow 摸排 `reports/api-samples/2026-08-margin-account-flow-recon-v1/`；
-  计划稿 `00-change-plan.md`；当前任务 **计划评审** packet
-  `01-plan-review.dispatch.md`（target `opus5`），待 Human 启动。Bookkeeper=`codex`。
-  **未实现、未部署。**
+- **Active stage:** `2026-08-10-cross-margin-flow-log-v1`。目标：全仓 `capital-flow` 本地缓存 +
+  流水中栏真数据。opus5 计划评审 **REWORK** 已核验；Human 决策（仅 1 天历史、不分页、
+  独立表+meta 不碰共用 run/coverage 聚合）已写入改写计划。前端三栏假数据基线已提交
+  （`a11a873`）。当前任务 **实现** packet
+  `02-implement-capital-flow.dispatch.md`（target `claude_glm`），`base_sha=a11a873`，
+  待 Human 启动。Bookkeeper 槽位名义 `codex`（本轮核验/派工由 Human 指定 grok 代行）。
+  **未部署。**
 
 - 前一 stage `2026-08-10-local-net-position-v1` 已合并本机 `main` 并归档；本地持仓
   数量按活跃周期逐腿 `open - close` 汇总。**未部署、未重启服务** 的约束仍适用于该批

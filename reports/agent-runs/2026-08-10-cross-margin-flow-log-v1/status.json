@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 1,
+  "revision": 2,
   "stage_id": "2026-08-10-cross-margin-flow-log-v1",
   "bookkeeper": "codex",
-  "phase": "plan_review",
-  "checkpoint": "stage_initialized",
-  "base_sha": "92256cb0849653a2daf41b894f7bd6c7860ac73c",
+  "phase": "implement",
+  "checkpoint": "plan_rework_human_accepted_ready_to_implement",
+  "base_sha": "a11a8734a3da988501fa5cac5baa52dcea3ea2ef",
   "delivery_sha": null,
-  "ledger_sha": "92256cb0849653a2daf41b894f7bd6c7860ac73c",
+  "ledger_sha": "a11a8734a3da988501fa5cac5baa52dcea3ea2ef",
   "current_task": {
-    "id": "cross-margin-flow-log-plan-review",
+    "id": "implement-cross-margin-capital-flow-v1",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-10-cross-margin-flow-log-v1/01-plan-review.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-10-cross-margin-flow-log-v1/02-implement-capital-flow.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
