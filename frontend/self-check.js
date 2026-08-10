@@ -7306,9 +7306,9 @@ setTimeout(async () => {
       console.log('[PASS] 幂等键生成器：不依赖 crypto.randomUUID（实盘坏实现回归）/严格 v4/200 次无重复/无 getRandomValues 兜底/后端正则接受');
     }
 
-    // 75z. 资产互转（统一 ⇄ 现货）：真实可用额回显（统一账户取 cross_margin_free，
-    // 现货取 free）、位置、账户自动反转、资产跟随转出账户、不套用 <10 USDT 卡片过滤、
-    // 数量校验按可用额、二次确认、确认前后均零请求（划转接口本轮未接）
+    // 75z. 资产互转（统一 ⇄ 现货）：默认现货→统一/USDT/数量=现货 free；
+    // 真实可用额回显、位置、账户自动反转、资产跟随转出账户、不套用 <10 USDT 卡片过滤、
+    // 数量校验按可用额、二次确认、成功后刷缓存
     {
       const transferFixture = JSON.parse(JSON.stringify(designFixture));
       transferFixture.private_account = {
@@ -7327,6 +7327,8 @@ setTimeout(async () => {
             value_usdt: null, cross_margin_borrowed_value_usdt: null }
         ],
         balances_spot: [
+          // 默认归集目标：现货 USDT free 填入划转数量
+          { asset: 'USDT', free: '42.5', locked: '0', value_usdt: '42.50' },
           { asset: 'BNB', free: '1.2', locked: '0.8', value_usdt: '1240.00' }
         ],
         um_positions: [],
@@ -7335,6 +7337,14 @@ setTimeout(async () => {
         checked_at: '2026-08-06T09:30:00Z',
         error: null
       };
+      // 复位默认态（self-check 共用页面 state，先前用例可能已写过 amount）
+      const at0 = helpers.getAssetTransfer();
+      at0.from = 'spot';
+      at0.asset = 'USDT';
+      at0.amount = null;
+      at0.result = null;
+      at0.locked = false;
+      at0.submitting = false;
       helpers.ingestSnapshot(transferFixture);
       if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
       helpers.renderPrivatePanel();
@@ -7349,54 +7359,47 @@ setTimeout(async () => {
         throw new Error(`互转行位置错误: unified=${idxUnified} transfer=${idxTransfer} spot=${idxSpot}`);
       }
       if (tBody.includes('真实划转 · 点击即动钱')) throw new Error('已删除的「真实划转」提示不应出现');
-      if (!tBody.includes('>从<') || !tBody.includes('>转到<')) throw new Error('缺少「从」/「转到」标签');
+      if (!tBody.includes('>从<') || !tBody.includes('🔄转到')) throw new Error('缺少「从」/「🔄转到」互换控件');
+      if (!tBody.includes('data-transfer-swap')) throw new Error('缺少互换按钮 data-transfer-swap');
 
-      // 默认转出=统一账户，资产下拉展示统一账户资产（含币种/可转/净值三段）
-      if (helpers.getAssetTransfer().from !== 'unified') throw new Error('默认转出账户应为统一账户');
-      // 2026-08-07 晚（Human 定稿）：全部走快照，前端零请求。本 fixture 无 pm_account，
-      // 故 USDT 也退回 cross_margin_free 并说「可用」——措辞必须跟着数据来源降级，
-      // 不能保留「可转」的说法却给一个不是可转出额的数。
-      // 有 pm_account 时 USDT 说「可转」的行为由下方 Q4 断言组覆盖。
-      if (!tBody.includes('USDT · 可用 9,800.1000 · 净值 ≈ 12500.43 USDT')) {
-        throw new Error('无账户级字段时统一账户应显示「可用 + crossMarginFree」: ' + tBody.slice(idxTransfer, idxTransfer + 900));
+      // 默认：现货 → 统一、USDT、数量=现货 free
+      if (helpers.getAssetTransfer().from !== 'spot') throw new Error('默认转出账户应为现货账户');
+      if (helpers.getAssetTransfer().asset !== 'USDT') throw new Error('默认资产应为 USDT');
+      if (helpers.getAssetTransfer().amount !== '42.5') {
+        throw new Error('默认数量应为现货 USDT free: ' + helpers.getAssetTransfer().amount);
       }
-      // 只查互转区块：资产卡本来就展示总量，那里出现这个数是合法的。
-      if (tBody.slice(idxTransfer).includes('12,500.4321')) {
-        throw new Error('可用不应回退到 total_balance');
-      }
-      // 净值 < 10 的资产：卡片被过滤，下拉仍在
-      if (!tBody.includes('DOGE · 可用 35.7 ·')) throw new Error('小额资产不应被划转下拉过滤');
-      // 口径说明必须出现在界面上（可用 ≠ 可转出额，这句话本身就是护栏）
-      if (!tBody.includes('crossMarginFree')) throw new Error('缺少可用额口径说明');
-      if (tBody.includes('<div class="asset">DOGE</div>')) throw new Error('小额资产卡应仍被过滤（既有行为）');
-      // 估值缺失 → 净值 —，不编零；cross_margin_free 缺失 → 可用 —（不回退总量）
-      if (!tBody.includes('MUUU · 可用 — · 净值 ≈ — USDT')) {
-        throw new Error('可用/估值缺失须各自显示 —: ' + tBody.slice(idxTransfer, idxTransfer + 1400));
-      }
-      // 转入账户自动取反
       const rowsFrom = tBody.slice(idxTransfer);
-      if (!/id="transfer-from"[\s\S]*?<option value="unified" selected>/.test(rowsFrom)) {
-        throw new Error('转出下拉应选中统一账户');
+      if (!/id="transfer-from"[\s\S]*?<option value="spot" selected>/.test(rowsFrom)) {
+        throw new Error('转出下拉应选中现货账户');
       }
-      if (!/id="transfer-to"[\s\S]*?<option value="spot" selected>/.test(rowsFrom)) {
-        throw new Error('转入下拉应自动取反为现货账户');
+      if (!/id="transfer-to"[\s\S]*?<option value="unified" selected>/.test(rowsFrom)) {
+        throw new Error('转入下拉应自动取反为统一账户');
       }
-
-      // 未选资产 → 按钮禁用
-      if (helpers.evaluateTransfer().ok) throw new Error('未选资产不应可提交');
-      if (!tBody.includes('data-transfer-submit disabled')) throw new Error('未选资产时按钮应 disabled');
-
-      // 选资产 + 合法数量 → 可提交
+      // 🔄转到：点击后现货/统一前后互换，资产清空（两账户集合不同）
+      helpers.swapTransferAccounts();
+      if (helpers.getAssetTransfer().from !== 'unified') throw new Error('互换后转出应为统一账户');
+      if (helpers.getAssetTransfer().asset !== null) throw new Error('互换后资产应清空');
+      tBody = elements['private-panel-body'].innerHTML;
+      if (!/id="transfer-from"[\s\S]*?<option value="unified" selected>/.test(tBody.slice(tBody.indexOf('资产互转')))) {
+        throw new Error('互换后转出下拉应选中统一账户');
+      }
+      if (!/id="transfer-to"[\s\S]*?<option value="spot" selected>/.test(tBody.slice(tBody.indexOf('资产互转')))) {
+        throw new Error('互换后转入下拉应选中现货账户');
+      }
+      helpers.swapTransferAccounts();
+      if (helpers.getAssetTransfer().from !== 'spot') throw new Error('再互换应回到现货转出');
+      // 互换清空了资产，恢复默认 USDT 以便后续默认数量/下拉断言
       helpers.setTransferAsset('USDT');
-      helpers.setTransferAmount('100');
-      if (!helpers.evaluateTransfer().ok) throw new Error('合法输入应可提交');
-      // 超额按 cross_margin_free(9800.1) 判，不是 total_balance(12500.4321)
-      helpers.setTransferAmount('10000');
-      if (helpers.evaluateTransfer().ok) throw new Error('超出 cross_margin_free 应被拦截');
-      helpers.setTransferAmount('99999');
-      let verdict = helpers.evaluateTransfer();
-      if (verdict.ok || !verdict.hint.includes('超出可用数量')) throw new Error('超额应被拦截: ' + verdict.hint);
-      // 零 / 负 / 非法
+      helpers.setTransferAmount('42.5');
+      helpers.renderPrivatePanel();
+      tBody = elements['private-panel-body'].innerHTML;
+      if (!tBody.includes('USDT · 可用 42.5 ·')) throw new Error('默认应展示现货 USDT 可用');
+      if (!tBody.includes('BNB · 可用 1.2 ·')) throw new Error('现货下拉应含 BNB');
+      if (tBody.includes('DOGE · 可用')) throw new Error('转出=现货时不应展示统一账户资产');
+      if (!tBody.includes('可用 = 现货账户可用余额')) throw new Error('缺少现货可用额口径说明');
+      // 默认数量已填且 >0 → 可提交
+      if (!helpers.evaluateTransfer().ok) throw new Error('默认现货 USDT 全额应可提交');
+      // 0 / 负 / 非法
       helpers.setTransferAmount('0');
       if (helpers.evaluateTransfer().ok) throw new Error('0 不应可提交');
       helpers.setTransferAmount('-5');
@@ -7404,8 +7407,63 @@ setTimeout(async () => {
       helpers.setTransferAmount('abc');
       if (helpers.evaluateTransfer().ok) throw new Error('非数字不应可提交');
 
-      // 切换转出账户 → 资产选择清空（两账户资产集合不同，不静默转错币种）
+      // 现货无 USDT 行（omitZeroBalances）→ 仍默认选中 USDT，数量 0
+      const noUsdtFixture = JSON.parse(JSON.stringify(transferFixture));
+      noUsdtFixture.private_account.balances_spot = [
+        { asset: 'BNB', free: '1.2', locked: '0.8', value_usdt: '1240.00' }
+      ];
+      const atZero = helpers.getAssetTransfer();
+      atZero.from = 'spot';
+      atZero.asset = 'USDT';
+      atZero.amount = null;
+      helpers.ingestSnapshot(noUsdtFixture);
+      helpers.renderPrivatePanel();
+      if (helpers.getAssetTransfer().asset !== 'USDT') throw new Error('现货无 USDT 行时仍应默认选中 USDT');
+      if (helpers.getAssetTransfer().amount !== '0') {
+        throw new Error('现货无 USDT 时默认数量应为 0: ' + helpers.getAssetTransfer().amount);
+      }
+      tBody = elements['private-panel-body'].innerHTML;
+      if (!tBody.includes('USDT · 可用 0 ·')) throw new Error('现货无 USDT 时应补零选项: ' + tBody.slice(tBody.indexOf('资产互转'), tBody.indexOf('资产互转') + 900));
+      if (helpers.evaluateTransfer().ok) throw new Error('数量 0 不应可提交');
+
+      // 恢复含 USDT 的 fixture，切到统一账户测统一侧下拉/校验
+      helpers.ingestSnapshot(transferFixture);
+      helpers.setTransferFrom('unified');
+      if (helpers.getAssetTransfer().asset !== null) throw new Error('切换转出账户后资产应清空');
+      tBody = elements['private-panel-body'].innerHTML;
+      // 2026-08-07 晚（Human 定稿）：全部走快照，前端零请求。本 fixture 无 pm_account，
+      // 故 USDT 也退回 cross_margin_free 并说「可用」——措辞必须跟着数据来源降级。
+      // 有 pm_account 时 USDT 说「可转」的行为由下方 Q4 断言组覆盖。
+      if (!tBody.includes('USDT · 可用 9,800.1000 · 净值 ≈ 12500.43 USDT')) {
+        throw new Error('无账户级字段时统一账户应显示「可用 + crossMarginFree」: ' + tBody.slice(tBody.indexOf('资产互转'), tBody.indexOf('资产互转') + 900));
+      }
+      // 只查互转区块：资产卡本来就展示总量，那里出现这个数是合法的。
+      if (tBody.slice(tBody.indexOf('资产互转')).includes('12,500.4321')) {
+        throw new Error('可用不应回退到 total_balance');
+      }
+      if (!tBody.includes('DOGE · 可用 35.7 ·')) throw new Error('小额资产不应被划转下拉过滤');
+      if (!tBody.includes('crossMarginFree')) throw new Error('缺少可用额口径说明');
+      if (tBody.includes('<div class="asset">DOGE</div>')) throw new Error('小额资产卡应仍被过滤（既有行为）');
+      if (!tBody.includes('MUUU · 可用 — · 净值 ≈ — USDT')) {
+        throw new Error('可用/估值缺失须各自显示 —: ' + tBody.slice(tBody.indexOf('资产互转'), tBody.indexOf('资产互转') + 1400));
+      }
+      if (!/id="transfer-to"[\s\S]*?<option value="spot" selected>/.test(tBody.slice(tBody.indexOf('资产互转')))) {
+        throw new Error('转出改统一后转入应自动取反为现货账户');
+      }
+      // 未选资产 → 按钮禁用
+      if (helpers.evaluateTransfer().ok) throw new Error('未选资产不应可提交');
+      if (!tBody.includes('data-transfer-submit disabled')) throw new Error('未选资产时按钮应 disabled');
+      // 选资产 + 合法数量 → 可提交；超额按 cross_margin_free 拦
       helpers.setTransferAsset('USDT');
+      helpers.setTransferAmount('100');
+      if (!helpers.evaluateTransfer().ok) throw new Error('合法输入应可提交');
+      helpers.setTransferAmount('10000');
+      if (helpers.evaluateTransfer().ok) throw new Error('超出 cross_margin_free 应被拦截');
+      helpers.setTransferAmount('99999');
+      let verdict = helpers.evaluateTransfer();
+      if (verdict.ok || !verdict.hint.includes('超出可用数量')) throw new Error('超额应被拦截: ' + verdict.hint);
+
+      // 切回现货做二次确认 / POST 形状
       helpers.setTransferFrom('spot');
       if (helpers.getAssetTransfer().asset !== null) throw new Error('切换转出账户后资产应清空');
       tBody = elements['private-panel-body'].innerHTML;
@@ -7521,10 +7579,14 @@ setTimeout(async () => {
       // 复位，不污染后续断言
       assetTransferPostResponse = null;
       cacheRefreshPostResponse = null;
-      helpers.setTransferFrom('unified');
-      helpers.setTransferAmount('');
+      const atEnd = helpers.getAssetTransfer();
+      atEnd.from = 'spot';
+      atEnd.asset = 'USDT';
+      atEnd.amount = null;
+      atEnd.result = null;
+      atEnd.locked = false;
       helpers.ingestSnapshot(designFixture);
-      console.log('[PASS] 资产互转 T2 接线：UUID 幂等键 + confirm=true + 恰一次 POST/成功刷缓存/failed 不当成功/unknown 锁定且无重试入口/请求层失败/位置/自动反转/可用额校验');
+      console.log('[PASS] 资产互转 T2 接线：默认现货→统一/USDT/free + UUID 幂等键 + confirm=true + 恰一次 POST/成功刷缓存/failed 不当成功/unknown 锁定且无重试入口/请求层失败/位置/自动反转/可用额校验');
     }
 
     function evaluateTransferOk() {

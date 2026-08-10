@@ -748,6 +748,26 @@
       font-size: 12px;
       font-weight: 700;
     }
+    /* 「🔄转到」：点击互换转出/转入，外观贴近旁侧 label，不当成主操作按钮 */
+    .asset-transfer-row .transfer-swap {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      min-height: 28px;
+      padding: 0 6px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .asset-transfer-row .transfer-swap:hover {
+      color: var(--text);
+      border-color: var(--text);
+    }
     .asset-transfer-row select,
     .asset-transfer-row input {
       min-height: 36px;
@@ -1670,11 +1690,12 @@
         // 资产互转：私有面板 60s 重渲染会重建这一行的 DOM，选择与输入必须存在
         // state 里回填，否则自动刷新会清空用户填了一半的表单。
         // from: 'unified' | 'spot'（转入账户恒为另一个）。
+        // 默认现货→统一、USDT、数量=现货 USDT free（归集；amount=null 表示尚未按快照填入）。
         // result 为后端返回的划转记录（含 status 四态）或请求层错误；
         // locked 在 status=unknown 后置真——结果未知时钱可能已经转了，必须先人工
         // 核对再解锁，否则换个新编号重来就会转第二次。
         assetTransfer: {
-          from: 'unified', asset: null, amount: '',
+          from: 'spot', asset: 'USDT', amount: null,
           submitting: false, result: null, locked: false,
         },
         // 还款输入按资产保存在 state，60s 重渲染据此回填，不打断正在输入的数量。
@@ -3449,12 +3470,18 @@
         if (!pa) return [];
         if (from === 'spot') {
           const rows = Array.isArray(pa.balances_spot) ? pa.balances_spot : [];
-          return rows.filter(b => b && b.asset).map(b => ({
+          const mapped = rows.filter(b => b && b.asset).map(b => ({
             asset: b.asset,
             available: b.free,
             kind: 'available',
             netUsdt: b.value_usdt
           }));
+          // 现货快照 omitZeroBalances：free=0 时列表可能没有 USDT。默认归集仍要能选中
+          // USDT 并展示数量 0，否则下拉无选项、state.asset 对不上。
+          if (!mapped.some(r => r.asset === 'USDT')) {
+            mapped.unshift({ asset: 'USDT', available: '0', kind: 'available', netUsdt: null });
+          }
+          return mapped;
         }
         const rows = Array.isArray(pa.balances_unified) ? pa.balances_unified : [];
         const pmAvailable = (pa.pm_account || {}).total_available_balance_usdt;
@@ -3467,6 +3494,15 @@
             netUsdt: sub8(b.value_usdt, b.cross_margin_borrowed_value_usdt)
           };
         });
+      }
+
+      // 默认划转数量：现货 USDT free 原始字符串；缺失或未读到 → '0'（不编千分位）。
+      function transferSpotUsdtFreeAmount(pa) {
+        if (!pa) return '0';
+        const rows = Array.isArray(pa.balances_spot) ? pa.balances_spot : [];
+        const usdt = rows.find(b => b && b.asset === 'USDT');
+        if (!usdt || usdt.free == null || usdt.free === '') return '0';
+        return String(usdt.free);
       }
 
       function transferSelectedRow(pa) {
@@ -3565,9 +3601,12 @@
 
       function renderAssetTransfer(pa) {
         const t = state.assetTransfer;
-        const from = TRANSFER_ACCOUNTS.includes(t.from) ? t.from : 'unified';
+        const from = TRANSFER_ACCOUNTS.includes(t.from) ? t.from : 'spot';
+        // 默认数量只填一次：amount===null 表示尚未按快照写入；用户编辑或成功清空后不再覆盖。
+        if (t.amount === null && from === 'spot' && t.asset === 'USDT') {
+          t.amount = transferSpotUsdtFreeAmount(pa);
+        }
         const to = transferOtherAccount(from);
-        const rows = transferAssetRows(pa, from);
         const accountOptions = (selectedValue) => TRANSFER_ACCOUNTS.map(a =>
           `<option value="${a}"${a === selectedValue ? ' selected' : ''}>${TRANSFER_ACCOUNT_LABELS[a]}</option>`
         ).join('');
@@ -3592,7 +3631,8 @@
             <div class="asset-transfer-row">
               <label for="transfer-from">从</label>
               <select id="transfer-from" data-transfer-account="from">${accountOptions(from)}</select>
-              <label for="transfer-to">转到</label>
+              <button type="button" class="transfer-swap" data-transfer-swap
+                      title="互换转出与转入账户" aria-label="互换转出与转入账户">🔄转到</button>
               <select id="transfer-to" data-transfer-account="to">${accountOptions(to)}</select>
               <select id="transfer-asset" class="transfer-asset" data-transfer-asset>${assetOptions}</select>
               <input id="transfer-amount" class="transfer-amount" type="text" inputmode="decimal"
@@ -3622,12 +3662,17 @@
 
       // 两个账户下拉自动反转：无论改哪个，转出/转入恒为不同账户，选不出无效组合。
       function setTransferFrom(nextFrom) {
-        const from = TRANSFER_ACCOUNTS.includes(nextFrom) ? nextFrom : 'unified';
+        const from = TRANSFER_ACCOUNTS.includes(nextFrom) ? nextFrom : 'spot';
         if (from === state.assetTransfer.from) return;
         state.assetTransfer.from = from;
         state.assetTransfer.asset = null;  // 两账户资产集合不同，切换后必须重选
         state.assetTransfer.result = null;
         renderPrivatePanel();
+      }
+
+      // 「🔄转到」：转出/转入对调（与改任一账户下拉等价，走同一清空资产路径）。
+      function swapTransferAccounts() {
+        setTransferFrom(transferOtherAccount(state.assetTransfer.from));
       }
 
       function requestAssetTransferConfirm() {
@@ -7557,6 +7602,11 @@
               requestAssetTransferConfirm();
               return;
             }
+            if (closest('[data-transfer-swap]')) {
+              e.stopPropagation();
+              swapTransferAccounts();
+              return;
+            }
             // 「我已核对」：结果未知后的人工解锁，纯本地状态，零请求。
             if (closest('[data-transfer-ack]')) {
               e.stopPropagation();
@@ -7829,6 +7879,7 @@
         onHedgeModalConfirm,
         // ---- 资产互转（统一 ⇄ 现货，fake 预览接缝） ----
         setTransferFrom,
+        swapTransferAccounts,
         requestAssetTransferConfirm,
         transferAssetRows,
         evaluateTransfer: () => evaluateTransfer(state.snapshot && state.snapshot.private_account),
