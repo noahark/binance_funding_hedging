@@ -6,20 +6,11 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-10)
 
-- **Active stage:** `2026-08-09-pm-margin-repay-v1`。Grok 4.5（xAI）计划评审、修订要求后的
-  Codex review-1 与 Opus 5（Anthropic）review-2 均已明确 `ACCEPT` 并经 Bookkeeper 核验；
-  首轮 review-1 的唯一测试要求已由 Human 撤销，不改代码、不计返工。当前等待 Human 最终
-  业务验收已通过，Human 明确决定 `APP_MARGIN_REPAY_ENABLED` 保持开启；当前执行本地归档
-  与 stage 收口。完整交付已具备
-  默认关闭的还款闸门、本地幂等审计和离线 API。冻结端点为
-  `POST /papi/v1/margin/repay-debt`，界面 `0` 映射为省略币安 `amount`，指定偿还资产
-  首版固定 USDT。2026-08-10 Human 已手动重启前台服务并开启
-  `APP_MARGIN_REPAY_ENABLED`，在双评审前完成两笔真实验证：XLM 指定 5 成功、INJ 输入
-  `0` 全部还款成功；本地审计见 `data/margin-repay.sqlite3`。提前启用事实、INJ 响应缺少
-  实际金额及 review-2 两条观察见 Live Risks。
-  服务仍以 Human 手动前台进程运行（launchd 损坏不修，见 Live Risks）。
-  测试基线 **后端 1683 passed + 前端 self-check EXIT=0 + 定向六文件 191 passed**。实盘库数据自 2026-08-06 清理后
-  从新起点累积（备份 `data/*.sqlite3.bak-clean-20260806-120813`）。
+- **No active stage.** 当前服务仍以 Human 手动前台进程运行；统一账户手动还款已最终验收，
+  `APP_MARGIN_REPAY_ENABLED` 按 Human 决定保持开启。XLM 指定 5 与 INJ 全部还款各一笔成功；
+  日常操作只用一个标签页，全额还款以刷新后负债为准。归档与操作限制见 Last Completed / Live
+  Risks。实盘库数据自 2026-08-06 清理后从新起点累积（备份
+  `data/*.sqlite3.bak-clean-20260806-120813`）。
 
 - **[2026-08-07 已收口] 展示层诚实性整族修复**（Human 直接驱动，无 stage；交付
   `d7057e3`/`dd0b3e3`/`184d76e`/`44ab175` 等，细节见 git 历史）：
@@ -202,13 +193,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Open Follow-ups
 
-- `[IN-STAGE][LIVE-ENABLED][2026-08-10]` **统一账户借款资产卡还款已完成前后端接入，且
-  Human 已提前部署、开闸并完成 XLM/INJ 两笔真实成功验证。** 仅
-  `cross_margin_borrowed > 0` 的卡展示，输入框提示 `0 自动还所有`；实现由
-  `reports/agent-runs/2026-08-09-pm-margin-repay-v1/` 跟踪，完整 delivery 固定为
-  `ee0d532..5a81bdc`；review-1/review-2 均已 `ACCEPT` 并经 Bookkeeper 核验，Human 最终
-  业务验收通过并决定还款闸门保持开启；stage 正在收口。
-
 - `[OPEN][NEEDS-HUMAN-AUTHORIZATION][2026-08-07]` **1000x 腿量换算——未做的资金路径**。
   P0 止血只是把 6 个乘数币（BONK/FLOKI/LUNC/PEPE/SHIB/XEC）挡在门外（见 Live Risks
   同日条目），**换算本身一行未写**。恢复这 6 个币的对冲能力必须改下单数量这条真金
@@ -337,21 +321,20 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Last Completed
 
-- stage: `2026-08-09-close-task-preflight-simplification-v1`
-- archive_ref: `archive/2026-08-09-close-task-preflight-simplification-v1`
-  (delivery range `dc356cd..e5f83f1` + 各轮封存控制提交；`rework_count` 0；
-  Review-1 Opus 5/Anthropic `ACCEPT` + Review-2 Kimi/Moonshot `ACCEPT`，三轮三 provider)
-- recorded_completed_at: `2026-08-09`
-- outcome: 平仓改两段式——建卡只做本地校验、原子落 `paused/awaiting_manual_start`、
-  零交易所读取立即回显；Human 点击「启动」后才异步预检并发单。启动后新增/重排安全门：
-  合约 UM 持仓方向/数量门（`um_positions` 300s 缓存 + 实时兜底）、forward 普通现货 base
-  每 attempt 按 `q_common × remaining` 校验/划转、1000x 乘数建卡+派发双判。删除 close 无
-  消费者的三项读取、position mode 改用固化值；open 与最终核实未动。**实盘验证**：TSTUSDT
-  forward close（target_n=2）建卡 paused → 启动 → 两腿各 FILLED 500×2 → done → 周期
-  `auto_close`（open 1000 / close 1000 对平）。服务 2026-08-09 18:03 重启加载新代码后生效；
-  Human 验收通过、合并 main 并 push origin。
-- follow-ups: 1000x 腿量换算仍未做（见 Open Follow-ups，须 Human 授权单开一轮）；多张同币
-  同向 close 卡竞争同一仓位本轮不做预留；两腿并发非原子等剩余风险见计划 §9。
+- stage: `2026-08-09-pm-margin-repay-v1`
+- archive_ref: `archive/2026-08-09-pm-margin-repay-v1`
+  (delivery range `ee0d532..5a81bdc` + 完整计划/实现/双评审/实盘证据与活文档同步，archive
+  commit `ee927a1`；`rework_count` 0；Codex review-1 与 Opus 5/Anthropic review-2 均
+  `ACCEPT`)
+- recorded_completed_at: `2026-08-10`
+- outcome: 统一账户借款资产卡接入手动还款；精确 `0` 省略上游 amount 做全部还款，正十进制
+  原样透传，后备偿还资产固定 USDT/同币优先；SQLite 本地幂等、one-shot、严格四态与刷新
+  恢复已交付。XLM 5 与 INJ 全部还款实盘成功，Human 最终验收并决定闸门保持开启。
+- follow-ups: 多标签页锁不共享、全额还款响应可能没有实际数量均作为 Live Risks 保留；操作时
+  只用一个标签页并以刷新后负债为准。重开条件见对应条目。
+- previous stage: `2026-08-09-close-task-preflight-simplification-v1` —— 平仓两段式与派发前
+  安全门，TSTUSDT 实盘闭环；归档
+  `archive/2026-08-09-close-task-preflight-simplification-v1`（`dc356cd..e5f83f1`）。
 - previous stage: `2026-08-06-asset-transfer-live-v1` —— 资产互转真实划转打通，实盘三笔
   `succeeded`，合并 main（`bb47d02..bbe81b0`）。归档 `archive/2026-08-06-asset-transfer-live-v1`。
 - previous stage: `2026-08-06-hedge-order-close-validation` —— 下单/平仓链路实盘验收
@@ -363,7 +346,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   `archive/2026-08-03-hedge-status-account-refresh-v1`。
 - previous stage: `2026-08-03-harness-task-handoff-evidence-v1`
   (`archive/2026-08-03-harness-task-handoff-evidence-v1`, `0a0b952`)
-- 更早的完结记录见 git 历史与 `git branch -a | grep archive/`（共 8 分支 + 9 tag）。
+- 更早的完结记录见 git 历史与 archive branches/tags。
 
 ## Update Rule
 
