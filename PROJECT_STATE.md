@@ -71,6 +71,28 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Live Risks
 
+- `[RESOLVED][LIVE-INCIDENT][2026-08-10]` **XLMUSDT reverse 平仓单腿成交，现货负债腿已由
+  Human 人工收口。**
+  任务 `840a11a5-b47e-4406-858f-4947934901bf` 于 10:30:54 CST 并发提交两腿：
+  PAPI UM `reduceOnly SELL 100` 已 `FILLED`（order `22675869218`，均价 `0.16230`），
+  PAPI Margin `BUY 100` 被币安明确拒绝 `-2019 Margin is insufficient`。10:35 CST
+  只读快照确认 UM 已无
+  XLMUSDT 仓位，而 XLM `cross_margin_free=95`、`cross_margin_borrowed=195.10900819`
+  （约净空 `100.10900819 XLM`）；组合保证金 `total_available_balance_usdt=0`，虽
+  USDT `cross_margin_free=229.09557812`。Human 11:00:10 CST 通过 XLM 资产卡提交 `amount=0`
+  全额还款，11:01 快照确认 XLM 余额/可用/借款全为 `0`；按 Human 提供的现货
+  `BUY 100 @ 0.1632` 补录 `hedge_open_cycle_close_log.id=5`，周期以 `manual_verify`
+  于 11:00:11 CST 关闭，任务置 `done`。原始 attempt `60` / raw `169..171` 保持不变；
+  补录前备份为 `data/hedge-open-tasks.sqlite3.bak-manual-xlm-close-20260810-110010`。
+
+- `[OPEN][LIVE-RISK][2026-08-10]` **reverse 自动平仓仍可能因组合保证金口径再次单腿。**
+  两腿非原子并发，合约腿不等待现货腿；close+reverse 预检仅以最长 5 分钟缓存可命中的
+  逐资产 `crossMarginFree >= q×估价` 放行，未校验组合保证金 `totalAvailableBalance`，
+  也未验证任一腿先成交后的中间态，故本地门通过不代表币安组合风控会接受现货买回。
+  临时边界：修复前不要使用 reverse 自动平仓；如需处置，Human 在币安逐腿核对并人工
+  收口。重开修复至少要使用能覆盖组合风控与单腿中间态的真实验收口径，不能继续把
+  `crossMarginFree` 当成成交保证；任何代码修复仍需另行明确授权。
+
 - `[OPEN][LIVE-OBSERVATION][2026-08-10]` **还款功能在双评审完成前已由 Human 开闸并做
   真实还款。** 本地审计确认 XLM 请求 5、实际 5、`succeeded`；INJ 请求 `0`（外发省略
   `amount`）、`succeeded`，且 00:40:19 本地已发布账户快照的
