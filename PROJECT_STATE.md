@@ -6,13 +6,11 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-10)
 
-- **Active stage:** `2026-08-10-cross-margin-flow-log-v1`。目标：全仓 `capital-flow` 本地缓存 +
-  流水中栏真数据。opus5 计划评审 **REWORK** 已核验；Human 决策（仅 1 天历史、不分页、
-  独立表+meta 不碰共用 run/coverage 聚合）已写入改写计划。前端三栏假数据基线已提交
-  （`a11a873`）。当前任务 **实现** packet
-  `02-implement-capital-flow.dispatch.md`（target `claude_glm`），`base_sha=a11a873`，
-  待 Human 启动。`status.json.bookkeeper`=`grok4.5`（Human 确认中途交接）。
-  **未部署。**
+- **Active stage:** `2026-08-10-cross-margin-flow-log-v1`。实现已 Bookkeeper 核验封存：
+  `base_sha=a11a873` … `delivery_sha=9a4e019`（全仓 capital-flow 本地缓存 + 流水中栏真数据；
+  硬隔离 coverage/run）。当前任务 **review-1** packet
+  `03-review-1-capital-flow.dispatch.md`（target **kimi**/moonshot，跨 provider），
+  待 Human 启动。bookkeeper=`grok4.5`。**未 merge、未部署。**
 
 - 前一 stage `2026-08-10-local-net-position-v1` 已合并本机 `main` 并归档；本地持仓
   数量按活跃周期逐腿 `open - close` 汇总。**未部署、未重启服务** 的约束仍适用于该批
