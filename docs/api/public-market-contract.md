@@ -1884,3 +1884,85 @@ The pending lock is page-memory-backed after startup and is not synchronized
 across already-open tabs; concurrent repayment work must therefore use a single
 tab. Reopen this limitation if automated submission or multi-tab/multi-device
 operation becomes a real requirement.
+
+## Local Net Position Quantity Amendment (v0.18, stage `2026-08-10-local-net-position-v1`)
+
+Frozen 2026-08-10. Wire `schema_version` stays `public-market-snapshot/v1`; this
+amendment adds NO field and changes NO shape — it restates the semantics of three
+ALREADY-EXISTING local quantity fields on each merged position row of
+`GET /api/hedge-open-positions`. Authority order: the stage change plan
+`reports/agent-runs/2026-08-10-local-net-position-v1/00-change-plan.md` > this
+contract section. The fix corrects a partial-close misreport: the local ledger
+previously read only open legs, so `spot_qty`/`perp_qty` stayed at the cumulative
+OPENED qty even after a close (e.g. XVGUSDT showed 50000 after two 10000 closes
+instead of the real 30000, falsely triggering `drift`).
+
+### Restated semantics of the three local quantity fields
+
+For each not-closed `cycle_id` bucket, per leg, the backend now computes from the
+existing `hedge_open_leg` fill ledger:
+
+```text
+spot_qty   = Σ(open spot cumulative_base_qty) − Σ(close spot cumulative_base_qty)
+perp_qty   = Σ(open perp cumulative_base_qty) − Σ(close perp cumulative_base_qty)
+position_qty = direction_sign × perp_qty        # forward = −1 (SELL short), reverse = +1 (BUY long)
+```
+
+- These three fields are the **application's own fill-ledger REMAINING quantity**
+  (open minus close), not an exchange reconciliation. A real fill is recognized
+  solely by `cumulative_base_qty > 0` regardless of the literal exchange status —
+  a `PARTIALLY_FILLED`/`CANCELED`/`EXPIRED` leg that filled partially, a single
+  leg whose pair failed, and a leg later written by UNKNOWN reconcile all count;
+  a zero-fill failed leg contributes nothing. Deleted tasks' real fills still
+  count (`includes_deleted_task` flags the mixed source).
+- The open-cost basis is kept separate: `spot_avg`/`perp_avg` (and the
+  `*_avg_price_incomplete` flags) are still computed from OPEN legs only. A close
+  leg reduces the remaining `spot_qty`/`perp_qty` but never enters the avg's
+  notional numerator or priced-qty denominator, so partial close never drags the
+  displayed open avg.
+- Already-closed cycles stay excluded from the position table at the source query
+  (unchanged); they appear only on the history page via `hedge_open_cycle_close_log`.
+- The wire field set, the merge layer, `domain.py`, and the frontend are
+  unchanged — only the values of these three existing fields now mean "remaining".
+
+### These are NOT an exchange reconcile — read `um_position_amt` for the exchange side
+
+`spot_qty`/`perp_qty`/`position_qty` reflect the LOCAL fill ledger, which can
+diverge from the exchange: a manual exchange-side reduction (e.g. a reverse
+auto-close settled by hand at the exchange but recorded only in the close log)
+is not subtracted here, so the local remaining qty can read HIGHER than what the
+exchange actually holds. The exchange-side contract quantity from the SAME
+account snapshot is `um_position_amt` (the matched USDⓈ-M position on the merged
+row) — that field, not these three, is what the exchange reports for the perp
+leg this round.
+
+### `single_leg_exposure=false` and `drift=false` do NOT mean "reconciled"
+
+Both markers are computed from these local remaining quantities against the same
+account snapshot, and both are intentionally weak/advisory:
+
+- `single_leg_exposure=false` means only that the local remaining `spot_qty` and
+  `perp_qty` are within the 1% tolerance band of each other (a precision/rounding
+  band, not an allowance). It does NOT assert the position is fully hedged at the
+  exchange, and it is silent whenever both remaining quantities are ≤ 0.
+- `drift=false` is a one-directional weak alarm ("if it fires, the account is
+  genuinely short of the record"); it is NOT a strong guarantee that the account
+  matches the record. `unified_balance` includes UM/CM sub-wallet balances, so an
+  unrelated same-asset holding can mask a real reduction (false negative);
+  unreadable accounts fail-closed to `false`; and the marker is silent when the
+  recorded remaining spot qty is ≤ 0.
+
+Therefore neither `single_leg_exposure=false` nor `drift=false` may be read as
+"the local ledger and the exchange are reconciled and consistent." The honest
+exchange-side read remains `um_position_amt` from the same snapshot; full
+agreement requires comparing the local remaining qty against that figure, not
+relying on either weak marker's absence.
+
+### Regression red lines (still unchanged)
+
+`negative_funding_status` / `route_class` / `asset_tag` enums and priority,
+`classify.py`, `normalize.py`, the v0.1–v0.17 field set, `sort_basis` semantics,
+the ~60s refresh cadence, and the zero-upstream GET contract are unchanged. No
+new field, schema, DB migration, service/gate/order/borrow/repay/transfer path,
+or frontend behavior is introduced; only the value semantics of three existing
+local quantity fields is corrected.

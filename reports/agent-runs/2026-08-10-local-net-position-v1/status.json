@@ -10,7 +10,7 @@
   "ledger_sha": "34c465ae7a03809025194669587a9d2c6a3dc612",
   "current_task": {
     "id": "local-net-position-quantity-implement",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-08-10-local-net-position-v1/03-implement.dispatch.md"
   },
   "next": {

@@ -101,9 +101,11 @@ def test_existing_task_rows_default_to_open(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# 验收 2：开仓成本隔离
+# 验收 2：开仓成本隔离 + 本地剩余净量（2026-08-10）
 # ---------------------------------------------------------------------------
-def test_close_legs_excluded_from_open_cost_basis(tmp_path):
+def test_close_legs_reduce_local_net_qty_but_keep_open_cost_basis(tmp_path):
+    # close 腿现在按 -q 进入本地剩余量（修复 XVG 部分平仓误报），同时开仓成本基
+    # （spot_avg/perp_avg）仍只由 open 腿决定——close 腿绝不进分子分母。
     svc = _svc(tmp_path)
     svc.create_task({"coin": "BTCUSDT", "direction": "forward", "mode": "immediate",
                      "single_amount": "0.5", "target_n": 1})
@@ -113,9 +115,11 @@ def test_close_legs_excluded_from_open_cost_basis(tmp_path):
     svc.post_fill_all(open_tid)
     before = svc._store.aggregate_positions()
     assert len(before) == 1
-    assert before[0]["perp_qty"] == "0.5"
+    assert before[0]["perp_qty"] == "0.5" and before[0]["spot_qty"] == "0.5"
+    assert before[0]["position_qty"].startswith("-")  # forward SELL → 负
+    open_spot_avg, open_perp_avg = before[0]["spot_avg"], before[0]["perp_avg"]
 
-    # 建 close 任务并成交：close 腿绝不进开仓成本基
+    # 建 close 任务并成交（双腿各 0.5）：剩余量减为 0，但开仓均价不变
     svc.create_task({"coin": "BTCUSDT", "direction": "forward", "mode": "immediate",
                      "single_amount": "0.5", "target_n": 1, "task_type": "close"})
     close_tid = svc._store._conn.execute(
@@ -125,7 +129,12 @@ def test_close_legs_excluded_from_open_cost_basis(tmp_path):
     svc.post_fill_all(close_tid)
     after = svc._store.aggregate_positions()
     assert len(after) == 1
-    assert after[0]["perp_qty"] == "0.5"  # 与 close 前一致（close 腿被 task_type 过滤，数量不减）
+    # close 腿按 -q 计入剩余量：双腿剩 0；forward position_qty 回到 0
+    assert after[0]["spot_qty"] == "0" and after[0]["perp_qty"] == "0"
+    assert after[0]["position_qty"] == "0"
+    # 开仓成本基未受 close 影响：均价与 close 前完全一致
+    assert after[0]["spot_avg"] == open_spot_avg
+    assert after[0]["perp_avg"] == open_perp_avg
     assert after[0]["cycle_id"] is not None
 
 

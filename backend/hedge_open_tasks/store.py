@@ -2444,14 +2444,17 @@ class HedgeOpenStore:
     def aggregate_positions(self) -> list[dict]:
         """Aggregate open positions from both the legacy fill rows and the
         attempt/leg rows (breakdown §3.4). avg = Σ(qty*price)/Σqty per leg.
-        ``position_qty`` is the signed perp net (forward SELL -> negative short,
-        reverse BUY -> positive long). Fields with no source this round stay
+        ``position_qty`` is the signed perp REMAINING net (forward SELL -> negative
+        short, reverse BUY -> positive long). Fields with no source this round stay
         ``"0"`` so the frozen Position JSON shape is stable. D15 (2026-07-31):
         deleted tasks' already-filled legs are NO LONGER excluded — each bucket
         sets ``includes_deleted_task`` so the UI can mark rows that mix live and
         deleted sources (the deleted task's cost basis must stay visible once ②
-        makes auto-delete routine). ``spot_qty``/``perp_qty`` are emitted so the
-        merge layer can compare recorded vs real quantities (P2 drift, single-leg).
+        makes auto-delete routine). 2026-08-10 local net position: both open and
+        close legs are read, and ``spot_qty``/``perp_qty`` are the LOCAL ledger
+        REMAINING qty (Σ open − Σ close per leg) — NOT an exchange reconcile; the
+        open-cost basis (notional / priced denominator) still comes from open legs
+        only, so close legs reduce the remaining qty without dragging the avg.
         """
         with self._lock, self._conn:
             fill_rows = self._conn.execute(
@@ -2465,7 +2468,7 @@ class HedgeOpenStore:
             leg_rows = self._conn.execute(
                 "SELECT l.leg, l.exchange_status, l.cumulative_base_qty,"
                 " l.cumulative_quote_amt, t.coin, t.direction, t.status,"
-                " t.spot_symbol, t.spot_base_asset,"
+                " t.task_type, t.spot_symbol, t.spot_base_asset,"
                 " a.cycle_id,"
                 " c.opened_at_us AS cycle_opened_at_us,"
                 " c.closed_at_us AS cycle_closed_at_us"
@@ -2473,14 +2476,14 @@ class HedgeOpenStore:
                 " JOIN hedge_open_attempt a ON a.id = l.attempt_id"
                 " JOIN hedge_open_task t ON t.id = a.task_id"
                 " LEFT JOIN hedge_open_cycle c ON c.id = a.cycle_id"
-                " WHERE t.task_type = ?"  # 功能三：平仓腿绝不进开仓成本基
                 # Human 2026-08：持仓表只显示「未平仓周期」——已完全平仓的周期
                 # 从根源（后端查询）排除，避免已平仓标的回显（如 COOKIE 全平后
                 # 仍显示 -5000）；已平仓周期只在历史仓位页（close_log）呈现。
                 # 无周期腿（cycle_id NULL，fill 兜底/旧数据）保留不误伤。
-                " AND (a.cycle_id IS NULL OR c.closed_at_us IS NULL)"
+                # 2026-08-10 本地净持仓：open 与 close 腿同读，按 task_type 在下方
+                # 聚合时分别 +q / -q；close 腿只减剩余量，开仓成本基仍只由 open 腿贡献。
+                " WHERE (a.cycle_id IS NULL OR c.closed_at_us IS NULL)"
                 " ORDER BY a.created_at_us ASC, l.id ASC",
-                (D.TASK_TYPE_OPEN,),
             ).fetchall()
             # P2-1（stage2 §3.5）：SQL-A（hedge_open_fill legacy 空壳）本应恒为
             # 0 行——fill 行没有 cycle_id，落入含 None 的兜底桶永远无法归入周期，
@@ -2593,6 +2596,11 @@ class HedgeOpenStore:
             # filled partially still contributes real base/quote to the position.
             if _num(row["cumulative_base_qty"]) <= 0:
                 continue
+            # 2026-08-10 本地净持仓：open 腿 +q、close 腿 -q，每条腿独立计量。close
+            # 腿只减剩余量；开仓成本基（notional / priced 分母）仍只由 open 腿贡献，
+            # 故 close 绝不会拖动 spot_avg / perp_avg。
+            is_open = row["task_type"] == D.TASK_TYPE_OPEN
+            leg_sign = Decimal(1) if is_open else Decimal(-1)
             b = _bucket(row["coin"], row["direction"], row["cycle_id"])
             _take_identity(b, row, row["coin"])
             # 周期戳记取组内一致值（同桶所有腿属于同一 cycle；旧数据 cycle_id
@@ -2614,25 +2622,26 @@ class HedgeOpenStore:
             # §3: RSRUSDT perp = (0 + 12.46) / 20000 = half the true 0.001246).
             # The fill_rows loop above keeps the r5 policy (a real "0" avg_price is
             # a true zero) — a different column with a deliberately different rule.
+            # 2026-08-10: close 腿不计 notional（即使有 quote），只减剩余量。
             quote_raw = row["cumulative_quote_amt"]
             notional = _num_or_none(quote_raw)
             known_notional = notional is not None and notional != 0
             if row["leg"] == "spot":
-                b["spot_qty"] += q
-                if known_notional:
+                b["spot_qty"] += leg_sign * q
+                if is_open and known_notional:
                     b["spot_notional"] += notional
                     b["spot_qty_priced"] += q
-                else:
+                elif is_open:
                     b["spot_incomplete"] = True
             else:
-                b["perp_qty"] += q
-                if known_notional:
+                b["perp_qty"] += leg_sign * q
+                if is_open and known_notional:
                     b["perp_notional"] += notional
                     b["perp_qty_priced"] += q
-                else:
+                elif is_open:
                     b["perp_incomplete"] = True
                 sign = Decimal(-1) if row["direction"] == D.DIR_FORWARD else Decimal(1)
-                b["position_qty"] += sign * q
+                b["position_qty"] += sign * leg_sign * q
 
         for conflict in identity_conflicts:
             self._conn.execute(

@@ -18,18 +18,27 @@ from backend.hedge_open_tasks.executor import AttemptOutcome
 from backend.hedge_open_tasks.store import HedgeOpenStore
 
 
-def _outcome(attempt_id: str, qty: str = "0.5", price: str = "50000") -> AttemptOutcome:
+def _outcome(attempt_id: str, qty: str = "0.5", price: str = "50000",
+             spot_status: str = D.LEG_FILLED, perp_status: str = D.LEG_FILLED,
+             spot_qty: str | None = None, perp_qty: str | None = None) -> AttemptOutcome:
     from decimal import Decimal as _D
-    quote = str(_D(qty) * _D(price))  # 已知 notional → avg 可算（T1 契约）
+    sq = spot_qty if spot_qty is not None else qty
+    pq = perp_qty if perp_qty is not None else qty
+
+    def _leg(status: str, q: str, suffix: str) -> dict:
+        filled = _D(q)
+        # 已知 notional → avg 可算（T1 契约）；零成交腿 avg=None、quote="0"、无 order_id。
+        return {"status": status, "filled_qty": q,
+                "avg_price": price if filled > 0 else None,
+                "cumulative_quote": str(filled * _D(price)) if filled > 0 else "0",
+                "order_id": f"o{suffix}-{attempt_id}" if filled > 0 else None,
+                "client_order_id": f"hgo-{attempt_id}-{suffix}"}
+
     return AttemptOutcome(
         attempt_id=attempt_id,
         category=D.ATTEMPT_SUCCESS,
-        spot={"status": D.LEG_FILLED, "filled_qty": qty, "avg_price": price,
-              "cumulative_quote": quote,
-              "order_id": f"os-{attempt_id}", "client_order_id": f"hgo-{attempt_id}-s"},
-        perp={"status": D.LEG_FILLED, "filled_qty": qty, "avg_price": price,
-              "cumulative_quote": quote,
-              "order_id": f"op-{attempt_id}", "client_order_id": f"hgo-{attempt_id}-p"},
+        spot=_leg(spot_status, sq, "s"),
+        perp=_leg(perp_status, pq, "p"),
         record_payload={"transport": "dry_run_record", "posted": False,
                         "spot_order_params": {}, "perp_order_params": {}},
         exposure=None,
@@ -37,23 +46,27 @@ def _outcome(attempt_id: str, qty: str = "0.5", price: str = "50000") -> Attempt
 
 
 def _create(store, task_id: str, coin: str = "BTCUSDT", direction: str = D.DIR_FORWARD,
-            created_us: int = 1_000):
+            created_us: int = 1_000, task_type: str = D.TASK_TYPE_OPEN):
     return store.create_task(
         task_id, coin, direction, D.MODE_IMMEDIATE, "0.5", 3, "0.5",
-        D.POS_MODE_BOTH, {"est_price": "50000"}, created_us,
+        D.POS_MODE_BOTH, {"est_price": "50000"}, created_us, task_type=task_type,
     )
 
 
 def _apply(store, task_id: str, attempt_uuid: str, now_us: int,
-           direction: str = D.DIR_FORWARD, qty: str = "0.5"):
-    """成功 attempt：dispatched_at_us = resolve 的 now_us（可控派发时间）。"""
+           direction: str = D.DIR_FORWARD, qty: str = "0.5",
+           outcome: AttemptOutcome | None = None):
+    """成功 attempt：dispatched_at_us = resolve 的 now_us（可控派发时间）。
+
+    传入 ``outcome`` 可覆盖默认的双腿 FILLED 结算（单腿/部分成交/非 FILLED 终态用）。
+    """
     attempt = store.prepare_attempt(
-        task_id, attempt_uuid, direction, "0.5", D.POS_MODE_BOTH,
+        task_id, attempt_uuid, direction, qty, D.POS_MODE_BOTH,
         {"est_price": "50000"}, f"hgo-{attempt_uuid}-s", {"side": "BUY"},
         D.SPOT_ORDER_PATH, f"hgo-{attempt_uuid}-p", {"side": "SELL"}, now_us,
     )
     assert attempt is not None, "task must be dispatch-eligible"
-    store.resolve_attempt(attempt["id"], _outcome(attempt_uuid, qty), now_us)
+    store.resolve_attempt(attempt["id"], outcome or _outcome(attempt_uuid, qty), now_us)
     return attempt
 
 
@@ -215,6 +228,144 @@ def test_aggregate_sql_a_nonzero_writes_warning(tmp_path):
     assert len(rows) == 1
     payload = json.loads(rows[0]["payload"])
     assert payload["row_count"] == 1
+    store.close()
+
+
+# ---------------------------------------------------------------------------
+# 本地剩余净持仓（stage 2026-08-10-local-net-position-v1）
+# spot_qty/perp_qty = Σ(open cumulative_base_qty) − Σ(close cumulative_base_qty)；
+# position_qty = direction_sign × perp_remaining（forward 负、reverse 正）；
+# 开仓成本基（notional/priced 分母）仍只由 open 腿贡献。close 腿与 open 腿同属
+# 一个活跃 cycle 桶（close 任务沿用持仓行 coin/direction，prepare_attempt 复用活跃周期）。
+# ---------------------------------------------------------------------------
+def test_aggregate_local_net_qty_double_leg_partial_close(tmp_path):
+    """XVG 回归（验收 5）：open 50000 + 两次双腿 close 各 10000 → 两腿剩 30000，
+    forward position_qty=-30000，开仓均价不变（修复部分平仓误报 drift）。"""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t-open")
+    _apply(store, "t-open", "a-open", 5_000, qty="50000")
+    _create(store, "t-c1", created_us=6_000, task_type=D.TASK_TYPE_CLOSE)
+    _apply(store, "t-c1", "a-c1", 7_000, qty="10000")
+    _create(store, "t-c2", created_us=8_000, task_type=D.TASK_TYPE_CLOSE)
+    _apply(store, "t-c2", "a-c2", 9_000, qty="10000")
+    pos = store.aggregate_positions()
+    assert len(pos) == 1
+    p = pos[0]
+    assert p["spot_qty"] == "30000" and p["perp_qty"] == "30000"
+    assert p["position_qty"] == "-30000"  # forward 剩余合约空仓
+    assert p["spot_avg"] == "50000" and p["perp_avg"] == "50000"  # 开仓均价未被 close 拖动
+    assert p["cycle_id"] is not None
+    store.close()
+
+
+def test_aggregate_local_net_qty_single_leg_close(tmp_path):
+    """XLM 型单腿 close（验收 6）：reverse open 双腿 100，close 只有 perp 实际成交
+    100、spot 零成交 → 剩余 spot 100 / perp 0。不得因 pair 失败忽略 perp 真实成交；
+    该形状在 merge 层会触发既有 single_leg_exposure（见 test_positions_merge）。"""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t-open", direction=D.DIR_REVERSE)
+    _apply(store, "t-open", "a-open", 5_000, direction=D.DIR_REVERSE, qty="100")
+    _create(store, "t-close", direction=D.DIR_REVERSE, created_us=6_000,
+            task_type=D.TASK_TYPE_CLOSE)
+    _apply(store, "t-close", "a-close", 7_000, direction=D.DIR_REVERSE, qty="100",
+           outcome=_outcome("a-close", spot_status=D.LEG_REJECTED, spot_qty="0",
+                            perp_qty="100"))
+    p = store.aggregate_positions()[0]
+    assert p["spot_qty"] == "100"  # open 100 − close spot 零成交 0
+    assert p["perp_qty"] == "0"    # open 100 − close perp 100
+    assert p["position_qty"] == "0"  # reverse 剩余合约 +100 −100
+    store.close()
+
+
+def test_aggregate_local_net_qty_counts_non_filled_positive_fill(tmp_path):
+    """验收 7：literal status 非 FILLED（PARTIALLY_FILLED）但累计成交 > 0 仍按真实
+    成交计量（A-6），close 腿同样适用。"""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t-open")
+    _apply(store, "t-open", "a-open", 5_000, qty="1")
+    _create(store, "t-close", created_us=6_000, task_type=D.TASK_TYPE_CLOSE)
+    _apply(store, "t-close", "a-close", 7_000, qty="1",
+           outcome=_outcome("a-close", spot_status=D.LEG_PARTIALLY_FILLED, spot_qty="0.3",
+                            perp_status=D.LEG_PARTIALLY_FILLED, perp_qty="0.3"))
+    p = store.aggregate_positions()[0]
+    assert p["spot_qty"] == "0.7" and p["perp_qty"] == "0.7"  # 1 − 0.3
+    assert p["position_qty"] == "-0.7"
+    store.close()
+
+
+def test_aggregate_local_net_qty_zero_fill_close_changes_nothing(tmp_path):
+    """验收 7：零成交失败腿（cumulative_base_qty=0）不改变剩余量。"""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t-open")
+    _apply(store, "t-open", "a-open", 5_000, qty="0.5")
+    _create(store, "t-close", created_us=6_000, task_type=D.TASK_TYPE_CLOSE)
+    _apply(store, "t-close", "a-close", 7_000, qty="0.5",
+           outcome=_outcome("a-close", spot_status=D.LEG_REJECTED, spot_qty="0",
+                            perp_status=D.LEG_REJECTED, perp_qty="0"))
+    p = store.aggregate_positions()[0]
+    assert p["spot_qty"] == "0.5" and p["perp_qty"] == "0.5"  # close 零成交 → 剩余不变
+    assert p["position_qty"] == "-0.5"
+    store.close()
+
+
+def test_aggregate_local_net_qty_reverse_partial_close(tmp_path):
+    """验收 7 reverse：两腿按 open-close 得剩余绝对量，position_qty 保持正号。"""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t-open", direction=D.DIR_REVERSE)
+    _apply(store, "t-open", "a-open", 5_000, direction=D.DIR_REVERSE, qty="1")
+    _create(store, "t-close", direction=D.DIR_REVERSE, created_us=6_000,
+            task_type=D.TASK_TYPE_CLOSE)
+    _apply(store, "t-close", "a-close", 7_000, direction=D.DIR_REVERSE, qty="0.4")
+    p = store.aggregate_positions()[0]
+    assert p["spot_qty"] == "0.6" and p["perp_qty"] == "0.6"
+    assert p["position_qty"] == "0.6"  # reverse 正号
+    store.close()
+
+
+def test_aggregate_local_net_qty_reopen_after_partial_close_same_cycle(tmp_path):
+    """验收 7：同周期部分平仓后再加仓——所有 open 加总、所有 close 扣减；cycle_id
+    与起始时间不变。"""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t-open1")
+    _apply(store, "t-open1", "a-open1", 5_000, qty="0.5")
+    cycle_id = store.list_cycles()[0]["id"]
+    _create(store, "t-close", created_us=6_000, task_type=D.TASK_TYPE_CLOSE)
+    _apply(store, "t-close", "a-close", 7_000, qty="0.2")
+    _create(store, "t-open2", created_us=8_000)
+    _apply(store, "t-open2", "a-open2", 9_000, qty="0.3")
+    p = store.aggregate_positions()[0]
+    assert p["spot_qty"] == "0.6" and p["perp_qty"] == "0.6"  # 0.5 − 0.2 + 0.3
+    assert p["position_qty"] == "-0.6"
+    assert p["cycle_id"] == cycle_id                 # 仍属同一活跃周期
+    assert p["cycle_opened_at"] == D.us_to_iso(5_000)  # 起始时间不变
+    store.close()
+
+
+def test_aggregate_local_net_qty_close_from_deleted_task_still_counted(tmp_path):
+    """验收 7：已删除 close 任务的真实成交仍计入；既有 includes_deleted_task 语义保留。"""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t-open")
+    _apply(store, "t-open", "a-open", 5_000, qty="0.5")
+    _create(store, "t-close", created_us=6_000, task_type=D.TASK_TYPE_CLOSE)
+    _apply(store, "t-close", "a-close", 7_000, qty="0.2")
+    store.set_task_status("t-close", D.STATUS_DELETED, 8_000)
+    p = store.aggregate_positions()[0]
+    assert p["spot_qty"] == "0.3" and p["perp_qty"] == "0.3"  # 已删除 close 仍扣减
+    assert p["includes_deleted_task"] is True
+    store.close()
+
+
+def test_aggregate_local_net_qty_hidden_after_cycle_closed(tmp_path):
+    """验收 7：含 open+close 腿的周期一旦关闭，该桶从持仓表根查询排除。"""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t-open")
+    _apply(store, "t-open", "a-open", 5_000, qty="0.5")
+    _create(store, "t-close", created_us=6_000, task_type=D.TASK_TYPE_CLOSE)
+    _apply(store, "t-close", "a-close", 7_000, qty="0.2")
+    assert len(store.aggregate_positions()) == 1  # 剩余 0.3，活跃 → 展示
+    cycle_id = store.list_cycles()[0]["id"]
+    store.close_cycle(cycle_id, 9_000, "manual_verify")
+    assert store.aggregate_positions() == []      # 周期关闭 → 不展示
     store.close()
 
 
