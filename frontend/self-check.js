@@ -6510,6 +6510,35 @@ setTimeout(async () => {
       console.log('[PASS] Q2 流水筛选回显：默认 20 条上限 / 改动筛选取消上限（加勾划转可见）/ 恢复默认恢复上限 / 零请求');
     }
 
+    // 98b-F1. capital 失败态中文映射（review-2 F-1）：中栏 last_run.status=error 时
+    //         状态行/空态须显示中文，不得原样露出 snake_case 短码（capital_flow_failed /
+    //         capital_internal_error）。此前 mock 恒为成功形状，放过了该盲区。
+    {
+      const capErr = buildMockFlowLogPayload();
+      capErr.capital_flow.last_run = {
+        finished_at_ms: 1785798000000, status: 'error', error: 'capital_flow_failed',
+        fetched_row_count: 0, new_row_count: 0, possibly_incomplete: false,
+        window_start_ms: 1785711360000, window_end_ms: 1785798000000,
+      };
+      capErr.capital_flow.rows = [];
+      capErr.capital_flow.row_count = 0;
+      helpers.setFlowLogPayload(capErr);
+      helpers.renderFlowLogPanel();
+      const capStatus = document.getElementById('flow-log-capital-status').textContent || '';
+      if (capStatus.includes('capital_flow_failed')) {
+        throw new Error('capital 失败短码不应原样露出: ' + capStatus);
+      }
+      if (!capStatus.includes('全仓流水拉取失败')) {
+        throw new Error('capital 失败应显示中文「全仓流水拉取失败」: ' + capStatus);
+      }
+      const capBody = document.getElementById('flow-log-capital-body').textContent || '';
+      if (capBody.includes('capital_flow_failed')) {
+        throw new Error('capital 空态不应露出 snake_case 短码');
+      }
+      helpers.setFlowLogPayload(null);
+      console.log('[PASS] review-2 F-1：capital 失败态显示中文（全仓流水拉取失败），不露 snake_case 短码');
+    }
+
     // 98c. Q3 任务卡错误提示入 state：他卡操作 / 60s 自动刷新引发的重渲染不再抹除。
     {
       helpers.resetHedgeStateForTest();
