@@ -7275,11 +7275,24 @@ setTimeout(async () => {
       if (typeof helpers.newTransferRequestId !== 'function') {
         throw new Error('须导出 newTransferRequestId');
       }
+      // self-check 宿主可能没有 webcrypto（globalThis.crypto === undefined）；
+      // 用例需要可替换的 randomUUID/getRandomValues 表面，故补最小桩。
+      if (typeof globalThis.crypto === 'undefined' || globalThis.crypto === null) {
+        globalThis.crypto = {};
+      }
       // 严格 v4：版本位必须是 4，variant 位必须是 8/9/a/b
       const strictV4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
       // 把环境的 randomUUID 换成当天那个坏实现：生成器绝不能受影响
       const savedRandomUUID = globalThis.crypto.randomUUID;
       globalThis.crypto.randomUUID = () => 'c886-84-03-46-bc0e13';
+      // 若宿主无 getRandomValues，先挂一个可用实现再测「坏 randomUUID 不影响」路径
+      const hadGetRandomValues = typeof globalThis.crypto.getRandomValues === 'function';
+      if (!hadGetRandomValues) {
+        globalThis.crypto.getRandomValues = (arr) => {
+          for (let i = 0; i < arr.length; i++) arr[i] = Math.floor(Math.random() * 256);
+          return arr;
+        };
+      }
       const ids = new Set();
       for (let i = 0; i < 200; i++) {
         const id = helpers.newTransferRequestId();
@@ -7288,13 +7301,15 @@ setTimeout(async () => {
         }
         ids.add(id);
       }
-      globalThis.crypto.randomUUID = savedRandomUUID;
+      if (savedRandomUUID === undefined) delete globalThis.crypto.randomUUID;
+      else globalThis.crypto.randomUUID = savedRandomUUID;
       if (ids.size !== 200) throw new Error(`幂等键重复：200 次生成只得到 ${ids.size} 个不同值`);
       // 兜底路径：环境连 getRandomValues 都没有时，仍须产出合法 UUID
       const savedGetRandomValues = globalThis.crypto.getRandomValues;
       globalThis.crypto.getRandomValues = undefined;
       const fallbackId = helpers.newTransferRequestId();
-      globalThis.crypto.getRandomValues = savedGetRandomValues;
+      if (hadGetRandomValues) globalThis.crypto.getRandomValues = savedGetRandomValues;
+      else delete globalThis.crypto.getRandomValues;
       if (!strictV4.test(fallbackId)) {
         throw new Error('无 getRandomValues 时的兜底幂等键非法: ' + fallbackId);
       }
