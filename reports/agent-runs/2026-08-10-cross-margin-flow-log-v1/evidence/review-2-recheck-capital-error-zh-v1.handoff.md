@@ -156,3 +156,22 @@ mock 形状——直接对应首轮 review-2 指出的「mock 恒为成功形状
 ```
 
 <!-- BOOKKEEPER_APPEND_ONLY: all bytes before this marker are the source payload -->
+
+## Bookkeeper Verification (Bookkeeper append-only)
+
+- bookkeeper: `grok4.5`
+- verified_at: 2026-08-10 20:29:34 CST
+- status_revision_at_verify: 7（review_2 / `review-2-recheck-capital-error-zh-v1` / dispatched）
+- source_payload_sha256: `824ee7f7d4b407c6ab71921d6ff3091c5a9f8ea52c717d10b124e00e34590d36`（marker 前全部字节）
+- 核验：
+  - `执行结果: completed` + `评审结论: ACCEPT（接受）` + `问题记录: none` + `修复要求: none`
+  - `delivery_sha=cf247fbf7060e18afeda0c6366c5724b27ef0ce0` 与 status 封存值一致
+  - F-1 关闭证据：映射两中文码 + self-check 失败态断言路径已由复审独立复跑
+  - 窄修复边界：`git show cf247fb --stat` 仅前端两文件（实现 handoff / 复审一致）
+  - provider：实现 zhipu_glm、r1 moonshot、r2 anthropic 隔离成立
+- 裁定：**核验通过（ACCEPT）**；形式 review 闭环完成；`rework_count` 保持 1
+- 后续：无自动 merge/部署；`status.json` 进入等待 Human 合并/部署决策；按 §6 向 Human 说明效果与剩余风险
+
+## Errata (append-only)
+
+（无。）
