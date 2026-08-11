@@ -1,0 +1,22 @@
+{
+  "schema_version": "2",
+  "revision": 1,
+  "stage_id": "2026-08-11-reverse-position-drift-v1",
+  "bookkeeper": "codex",
+  "phase": "planning",
+  "checkpoint": "stage-opened",
+  "base_sha": "7194876e61c037d238d0e3d621a094d7dd3a6e43",
+  "delivery_sha": null,
+  "ledger_sha": "7194876e61c037d238d0e3d621a094d7dd3a6e43",
+  "current_task": {
+    "id": "reverse-position-drift-plan",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-11-reverse-position-drift-v1/reverse-position-drift-plan.dispatch.md"
+  },
+  "next": {
+    "actor": "human_operator",
+    "action": "start-prepared-task"
+  },
+  "rework_count": 0,
+  "blockers": []
+}
