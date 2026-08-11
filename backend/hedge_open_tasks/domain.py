@@ -1820,9 +1820,10 @@ def _merge_num(value):
     if value is None or value == "":
         return None
     try:
-        return Decimal(str(value))
+        parsed = Decimal(str(value))
     except (InvalidOperation, ValueError):
         return None
+    return parsed if parsed.is_finite() else None
 
 
 def _merge_side_for_direction(direction):
@@ -2012,7 +2013,12 @@ def _merge_build_row(coin, direction, bucket, um, spot_by_asset,
     # sum to zero and paint every row — that is the F4 mistake ("claimed without
     # checking"), so it fails to False.
     recorded_spot = _merge_num(row.get("spot_qty"))
-    if not account_readable or recorded_spot is None or recorded_spot <= 0:
+    if direction == DIR_REVERSE:
+        # Reverse rows consume one account-asset verdict after all local cycles
+        # have been assembled; comparing each row with account holdings would
+        # both use the wrong meaning and duplicate the account-level borrow.
+        row["drift"] = False
+    elif not account_readable or recorded_spot is None or recorded_spot <= 0:
         row["drift"] = False
     else:
         held = real_spot if real_spot is not None else Decimal(0)
@@ -2151,6 +2157,52 @@ def merge_positions(positions, private_account, asset_map=None):
                 account_readable=verified,
             )
         )
+
+    # Reverse local ``spot_qty`` records sold quantity, not quantity that should
+    # still be held. Compare the account-asset aggregate once with the actual
+    # sold exposure: max(borrowed - free - locked, 0). Unknown/invalid inputs
+    # leave the already-false advisory marker untouched.
+    reverse_groups = {}
+    for row in merged:
+        if (
+            row.get("direction") != DIR_REVERSE
+            or row.get("match_status") == "no_task"
+            or row.get("cycle_closed_at") is not None
+        ):
+            continue
+        base_asset = (
+            row.get("spot_base_asset")
+            or (asset_map or {}).get(row.get("coin"))
+            or _merge_base_asset(row.get("coin"))
+        )
+        if not base_asset:
+            continue
+        group = reverse_groups.setdefault(
+            base_asset, {"rows": [], "recorded": Decimal(0), "valid": True},
+        )
+        group["rows"].append(row)
+        qty = _merge_num(row.get("spot_qty"))
+        if qty is None or qty < 0:
+            group["valid"] = False
+        else:
+            group["recorded"] += qty
+
+    for base_asset, group in reverse_groups.items():
+        unified_row = unified_row_by_asset.get(base_asset)
+        if not verified or not group["valid"] or unified_row is None:
+            continue
+        borrowed = _merge_num(unified_row.get("cross_margin_borrowed"))
+        free = _merge_num(unified_row.get("cross_margin_free"))
+        locked = _merge_num(unified_row.get("cross_margin_locked"))
+        if any(value is None or value < 0 for value in (borrowed, free, locked)):
+            continue
+        actual = max(borrowed - free - locked, Decimal(0))
+        drift = (
+            group["recorded"] - actual
+            > group["recorded"] * _EXPOSURE_IMBALANCE_TOLERANCE
+        )
+        for row in group["rows"]:
+            row["drift"] = drift
 
     merged.sort(
         key=lambda r: (

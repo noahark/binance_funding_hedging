@@ -10,7 +10,7 @@
   "ledger_sha": "1892c8bfe5d5466b7d57457b95e3d7651bca2571",
   "current_task": {
     "id": "reverse-position-drift-implement",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-08-11-reverse-position-drift-v1/reverse-position-drift-implement.dispatch.md"
   },
   "next": {

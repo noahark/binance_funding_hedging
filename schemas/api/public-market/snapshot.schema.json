@@ -558,6 +558,13 @@
                   { "type": "null" }
                 ]
               },
+              "cross_margin_locked": {
+                "description": "PM full-cross locked quantity from papi balance.crossMarginLocked (raw decimal string | null). Additive/optional for frozen older samples; display/validation-only and never added into total_value_usdt.",
+                "anyOf": [
+                  { "$ref": "#/$defs/decimal_string" },
+                  { "type": "null" }
+                ]
+              },
               "cross_margin_borrowed": {
                 "description": "PM full-cross margin liability from papi balance.crossMarginBorrowed (raw decimal string | null).",
                 "anyOf": [

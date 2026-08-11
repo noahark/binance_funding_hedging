@@ -94,11 +94,15 @@ class _StubSnapshotService:
     rows 形如公开行情行：{"symbol": "BTCUSDT", "opening_quotes": {"status":
     "fresh", "spot_bid_price": "60000"}}——server 接线从 opening_quotes 取价。"""
 
-    def __init__(self, rows=None):
+    def __init__(self, rows=None, private_account=None):
         self._rows = rows or []
+        self._private_account = private_account
 
     def get_snapshot(self):
-        return {"rows": self._rows}
+        snapshot = {"rows": self._rows}
+        if self._private_account is not None:
+            snapshot["private_account"] = self._private_account
+        return snapshot
 
 
 class _Clock:
@@ -687,6 +691,37 @@ def test_positions_shape_after_fill(tmp_path):
         assert set(positions[0].keys()) == _POSITION_KEYS
         # forward perp is a SELL -> negative signed qty; clean decimal string.
         assert positions[0]["position_qty"].startswith("-")
+
+
+def test_positions_reverse_drift_keeps_existing_wire_keys(tmp_path):
+    private_account = {
+        "verified": True,
+        "error": None,
+        "checked_at": "2026-08-11T00:00:00Z",
+        "um_positions": [],
+        "balances_spot": [],
+        "balances_unified": [{
+            "asset": "BTC", "total_balance": "0",
+            "cross_margin_borrowed": "0.5",
+            "cross_margin_free": "0.5",
+            "cross_margin_locked": "0",
+        }],
+    }
+    snapshot = _StubSnapshotService(private_account=private_account)
+    with _server(
+        _svc(tmp_path, executor=RecordTransportFake()), snapshot_service=snapshot,
+    ) as (host, port):
+        tid = _create_task(
+            host, port,
+            _create_body(direction=D.DIR_REVERSE, single_amount="0.5", target_n=1),
+        )["id"]
+        _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-all")
+        status, _, payload = _req(host, port, "GET", "/api/hedge-open-positions")
+        assert status == 200
+        position = _json(payload)["positions"][0]
+        assert set(position) == _POSITION_KEYS
+        assert position["direction"] == D.DIR_REVERSE
+        assert position["drift"] is True
 
 
 # ===========================================================================

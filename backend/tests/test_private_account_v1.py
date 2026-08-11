@@ -529,6 +529,45 @@ def test_assemble_private_account_maps_cross_margin_free():
     assert block["total_value_usdt"] == "96100.00000000"
 
 
+def test_assemble_private_account_maps_cross_margin_locked_and_schema(v03_schema):
+    unified = [
+        {
+            "asset": "BTC",
+            "totalWalletBalance": "1",
+            "crossMarginBorrowed": "1",
+            "crossMarginFree": "0.25",
+            "crossMarginLocked": "0.75",
+            "crossMarginInterest": "999",
+        },
+        {"asset": "ETH", "totalWalletBalance": "0"},
+    ]
+    block, _ = assemble_private_account(
+        unified, [], [], {"BTCUSDT": "60000", "ETHUSDT": "3000"},
+        checked_at="t", error=None,
+    )
+    by_asset = {b["asset"]: b for b in block["balances_unified"]}
+    assert by_asset["BTC"]["cross_margin_locked"] == "0.75"
+    assert by_asset["ETH"]["cross_margin_locked"] is None
+    assert "cross_margin_interest" not in by_asset["BTC"]
+
+    snap = _assemble_with_private(
+        _two_rows(), block,
+        {"pair_listed_by_symbol": {}, "asset_borrowable_by_name": {},
+         "daily_interest_vip0_by_coin": {}},
+        None, "t", None,
+    )
+    jsonschema.validate(snap, v03_schema)
+    snap_by_asset = {
+        b["asset"]: b for b in snap["private_account"]["balances_unified"]
+    }
+    locked = snap_by_asset["BTC"].pop("cross_margin_locked")
+    jsonschema.validate(snap, v03_schema)  # additive field stays optional
+    snap_by_asset["BTC"]["cross_margin_locked"] = "not-a-decimal"
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(snap, v03_schema)
+    snap_by_asset["BTC"]["cross_margin_locked"] = locked
+
+
 def test_assemble_private_account_pm_account_equity_and_leverage():
     unified = [
         {"asset": "USDT", "totalWalletBalance": "500", "crossMarginBorrowed": "100"},
@@ -609,6 +648,7 @@ def test_assemble_private_account_anti_double_count():
             "asset": "BTC",
             "total_balance": "1.5",
             "cross_margin_free": None,
+            "cross_margin_locked": None,
             "cross_margin_borrowed": None,
             "value_usdt": "90000.00000000",
             "cross_margin_borrowed_value_usdt": "0.00000000",
@@ -617,6 +657,7 @@ def test_assemble_private_account_anti_double_count():
             "asset": "USDT",
             "total_balance": "100",
             "cross_margin_free": None,
+            "cross_margin_locked": None,
             "cross_margin_borrowed": None,
             "value_usdt": "100.00000000",
             "cross_margin_borrowed_value_usdt": "0.00000000",

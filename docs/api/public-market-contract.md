@@ -731,8 +731,8 @@ unaffected.
 ### `private_account` block (§1.4, three-state)
 
 Top-level `private_account`: `verified`, `balances_unified` (E3
-`totalWalletBalance` + additive `cross_margin_borrowed` from
-`crossMarginBorrowed`), `balances_spot` (E6 `free`/`locked`), `um_positions` (E4
+`totalWalletBalance` + additive `cross_margin_borrowed`/`cross_margin_free`/
+`cross_margin_locked`), `balances_spot` (E6 `free`/`locked`), `um_positions` (E4
 exposure view), `total_value_usdt`, `valuation.{price_source, priced_at}`,
 `checked_at`, `error`. Env-missing / both-balance-sources-failed → `verified=false`,
 three arrays empty, `total_value_usdt` null, `error` carries the reason; the public
@@ -762,6 +762,15 @@ transfer out of the unified account must additionally clear the account's
 uniMMR / collateral constraints, so the exchange may reject an amount that fits
 within `cross_margin_free`. Sizing a real transfer must be validated
 server-side, never from this cached display value alone.
+
+Each item also carries additive **`cross_margin_locked`** (raw decimal string |
+null), projected from `GET /papi/v1/balance` field `crossMarginLocked`. It is the
+full-cross quantity currently locked (for example, by a pending sell), distinct
+from `cross_margin_free`, `cross_margin_borrowed`, and the separately reported
+upstream `crossMarginInterest` field. The field is optional for compatibility with frozen
+older samples; current snapshots emit it on every unified row and use null when
+the upstream key is absent. It is display/validation-only and never changes
+valuation, ordering, totals, warnings, refresh, or transport behavior.
 
 **Anti-double-count hard rule (test-asserted):** `total_value_usdt = Σ(unified
 totalWalletBalance priced) + Σ(spot free+locked priced)`, priced via the P5 price
@@ -1989,12 +1998,29 @@ account snapshot, and both are intentionally weak/advisory:
   `perp_qty` are within the 1% tolerance band of each other (a precision/rounding
   band, not an allowance). It does NOT assert the position is fully hedged at the
   exchange, and it is silent whenever both remaining quantities are ≤ 0.
-- `drift=false` is a one-directional weak alarm ("if it fires, the account is
-  genuinely short of the record"); it is NOT a strong guarantee that the account
-  matches the record. `unified_balance` includes UM/CM sub-wallet balances, so an
-  unrelated same-asset holding can mask a real reduction (false negative);
-  unreadable accounts fail-closed to `false`; and the marker is silent when the
-  recorded remaining spot qty is ≤ 0.
+- `drift` is direction-specific. For `forward`, the existing strict comparison
+  is unchanged: `held = regular spot (free + locked) + unified total_balance`,
+  and the marker fires only when the account is readable, local `spot_qty > 0`,
+  and `held < spot_qty`.
+- For `reverse`, all active local rows for the same resolved spot base asset are
+  grouped once: `R = Σ spot_qty`, while account actual sold exposure is
+  `A = max(cross_margin_borrowed - cross_margin_free - cross_margin_locked, 0)`.
+  Closed cycles and `no_task` rows do not consume the account balance. The same
+  verdict is applied to every row in the group. `crossMarginInterest` and local
+  `borrow_interest` are deliberately excluded because interest growth does not
+  change the originally sold spot quantity.
+- Reverse drift fires only when `R - A > R × 0.01`, using Decimal arithmetic and
+  the existing 1% precision/rounding band. Exactly 1% is not drift; strictly more
+  is. This can hide a shortage of up to 1% and is not a business allowance.
+  Missing, blank, unparsable, non-finite, or negative borrowed/free/locked/local
+  spot inputs, a missing unified asset row, or an unreadable account leave the
+  affected reverse group at `drift=false` without partial arithmetic. No ordinary
+  spot balance, `totalWalletBalance`, or interest value substitutes for missing
+  reverse inputs.
+- `drift=false` means only that this round has no provable advisory alert; it is
+  NOT a strong guarantee that the account matches the record. Forward can still
+  be masked by unrelated same-asset holdings or unified sub-wallet balances, and
+  reverse deliberately fails closed on unknown/invalid data.
 
 Therefore neither `single_leg_exposure=false` nor `drift=false` may be read as
 "the local ledger and the exchange are reconciled and consistent." The honest

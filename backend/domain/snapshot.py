@@ -1204,9 +1204,10 @@ def assemble_private_account(
     -> null with warning; valid zero -> ``"0.00000000"``. The frontend must not
     re-derive totals from row values for the combined headline.
 
-    Additive liability field on each unified row: ``cross_margin_borrowed`` from
-    Binance ``crossMarginBorrowed`` (full-cross margin debt). Raw string | null;
-    never folded into wallet or equity totals.
+    Additive unified fields: ``cross_margin_borrowed`` from Binance
+    ``crossMarginBorrowed`` (full-cross margin debt) and
+    ``cross_margin_locked`` from ``crossMarginLocked``. Raw string | null;
+    neither is folded into wallet or equity totals.
 
     Additive ``pm_account`` summary (E3b ``GET /papi/v1/account``): equity,
     available balance, margins, uniMMR, status, priced total debt, and a simple
@@ -1288,6 +1289,7 @@ def assemble_private_account(
                 "asset": asset,
                 "total_balance": x.get("totalWalletBalance"),
                 "cross_margin_free": x.get("crossMarginFree"),
+                "cross_margin_locked": x.get("crossMarginLocked"),
                 "cross_margin_borrowed": borrowed_raw,
                 "value_usdt": _quantize_rate(value) if value is not None else None,
                 "cross_margin_borrowed_value_usdt": _cross_margin_borrowed_value_usdt(

@@ -10,6 +10,8 @@ serializability (the handler ``json.dumps`` the rows).
 import json
 from decimal import Decimal
 
+import pytest
+
 from backend.hedge_open_tasks import domain as D
 
 
@@ -295,6 +297,147 @@ def test_merge_no_drift_when_account_unreadable():
     positions = [_bucket("BTCUSDT", D.DIR_FORWARD, spot_qty="0.5", perp_qty="0.5")]
     merged, _ = D.merge_positions(positions, _pa(verified=False))
     assert merged[0]["drift"] is False
+
+
+def _reverse_pa(*, borrowed="100", free="0", locked="0", verified=True):
+    return _pa(
+        verified=verified,
+        unifieds=[{
+            "asset": "BTC", "total_balance": "0",
+            "cross_margin_borrowed": borrowed,
+            "cross_margin_free": free,
+            "cross_margin_locked": locked,
+            "cross_margin_interest": "999",
+        }],
+    )
+
+
+@pytest.mark.parametrize(
+    "borrowed,free,locked,expected",
+    [
+        ("100", "0", "0", False),       # borrowed and sold: A=R=100
+        ("100", "100", "0", True),      # borrowed but unsold
+        ("100", "0", "100", True),      # pending sell remains locked
+        ("100", "30", "0", True),       # partial fill: A=70
+        ("100", "1", "0", False),       # exactly 1% shortage
+        ("100", "1.001", "0", True),    # strictly more than 1%
+    ],
+)
+def test_merge_reverse_drift_uses_borrowed_minus_free_and_locked(
+    borrowed, free, locked, expected,
+):
+    positions = [_bucket(
+        "BTCUSDT", D.DIR_REVERSE, spot_qty="100", perp_qty="100",
+        spot_base_asset="BTC",
+    )]
+    merged, _ = D.merge_positions(positions, _reverse_pa(
+        borrowed=borrowed, free=free, locked=locked,
+    ))
+    assert merged[0]["drift"] is expected
+
+
+def test_merge_reverse_drift_excludes_account_and_local_interest():
+    position = _bucket(
+        "BTCUSDT", D.DIR_REVERSE, spot_qty="100", perp_qty="100",
+        spot_base_asset="BTC",
+    )
+    position["borrow_interest"] = "12345"
+    pa = _reverse_pa()
+    pa["balances_unified"][0]["cross_margin_interest"] = "67890"
+    assert D.merge_positions([position], pa)[0][0]["drift"] is False
+
+
+def test_merge_reverse_drift_groups_same_asset_once():
+    positions = []
+    for cycle_id, qty in (("cycle-a", "60"), ("cycle-b", "40")):
+        row = _bucket(
+            "BTCUSDT", D.DIR_REVERSE, spot_qty=qty, perp_qty=qty,
+            spot_base_asset="BTC",
+        )
+        row.update({
+            "cycle_id": cycle_id,
+            "cycle_opened_at": cycle_id,
+            "cycle_closed_at": None,
+        })
+        positions.append(row)
+
+    matched = D.merge_positions(positions, _reverse_pa())[0]
+    short = D.merge_positions(positions, _reverse_pa(borrowed="70"))[0]
+    assert [row["drift"] for row in matched] == [False, False]
+    assert [row["drift"] for row in short] == [True, True]
+
+
+@pytest.mark.parametrize(
+    "field,bad",
+    [
+        (field, bad)
+        for field in (
+            "cross_margin_borrowed", "cross_margin_free", "cross_margin_locked",
+        )
+        for bad in (None, "", "text", "NaN", "Infinity", "-1")
+    ],
+)
+def test_merge_reverse_drift_rejects_invalid_account_quantities(field, bad):
+    pa = _reverse_pa(free="100")  # valid data would prove a drift
+    if bad is None:
+        pa["balances_unified"][0].pop(field)
+    else:
+        pa["balances_unified"][0][field] = bad
+    position = _bucket(
+        "BTCUSDT", D.DIR_REVERSE, spot_qty="100", perp_qty="100",
+        spot_base_asset="BTC",
+    )
+    assert D.merge_positions([position], pa)[0][0]["drift"] is False
+
+
+@pytest.mark.parametrize("spot_qty", [None, "", "text", "NaN", "Infinity", "-1"])
+def test_merge_reverse_drift_rejects_invalid_local_spot_qty(spot_qty):
+    position = _bucket(
+        "BTCUSDT", D.DIR_REVERSE, spot_qty=spot_qty, perp_qty="100",
+        spot_base_asset="BTC",
+    )
+    assert D.merge_positions([position], _reverse_pa(free="100"))[0][0]["drift"] is False
+
+
+def test_merge_reverse_drift_excludes_closed_and_no_task_rows():
+    closed = _bucket(
+        "BTCUSDT", D.DIR_REVERSE, spot_qty="100", perp_qty="100",
+        spot_base_asset="BTC",
+    )
+    closed["cycle_closed_at"] = "2026-08-11T00:00:00Z"
+    pa = _reverse_pa(free="100")
+    pa["um_positions"] = [_um("BTCUSDT", "LONG", "100")]
+    merged, _ = D.merge_positions([closed], pa)
+    assert {row["match_status"] for row in merged} == {"no_task", "no_um"}
+    assert all(row["drift"] is False for row in merged)
+
+
+def test_merge_reverse_drift_false_when_account_unreadable():
+    position = _bucket(
+        "BTCUSDT", D.DIR_REVERSE, spot_qty="100", perp_qty="100",
+        spot_base_asset="BTC",
+    )
+    assert D.merge_positions([position], _reverse_pa(verified=False))[0][0]["drift"] is False
+
+
+@pytest.mark.parametrize(
+    "spot,unified,expected",
+    [("0.2", "0.2", True), ("0.2", "0.3", False), ("0.2", "0.4", False)],
+)
+def test_merge_forward_drift_ignores_reverse_account_fields(spot, unified, expected):
+    positions = [_bucket(
+        "BTCUSDT", D.DIR_FORWARD, spot_qty="0.5", perp_qty="0.5",
+        spot_base_asset="BTC",
+    )]
+    pa = _pa(
+        spots=[{"asset": "BTC", "free": spot, "locked": "0"}],
+        unifieds=[{
+            "asset": "BTC", "total_balance": unified,
+            "cross_margin_borrowed": "999", "cross_margin_free": "888",
+            "cross_margin_locked": "777",
+        }],
+    )
+    assert D.merge_positions(positions, pa)[0][0]["drift"] is expected
 
 
 # --------------------------------------------------------------------------- contract
