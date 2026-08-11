@@ -71,6 +71,18 @@ git diff --name-only（创建本交接与状态变更前）
 
 ## Bookkeeper Verification (Bookkeeper append-only)
 
+- source_sha256: `337b1d3378130e67006fa23499bba51996ff3b4fb75bef1c6b33a214468a5477`
+- verified_at: `2026-08-11 17:41:14 CST`
+- verified_status_revision: `3`
+- verification_result: `pass`
+- identity_check: task `reverse-position-drift-implement`, Implementer/Codex (`openai`), stage `2026-08-11-reverse-position-drift-v1`, and base SHA `7194876e61c037d238d0e3d621a094d7dd3a6e43` match the routed packet and status; author `delivery_sha: pending` is valid for an implementation handoff.
+- delivery_sha: `f1d929178a346026bccab8fe98d4cfa69761d8a0` resolved directly from `git rev-parse HEAD`.
+- commit_check: `4aab86676a38cbe600b5ac4214a82dfb76b23a95..f1d929178a346026bccab8fe98d4cfa69761d8a0` contains exactly one non-amended delivery commit.
+- scope_check: the commit changes exactly the seven dispatch-approved delivery files plus this deterministic handoff and `status.json`; the status diff is only `current_task.state: dispatched -> reported`.
+- test_check: Bookkeeper independently reran `python3 -m pytest backend/tests/test_private_account_v1.py backend/tests/test_positions_merge.py backend/tests/test_hedge_api.py` -> `224 passed in 24.42s`; delivery range `git diff --check` passed.
+- receipt_check: the immutable Human Brief is a closed `TASK_RESULT v2` with `completed`, eight `pass` checks, no blocker, concrete Required Reading paths/action/gate, and no review claim.
+- subsequent_state: implementation verified; status may record the fixed delivery SHA and route independent review-1 without changing `rework_count`.
+
 ## Errata (append-only)
 
 （无。）
