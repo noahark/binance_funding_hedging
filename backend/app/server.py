@@ -341,6 +341,15 @@ class _Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):  # silence default stderr access log
         return
 
+    def handle(self) -> None:
+        # Client may close before we finish writing (refresh / nav-away / aborted
+        # fetch). socketserver otherwise dumps a full traceback for this benign
+        # ConnectionError. Catch only ConnectionError so real bugs still surface.
+        try:
+            super().handle()
+        except ConnectionError:
+            pass
+
     def do_GET(self):
         if self._try_hedge_open("GET"):
             return
