@@ -4,12 +4,13 @@ Cross-stage state, read at startup. Keep under 64 KB. Git history is not a runti
 check. Completed work's trace is git history and archive references (see Update
 Rule); this file records only live risks, open follow-ups, and pointers.
 
-## Current Status (2026-08-10)
+## Current Status (2026-08-11)
 
-- **No active stage.** `2026-08-10-cross-margin-flow-log-v1` 已 push 到 `origin/main`
-  并归档（`archive/2026-08-10-cross-margin-flow-log-v1`）。全仓 capital-flow 本地缓存 +
-  流水中栏真数据已在 main（交付 `a11a873..cf247fb`）。**服务是否已加载本批代码取决于
-  你是否在 push 后重启过**；若进程仍是旧代码，需再重启才生效。
+- **Active stage:** `2026-08-11-reverse-position-drift-v1` 已完成计划评审、实现、
+  review-1、Human 前端验收与 review-2；两轮代码评审均 `ACCEPT`，当前等待 Human
+  最终业务验收与是否提交远端/归档的决定。交付只改展示校验，不改变下单、借还、划转
+  或闸门；`drift=false` 仍不是对账证明。当前手动前台服务已加载本地交付代码，后续若
+  远端合并或切换运行版本，仍由 Human 决定是否重启。
 
 - 前一 stage `2026-08-10-local-net-position-v1` 已归档；本地持仓按活跃周期逐腿
   `open - close` 汇总。
@@ -222,6 +223,18 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   path to `ensure_worker` appears.** Five elements: archive `32-` §7.3.
 
 ## Open Follow-ups
+
+- `[OPEN][DOCUMENTATION][2026-08-11]` **reverse drift 的账户级归因边界（review-2 O-2）。**
+  当前 `A=max(B-F-L,0)` 使用统一账户内该资产的整体验证值，不按策略周期分配负债、
+  可用量或锁定量；同币 forward 与 reverse 同时活跃时可能保守误报，存在无关借款时
+  也可能掩盖短缺。它只影响弱告警展示，不触发资金动作，本轮批准范围明确不做周期归因。
+  后续在 `docs/api/public-market-contract.md` 补充该边界；若 Human 遇到 reverse 红字但
+  币安核对一致，或需要同币双向并存运行，则重开评估。证据见本阶段 review-2 handoff O-2。
+
+- `[OPEN][DOCUMENTATION][PRE-EXISTING][2026-08-11]` **forward drift 的既有假阳性契约缺口
+  （review-2 O-4）。** `docs/api/public-market-contract.md` 尚未说明同资产借币负债净减
+  `total_balance` 可造成 forward 假阳性；原始评审记录由提交 `bbeb130` 引入，早于本阶段
+  base `7194876`，因此不阻塞本轮交付。后续与 O-2 一并补齐文档，不改变当前弱告警口径。
 
 - `[OPEN][NEEDS-HUMAN-AUTHORIZATION][2026-08-07]` **1000x 腿量换算——未做的资金路径**。
   P0 止血只是把 6 个乘数币（BONK/FLOKI/LUNC/PEPE/SHIB/XEC）挡在门外（见 Live Risks
