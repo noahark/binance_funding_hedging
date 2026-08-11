@@ -227,7 +227,7 @@ def test_close_execution_reversed_reduceonly_and_finalize(tmp_path):
     assert row["close_avg_price"] == "1"                                # close 腿加权（独立）
     assert row["spot_open_avg"] == "1" and row["spot_open_qty"] == "0.5"  # 现货买入（open 腿）
     assert row["spot_close_avg"] == "1" and row["spot_close_qty"] == "0.5"  # 现货卖出（close 腿）
-    assert "open_slippage" not in row or row.get("open_slippage") is None  # 滑点本轮无数据源
+    assert row["open_slippage"] == "0.0000"  # 两腿真实成交价相同
     assert svc._store.get_active_cycle("BTCUSDT", "forward") is None  # 不再活跃
 
 
@@ -417,8 +417,8 @@ def test_get_close_logs_service_endpoint(tmp_path):
     row = doc["logs"][0]
     assert row["cycle_id"] == cycle["id"]
     assert row["symbol"] == "BTCUSDT" and row["direction"] == "forward"
-    # 滑点字段：close_log 表无现货/滑点列（本轮无数据源），历史页该列显示 —
-    assert "open_slippage" in row and row.get("open_slippage") is None  # 无 est_price 时滑点为 None（不臆造）
+    # 两腿真实成交价相同，零价差必须保留为真值而不是缺失。
+    assert row["open_slippage"] == "0.0000"
 
 
 # ===========================================================================

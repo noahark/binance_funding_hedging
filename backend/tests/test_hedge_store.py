@@ -42,6 +42,34 @@ def _outcome(
     )
 
 
+def _priced_outcome(
+    *, spot_qty: str, spot_price: str, perp_qty: str, perp_price: str,
+    attempt_id: str = "att1",
+) -> AttemptOutcome:
+    return AttemptOutcome(
+        attempt_id=attempt_id,
+        category=D.ATTEMPT_SUCCESS,
+        spot={
+            "status": D.LEG_FILLED,
+            "filled_qty": spot_qty,
+            "cumulative_quote": str(Decimal(spot_qty) * Decimal(spot_price)),
+            "avg_price": spot_price,
+            "order_id": f"os-{attempt_id}",
+            "client_order_id": f"hgo-{attempt_id}-s",
+        },
+        perp={
+            "status": D.LEG_FILLED,
+            "filled_qty": perp_qty,
+            "cumulative_quote": str(Decimal(perp_qty) * Decimal(perp_price)),
+            "avg_price": perp_price,
+            "order_id": f"op-{attempt_id}",
+            "client_order_id": f"hgo-{attempt_id}-p",
+        },
+        record_payload={"transport": "dry_run_record", "posted": False},
+        exposure=None,
+    )
+
+
 def _apply(
     store: HedgeOpenStore, task_id: str, outcome: AttemptOutcome, now_us: int,
     *, direction=D.DIR_FORWARD, q_common="0.5",
@@ -669,6 +697,133 @@ def test_migrate_creates_cycle_schema_idempotent(tmp_path):
     assert {r[1] for r in store2._conn.execute("PRAGMA index_list(hedge_open_attempt)")} \
         == attempt_idx
     store2.close()
+
+
+@pytest.mark.parametrize(
+    ("direction", "task_type", "spot_price", "perp_price"),
+    [
+        (D.DIR_FORWARD, D.TASK_TYPE_OPEN, "100", "102"),
+        (D.DIR_REVERSE, D.TASK_TYPE_OPEN, "102", "100"),
+        (D.DIR_FORWARD, D.TASK_TYPE_CLOSE, "102", "100"),
+        (D.DIR_REVERSE, D.TASK_TYPE_CLOSE, "100", "102"),
+    ],
+)
+def test_cycle_slippage_uses_directional_sell_and_buy_legs(
+    tmp_path, direction, task_type, spot_price, perp_price,
+):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    store.create_task(
+        "t1", "BTCUSDT", direction, D.MODE_IMMEDIATE, "1", 1,
+        "1", D.POS_MODE_BOTH, {"est_price": "7"}, 1_000,
+        task_type=task_type,
+    )
+    _apply(
+        store, "t1",
+        _priced_outcome(
+            spot_qty="1", spot_price=spot_price,
+            perp_qty="1", perp_price=perp_price,
+        ),
+        2_000, direction=direction, q_common="1",
+    )
+    cycle = store.get_active_cycle("BTCUSDT", direction)
+    assert store.cycle_slippage_pct(cycle["id"], task_type) == "2.0000"
+
+
+def test_cycle_slippage_weights_both_legs_across_attempts(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    store.create_task(
+        "t1", "BTCUSDT", D.DIR_REVERSE, D.MODE_IMMEDIATE, "1", 2,
+        "1", D.POS_MODE_BOTH, {"est_price": "1"}, 1_000,
+    )
+    _apply(
+        store, "t1",
+        _priced_outcome(
+            spot_qty="1", spot_price="90", perp_qty="1", perp_price="100",
+        ),
+        2_000, direction=D.DIR_REVERSE, q_common="1",
+    )
+    _apply(
+        store, "t1",
+        _priced_outcome(
+            spot_qty="3", spot_price="110", perp_qty="3", perp_price="104",
+            attempt_id="att2",
+        ),
+        3_000, direction=D.DIR_REVERSE, q_common="3",
+    )
+    cycle = store.get_active_cycle("BTCUSDT", D.DIR_REVERSE)
+    assert store.cycle_spot_basis(cycle["id"], D.TASK_TYPE_OPEN)["avg_price"] == "105"
+    assert store.cycle_perp_basis(cycle["id"], D.TASK_TYPE_OPEN)["avg_price"] == "103"
+    assert store.cycle_slippage_pct(cycle["id"], D.TASK_TYPE_OPEN) == "1.9417"
+
+
+def test_cycle_slippage_missing_invalid_and_zero_cases(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    assert store.cycle_slippage_pct("missing", D.TASK_TYPE_OPEN) is None
+    store.create_task(
+        "t1", "BTCUSDT", D.DIR_FORWARD, D.MODE_IMMEDIATE, "1", 1,
+        "1", D.POS_MODE_BOTH, None, 1_000,
+    )
+    _apply(
+        store, "t1",
+        _priced_outcome(
+            spot_qty="1", spot_price="100", perp_qty="0", perp_price="100",
+        ),
+        2_000, q_common="1",
+    )
+    cycle = store.get_active_cycle("BTCUSDT", D.DIR_FORWARD)
+    assert store.cycle_slippage_pct(cycle["id"], D.TASK_TYPE_OPEN) is None
+    assert store.cycle_slippage_pct(cycle["id"], "invalid") is None
+
+    store._conn.execute(
+        "UPDATE hedge_open_leg SET cumulative_base_qty = '1',"
+        " cumulative_quote_amt = '100' WHERE leg = 'perp'"
+    )
+    store._conn.commit()
+    assert store.cycle_slippage_pct(cycle["id"], D.TASK_TYPE_OPEN) == "0.0000"
+
+    store._conn.execute(
+        "UPDATE hedge_open_leg SET cumulative_quote_amt = '-1' WHERE leg = 'perp'"
+    )
+    store._conn.commit()
+    assert store.cycle_slippage_pct(cycle["id"], D.TASK_TYPE_OPEN) is None
+
+    store._conn.execute(
+        "UPDATE hedge_open_cycle SET direction = 'invalid' WHERE id = ?", (cycle["id"],)
+    )
+    store._conn.commit()
+    assert store.cycle_slippage_pct(cycle["id"], D.TASK_TYPE_OPEN) is None
+
+
+def test_cycle_slippage_matches_jst_reverse_open_and_close(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    store.create_task(
+        "open", "JSTUSDT", D.DIR_REVERSE, D.MODE_IMMEDIATE, "3000", 1,
+        "3000", D.POS_MODE_BOTH, {"est_price": "999"}, 1_000,
+    )
+    _apply(
+        store, "open",
+        _priced_outcome(
+            spot_qty="3000", spot_price="0.09808666666666666666666666667",
+            perp_qty="3000", perp_price="0.09786",
+        ),
+        2_000, direction=D.DIR_REVERSE, q_common="3000",
+    )
+    cycle = store.get_active_cycle("JSTUSDT", D.DIR_REVERSE)
+
+    store.create_task(
+        "close", "JSTUSDT", D.DIR_REVERSE, D.MODE_IMMEDIATE, "3000", 1,
+        "3000", D.POS_MODE_BOTH, None, 3_000, task_type=D.TASK_TYPE_CLOSE,
+    )
+    _apply(
+        store, "close",
+        _priced_outcome(
+            spot_qty="3000", spot_price="0.10058",
+            perp_qty="3000", perp_price="0.10036", attempt_id="close-att",
+        ),
+        4_000, direction=D.DIR_REVERSE, q_common="3000",
+    )
+    assert store.cycle_slippage_pct(cycle["id"], D.TASK_TYPE_OPEN) == "0.2316"
+    assert store.cycle_slippage_pct(cycle["id"], D.TASK_TYPE_CLOSE) == "-0.2192"
 
 
 # ---------------------------------------------------------------------------

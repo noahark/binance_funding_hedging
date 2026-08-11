@@ -193,8 +193,8 @@ CREATE TABLE IF NOT EXISTS hedge_open_cycle_close_log (
     spot_open_qty   TEXT,               -- 现货买入累计数量
     spot_close_avg  TEXT,               -- 现货卖出均价（close 现货腿加权）
     spot_close_qty  TEXT,               -- 现货卖出累计数量
-    open_slippage   TEXT,               -- 开单滑点（USDT，成交均价 vs 开仓 est_price 加权，合约腿）
-    close_slippage  TEXT,               -- 平单滑点（USDT，成交均价 vs 平仓 est_price 加权，合约腿）
+    open_slippage   TEXT,               -- 开单两腿真实成交价差百分比（卖价高于买价为正）
+    close_slippage  TEXT,               -- 平单两腿真实成交价差百分比（卖价高于买价为正）
     settled_at_us   INTEGER NOT NULL    -- 结算写入时间
 );
 CREATE INDEX IF NOT EXISTS idx_close_log_cycle ON hedge_open_cycle_close_log (cycle_id);
@@ -2377,60 +2377,46 @@ class HedgeOpenStore:
         }
 
     def cycle_slippage_pct(self, cycle_id: str, task_type: str) -> str | None:
-        """该周期内指定 task_type 的合约腿滑点率（%，2026-08 新增；Human 要求）。
+        """该周期内指定 task_type 的两腿真实成交价差百分比。
 
-        滑点率 = Σ((成交均价 − est_price)×数量) / Σ(est_price×数量) × 100
-        ——加权价差率（成交均价 vs 开/平仓 est_price 的偏离百分比）。est_price 为
-        preflight 保守估价（task.preflight_snapshot.est_price）。负 = 成交优于估价，
-        正 = 劣于估价。无 est_price / 无成交 → None（参考价缺失不臆造）。
-        Human 2026-08：滑点列从 USDT 金额改为百分比展示，保留两位小数。"""
+        ``(卖出腿均价 - 买入腿均价) / min(两腿均价) * 100``；两腿均价
+        分别按真实成交数量跨 attempt 加权。任一腿不可定价或非正时返回 None。"""
         with self._lock, self._conn:
-            rows = self._conn.execute(
-                "SELECT t.preflight_snapshot, l.cumulative_base_qty,"
-                " l.cumulative_quote_amt, l.avg_price"
-                " FROM hedge_open_leg l"
-                " JOIN hedge_open_attempt a ON a.id = l.attempt_id"
-                " JOIN hedge_open_task t ON t.id = a.task_id"
-                " WHERE a.cycle_id = ? AND t.task_type = ? AND l.leg = 'perp'"
-                " AND CAST(l.cumulative_base_qty AS REAL) > 0",
-                (cycle_id, task_type),
-            ).fetchall()
-        diff_sum = Decimal(0)
-        est_sum = Decimal(0)
-        priced = False
-        for r in rows:
-            try:
-                est = None
-                snap = json.loads(r["preflight_snapshot"] or "{}")
-                if isinstance(snap, dict) and snap.get("est_price"):
-                    est = Decimal(str(snap["est_price"]))
-                if est is None or est == 0:
-                    continue
-                q = Decimal(str(r["cumulative_base_qty"]))
-                price = None
-                if r["avg_price"]:
-                    try:
-                        price = Decimal(str(r["avg_price"]))
-                    except InvalidOperation:
-                        price = None
-                if price is None and r["cumulative_quote_amt"]:
-                    try:
-                        qq = Decimal(str(r["cumulative_quote_amt"]))
-                        if qq > 0:
-                            price = qq / q
-                    except (InvalidOperation, ZeroDivisionError):
-                        price = None
-                if price is not None:
-                    diff_sum += (price - est) * q
-                    est_sum += est * q
-                    priced = True
-            except (InvalidOperation, TypeError, ValueError):
-                continue
-        if not priced or est_sum == 0:
+            cycle = self._conn.execute(
+                "SELECT direction FROM hedge_open_cycle WHERE id = ?", (cycle_id,)
+            ).fetchone()
+            if (
+                cycle is None
+                or cycle["direction"] not in D.ALL_DIRECTIONS
+                or task_type not in D.ALL_TASK_TYPES
+            ):
+                return None
+            actions = D.direction_to_leg_actions(
+                cycle["direction"], D.POS_MODE_BOTH, task_type,
+            )
+            spot = self._cycle_leg_basis_locked(cycle_id, task_type, "spot")
+            perp = self._cycle_leg_basis_locked(cycle_id, task_type, "perp")
+
+        spot_price = _num_or_none(spot["avg_price"])
+        perp_price = _num_or_none(perp["avg_price"])
+        if (
+            spot_price is None
+            or perp_price is None
+            or not spot_price.is_finite()
+            or not perp_price.is_finite()
+            or spot_price <= 0
+            or perp_price <= 0
+        ):
             return None
-        pct = diff_sum / est_sum * 100
-        # 保留两位小数（Human 要求）
-        return f"{pct:.2f}"
+        sell_price, buy_price = (
+            (spot_price, perp_price)
+            if actions.spot_side == "SELL"
+            else (perp_price, spot_price)
+        )
+        denominator = min(spot_price, perp_price)
+        if denominator <= 0:
+            return None
+        return f"{(sell_price - buy_price) / denominator * 100:.4f}"
 
     def list_cycles(self) -> list[dict]:
         """全部周期行，按 (symbol, direction, opened_at_us) 排序。只读。"""

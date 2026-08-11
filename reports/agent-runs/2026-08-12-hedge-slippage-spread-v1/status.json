@@ -10,7 +10,7 @@
   "ledger_sha": "336376d85bcc51ab7067deceb61c657c2d819250",
   "current_task": {
     "id": "02-implement",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-08-12-hedge-slippage-spread-v1/02-implement.dispatch.md"
   },
   "next": {
