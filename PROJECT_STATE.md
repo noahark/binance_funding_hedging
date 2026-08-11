@@ -6,14 +6,13 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-11)
 
-- **Active stage:** `2026-08-11-reverse-position-drift-v1` 已完成计划评审、实现、
-  review-1、Human 前端验收与 review-2；两轮代码评审均 `ACCEPT`，当前等待 Human
-  最终业务验收与是否提交远端/归档的决定。交付只改展示校验，不改变下单、借还、划转
-  或闸门；`drift=false` 仍不是对账证明。当前手动前台服务已加载本地交付代码，后续若
-  远端合并或切换运行版本，仍由 Human 决定是否重启。
+- **No active stage.** `2026-08-11-reverse-position-drift-v1` 已获 Human 最终验收并
+  push 到 `origin/main`，完整阶段证据归档在
+  `archive/2026-08-11-reverse-position-drift-v1`。JSTUSDT 型 reverse 持仓不再因现货
+  free 为零长期误报；当前手动前台进程在交付提交后启动，已加载本修复，本次归档未重启
+  服务。交付只改展示校验，不改变下单、借还、划转或闸门；`drift=false` 仍不是对账证明。
 
-- 前一 stage `2026-08-10-local-net-position-v1` 已归档；本地持仓按活跃周期逐腿
-  `open - close` 汇总。
+- 前一 stage `2026-08-10-cross-margin-flow-log-v1` 已归档；全仓杠杆流水使用本地缓存。
 
 - 当前服务仍以 Human 手动前台进程运行；统一账户手动还款已最终验收，
   `APP_MARGIN_REPAY_ENABLED` 按 Human 决定保持开启。XLM 指定 5 与 INJ 全部还款各一笔成功；
@@ -364,15 +363,19 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Last Completed
 
-- stage: `2026-08-10-cross-margin-flow-log-v1`
-- archive_ref: `archive/2026-08-10-cross-margin-flow-log-v1`（指向 push 后 main 上的
-  归档提交；完整 plan/dispatch/handoff 在该分支 tip 的树内）
-- delivery: `a11a873..cf247fb`（主实现 `9a4e019` + F-1 中文映射 `cf247fb`）；
-  `rework_count` 1；review-1 kimi ACCEPT；review-2 sonnet5 REWORK→修→复审 ACCEPT
-- recorded_completed_at: `2026-08-10`
-- outcome: 全仓 `GET /sapi/v1/margin/capital-flow` 本地缓存（新表 + 独立 ledger_meta）；
-  流水日志三栏中栏真数据；与利息/合约 coverage 硬隔离；失败短码中文。
-- follow-ups: 首次实盘拉取权重/满页概率靠运行时观察；中栏是全仓钱包视角非全部互转全集。
+- stage: `2026-08-11-reverse-position-drift-v1`
+- archive_ref: `archive/2026-08-11-reverse-position-drift-v1`（tip
+  `66135ce8e6529f8f2e13fd57cdaf7f7053a1b81c`，完整 plan/dispatch/handoff/status）
+- delivery: `7194876..f1d9291`；`rework_count` 0；Kimi 跨 provider 计划评审 ACCEPT；
+  claude-glm review-1 ACCEPT；Opus 5 review-2 ACCEPT；Human 前端与最终业务验收通过。
+- recorded_completed_at: `2026-08-11`
+- outcome: 统一账户投影 `cross_margin_locked`；reverse 按资产聚合本地现货量并以
+  `A=max(B-F-L,0)`、既有 1% Decimal 容差判断弱告警，利息排除，坏值 fail-closed；
+  forward 与 positions/前端接口不变。目标测试 224 项、后端全量 1756 项通过。
+- follow-ups: O-2/O-4 文档项保留在 Open Follow-ups；账户级公式不按周期归因，
+  `drift=false` 不是对账证明；reverse 自动平仓 LIVE-RISK 与禁用边界未改变。
+- previous stage: `2026-08-10-cross-margin-flow-log-v1` —— 全仓杠杆流水本地缓存；归档
+  `archive/2026-08-10-cross-margin-flow-log-v1`。
 - previous stage: `2026-08-10-local-net-position-v1` —— 本地净持仓 open−close；归档
   `archive/2026-08-10-local-net-position-v1`。
 - previous stage: `2026-08-09-pm-margin-repay-v1` —— 统一账户借款资产卡手动还款，XLM 5 与
