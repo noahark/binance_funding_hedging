@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 1,
+  "revision": 2,
   "stage_id": "2026-08-12-hedge-slippage-spread-v1",
   "bookkeeper": "codex",
   "phase": "plan_review",
-  "checkpoint": "human-approved-slippage-formula",
+  "checkpoint": "plan-review-packet-corrected",
   "base_sha": "7da67bc87261386c117b98f2b63c6ac6083fd291",
   "delivery_sha": null,
-  "ledger_sha": "7da67bc87261386c117b98f2b63c6ac6083fd291",
+  "ledger_sha": "7a9fa1962808655cbd462eb87ca235700ca3a2ae",
   "current_task": {
-    "id": "01-plan-review",
+    "id": "01-plan-review-retry",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-12-hedge-slippage-spread-v1/01-plan-review.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-12-hedge-slippage-spread-v1/01-plan-review-retry.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
