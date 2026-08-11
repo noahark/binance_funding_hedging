@@ -2226,14 +2226,14 @@
         return `${label}: ${amtPart} ${valPart}`;
       }
 
-      function renderPositionDualBalanceCell(p) {
+      function renderPositionDualBalanceCell(p, borrowLineHtml) {
         const spotLine = formatPositionAccountSideLine(
           '现货', p && p.spot_balance, p && p.spot_balance_value_usdt
         );
         const uniLine = formatPositionAccountSideLine(
           '杠杆', p && p.unified_balance, p && p.unified_balance_value_usdt
         );
-        return `<td class="mono dual-balance-cell"><span class="side-line">${escapeHtml(spotLine)}</span><span class="side-line">${escapeHtml(uniLine)}</span></td>`;
+        return `<td class="mono dual-balance-cell"><span class="side-line">${escapeHtml(spotLine)}</span><span class="side-line">${escapeHtml(uniLine)}</span>${borrowLineHtml || ''}</td>`;
       }
 
       let cacheRefreshLoading = false;
@@ -2409,6 +2409,15 @@
         const intPart = m[2].replace(/^0+/, '') || '0';
         const fracPart = (m[3] || '').replace(/0+$/, '');
         return !(intPart === '0' && fracPart === '');
+      }
+
+      function renderLockedBalanceLine(value) {
+        if (isPositiveBorrowedAmount(value)) {
+          return `<div class="amount locked">冻结: ${formatBalanceAmount(value)}</div>`;
+        }
+        const raw = value === null || value === undefined ? '' : String(value).trim();
+        if (/^[+-]?0+(?:\.0+)?$/.test(raw)) return '';
+        return '<div class="amount locked">冻结: —</div>';
       }
 
       function formatUsdt2(str) {
@@ -4226,6 +4235,11 @@
                             data-repay-preview="${escapeHtml(asset)}"${repayBusy ? ' disabled' : ''}>还款</button>
                   </span>${repayStatusHtml}`
                 : repayStatusHtml;
+              // 冻结/已借为 0 且无还款回显时不展示该行（回显保留见上，防重复还款）。
+              const lockedLine = renderLockedBalanceLine(b.cross_margin_locked);
+              const borrowedLine = (borrowedPositive || repayStatusHtml)
+                ? `<div class="amount ${borrowedCls}">已借: ${formatBalanceAmount(b.cross_margin_borrowed)} ${approximateUsdtLine(b.cross_margin_borrowed_value_usdt)}${repayControls}</div>`
+                : '';
               // Hold + borrowed values on their amount rows; net value replaces
               // the old bottom-only value_usdt line (spot cards unchanged).
               return `
@@ -4233,7 +4247,8 @@
                 <div class="asset">${escapeHtml(b.asset || '—')}</div>
                 <div class="amount">${formatBalanceAmount(b.total_balance)} ${approximateUsdtLine(b.value_usdt)}</div>
                 ${transferableLine}
-                <div class="amount ${borrowedCls}">已借: ${formatBalanceAmount(b.cross_margin_borrowed)} ${approximateUsdtLine(b.cross_margin_borrowed_value_usdt)}${repayControls}</div>
+                ${lockedLine}
+                ${borrowedLine}
                 <div class="amount ${netValueCls} value-usdt">净价值 ${unifiedNetValueLine(b.value_usdt, b.cross_margin_borrowed_value_usdt)}</div>
               </div>`;
             }).join('')
@@ -4247,7 +4262,7 @@
               <div class="balance-card">
                 <div class="asset">${escapeHtml(b.asset || '—')}</div>
                 <div class="amount">${formatBalanceAmount(b.free)} ${approximateUsdtLine(b.value_usdt)}</div>
-                <div class="amount locked">冻结: ${formatBalanceAmount(b.locked)}</div>
+                ${renderLockedBalanceLine(b.locked)}
                 <div class="amount locked value-usdt">净价值 ${approximateUsdtLine(b.value_usdt)}</div>
               </div>
             `).join('')
@@ -6383,17 +6398,31 @@
           if (p.cycle_closed_at) markers.push('<span class="muted small" title="该持仓周期已完全平仓">已完全平仓</span>');
           const markerText = markers.length ? markers.join(' ') : '<span class="muted">—</span>';
           // G6: per-asset borrow dedup (see seenBorrowAsset above).
-          const borrowAsset = (typeof p.coin === 'string' && p.coin.endsWith('USDT'))
-            ? p.coin.slice(0, -4) : p.coin;
+          const borrowAsset = p.spot_base_asset
+            || (frSnapRow && frSnapRow.spot && frSnapRow.spot.base_asset)
+            || ((typeof p.coin === 'string' && p.coin.endsWith('USDT'))
+              ? p.coin.slice(0, -4) : p.coin);
           const hasBorrow = !(p.cross_margin_borrowed === null
             || p.cross_margin_borrowed === undefined || p.cross_margin_borrowed === '');
           const borrowSeen = hasBorrow && seenBorrowAsset.has(borrowAsset);
           if (hasBorrow && !borrowSeen) seenBorrowAsset.add(borrowAsset);
-          const borrowCell = !hasBorrow
-            ? '<span class="muted">—</span>'
+          // 全仓借款集成进现货余额列第三行；无值不展示。价值沿用统一账户同币的
+          // cross_margin_borrowed_value_usdt（与「已借」同源，后端 price_map 已算好），不另行折算。
+          // 保留同币去重（账户级按资产，竖向相加会重复）。
+          const borrowPa = state.snapshot && state.snapshot.private_account;
+          const borrowUnifiedRow = borrowPa && Array.isArray(borrowPa.balances_unified)
+            ? borrowPa.balances_unified.find(b => b.asset === borrowAsset) : null;
+          // Positions and the page snapshot refresh independently. Only pair the
+          // valuation with the row amount when both snapshots report the exact
+          // same raw borrow string; otherwise show ≈ — U instead of mixing ages.
+          const borrowValueUsdt = (borrowUnifiedRow
+            && borrowUnifiedRow.cross_margin_borrowed === p.cross_margin_borrowed)
+            ? borrowUnifiedRow.cross_margin_borrowed_value_usdt : null;
+          const borrowLineHtml = !hasBorrow
+            ? ''
             : (borrowSeen
-              ? '<span class="muted small" title="账户级（按资产）；同币多行请勿竖向相加">同↑</span>'
-              : `<span class="mono" title="账户级（按资产）；同币多行请勿竖向相加">${maskAmount(p.cross_margin_borrowed)}</span>`);
+              ? '<span class="side-line muted small" title="账户级（按资产）；同币多行请勿竖向相加">全仓借款: 同↑</span>'
+              : `<span class="side-line">${escapeHtml(formatPositionAccountSideLine('全仓借款', p.cross_margin_borrowed, borrowValueUsdt))}</span>`);
           // G5: a title on the avg cell when its incomplete flag is set.
           const spotAvgTitle = p.spot_avg_price_incomplete
             ? ' title="部分成交金额未知，均价为不完整口径"' : '';
@@ -6410,8 +6439,7 @@
                         <td class="mono">${umCell(p.um_mark_price)}</td>
                         <td class="mono">${umCell(p.um_liquidation_price)}</td>
                         <td class="mono ${pnlCls}">${pnlText}</td>
-                        ${renderPositionDualBalanceCell(p)}
-                        <td class="mono">${borrowCell}</td>
+                        ${renderPositionDualBalanceCell(p, borrowLineHtml)}
                         <td class="mono"${spotAvgTitle}>${formatHedgeAvgPrice(p.spot_avg)}</td>
                         <td class="mono"${perpAvgTitle}>${formatHedgeAvgPrice(p.perp_avg)}</td>
                         <td class="mono ${basisCls}">${formatHedgeBasisPct(basisRate)}</td>
@@ -6422,7 +6450,7 @@
                         <td class="small">${markerText}</td>
                       </tr>
                     `;
-        }).join('') : `<tr><td colspan="19"><span class="muted small">暂无开单持仓；任务成交后按币种聚合展示</span></td></tr>`;
+        }).join('') : `<tr><td colspan="18"><span class="muted small">暂无开单持仓；任务成交后按币种聚合展示</span></td></tr>`;
         // Multi-source freshness: earliest of UM + unified + spot; any null → not-ready
         // (never invents a complete time from remaining sources). Prefer snapshot
         // private_account.source_checked_at; fall back to positions account meta.
@@ -6454,7 +6482,6 @@
                     <th>强平价</th>
                     <th>价格未实现盈亏</th>
                     <th>现货余额</th>
-                    <th>全仓借款</th>
                     <th>现货均价</th>
                     <th>合约均价</th>
                     <th>开单价差率</th>

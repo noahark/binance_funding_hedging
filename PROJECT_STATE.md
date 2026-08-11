@@ -223,6 +223,17 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Open Follow-ups
 
+- `[OPEN][PRE-EXISTING][2026-08-11]` **小额统一账户资产卡可能连同还款回显一起被过滤。**
+  `frontend/index.html` 先按「持有价值与净价值均低于 10 USDT」过滤整张资产卡，之后才
+  生成还款成功、失败、未决或未知回显；因此借款已读为 0 且资产价值较小时，未决锁仍在
+  浏览器状态中，但「查询结果 / 我已核对 / 再次刷新」等回显和操作入口可能随卡片消失。
+  该顺序早于 2026-08-11 的资产卡/持仓表展示调整，**不是本次改动引入的回归**。
+  临时边界：若还款后资产卡消失，不要换请求号重试，先到币安核对实际负债；仍按现有
+  单标签页操作限制执行。重开条件：实际出现未决还款资产卡消失，或产品要求任何还款
+  回显都不受小额卡片过滤影响。最小修复方向是让存在还款 pending/result 的资产绕过
+  整卡过滤；证据锚点：`frontend/index.html` 的统一账户 `.filter(...)` 早于
+  `renderRepayStatus(asset)`。
+
 - `[OPEN][DOCUMENTATION][2026-08-11]` **reverse drift 的账户级归因边界（review-2 O-2）。**
   当前 `A=max(B-F-L,0)` 使用统一账户内该资产的整体验证值，不按策略周期分配负债、
   可用量或锁定量；同币 forward 与 reverse 同时活跃时可能保守误报，存在无关借款时

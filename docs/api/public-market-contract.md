@@ -881,7 +881,10 @@ thousands separators to the INTEGER part only and preserves the raw fractional
 string exactly (no rounding, no trailing-zero trimming); privacy-hidden amount →
 `****`. The `≈ value USDT` line: hidden → `≈ **** USDT`; null/invalid value →
 `≈ — USDT`; valid → `≈ <formatUsdt2> USDT`. Spot cards show `free` as the amount
-plus a separate `冻结:` line and their own `≈ value USDT` line.
+plus a separate `冻结:` line and their own `≈ value USDT` line. Spot and unified
+cards use the same `冻结:` display rule: a valid positive amount shows the line,
+a valid zero omits it, and null/invalid input shows `冻结: —` rather than
+masquerading as zero.
 
 ### Regression red lines (still unchanged)
 
@@ -1352,7 +1355,13 @@ honest "no automatic alignment" outcome is unchanged).
   -> the `*_value_usdt` field is `"0.00000000"`. `null` is reserved for
   "unknown / not present", exactly as on the source `private_account` rows.
 - `cross_margin_borrowed` keeps its existing meaning (full-cross borrow) and is
-  shown in its own column; it is never folded into `unified_balance`.
+  shown as the third line of the spot-balance column; it is never folded into
+  `unified_balance`. Its approximate USDT value reuses the matching unified
+  asset row's existing `cross_margin_borrowed_value_usdt` and is never recomputed
+  by the frontend. Because the positions endpoint and page snapshot refresh
+  independently, the frontend uses that valuation only when both sources carry
+  the exact same raw `cross_margin_borrowed` string; otherwise it renders
+  `≈ — U` instead of pairing values from different refresh generations.
 - The source `private_account` is never mutated by the projection.
 
 ### What does not change
