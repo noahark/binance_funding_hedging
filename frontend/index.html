@@ -6302,12 +6302,12 @@
         // each asset and mark repeats so the column never reads as summable.
         const seenBorrowAsset = new Set();
         // Human 2026-08-11：按仓位价值（um_notional_usdt）倒序——大仓在前。无 UM 持仓
-        // 的本地记账行 notional 缺失，作 -Infinity 沉底；同值稳定保持原序（Array.sort 稳定）。
+        // 的本地记账行 notional 为 null/空，显式作 -Infinity 沉底（Number(null)/Number('')
+        // 本为 0，须显式判空才真沉底，不依赖 notional≥0 假设）。同值稳定保持原序。
         const orderedPositions = hasRows
           ? positions.slice().sort((a, b) => {
-              const av = Number(a.um_notional_usdt);
-              const bv = Number(b.um_notional_usdt);
-              return (Number.isFinite(bv) ? bv : -Infinity) - (Number.isFinite(av) ? av : -Infinity);
+              const rank = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v))) ? -Infinity : Number(v);
+              return rank(b.um_notional_usdt) - rank(a.um_notional_usdt);
             })
           : positions;
         const rowsHtml = hasRows ? orderedPositions.map(p => {
