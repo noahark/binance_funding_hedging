@@ -5312,18 +5312,18 @@
               <td class="mono">${formatBeijing(r.closed_at_us != null ? Math.floor(r.closed_at_us / 1000) : null)}</td>
               <td class="mono">${r.open_qty != null && r.open_avg_price != null ? (Number(r.open_qty) * Number(r.open_avg_price)).toFixed(2) : '<span class="muted">—</span>'}</td>
               <td class="mono">${r.open_qty != null ? escapeHtml(r.open_qty) : '<span class="muted">—</span>'}</td>
-              <td class="mono">${r.open_avg_price != null ? escapeHtml(r.open_avg_price) : '<span class="muted">—</span>'}</td>
-              <td class="mono">${r.close_avg_price != null ? escapeHtml(r.close_avg_price) : '<span class="muted">—</span>'}</td>
+              <td class="mono">${r.open_avg_price != null ? formatHedgeAvgPrice(r.open_avg_price) : '<span class="muted">—</span>'}</td>
+              <td class="mono">${r.close_avg_price != null ? formatHedgeAvgPrice(r.close_avg_price) : '<span class="muted">—</span>'}</td>
               <!-- 2026-08 补充：现货成交额（≈ 成交量×买入均价）与现货成交量（spot_open_qty） -->
               <td class="mono">${r.spot_open_qty != null && r.spot_open_avg != null ? (Number(r.spot_open_qty) * Number(r.spot_open_avg)).toFixed(2) : '<span class="muted">—</span>'}</td>
               <td class="mono">${r.spot_open_qty != null ? escapeHtml(r.spot_open_qty) : '<span class="muted">—</span>'}</td>
-              <td class="mono">${r.spot_open_avg != null ? escapeHtml(r.spot_open_avg) : '<span class="muted">—</span>'}</td>
-              <td class="mono">${r.spot_close_avg != null ? escapeHtml(r.spot_close_avg) : '<span class="muted">—</span>'}</td>
+              <td class="mono">${r.spot_open_avg != null ? formatHedgeAvgPrice(r.spot_open_avg) : '<span class="muted">—</span>'}</td>
+              <td class="mono">${r.spot_close_avg != null ? formatHedgeAvgPrice(r.spot_close_avg) : '<span class="muted">—</span>'}</td>
               <td class="mono">${r.borrow_interest != null ? escapeHtml(r.borrow_interest) : '<span class="muted">—</span>'}</td>
               <td class="mono ${feeCls}">${r.funding_fee != null ? escapeHtml(r.funding_fee) : '<span class="muted">—</span>'}</td>
               <!-- 2026-08：滑点（USDT，成交均价 vs 开/平仓 est_price 加权，合约腿；负=成交优于估价） -->
-              <td class="mono ${classForSignedNumber(hedgeNum(r.open_slippage))}">${r.open_slippage != null ? escapeHtml(r.open_slippage) + '%' : '<span class="muted">—</span>'}</td>
-              <td class="mono ${classForSignedNumber(hedgeNum(r.close_slippage))}">${r.close_slippage != null ? escapeHtml(r.close_slippage) + '%' : '<span class="muted">—</span>'}</td>
+              <td class="mono ${classForSignedNumber(hedgeNum(r.open_slippage))}">${r.open_slippage != null ? Number(r.open_slippage).toFixed(4) + '%' : '<span class="muted">—</span>'}</td>
+              <td class="mono ${classForSignedNumber(hedgeNum(r.close_slippage))}">${r.close_slippage != null ? Number(r.close_slippage).toFixed(4) + '%' : '<span class="muted">—</span>'}</td>
             </tr>`;
         }).join('');
         els.historyList.innerHTML = `
@@ -5771,13 +5771,16 @@
           const snapRow = (state.snapshot && state.snapshot.rows || []).find(r => r.symbol === symbol);
           const oq = (snapRow && snapRow.opening_quotes) || {};
           if (direction === 'forward') {
-            const usdt = pa.balances_unified.find(b => b.asset === 'USDT');
+            // Human 2026-08-11：USDT 校验改用「可转余额」口径（pm_account
+            // .total_available_balance_usdt），与资产互转页同源——它才是真正能划转
+            // 去开单的钱；旧 total_balance 含已占用保证金，会高估可动用额而误放行。
+            const pmAvailable = (pa.pm_account || {}).total_available_balance_usdt;
             const price = oq.spot_ask_price || oq.futures_ask_price;
-            if (usdt && price) {
-              const avail = Number(usdt.total_balance);
+            if (pmAvailable != null && price) {
+              const avail = Number(pmAvailable);
               const need = Number(amountStr) * n * Number(price);
               if (Number.isFinite(avail) && Number.isFinite(need) && avail < need) {
-                setErr(`页面显示统一账户 USDT 约 ${avail.toFixed(2)} < 估算需 ${need.toFixed(2)}（单次 ${amountStr} × ${n} × 盘口价 ${price}，缓存约 60s 旧，以后端为准）；已拦截`);
+                setErr(`页面显示统一账户可转 USDT 约 ${avail.toFixed(2)} < 估算需 ${need.toFixed(2)}（单次 ${amountStr} × ${n} × 盘口价 ${price}，缓存约 60s 旧，以后端为准）；已拦截`);
                 return { ok: false, error: 'insufficient_balance_frontend' };
               }
             }
@@ -5885,7 +5888,15 @@
       }
 
       async function startHedgeTask(id) {
-        return mutateHedgeTask(() => hedgeApi(hedgeTaskActionPath(id, 'start'), { method: 'POST', body: {} }));
+        const result = await mutateHedgeTask(() => hedgeApi(hedgeTaskActionPath(id, 'start'), { method: 'POST', body: {} }));
+        // Human 2026-08-11：启动后自动展开该任务的内嵌日志——记入 hedgeLogExpanded
+        // （重渲染保持）、拉取一次日志、再渲染成展开态（与手动「展开日志」同路径）。
+        if (result.ok && state.hedgeLogExpanded) {
+          state.hedgeLogExpanded.add(id);
+          await loadHedgeTaskLogs(id);
+          if (state.activeView === 'hedge-tasks') renderHedgeTasks();
+        }
+        return result;
       }
 
       // 软删除：后端置 status='deleted'，任务保留在 status=all 列表中，供「已删除」筛选查看。
@@ -6245,9 +6256,20 @@
           ? ' <span class="negative">未获取到交易所持仓数据，仅展示本地缓存记录</span>'
           : '';
         // 拿不到：真实契约缺失/币安 sentinel（强平价 "0"）→ —。
-        const umCell = (v) => (v === null || v === undefined || v === '')
-          ? '<span class="muted">—</span>'
-          : maskAmount(v);
+        // 价格收敛：复用 formatHedgeAvgPrice（8 位有效），消除后端 float 累加/除法尾巴
+        // （0.16476793999999997 → 0.16476794），与 spot_avg/perp_avg 均价列同口径；隐私态照常 ****。
+        const umCell = (v) => {
+          if (v === null || v === undefined || v === '') return '<span class="muted">—</span>';
+          if (state.privacyHidden) return '****';
+          return formatHedgeAvgPrice(v);
+        };
+        // 仓位价值（USDT 计价金额）：与 umCell 同口径（隐私脱敏 + 缺失 —），但保留两位小数。
+        const notionalCell = (v) => {
+          if (state.privacyHidden) return '****';
+          if (v === null || v === undefined || v === '') return '<span class="muted">—</span>';
+          const s = formatUsdt2(v);
+          return s === null ? '<span class="muted">—</span>' : s;
+        };
         // 暂无 vs 真值：资金费/借币利息/净盈亏本轮无实时数据源，后端恒 "0" 占位 → 「暂无」；
         // 仅当出现真实非零值（未来接入数据源）才显示数字。
         const pendingCell = (v, formatter) => {
@@ -6279,7 +6301,16 @@
         // vertical sum would double-count the debt. Show it on the first row for
         // each asset and mark repeats so the column never reads as summable.
         const seenBorrowAsset = new Set();
-        const rowsHtml = hasRows ? positions.map(p => {
+        // Human 2026-08-11：按仓位价值（um_notional_usdt）倒序——大仓在前。无 UM 持仓
+        // 的本地记账行 notional 缺失，作 -Infinity 沉底；同值稳定保持原序（Array.sort 稳定）。
+        const orderedPositions = hasRows
+          ? positions.slice().sort((a, b) => {
+              const av = Number(a.um_notional_usdt);
+              const bv = Number(b.um_notional_usdt);
+              return (Number.isFinite(bv) ? bv : -Infinity) - (Number.isFinite(av) ? av : -Infinity);
+            })
+          : positions;
+        const rowsHtml = hasRows ? orderedPositions.map(p => {
           const dirLabel = p.direction === 'forward' ? '正向'
             : p.direction === 'reverse' ? '反向'
             : hedgeText(p.direction);
@@ -6373,7 +6404,7 @@
                         <td class="mono">${coinHtml}${spotLegLine(p)}</td>
                         <td class="${curFundingCls}"${curFundingTitle}>${curFundingText}</td>
                         <td class="${dirCls}">${dirLabel}</td>
-                        <td class="mono">${umCell(p.um_notional_usdt)}</td>
+                        <td class="mono">${notionalCell(p.um_notional_usdt)}</td>
                         <td class="mono">${hasUm ? maskAmount(p.um_position_amt) : formatHedgeDecimal(p.position_qty)}</td>
                         <td class="mono">${umCell(p.um_entry_price)}</td>
                         <td class="mono">${umCell(p.um_mark_price)}</td>
