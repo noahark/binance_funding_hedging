@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 4,
+  "revision": 5,
   "stage_id": "2026-08-11-reverse-position-drift-v1",
   "bookkeeper": "codex",
-  "phase": "review-1",
-  "checkpoint": "implementation-verified",
+  "phase": "review-2",
+  "checkpoint": "review-1-and-human-ui-accepted",
   "base_sha": "7194876e61c037d238d0e3d621a094d7dd3a6e43",
   "delivery_sha": "f1d929178a346026bccab8fe98d4cfa69761d8a0",
-  "ledger_sha": "f1d929178a346026bccab8fe98d4cfa69761d8a0",
+  "ledger_sha": "2737f6c91cbb34f57bebeefdfdd6cdf56f9d3dbb",
   "current_task": {
-    "id": "reverse-position-drift-review-1",
+    "id": "reverse-position-drift-review-2",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-11-reverse-position-drift-v1/reverse-position-drift-review-1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-11-reverse-position-drift-v1/reverse-position-drift-review-2.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
