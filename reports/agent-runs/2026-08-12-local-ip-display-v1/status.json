@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 13,
+  "revision": 14,
   "stage_id": "2026-08-12-local-ip-display-v1",
   "bookkeeper": "codex / GPT-5",
-  "phase": "review-2",
-  "checkpoint": "review-1-accepted",
+  "phase": "human-decision",
+  "checkpoint": "review-2-accepted",
   "base_sha": "54b23cc904b9785e77f7f984f7bbdd4972de2f44",
   "delivery_sha": "f2ad1bfba56ec3f9822a4308c61e4ae1e27dc4dc",
   "ledger_sha": "f2ad1bfba56ec3f9822a4308c61e4ae1e27dc4dc",
   "current_task": {
     "id": "public-ip-live-review-2-sonnet5",
-    "state": "dispatched",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-08-12-local-ip-display-v1/public-ip-live-review-2-sonnet5.dispatch.md"
   },
   "next": {
-    "actor": "human_operator",
-    "action": "start-prepared-task"
+    "actor": "human",
+    "action": "decide-release"
   },
   "rework_count": 1,
   "blockers": []
