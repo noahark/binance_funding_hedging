@@ -1,25 +1,27 @@
 {
   "schema_version": "2",
-  "revision": 8,
+  "revision": 9,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
-  "phase": "plan-review",
-  "checkpoint": "implementation-breakdown-verified-deepseek-plan-review-dispatched",
+  "phase": "planning-rework",
+  "checkpoint": "deepseek-plan-review-rework-verified",
   "base_sha": "0f19beae98b6909c2a5f0a9764f81f71b474a226",
   "delivery_sha": "b474f4ac28fe9534884c66a664d7fb6365305a6d",
-  "ledger_sha": "35cf20257d26589dc2de1f7a2f56d33edcabc5c4",
+  "ledger_sha": "84cd6b60a0b30c4e98527117dbe8b9d7c1f0b301",
   "current_task": {
     "id": "smooth-open-formal-plan-review-deepseek-v4-pro",
-    "state": "dispatched",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/06-smooth-open-formal-plan-review-deepseek-v4-pro.dispatch.md"
   },
   "next": {
-    "actor": "human_operator",
-    "action": "start-prepared-deepseek-v4-pro-formal-plan-review"
+    "actor": "codex",
+    "action": "prepare-targeted-opus5-plan-repair"
   },
   "rework_count": 0,
   "blockers": [
-    "implementation-gate-closed: 正式计划评审 ACCEPT 前不得创建实现 worktree/dispatch 或启动实现",
-    "single-current-task-topology-open: 细拆 §5.4 以 handoff 替代并行在途状态的做法须由正式计划评审裁定"
+    "implementation-gate-closed: 修订后的正式计划评审 ACCEPT 前不得创建实现 worktree/dispatch 或启动实现",
+    "plan-rework-r1: 单 current_task 不能承载 A/B 并行在途记账",
+    "plan-rework-r2: pause_task/stop_task_fatal 绕过 set_task_status，计划遗漏 gate 同事务清理",
+    "plan-rework-r3: Bookkeeper cherry-pick 与 C 唯一集成者及记账职责冲突"
   ]
 }
