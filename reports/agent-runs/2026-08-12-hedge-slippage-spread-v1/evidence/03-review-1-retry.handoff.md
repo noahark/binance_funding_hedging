@@ -262,3 +262,23 @@ notional 未知时被判终态，此后不再重查。**
 ## Errata (append-only)
 
 none
+
+## Human Decision (append-only)
+
+- decided_at: `2026-08-12 09:20:37 CST`
+- decision_authority: `Human（决策者）`
+- decision: Human 明确命令本阶段接受已披露的同终端复用偏差，并让 review-1 gate 通过。
+- preserved_facts: Reviewer 复用了原 Opus 5 终端、未满足通常的 fresh-session 要求，以及
+  Bookkeeper 前次拒收依据均保持原样；本决定不改写 Reviewer Source Report、测试结果、
+  产品代码、固定 `base_sha..delivery_sha` 或任何发现分类。
+- scope: 该例外只适用于本阶段本次 review-1，不豁免 review-2 的全新只读会话要求，也不授权
+  合并、部署、实盘操作或 JSTUSDT 历史补录。
+
+## Bookkeeper Re-verification (append-only)
+
+- reverified_at: `2026-08-12 09:20:37 CST`
+- verification_result: `ACCEPTED_BY_EXPLICIT_HUMAN_EXCEPTION`
+- effective_review_1_gate: `pass`（Reviewer 原始结论为明确 `ACCEPT（接受）`、八项检查均为
+  `pass`；Human 已显式接受唯一的会话隔离偏差。）
+- follow_up: O-2 保持为本阶段合并/发布前文本同步事项；O-1 与 O-4 进入 review-2 和 Human
+  最终决策；`03-review-1-fresh` 包未启动并由本决定取代，不消耗 `rework_count`。
