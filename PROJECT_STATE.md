@@ -6,7 +6,9 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-12)
 
-- **No active stage.** 最近完成的历史仓位滑点口径修复已归档；本次未部署或重启服务。
+- **Active stage: `2026-08-12-herdr-approved-handoff-v1`。** 本阶段只规划 Harness 的 Human 批准 Herdr 信息交接；尚未改动 Harness、启动 Herdr 会话、发送模型消息、部署或重启服务。当前等待 Human 启动已准备的 Planner packet：`reports/agent-runs/2026-08-12-herdr-approved-handoff-v1/herdr-approved-handoff-plan.dispatch.md`。该变更属于 HIGH_RISK Harness workflow contract，实施前必须完成独立跨 provider 的计划评审。
+
+- 最近完成的历史仓位滑点口径修复已归档；本次未部署或重启服务。
 
 - 上一 stage `2026-08-11-reverse-position-drift-v1` 已获 Human 最终验收并
   push 到 `origin/main`，完整阶段证据归档在

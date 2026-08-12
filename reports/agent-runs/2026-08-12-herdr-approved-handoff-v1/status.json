@@ -1,0 +1,22 @@
+{
+  "schema_version": "2",
+  "revision": 1,
+  "stage_id": "2026-08-12-herdr-approved-handoff-v1",
+  "bookkeeper": "codex",
+  "phase": "planning",
+  "checkpoint": "stage-created; awaiting Human start of prepared planning task",
+  "base_sha": "6b9006a84b3988ea25f1e0f5cfc739e4e6331db4",
+  "delivery_sha": null,
+  "ledger_sha": "6b9006a84b3988ea25f1e0f5cfc739e4e6331db4",
+  "current_task": {
+    "id": "herdr-approved-handoff-plan",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-12-herdr-approved-handoff-v1/herdr-approved-handoff-plan.dispatch.md"
+  },
+  "next": {
+    "actor": "human_operator",
+    "action": "start-prepared-task"
+  },
+  "rework_count": 0,
+  "blockers": []
+}
