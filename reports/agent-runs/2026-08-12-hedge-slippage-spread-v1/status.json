@@ -1,24 +1,22 @@
 {
   "schema_version": "2",
-  "revision": 8,
+  "revision": 9,
   "stage_id": "2026-08-12-hedge-slippage-spread-v1",
   "bookkeeper": "codex",
-  "phase": "human_decision",
-  "checkpoint": "review2-accepted-pending-final-business-acceptance",
-  "base_sha": "7da67bc87261386c117b98f2b63c6ac6083fd291",
-  "delivery_sha": "db552a7b224fcebc84bb23a087ff2b28a350bf04",
-  "ledger_sha": "60fe3a925e910944a72dc0b68a687b8d9a0e2aeb",
+  "phase": "implementation",
+  "checkpoint": "human-authorized-o2-text-sync-and-jst-backfill",
+  "base_sha": "05d2ac9fa41c5ccecf7e0c50cf1c8615bf5b1f64",
+  "delivery_sha": null,
+  "ledger_sha": "05d2ac9fa41c5ccecf7e0c50cf1c8615bf5b1f64",
   "current_task": {
-    "id": "04-review-2",
-    "state": "verified",
-    "dispatch": "reports/agent-runs/2026-08-12-hedge-slippage-spread-v1/04-review-2.dispatch.md"
+    "id": "05-o2-text-sync-and-jst-backfill",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-12-hedge-slippage-spread-v1/05-o2-text-sync-and-jst-backfill.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "decide-final-business-acceptance"
+    "action": "start-prepared-task"
   },
   "rework_count": 0,
-  "blockers": [
-    "O-2 text sync required before merge/release closure"
-  ]
+  "blockers": []
 }
