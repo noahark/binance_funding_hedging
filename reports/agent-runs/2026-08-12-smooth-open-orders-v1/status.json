@@ -10,7 +10,7 @@
   "ledger_sha": "9cab1ec4304bb1ce1df99123290daa559772a5fc",
   "current_task": {
     "id": "ccxt-bookticker-recon-claude-glm",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/03-ccxt-bookticker-recon-claude-glm.dispatch.md"
   },
   "next": {
