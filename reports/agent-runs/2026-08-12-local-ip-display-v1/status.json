@@ -10,7 +10,7 @@
   "ledger_sha": "b373e98e4785611277119dd96bf87a211854e58d",
   "current_task": {
     "id": "public-ip-frontend-kimi-status-scope-fix",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-08-12-local-ip-display-v1/public-ip-frontend-kimi-status-scope-fix.dispatch.md"
   },
   "next": {
