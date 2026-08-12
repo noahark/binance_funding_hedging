@@ -61,4 +61,11 @@
 
 ## Bookkeeper Verification (Bookkeeper append-only)
 
+- source_sha256: `ec8e482bbb0ee9e55a4713a3c52221a46bcf2f8fd954b227f5e99e4ce9b9f780`（`perl -0777 -ne '$marker = "<!-- BOOKKEEPER_APPEND_ONLY:"; $i = index($_, $marker); die "missing marker\\n" if $i < 0; print substr($_, 0, $i)' reports/agent-runs/2026-08-12-local-ip-display-v1/evidence/public-ip-frontend-kimi-status-scope-fix.handoff.md | shasum -a 256`）
+- verified_at: `2026-08-12 21:07:51 CST`
+- status revision checked: `11`（`public-ip-frontend-kimi-status-scope-fix` 为 `reported`）
+- SHA and scope evidence: `git rev-parse 6d6678d2c9b7ce3638a72bb5190f8e793c6fc594` = author base；`git rev-parse HEAD` = repair delivery `f2ad1bfba56ec3f9822a4308c61e4ae1e27dc4dc`。`git diff --name-status c010fa61f649b5589ef0df29e4af554c842f0d5e..f2ad1bfba56ec3f9822a4308c61e4ae1e27dc4dc` 仅含两个 Allowed Files，且 `git diff --check` 通过。
+- 回执核验通过：deterministic handoff 新建，task/role/stage/base 与 status／Git 一致；`pending` delivery SHA 已在本验证区解析；`TASK_RESULT v2`、具体读取路径／立即动作／关卡合规。
+- 结论：通过。修复只恢复 implementer 的状态写入边界，不改变任何产品代码、后端契约、测试、文档或前端交付 `6d6678d2c9b7ce3638a72bb5190f8e793c6fc594`。原前端交付的范围拒收已解除；正式评审固定范围为 `54b23cc904b9785e77f7f984f7bbdd4972de2f44..f2ad1bfba56ec3f9822a4308c61e4ae1e27dc4dc`，控制提交只作上下文。
+
 ## Errata (append-only)
