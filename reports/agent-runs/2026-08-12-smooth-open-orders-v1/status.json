@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 2,
+  "revision": 3,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
   "phase": "prototype",
-  "checkpoint": "planning-framework-frozen",
+  "checkpoint": "fake-ui-verified",
   "base_sha": "e3fd7296088b1e643c8dd01a850373b06ffcecb8",
-  "delivery_sha": null,
-  "ledger_sha": "e3fd7296088b1e643c8dd01a850373b06ffcecb8",
+  "delivery_sha": "0d8ff250b5a669554e3088a21f79c3e723c477ba",
+  "ledger_sha": "0d8ff250b5a669554e3088a21f79c3e723c477ba",
   "current_task": {
     "id": "smooth-open-fake-ui-kimi",
-    "state": "reported",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/02-smooth-open-fake-ui-kimi.dispatch.md"
   },
   "next": {
-    "actor": "human_operator",
-    "action": "start-prepared-task"
+    "actor": "bookkeeper",
+    "action": "prepare-ccxt-bookticker-recon-dispatch"
   },
   "rework_count": 0,
   "blockers": []

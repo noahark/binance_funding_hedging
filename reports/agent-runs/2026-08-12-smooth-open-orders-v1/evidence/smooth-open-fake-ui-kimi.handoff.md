@@ -66,4 +66,15 @@
 
 ## Bookkeeper Verification (Bookkeeper append-only)
 
+- source_sha256: `3ac77c38fb8169f993bf693b7f2052624c91783cd5a134144de79b39429a46ba`
+- verified_at: `2026-08-13 00:19:32 CST`
+- status_revision: `2`
+- base_sha: `e3fd7296088b1e643c8dd01a850373b06ffcecb8`
+- delivery_sha: `0d8ff250b5a669554e3088a21f79c3e723c477ba`
+- verdict: `VERIFIED / pass`
+- checks: 交付文件严格落在 dispatch 允许范围；`git diff --check` 通过；`node --check frontend/self-check.js` 通过；`node frontend/self-check.js` 全部通过；fake 卡片不进入任务状态、不带可执行动作，未接后端接口。
+- note: 接受下方纯格式勘误；该勘误不改变代码、检查、结论或任务完成状态。
+
 ## Errata (append-only)
+
+- 2026-08-13 Bookkeeper editorial correction: Human Brief 中的 `执行结果: completed` 按规范读取为 `执行结果: completed（完成）`；不影响实现、产物、检查结果、摘要或完成结论。
