@@ -1,26 +1,25 @@
 {
   "schema_version": "2",
-  "revision": 13,
+  "revision": 14,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
   "phase": "planning-rework",
-  "checkpoint": "deepseek-targeted-rereview-rework-verified",
-  "base_sha": "2e5902347c5f0ac81638c67dc7a1bf20a9141ac9",
-  "delivery_sha": "8c2cce629a0688440836f07e3d089c35acbadd65",
-  "ledger_sha": "da4ba5d71d406dcd5f312d93cc723836cc5f2f6a",
+  "checkpoint": "deepseek-targeted-rereview-rework-verified-opus-micro-repair-dispatched",
+  "base_sha": "55008d30f4a0673112b7593adf7bef9e9dc46532",
+  "delivery_sha": null,
+  "ledger_sha": "55008d30f4a0673112b7593adf7bef9e9dc46532",
   "current_task": {
-    "id": "smooth-open-targeted-plan-rereview-deepseek-v4-pro",
-    "state": "verified",
-    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/08-smooth-open-targeted-plan-rereview-deepseek-v4-pro.dispatch.md"
+    "id": "smooth-open-plan-micro-repair-opus5",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/09-smooth-open-plan-micro-repair-opus5.dispatch.md"
   },
   "next": {
-    "actor": "codex",
-    "action": "prepare-opus5-two-line-plan-repair"
+    "actor": "human_operator",
+    "action": "start-prepared-opus5-two-point-plan-repair"
   },
   "rework_count": 0,
   "blockers": [
-    "implementation-gate-closed: T1/T2 修订及定向复核 ACCEPT 前不得创建实现 worktree/dispatch 或启动实现",
-    "plan-rework-t1: §4.2.4 第 5 条必须使用非空 sentinel 或受控竞态证明条件 UPDATE 未命中完全不写",
-    "plan-rework-t2: §6 必须明确依赖清单由获 dispatch 的 Implementer 修改、Bookkeeper 只核验"
+    "implementation-gate-closed: T1/T2 微型修订及最终定向复核 ACCEPT 前不得创建实现 worktree/dispatch 或启动实现",
+    "plan-micro-repair-pending: Opus 只修非空 sentinel 测试与 requirements.txt 维护者两处文字"
   ]
 }
