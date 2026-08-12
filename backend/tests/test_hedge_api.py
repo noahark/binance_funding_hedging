@@ -51,6 +51,10 @@ _TASK_KEYS = {
     "created_at", "updated_at",
     # 功能三（2026-08）：任务类型（'open'=开仓 / 'close'=平仓）。
     "task_type",
+    # 平滑开单 V1：阈值与当前持久化闸门状态。
+    "slippage_threshold_pct", "smooth_gate_seq", "smooth_gate_started_at_us",
+    "smooth_gate_deadline_at_us", "smooth_gate_force_requested",
+    "smooth_gate_state",
 }
 _SETTINGS_KEYS = {"executor_mode", "start_gate", "interval_seconds", "version",
                   "close_gate"}
@@ -374,11 +378,9 @@ def test_bad_direction_is_invalid_field(tmp_path):
         assert _json(payload)["error"] == "invalid_field"
 
 
-def test_smooth_mode_rejected_as_invalid_field(tmp_path):
-    # Frozen §3.1 freezes mode=immediate this round; ``smooth`` is a reserved
-    # vocabulary word for a later round and must be rejected at create (400
-    # invalid_field) so the immediate engine never dispatches a smooth-labeled
-    # task — never silently accepted with a 201.
+def test_smooth_mode_requires_market_provider(tmp_path):
+    # A new smooth task fails closed when its required public-market provider
+    # is unavailable.
     with _server(_svc(tmp_path)) as (host, port):
         status, _, payload = _post_create(
             host, port, {"coin": "BTCUSDT", "direction": "forward", "mode": "smooth",
@@ -387,7 +389,7 @@ def test_smooth_mode_rejected_as_invalid_field(tmp_path):
         assert status == 400
         doc = _json(payload)
         assert set(doc.keys()) == _ERROR_KEYS
-        assert doc["error"] == "invalid_field"
+        assert doc["error"] == "smooth_market_unavailable"
 
 
 def test_malformed_json_is_invalid_json(tmp_path):

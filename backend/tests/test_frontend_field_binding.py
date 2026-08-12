@@ -32,7 +32,7 @@ from pathlib import Path
 import pytest
 
 from backend.hedge_open_tasks import domain as D
-from backend.tests.test_hedge_api import _POSITION_KEYS
+from backend.tests.test_hedge_api import _POSITION_KEYS, _TASK_KEYS
 
 INDEX_HTML = Path(__file__).resolve().parents[2] / "frontend" / "index.html"
 
@@ -137,6 +137,7 @@ _POSITION_CONSUMERS = {
 # parts.map(p => ...) 之类的无关变量一起抓进来。
 _POSITION_RENDER_FN = "function renderHedgeMergedPositions()"
 _SPOT_LEG_HELPER = "function spotLegLine("
+_SMOOTH_RENDER_FN = "function renderSmoothTaskExtras("
 
 
 def _merge_layer_fields() -> set[str]:
@@ -234,3 +235,26 @@ def test_frontend_scan_still_finds_references(var, floor):
         f"`{var}.xxx` 只扫到 {len(found)} 个引用（下限 {floor}）：正则可能已失效，"
         f"字段绑定检查形同虚设。若是有意重构，请同步 _POSITION_CONSUMERS 与扫描锚点。"
     )
+
+
+def test_smooth_task_card_fields_exist_in_task_wire_contract():
+    """平滑任务卡不得读取任务 API 中不存在的字段并静默画成破折号。"""
+    text = INDEX_HTML.read_text(encoding="utf-8")
+    start = text.index(_SMOOTH_RENDER_FN)
+    end = text.find("\n      function ", start + len(_SMOOTH_RENDER_FN))
+    block = text[start:end if end != -1 else len(text)]
+    refs = set(re.findall(r"\btask\.([a-z_][a-z0-9_]*)", block))
+    assert {
+        "id", "target_n", "slippage_threshold_pct", "smooth_gate_seq",
+        "smooth_gate_deadline_at_us",
+    } <= refs
+    assert refs <= _TASK_KEYS, (
+        f"平滑任务卡读取了 task API 不发送的字段：{sorted(refs - _TASK_KEYS)}"
+    )
+
+
+def test_smooth_frontend_reuses_log_poll_and_has_no_new_timer():
+    text = INDEX_HTML.read_text(encoding="utf-8")
+    assert "doc.smooth_market" in text
+    assert "refreshExpandedRunningHedgeLogs();" in text
+    assert text.count("setInterval(() =>") == 4

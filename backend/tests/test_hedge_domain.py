@@ -162,6 +162,85 @@ def test_preflight_forward_accept():
     assert pf.balance_ok is True
 
 
+# ---------------------------------------------------------------------------
+# Smooth-open V1 threshold + one-level gate
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "raw,normalized",
+    [("-12", "-12.00"), ("0", "0.00"), ("0.05", "0.05"), (".05", "0.05"),
+     ("-0.1", "-0.10")],
+)
+def test_smooth_threshold_normalizes_signed_two_places(raw, normalized):
+    assert D.validate_slippage_threshold_pct(raw) == normalized
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [None, 1, "", "NaN", "Infinity", "1e-2", "0.001", "1%", "+0.05", " 0.05"],
+)
+def test_smooth_threshold_rejects_non_contract_values(raw):
+    with pytest.raises(D.HedgeError):
+        D.validate_slippage_threshold_pct(raw)
+
+
+def _l1(bid="100", bid_qty="1", ask="100", ask_qty="1"):
+    return D.L1Quote(*(Decimal(v) for v in (bid, bid_qty, ask, ask_qty)))
+
+
+def test_smooth_forward_uses_perp_bid_spot_ask_and_strict_comparison():
+    equal = D.evaluate_smooth_gate(
+        D.DIR_FORWARD, Decimal("0.05"), Decimal("1"),
+        _l1(ask="100"), _l1(bid="100.05"),
+    )
+    assert equal.spread_pct == Decimal("0.05")
+    assert equal.spread_pass is False
+    passed = D.evaluate_smooth_gate(
+        D.DIR_FORWARD, Decimal("0.05"), Decimal("1"),
+        _l1(ask="100"), _l1(bid="100.06"),
+    )
+    assert passed.spread_pct == Decimal("0.06")
+    assert passed.market_pass is True
+
+
+def test_smooth_reverse_uses_spot_bid_perp_ask_and_allows_negative_threshold():
+    result = D.evaluate_smooth_gate(
+        D.DIR_REVERSE, Decimal("-0.10"), Decimal("1"),
+        _l1(bid="99.95"), _l1(ask="100"),
+    )
+    assert result.spread_pct == Decimal("-0.05")
+    assert result.market_pass is True
+
+
+def test_smooth_coverage_is_per_leg_and_eighty_percent_is_inclusive():
+    passed = D.evaluate_smooth_gate(
+        D.DIR_FORWARD, Decimal("-1"), Decimal("10"),
+        _l1(ask_qty="8"), _l1(bid_qty="8"),
+    )
+    assert passed.spot_coverage == Decimal("0.8")
+    assert passed.perp_coverage == Decimal("0.8")
+    assert passed.coverage_pass is True
+    failed = D.evaluate_smooth_gate(
+        D.DIR_FORWARD, Decimal("-1"), Decimal("10"),
+        _l1(ask_qty="7.999"), _l1(bid_qty="8"),
+    )
+    assert failed.coverage_pass is False
+    assert failed.market_pass is False
+
+
+def test_smooth_missing_or_invalid_side_never_market_passes():
+    missing = D.evaluate_smooth_gate(
+        D.DIR_FORWARD, Decimal("-99"), Decimal("1"), None, _l1()
+    )
+    assert missing == D.SmoothGateEval(
+        None, False, None, None, False, False, "等待现货一档盘口"
+    )
+    invalid = D.evaluate_smooth_gate(
+        D.DIR_FORWARD, Decimal("-99"), Decimal("0"), _l1(), _l1()
+    )
+    assert invalid.market_pass is False
+
+
 @pytest.mark.parametrize("direction", [D.DIR_FORWARD, D.DIR_REVERSE])
 def test_preflight_missing_est_price_fails_closed_both_directions(direction):
     """Amendment 21 / dispatch P1#1: price-completeness is direction-independent.

@@ -25,8 +25,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from decimal import ROUND_FLOOR, Decimal, InvalidOperation
 from math import gcd
+from typing import NamedTuple
 
 from ..domain.normalize import resolve_spot_identity
+from ..domain.snapshot import compute_opening_spread_pct
 
 # ---------------------------------------------------------------------------
 # Frozen vocabulary and constants (10-design §2 / §3 / §7 / breakdown §3.2)
@@ -88,6 +90,18 @@ MODE_IMMEDIATE = "immediate"
 MODE_SMOOTH = "smooth"
 ALL_MODES = (MODE_IMMEDIATE, MODE_SMOOTH)
 DEFAULT_MODE = MODE_IMMEDIATE
+
+# Smooth-open V1: one durable five-minute gate per not-yet-scheduled attempt.
+SMOOTH_GATE_WINDOW_US = 5 * 60 * 1_000_000
+SMOOTH_COVERAGE_MIN = Decimal("0.80")
+PASS_REASON_MARKET = "market"
+PASS_REASON_TIMEOUT = "timeout"
+PASS_REASON_MANUAL = "manual"
+ALL_SMOOTH_PASS_REASONS = (
+    PASS_REASON_MARKET,
+    PASS_REASON_TIMEOUT,
+    PASS_REASON_MANUAL,
+)
 
 # positionSide mode snapshot from GET /papi/v1/um/positionSide/dual (ADR-3).
 POS_MODE_BOTH = "BOTH"  # dualSidePosition=false -> one-way
@@ -1482,6 +1496,103 @@ def validate_mode(value) -> str:
     if value not in ALL_MODES:
         raise invalid_field("mode", f"must be one of {', '.join(ALL_MODES)}")
     return value
+
+
+_SLIPPAGE_THRESHOLD_RE = re.compile(r"^-?(?:[0-9]+(?:\.[0-9]{1,2})?|\.[0-9]{1,2})$")
+
+
+def validate_slippage_threshold_pct(value) -> str:
+    if not isinstance(value, str) or not _SLIPPAGE_THRESHOLD_RE.fullmatch(value):
+        raise invalid_field(
+            "slippage_threshold_pct",
+            "must be a signed decimal string with at most two decimal places",
+        )
+    try:
+        threshold = Decimal(value)
+    except InvalidOperation as exc:  # pragma: no cover - regex already guards
+        raise invalid_field("slippage_threshold_pct", "not a finite decimal") from exc
+    if not threshold.is_finite():
+        raise invalid_field("slippage_threshold_pct", "not a finite decimal")
+    if threshold == 0:
+        threshold = Decimal("0")
+    return format(threshold.quantize(Decimal("0.01")), "f")
+
+
+class L1Quote(NamedTuple):
+    bid: Decimal
+    bid_qty: Decimal
+    ask: Decimal
+    ask_qty: Decimal
+
+
+class SmoothGateEval(NamedTuple):
+    spread_pct: Decimal | None
+    spread_pass: bool
+    spot_coverage: Decimal | None
+    perp_coverage: Decimal | None
+    coverage_pass: bool
+    market_pass: bool
+    wait_reason: str
+
+
+def _valid_l1(quote: L1Quote | None) -> bool:
+    return quote is not None and all(
+        isinstance(value, Decimal) and value.is_finite() and value > 0
+        for value in quote
+    )
+
+
+def evaluate_smooth_gate(
+    direction: str,
+    threshold_pct: Decimal,
+    q_common: Decimal,
+    spot: L1Quote | None,
+    perp: L1Quote | None,
+) -> SmoothGateEval:
+    validate_direction(direction)
+    if not isinstance(q_common, Decimal) or not q_common.is_finite() or q_common <= 0:
+        return SmoothGateEval(None, False, None, None, False, False, "计划下单数量无效")
+    spot_ok = _valid_l1(spot)
+    perp_ok = _valid_l1(perp)
+    if not spot_ok or not perp_ok:
+        if not spot_ok and not perp_ok:
+            reason = "等待现货与合约一档盘口"
+        elif not spot_ok:
+            reason = "等待现货一档盘口"
+        else:
+            reason = "等待合约一档盘口"
+        return SmoothGateEval(None, False, None, None, False, False, reason)
+
+    if direction == DIR_FORWARD:
+        spread_raw = compute_opening_spread_pct(perp.bid, spot.ask)
+        spot_qty, perp_qty = spot.ask_qty, perp.bid_qty
+    else:
+        spread_raw = compute_opening_spread_pct(spot.bid, perp.ask)
+        spot_qty, perp_qty = spot.bid_qty, perp.ask_qty
+    spread_pct = Decimal(spread_raw) if spread_raw is not None else None
+    spread_pass = spread_pct is not None and spread_pct > threshold_pct
+    spot_coverage = spot_qty / q_common
+    perp_coverage = perp_qty / q_common
+    coverage_pass = (
+        spot_coverage >= SMOOTH_COVERAGE_MIN
+        and perp_coverage >= SMOOTH_COVERAGE_MIN
+    )
+    market_pass = spread_pass and coverage_pass
+    if market_pass:
+        wait_reason = "市场条件已通过"
+    elif not spread_pass:
+        wait_reason = "等待当前方向开单率严格大于阈值"
+    else:
+        wait_reason = "等待两腿一档覆盖率达到80%"
+    return SmoothGateEval(
+        spread_pct,
+        spread_pass,
+        spot_coverage,
+        perp_coverage,
+        coverage_pass,
+        market_pass,
+        wait_reason,
+    )
 
 
 def validate_single_amount(value) -> str:

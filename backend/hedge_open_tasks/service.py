@@ -24,7 +24,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Callable, Protocol
 
 from ..domain.normalize import SPOT_MATCH_MULTIPLIER, resolve_spot_identity
@@ -42,7 +42,10 @@ from .scheduler import HedgeOpenScheduler
 from .store import HedgeOpenStore, UnknownTaskError
 
 
-_CREATE_BODY_KEYS = ("coin", "direction", "mode", "single_amount", "target_n", "task_type")
+_CREATE_BODY_KEYS = (
+    "coin", "direction", "mode", "single_amount", "target_n", "task_type",
+    "slippage_threshold_pct",
+)
 
 
 def _leg_query_symbol(leg: dict, task: dict) -> str:
@@ -153,6 +156,12 @@ class DisabledPreflightProvider:
         return None
 
 
+class _GateWake:
+    def __init__(self) -> None:
+        self.condition = threading.Condition()
+        self.version = 0
+
+
 # ---------------------------------------------------------------------------
 # Document serialization (frozen field names, breakdown §3.2-§3.4)
 # ---------------------------------------------------------------------------
@@ -160,6 +169,9 @@ class DisabledPreflightProvider:
 
 def task_to_doc(task: dict, *, worker_active: bool | None = None) -> dict:
     q_common = task["q_common"]
+    gate_started = task.get("smooth_gate_started_at_us")
+    gate_seq = task.get("smooth_gate_seq")
+    gate_forced = bool(task.get("smooth_gate_force_requested"))
     return {
         "id": task["id"],
         "coin": task["coin"],
@@ -195,6 +207,16 @@ def task_to_doc(task: dict, *, worker_active: bool | None = None) -> dict:
         # branch / error path, cleared on (re-)entering RUNNING.
         "worker_active": worker_active,
         "last_worker_exit_reason": task.get("last_worker_exit_reason"),
+        "slippage_threshold_pct": task.get("slippage_threshold_pct"),
+        "smooth_gate_seq": gate_seq,
+        "smooth_gate_started_at_us": gate_started,
+        "smooth_gate_deadline_at_us": (
+            gate_started + D.SMOOTH_GATE_WINDOW_US if gate_started is not None else None
+        ),
+        "smooth_gate_force_requested": gate_forced,
+        "smooth_gate_state": (
+            "none" if gate_seq is None else ("forced" if gate_forced else "waiting")
+        ),
         "created_at": D.us_to_iso(task["created_at_us"]),
         "updated_at": D.us_to_iso(task["updated_at_us"]),
     }
@@ -344,6 +366,7 @@ def attempt_to_doc(
         "error_category": attempt.get("error_category"),
         "error_code": attempt.get("error_code"),
         "error_reason_zh": attempt.get("error_reason_zh"),
+        "smooth_pass_reason": attempt.get("smooth_pass_reason"),
         "spot": _leg_to_doc(spot_leg),
         "perp": _leg_to_doc(perp_leg),
         "residual": D.fmt_decimal(spot_base - perp_base),
@@ -473,6 +496,7 @@ class HedgeOpenTaskService:
         wall_us: Callable[[], int] | None = None,
         cache_refresh_submitter: Callable[[], None] | None = None,
         ledger_flow_service=None,  # 功能三：结算日志费率/利息复用（duck-typed，可选）
+        market_provider=None,
     ):
         self._mono_us = mono_us or _real_mono_us
         self._wall_us = wall_us or _real_wall_us
@@ -549,6 +573,14 @@ class HedgeOpenTaskService:
         # so the dict cannot grow without bound. Each leg belongs to one task's
         # one worker, so individual dict ops need no extra lock.
         self._leg_query_retries: dict[int, int] = {}
+        self._market_provider = market_provider
+        self._smooth_lock = threading.RLock()
+        self._smooth_wakes: dict[str, _GateWake] = {}
+        self._smooth_subscriptions: dict[str, tuple[tuple[str, str, str], ...]] = {}
+        self._smooth_relaunch_after_exit: set[str] = set()
+        set_on_change = getattr(market_provider, "set_on_change", None)
+        if callable(set_on_change):
+            set_on_change(self._on_smooth_market_change)
         self._scheduler = HedgeOpenScheduler(
             self.tick, self._store.get_interval_us, self._mono_us
         )
@@ -578,6 +610,9 @@ class HedgeOpenTaskService:
             self._recover_workers()
             return
         self._scheduler.start()
+        for task in self._store.list_tasks(D.STATUS_RUNNING):
+            if task.get("mode") == D.MODE_SMOOTH:
+                self.ensure_worker(task["id"])
 
     def stop(self) -> None:
         self._scheduler.stop()
@@ -586,6 +621,12 @@ class HedgeOpenTaskService:
             events = list(self._stop_events.values())
         for ev in events:
             ev.set()
+        with self._smooth_lock:
+            self._smooth_relaunch_after_exit.clear()
+        self._notify_all_smooth()
+        close_market = getattr(self._market_provider, "close", None)
+        if callable(close_market):
+            close_market()
 
     @property
     def store(self) -> HedgeOpenStore:
@@ -754,12 +795,22 @@ class HedgeOpenTaskService:
             file=sys.stderr, flush=True,
         )
         D.validate_task_type(task_type)
-        # Round-1 freeze (frozen §3.1): only ``immediate`` is dispatchable this
-        # round. ``smooth`` remains a reserved vocabulary word (validate_mode
-        # accepts it) but is rejected here so the immediate engine never runs a
-        # smooth-labeled task.
-        if mode != D.MODE_IMMEDIATE:
-            raise D.invalid_field("mode", f"round-1 supports only {D.MODE_IMMEDIATE!r}")
+        threshold = None
+        if mode == D.MODE_SMOOTH:
+            if task_type != D.TASK_TYPE_OPEN:
+                raise D.invalid_field("mode", "smooth mode supports open tasks only")
+            if self._market_provider is None:
+                raise D.HedgeError(
+                    400, "smooth_market_unavailable",
+                    "平滑开单公共盘口不可用；可继续使用立即开单",
+                )
+            threshold = D.validate_slippage_threshold_pct(
+                body.get("slippage_threshold_pct")
+            )
+        elif "slippage_threshold_pct" in body:
+            raise D.invalid_field(
+                "slippage_threshold_pct", "is only valid when mode is smooth"
+            )
         single_amount = D.validate_single_amount(body.get("single_amount"))
         target_n = D.validate_target_n(body.get("target_n"))
 
@@ -967,7 +1018,10 @@ class HedgeOpenTaskService:
             spot_symbol=spot_symbol,
             spot_base_asset=spot_base_asset,
             symbol_match_type=symbol_match_type,
+            slippage_threshold_pct=threshold,
         )
+        if mode == D.MODE_SMOOTH and self.is_start_gate_on():
+            self.ensure_worker(task_id)
         return 201, self._doc(task)
 
     def list_tasks(self, status_query: str | None) -> tuple[int, dict]:
@@ -1010,8 +1064,12 @@ class HedgeOpenTaskService:
         updated = self._store.set_task_status(task_id, D.STATUS_RUNNING, self._wall_us())
         # Amendment 21: Start/recover launches THIS task's bounded worker (live
         # mode) and returns immediately — no global scan, no synchronous POST.
-        if self._live_dispatch_capable():
-            self.ensure_worker(task_id)
+        if self._live_dispatch_capable() or task.get("mode") == D.MODE_SMOOTH:
+            if task.get("mode") == D.MODE_SMOOTH:
+                self.ensure_worker(task_id, relaunch_after_current=True)
+            else:
+                self.ensure_worker(task_id)
+        self._notify_smooth_task(task_id)
         return 200, self._doc(updated)
 
     def post_pause(self, task_id: str) -> tuple[int, dict]:
@@ -1026,6 +1084,7 @@ class HedgeOpenTaskService:
         # pair while paused).
         updated = self._store.set_task_status(task_id, D.STATUS_PAUSED, self._wall_us())
         self._notify_cache_refresh(updated)
+        self._notify_smooth_task(task_id)
         return 200, self._doc(updated)
 
     def post_delete(self, task_id: str) -> tuple[int, dict]:
@@ -1038,11 +1097,30 @@ class HedgeOpenTaskService:
         # pair once deleted).
         updated = self._store.set_task_status(task_id, D.STATUS_DELETED, self._wall_us())
         self._notify_cache_refresh(updated)
+        self._notify_smooth_task(task_id)
         return 200, self._doc(updated)
 
-    def post_fill_once(self, task_id: str) -> tuple[int, dict]:
+    def post_fill_once(self, task_id: str, body=None) -> tuple[int, dict]:
         task = self._get_task_or_404(task_id)
         self._require_fillable(task)
+        if task.get("mode") == D.MODE_SMOOTH:
+            if not isinstance(body, dict):
+                raise D.invalid_field("gate_seq", "is required for smooth fill-once")
+            D.reject_unknown_keys(body, ("gate_seq",))
+            gate_seq = body.get("gate_seq")
+            if isinstance(gate_seq, bool) or not isinstance(gate_seq, int):
+                raise D.invalid_field("gate_seq", "must be an integer")
+            updated = self._store.force_smooth_gate(
+                task_id, gate_seq, self._wall_us()
+            )
+            if updated is None:
+                raise D.HedgeError(
+                    409, "smooth_gate_conflict",
+                    "当前平滑轮次已变化或不可放行，请刷新任务后重试",
+                )
+            self.ensure_worker(task_id)
+            self._notify_smooth_task(task_id)
+            return 200, self._doc(updated)
         if self._live_dispatch_capable():
             # Amendment 21: every live POST runs through the task-local worker.
             # fill-once arms the task (running) and launches/refreshes its worker;
@@ -1057,6 +1135,10 @@ class HedgeOpenTaskService:
     def post_fill_all(self, task_id: str) -> tuple[int, dict]:
         task = self._get_task_or_404(task_id)
         self._require_fillable(task)
+        if task.get("mode") == D.MODE_SMOOTH:
+            raise D.HedgeError(
+                409, "smooth_fill_all_unsupported", "平滑开单不支持立即成交所有"
+            )
         if self._live_mode:
             # Amendment 21: live fill-all arms the task and launches its worker;
             # the worker drives every pair (no synchronous live POST loop here).
@@ -1110,6 +1192,7 @@ class HedgeOpenTaskService:
         # 缺陷）。内嵌表只消费 attempts；logs/entries 在此模式下为空，避免与全局游标混用。
         # 无 task_id 时下方既有契约完全不变。
         if task_id is not None:
+            task = self._store.get_task(task_id)
             task_attempts = []
             for attempt in self._store.list_attempts_for_task(task_id):
                 legs = {
@@ -1125,6 +1208,7 @@ class HedgeOpenTaskService:
                 "entries": [],
                 "next_cursor": None,
                 "entries_next_cursor": None,
+                "smooth_market": self._smooth_market_doc(task),
             }
         limit = self._parse_limit(limit_raw)
         cursor_ts, cursor_id = self._parse_cursor(cursor_str)
@@ -1386,6 +1470,11 @@ class HedgeOpenTaskService:
         AND a fresh passing preflight.
         """
         self._store.set_start_gate(enabled, self._wall_us())
+        self._notify_all_smooth()
+        if enabled:
+            for task in self._store.list_tasks(D.STATUS_RUNNING):
+                if task.get("mode") == D.MODE_SMOOTH:
+                    self.ensure_worker(task["id"])
         return self.get_settings()
 
     def put_start_gate(self, body) -> tuple[int, dict]:
@@ -1423,6 +1512,11 @@ class HedgeOpenTaskService:
                 409, "version_conflict", "设置已被其他会话修改，请刷新后重试",
                 extra={"settings": settings_to_doc(self._store.get_settings(), self._mode)},
             )
+        self._notify_all_smooth()
+        if enabled:
+            for task in self._store.list_tasks(D.STATUS_RUNNING):
+                if task.get("mode") == D.MODE_SMOOTH:
+                    self.ensure_worker(task["id"])
         return 200, settings_to_doc(result, self._mode)
 
     def put_close_gate(self, body) -> tuple[int, dict]:
@@ -1452,6 +1546,202 @@ class HedgeOpenTaskService:
             )
         return 200, settings_to_doc(result, self._mode)
 
+    # -------------------------------------------------------- smooth-open gate
+
+    @staticmethod
+    def _smooth_keys(task: dict) -> tuple[tuple[str, str, str], ...]:
+        return (
+            ("binance", "spot", D.spot_symbol_of(task)),
+            ("binance", "swap", task["coin"]),
+        )
+
+    def _smooth_wake(self, task_id: str) -> _GateWake:
+        with self._smooth_lock:
+            wake = self._smooth_wakes.get(task_id)
+            if wake is None:
+                wake = _GateWake()
+                self._smooth_wakes[task_id] = wake
+            return wake
+
+    def _notify_smooth_task(self, task_id: str) -> None:
+        with self._smooth_lock:
+            wake = self._smooth_wakes.get(task_id)
+        if wake is None:
+            return
+        with wake.condition:
+            wake.version += 1
+            wake.condition.notify_all()
+
+    def _notify_all_smooth(self) -> None:
+        with self._smooth_lock:
+            task_ids = list(self._smooth_wakes)
+        for task_id in task_ids:
+            self._notify_smooth_task(task_id)
+
+    def _on_smooth_market_change(self, key) -> None:
+        with self._smooth_lock:
+            task_ids = [
+                task_id for task_id, keys in self._smooth_subscriptions.items()
+                if key in keys
+            ]
+        for task_id in task_ids:
+            self._notify_smooth_task(task_id)
+
+    def _ensure_smooth_subscriptions(self, task: dict) -> None:
+        provider = self._market_provider
+        if provider is None:
+            return
+        task_id = task["id"]
+        keys = self._smooth_keys(task)
+        with self._smooth_lock:
+            if task_id in self._smooth_subscriptions:
+                return
+            self._smooth_subscriptions[task_id] = keys
+        subscribe = getattr(provider, "subscribe", None)
+        if callable(subscribe):
+            for key in keys:
+                try:
+                    subscribe(key)
+                except Exception:
+                    pass
+
+    def _release_smooth_subscriptions(self, task_id: str) -> None:
+        with self._smooth_lock:
+            keys = self._smooth_subscriptions.pop(task_id, ())
+            self._smooth_wakes.pop(task_id, None)
+        release = getattr(self._market_provider, "release", None)
+        if callable(release):
+            for key in keys:
+                try:
+                    release(key)
+                except Exception:
+                    pass
+
+    @staticmethod
+    def _snapshot_quote(snapshot) -> D.L1Quote | None:
+        if snapshot is None or getattr(snapshot, "status", None) != "live":
+            return None
+        try:
+            quote = D.L1Quote(
+                snapshot.bid_price, snapshot.bid_qty,
+                snapshot.ask_price, snapshot.ask_qty,
+            )
+        except AttributeError:
+            return None
+        return quote if all(value.is_finite() and value > 0 for value in quote) else None
+
+    def _smooth_eval(self, task: dict, direction: str | None = None) -> D.SmoothGateEval:
+        latest = getattr(self._market_provider, "latest", None)
+        spot = perp = None
+        if callable(latest):
+            spot_key, perp_key = self._smooth_keys(task)
+            spot = self._snapshot_quote(latest(spot_key))
+            perp = self._snapshot_quote(latest(perp_key))
+        try:
+            threshold = Decimal(task.get("slippage_threshold_pct") or "0")
+            q_common = Decimal(task.get("q_common") or "0")
+        except (InvalidOperation, ValueError, TypeError):
+            threshold, q_common = Decimal(0), Decimal(0)
+        return D.evaluate_smooth_gate(
+            direction or task["direction"], threshold, q_common, spot, perp
+        )
+
+    @staticmethod
+    def _smooth_side_doc(snapshot) -> dict | None:
+        if snapshot is None:
+            return None
+        live = getattr(snapshot, "status", None) == "live"
+        return {
+            "status": getattr(snapshot, "status", "disconnected"),
+            "received_at_us": getattr(snapshot, "received_at_us", None),
+            "bid": format(snapshot.bid_price, "f") if live else None,
+            "bid_qty": format(snapshot.bid_qty, "f") if live else None,
+            "ask": format(snapshot.ask_price, "f") if live else None,
+            "ask_qty": format(snapshot.ask_qty, "f") if live else None,
+        }
+
+    def _smooth_market_doc(self, task: dict | None) -> dict | None:
+        if task is None or task.get("mode") != D.MODE_SMOOTH:
+            return None
+        latest = getattr(self._market_provider, "latest", None)
+        spot_snap = perp_snap = None
+        if callable(latest):
+            spot_key, perp_key = self._smooth_keys(task)
+            spot_snap, perp_snap = latest(spot_key), latest(perp_key)
+        forward = self._smooth_eval(task, D.DIR_FORWARD)
+        reverse = self._smooth_eval(task, D.DIR_REVERSE)
+        current = forward if task["direction"] == D.DIR_FORWARD else reverse
+
+        def coverage_pct(value):
+            if value is None:
+                return None
+            return format(
+                (value * Decimal(100)).quantize(Decimal("0.01"), ROUND_HALF_UP), "f"
+            )
+
+        wait_reason = current.wait_reason
+        if task.get("smooth_gate_seq") is None:
+            wait_reason = "当前无活动平滑门"
+        elif task.get("smooth_gate_force_requested"):
+            wait_reason = "已人工放行，等待 worker 原子消费"
+        return {
+            "spot": self._smooth_side_doc(spot_snap),
+            "perp": self._smooth_side_doc(perp_snap),
+            "forward_spread_pct": (
+                format(forward.spread_pct, "f") if forward.spread_pct is not None else None
+            ),
+            "reverse_spread_pct": (
+                format(reverse.spread_pct, "f") if reverse.spread_pct is not None else None
+            ),
+            "spot_coverage_pct": coverage_pct(current.spot_coverage),
+            "perp_coverage_pct": coverage_pct(current.perp_coverage),
+            "spread_pass": current.spread_pass,
+            "coverage_pass": current.coverage_pass,
+            "gate_pass": current.market_pass,
+            "wait_reason": wait_reason,
+        }
+
+    def _wait_for_smooth_gate(
+        self, task: dict, now_us: int,
+    ) -> tuple[dict, int, str, int] | None:
+        gate_seq = task["scheduled_attempt_count"] + 1
+        current = self._store.open_smooth_gate(task["id"], gate_seq, now_us)
+        if current is None:
+            return None
+        self._ensure_smooth_subscriptions(current)
+        wake = self._smooth_wake(task["id"])
+        while True:
+            with wake.condition:
+                version = wake.version
+            stop_event = self._stop_events.get(task["id"])
+            if stop_event is not None and stop_event.is_set():
+                return None
+            current = self._store.get_task(task["id"])
+            if current is None or current["status"] != D.STATUS_RUNNING:
+                return None
+            if not self.is_start_gate_on():
+                self._store.clear_smooth_gate(task["id"], self._wall_us())
+                return None
+            if current.get("smooth_gate_seq") != gate_seq:
+                return None
+            now_us = self._wall_us()
+            deadline = current["smooth_gate_started_at_us"] + D.SMOOTH_GATE_WINDOW_US
+            result = self._smooth_eval(current)
+            if current.get("smooth_gate_force_requested"):
+                reason = D.PASS_REASON_MANUAL
+            elif result.market_pass:
+                reason = D.PASS_REASON_MARKET
+            elif now_us >= deadline:
+                reason = D.PASS_REASON_TIMEOUT
+            else:
+                timeout = max((deadline - now_us) / 1_000_000, 0)
+                with wake.condition:
+                    wake.condition.wait_for(
+                        lambda: wake.version != version, timeout=timeout
+                    )
+                continue
+            return current, gate_seq, reason, now_us
+
     # -------------------------------------------------------- task-local workers
     #
     # Amendment 21 binding runtime contract: there is NO long-lived global
@@ -1467,7 +1757,9 @@ class HedgeOpenTaskService:
     # triggers from owning or sending the same task/pair, and a restart resumes
     # by querying saved client order IDs only (never resends — ADR-2).
 
-    def ensure_worker(self, task_id: str) -> bool:
+    def ensure_worker(
+        self, task_id: str, *, relaunch_after_current: bool = False,
+    ) -> bool:
         """Create or durably claim exactly ONE local worker for ``task_id``
         (amendment 21). Single critical section under ``_workers_lock``: if a
         live worker already owns the task it is reused; a dead/stale registry
@@ -1477,6 +1769,9 @@ class HedgeOpenTaskService:
         with self._workers_lock:
             existing = self._workers.get(task_id)
             if existing is not None and existing.is_alive():
+                if relaunch_after_current:
+                    with self._smooth_lock:
+                        self._smooth_relaunch_after_exit.add(task_id)
                 return True
             ev = self._stop_events.get(task_id)
             if ev is None:
@@ -1531,15 +1826,28 @@ class HedgeOpenTaskService:
             except Exception:
                 pass
         finally:
+            self._release_smooth_subscriptions(task_id)
             with self._workers_lock:
                 if self._workers.get(task_id) is threading.current_thread():
                     self._workers.pop(task_id, None)
-            # F1: worker exit clears this task's per-leg retry counters — a leg
-            # left non-terminal (e.g. the manual-recovery pause) must not keep its
-            # old count, and a paused/done/deleted card re-drained on recovery
-            # starts a fresh budget (never resends). Best-effort: a store read
-            # failure here must not mask the exit.
+            with self._smooth_lock:
+                relaunch = task_id in self._smooth_relaunch_after_exit
+                self._smooth_relaunch_after_exit.discard(task_id)
+            # Drop the exiting worker's process-local retry counters before a
+            # requested resume launches the replacement.
             self._clear_task_leg_retries(task_id)
+            if relaunch:
+                stop_event = self._stop_events.get(task_id)
+                if (
+                    stop_event is None or not stop_event.is_set()
+                ):
+                    task = self._store.get_task(task_id)
+                    if (
+                        task is not None
+                        and task["status"] == D.STATUS_RUNNING
+                        and self.is_start_gate_on()
+                    ):
+                        self.ensure_worker(task_id)
 
     def _clear_task_leg_retries(self, task_id: str) -> None:
         """F1: drop every per-leg query-retry counter of one task. Called when a
@@ -1642,6 +1950,8 @@ class HedgeOpenTaskService:
         if task["status"] != D.STATUS_RUNNING:
             return self._worker_exit(task_id, D.WORKER_EXIT_TASK_NOT_RUNNING)
         if not self.is_start_gate_on():
+            if task.get("mode") == D.MODE_SMOOTH:
+                self._store.clear_smooth_gate(task_id, now_us)
             return self._worker_exit(task_id, D.WORKER_EXIT_START_GATE_OFF)
         # 功能三：close 任务受独立平仓闸门（close_gate）约束（默认开，Human 已拍板）。
         if task.get("task_type") == D.TASK_TYPE_CLOSE and not self.is_close_gate_on():
@@ -1679,7 +1989,32 @@ class HedgeOpenTaskService:
             if task["scheduled_attempt_count"] >= task["target_n"]:
                 return self._worker_exit(task_id, D.WORKER_EXIT_TARGET_REACHED)
         # Dispatch the next pair (preflight -> reserve -> two-leg submit).
-        _, signal = self._dispatch_one_for_task(task, now_us)
+        gate_seq = None
+        smooth_reason = None
+        if task.get("mode") == D.MODE_SMOOTH:
+            gate = self._wait_for_smooth_gate(task, now_us)
+            if gate is None:
+                # Pause followed immediately by resume may happen before this
+                # worker has left its old gate. If RUNNING is already restored,
+                # loop in the same owner and open a fresh full window.
+                stop_event = self._stop_events.get(task_id)
+                if stop_event is not None and stop_event.is_set():
+                    return self._worker_exit(task_id, D.WORKER_EXIT_STOPPED_EVENT)
+                current = self._store.get_task(task_id)
+                if (
+                    current is not None
+                    and current["status"] == D.STATUS_RUNNING
+                    and self.is_start_gate_on()
+                ):
+                    return False
+                return self._worker_exit(task_id, D.WORKER_EXIT_TASK_NOT_RUNNING)
+            task, gate_seq, smooth_reason, now_us = gate
+        _, signal = self._dispatch_one_for_task(
+            task,
+            now_us,
+            expected_gate_seq=gate_seq,
+            smooth_pass_reason=smooth_reason,
+        )
         if signal == D.SIGNAL_RATE_LIMITED:
             self._pause_task_local(
                 task, D.PAUSE_REASON_RATE_LIMITED, None, now_us, kind="rate_limited",
@@ -2435,7 +2770,10 @@ class HedgeOpenTaskService:
             return False
         if not self.is_start_gate_on():
             return False
-        eligible = self._store.list_eligible_tasks()
+        eligible = [
+            task for task in self._store.list_eligible_tasks()
+            if task.get("mode") != D.MODE_SMOOTH
+        ]
         if not eligible:
             return False
         now_us = self._wall_us()
@@ -2689,7 +3027,14 @@ class HedgeOpenTaskService:
             )
         return None
 
-    def _dispatch_one_for_task(self, task: dict, now_us: int) -> tuple[dict, str | None]:
+    def _dispatch_one_for_task(
+        self,
+        task: dict,
+        now_us: int,
+        *,
+        expected_gate_seq: int | None = None,
+        smooth_pass_reason: str | None = None,
+    ) -> tuple[dict, str | None]:
         """Durable-before-send: a fresh preflight (live path only) -> persist the
         immutable attempt + both client IDs + sanitized request shapes in ONE
         transaction BEFORE any executor call (ADR-2). The executor is then
@@ -2899,6 +3244,8 @@ class HedgeOpenTaskService:
             perp_cid,
             perp_shape,
             now_us,
+            expected_gate_seq=expected_gate_seq,
+            smooth_pass_reason=smooth_pass_reason,
         )
         if attempt is None:
             # Task is no longer eligible (paused/done/deleted/out-of-budget) — no POST.

@@ -61,7 +61,11 @@ CREATE TABLE IF NOT EXISTS hedge_open_task (
     pause_reason                    TEXT,
     pause_reason_zh                 TEXT,
     stop_reason                     TEXT,
-    last_worker_exit_reason         TEXT
+    last_worker_exit_reason         TEXT,
+    slippage_threshold_pct          TEXT,
+    smooth_gate_seq                 INTEGER,
+    smooth_gate_started_at_us       INTEGER,
+    smooth_gate_force_requested     INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS hedge_open_attempt (
     id                    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,7 +82,8 @@ CREATE TABLE IF NOT EXISTS hedge_open_attempt (
     error_reason_zh       TEXT,
     rate_limited          INTEGER NOT NULL DEFAULT 0,
     log_ref               INTEGER,
-    created_at_us         INTEGER NOT NULL
+    created_at_us         INTEGER NOT NULL,
+    smooth_pass_reason    TEXT
 );
 CREATE TABLE IF NOT EXISTS hedge_open_leg (
     id                   INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -243,6 +248,10 @@ def _row_to_task(row: sqlite3.Row) -> dict:
         "pause_reason_zh": row["pause_reason_zh"],
         "stop_reason": row["stop_reason"],
         "last_worker_exit_reason": row["last_worker_exit_reason"],
+        "slippage_threshold_pct": row["slippage_threshold_pct"],
+        "smooth_gate_seq": row["smooth_gate_seq"],
+        "smooth_gate_started_at_us": row["smooth_gate_started_at_us"],
+        "smooth_gate_force_requested": bool(row["smooth_gate_force_requested"]),
         # 功能三（2026-08）：任务类型（'open'=开仓 / 'close'=平仓）；旧行迁移默认 'open'。
         "task_type": row["task_type"],
         # 现货腿身份（2026-08-07）：建任务时固化的真值，三环只读不算。旧行为 None
@@ -295,6 +304,7 @@ def _row_to_attempt(row: sqlite3.Row) -> dict:
         "rate_limited": bool(row["rate_limited"]),
         "log_ref": row["log_ref"],
         "created_at_us": row["created_at_us"],
+        "smooth_pass_reason": row["smooth_pass_reason"],
     }
 
 
@@ -432,6 +442,10 @@ class HedgeOpenStore:
             ("spot_symbol", "TEXT"),
             ("spot_base_asset", "TEXT"),
             ("symbol_match_type", "TEXT"),
+            ("slippage_threshold_pct", "TEXT"),
+            ("smooth_gate_seq", "INTEGER"),
+            ("smooth_gate_started_at_us", "INTEGER"),
+            ("smooth_gate_force_requested", "INTEGER NOT NULL DEFAULT 0"),
         )
         for col, decl in additions:
             if col not in task_cols:
@@ -444,6 +458,7 @@ class HedgeOpenStore:
             ("error_code", "TEXT"),
             ("error_reason_zh", "TEXT"),
             ("rate_limited", "INTEGER NOT NULL DEFAULT 0"),
+            ("smooth_pass_reason", "TEXT"),
         )
         for col, decl in attempt_additions:
             if col not in attempt_cols:
@@ -664,6 +679,7 @@ class HedgeOpenStore:
         initial_status: str = D.STATUS_RUNNING,
         initial_pause_reason: str | None = None,
         initial_pause_reason_zh: str | None = None,
+        slippage_threshold_pct: str | None = None,
     ) -> dict:
         with self._lock, self._conn:
             creation_seq = self._conn.execute(
@@ -681,9 +697,10 @@ class HedgeOpenStore:
                 "  scheduled_attempt_count, accepted_pair_count,"
                 "  consecutive_submission_failures, failure_pause_threshold,"
                 "  pause_reason, pause_reason_zh, task_type,"
-                "  spot_symbol, spot_base_asset, symbol_match_type)"
+                "  spot_symbol, spot_base_asset, symbol_match_type,"
+                "  slippage_threshold_pct)"
                 " VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, NULL, ?, ?, ?, ?,"
-                "         0, 0, 0, ?, ?, ?, ?, ?, ?, ?)",
+                "         0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     task_id,
                     coin,
@@ -705,6 +722,7 @@ class HedgeOpenStore:
                     spot_symbol,
                     spot_base_asset,
                     symbol_match_type,
+                    slippage_threshold_pct,
                 ),
             )
             row = self._conn.execute(
@@ -793,7 +811,9 @@ class HedgeOpenStore:
                 )
             else:
                 cur = self._conn.execute(
-                    "UPDATE hedge_open_task SET status = ?, updated_at_us = ? WHERE id = ?",
+                    "UPDATE hedge_open_task SET status = ?,"
+                    " smooth_gate_seq = NULL, smooth_gate_started_at_us = NULL,"
+                    " smooth_gate_force_requested = 0, updated_at_us = ? WHERE id = ?",
                     (status, now_us, task_id),
                 )
             if cur.rowcount == 0:
@@ -858,6 +878,86 @@ class HedgeOpenStore:
             ).fetchall()
             return [_row_to_task(r) for r in rows]
 
+    def open_smooth_gate(
+        self, task_id: str, gate_seq: int, started_at_us: int,
+    ) -> dict | None:
+        with self._lock, self._conn:
+            task = self._conn.execute(
+                "SELECT * FROM hedge_open_task WHERE id = ?", (task_id,)
+            ).fetchone()
+            if (
+                task is None
+                or task["task_type"] != D.TASK_TYPE_OPEN
+                or task["mode"] != D.MODE_SMOOTH
+                or task["status"] != D.STATUS_RUNNING
+                or task["scheduled_attempt_count"] >= task["target_n"]
+                or gate_seq != task["scheduled_attempt_count"] + 1
+            ):
+                return None
+            in_flight = self._conn.execute(
+                "SELECT 1 FROM hedge_open_attempt"
+                " WHERE task_id = ? AND pair_outcome IS NULL LIMIT 1",
+                (task_id,),
+            ).fetchone()
+            if in_flight is not None:
+                return None
+            current_seq = task["smooth_gate_seq"]
+            if current_seq is not None and current_seq != gate_seq:
+                return None
+            if current_seq is None:
+                self._conn.execute(
+                    "UPDATE hedge_open_task SET smooth_gate_seq = ?,"
+                    " smooth_gate_started_at_us = ?, smooth_gate_force_requested = 0,"
+                    " updated_at_us = ? WHERE id = ?",
+                    (gate_seq, started_at_us, started_at_us, task_id),
+                )
+            row = self._conn.execute(
+                "SELECT * FROM hedge_open_task WHERE id = ?", (task_id,)
+            ).fetchone()
+            return _row_to_task(row)
+
+    def force_smooth_gate(
+        self, task_id: str, gate_seq: int, now_us: int,
+    ) -> dict | None:
+        with self._lock, self._conn:
+            task = self._conn.execute(
+                "SELECT * FROM hedge_open_task WHERE id = ?", (task_id,)
+            ).fetchone()
+            if (
+                task is None
+                or task["task_type"] != D.TASK_TYPE_OPEN
+                or task["mode"] != D.MODE_SMOOTH
+                or task["status"] != D.STATUS_RUNNING
+                or task["scheduled_attempt_count"] >= task["target_n"]
+                or task["smooth_gate_seq"] != gate_seq
+            ):
+                return None
+            in_flight = self._conn.execute(
+                "SELECT 1 FROM hedge_open_attempt"
+                " WHERE task_id = ? AND pair_outcome IS NULL LIMIT 1",
+                (task_id,),
+            ).fetchone()
+            if in_flight is not None:
+                return None
+            self._conn.execute(
+                "UPDATE hedge_open_task SET smooth_gate_force_requested = 1,"
+                " updated_at_us = ? WHERE id = ?",
+                (now_us, task_id),
+            )
+            row = self._conn.execute(
+                "SELECT * FROM hedge_open_task WHERE id = ?", (task_id,)
+            ).fetchone()
+            return _row_to_task(row)
+
+    def clear_smooth_gate(self, task_id: str, now_us: int) -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                "UPDATE hedge_open_task SET smooth_gate_seq = NULL,"
+                " smooth_gate_started_at_us = NULL, smooth_gate_force_requested = 0,"
+                " updated_at_us = ? WHERE id = ? AND status = ?",
+                (now_us, task_id, D.STATUS_RUNNING),
+            )
+
     # ---------------------------------------------------- attempt / leg lifecycle
 
     def prepare_attempt(
@@ -874,6 +974,9 @@ class HedgeOpenStore:
         perp_client_order_id: str,
         perp_request_shape: dict,
         now_us: int,
+        *,
+        expected_gate_seq: int | None = None,
+        smooth_pass_reason: str | None = None,
     ) -> dict | None:
         """Durable-before-send (ADR-2 / breakdown §3.3). ONE transaction commits
         the immutable attempt row + both deterministic client IDs + the sanitized
@@ -887,7 +990,8 @@ class HedgeOpenStore:
         """
         with self._lock, self._conn:
             task = self._conn.execute(
-                "SELECT status, scheduled_attempt_count, target_n, coin, direction"
+                "SELECT status, scheduled_attempt_count, target_n, coin, direction,"
+                " mode, smooth_gate_seq"
                 " FROM hedge_open_task"
                 " WHERE id = ?",
                 (task_id,),
@@ -903,6 +1007,13 @@ class HedgeOpenStore:
             # once a pair is reserved regardless of its later outcome.
             if task["scheduled_attempt_count"] >= task["target_n"]:
                 return None
+            if task["mode"] == D.MODE_SMOOTH:
+                if (
+                    expected_gate_seq is None
+                    or expected_gate_seq != task["smooth_gate_seq"]
+                    or smooth_pass_reason not in D.ALL_SMOOTH_PASS_REASONS
+                ):
+                    return None
             # I-1 / amendment cadence: never open a second concurrent pair for the
             # same task. An unresolved pair (pair_outcome IS NULL) blocks this
             # task's next pair; it never blocks another task.
@@ -931,8 +1042,8 @@ class HedgeOpenStore:
                 "INSERT INTO hedge_open_attempt"
                 " (task_id, attempt_uuid, attempt_seq, direction, q_common,"
                 "  preflight_fingerprint, position_side_mode, pair_outcome,"
-                "  log_ref, created_at_us, cycle_id)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)",
+                "  log_ref, created_at_us, cycle_id, smooth_pass_reason)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)",
                 (
                     task_id,
                     attempt_uuid,
@@ -943,6 +1054,7 @@ class HedgeOpenStore:
                     position_side_mode or D.POS_MODE_BOTH,
                     now_us,
                     cycle["id"],
+                    smooth_pass_reason if task["mode"] == D.MODE_SMOOTH else None,
                 ),
             )
             attempt_id = cur.lastrowid
@@ -982,7 +1094,9 @@ class HedgeOpenStore:
             )
             self._conn.execute(
                 "UPDATE hedge_open_task SET scheduled_attempt_count ="
-                " scheduled_attempt_count + 1, updated_at_us = ? WHERE id = ?",
+                " scheduled_attempt_count + 1, smooth_gate_seq = NULL,"
+                " smooth_gate_started_at_us = NULL, smooth_gate_force_requested = 0,"
+                " updated_at_us = ? WHERE id = ?",
                 (now_us, task_id),
             )
             row = self._conn.execute(
@@ -1948,6 +2062,8 @@ class HedgeOpenStore:
             old_status = prev["status"] if prev is not None else None
             cur = self._conn.execute(
                 "UPDATE hedge_open_task SET status = ?, stop_reason = ?,"
+                " smooth_gate_seq = NULL, smooth_gate_started_at_us = NULL,"
+                " smooth_gate_force_requested = 0,"
                 " updated_at_us = ? WHERE id = ? AND status IN (?, ?)",
                 (D.STATUS_STOPPED, stop_reason, now_us, task_id,
                  D.STATUS_RUNNING, D.STATUS_PAUSED),
@@ -1989,7 +2105,9 @@ class HedgeOpenStore:
             old_status = prev["status"] if prev is not None else None
             cur = self._conn.execute(
                 "UPDATE hedge_open_task SET status = ?, pause_reason = ?,"
-                " pause_reason_zh = ?, stop_reason = NULL, updated_at_us = ?"
+                " pause_reason_zh = ?, stop_reason = NULL,"
+                " smooth_gate_seq = NULL, smooth_gate_started_at_us = NULL,"
+                " smooth_gate_force_requested = 0, updated_at_us = ?"
                 " WHERE id = ? AND status IN (?, ?)",
                 (D.STATUS_PAUSED, pause_reason, pause_reason_zh, now_us, task_id,
                  D.STATUS_RUNNING, D.STATUS_PAUSED),

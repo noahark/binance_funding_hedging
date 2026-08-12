@@ -52,6 +52,10 @@ from ..services.hedge_open_live_client import (
     TRANSFER_TYPE_PM_MAIN,
 )
 from ..services.public_ip_service import PublicIpService
+from ..services.best_bid_ask_provider import (
+    BestBidAskProvider,
+    default_source_available,
+)
 from ..services.snapshot_service import SnapshotNotReady, SnapshotService
 
 # Borrow-task route table (breakdown §3.1). Path templates with their allowed
@@ -1269,12 +1273,22 @@ class _Handler(BaseHTTPRequestHandler):
         self._send_hedge_open(*self._safe_hedge(self.hedge_open_service.create_task, data))
 
     def _hedge_open_action(self, task_id, action):
-        error = self._drain_hedge_body()
-        if error is not None:
-            self._send_hedge_open(*error)
-            return
         method = _HEDGE_OPEN_ACTIONS[action]
-        self._send_hedge_open(*self._safe_hedge(getattr(self.hedge_open_service, method), task_id))
+        if action == "fill-once":
+            data, error = self._read_hedge_body(required=False)
+            if error is not None:
+                self._send_hedge_open(*error)
+                return
+            args = (task_id, data)
+        else:
+            error = self._drain_hedge_body()
+            if error is not None:
+                self._send_hedge_open(*error)
+                return
+            args = (task_id,)
+        self._send_hedge_open(
+            *self._safe_hedge(getattr(self.hedge_open_service, method), *args)
+        )
 
     def _hedge_open_settings(self):
         self._send_hedge_open(*self.hedge_open_service.get_settings())
@@ -1585,6 +1599,15 @@ def _build_hedge_service(config: Config) -> HedgeOpenTaskService:
     """
     mode = config.hedge_executor
     db_path = config.borrow_db_path.parent / "hedge-open-tasks.sqlite3"
+    if default_source_available():
+        market_provider = BestBidAskProvider()
+    else:
+        market_provider = None
+        print(
+            "[HEDGE-OPEN] 平滑开单公共盘口不可用：未安装 ccxt；"
+            "新建平滑任务将被拒绝，既存任务仍可超时或人工放行。",
+            file=sys.stderr, flush=True,
+        )
     if mode != "live":
         # B-4 (stage 2026-08-06): THE dry-run pollution incident's direct cause
         # was a process started as disabled without anyone noticing. Make the
@@ -1595,7 +1618,9 @@ def _build_hedge_service(config: Config) -> HedgeOpenTaskService:
             "如需实盘开单，请用 scripts/run-server.sh 加载 .env 并以 live 模式启动。",
             file=sys.stderr, flush=True,
         )
-        return HedgeOpenTaskService(str(db_path), mode=mode)
+        return HedgeOpenTaskService(
+            str(db_path), mode=mode, market_provider=market_provider
+        )
     from ..services.hedge_open_live_client import HedgeOpenLiveClient
     from ..services.hedge_preflight_provider import HedgePreflightProvider
     from ..services.live_hedge_executor import LiveHedgeExecutor
@@ -1617,6 +1642,7 @@ def _build_hedge_service(config: Config) -> HedgeOpenTaskService:
         executor=executor,
         preflight_provider=preflight_provider,
         credentials_present=client.credentials_present,
+        market_provider=market_provider,
     )
 
 

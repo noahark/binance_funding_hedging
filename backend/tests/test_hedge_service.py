@@ -948,7 +948,9 @@ def test_get_logs_task_id_returns_all_attempts_unpaged(tmp_path):
     assert status == 200
     assert set(page.keys()) == {
         "logs", "attempts", "entries", "next_cursor", "entries_next_cursor",
+        "smooth_market",
     }
+    assert page["smooth_market"] is None
     # task_id mode empties the secondary streams and uses no cursor.
     assert page["logs"] == []
     assert page["entries"] == []
