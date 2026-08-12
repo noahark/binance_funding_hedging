@@ -2,7 +2,7 @@
 
 No network: ``urlopen`` is monkeypatched. Asserts the single-HMAC exit,
 deny-by-default whitelist, GET-only, gate-fires-before-signing, env-missing
-degradation, audit-log credential hygiene, bounded rate-limit backoff, and
+degradation, audit-log credential hygiene, rate-limit no-retry behavior, and
 that no private-domain path appears outside private_client.py.
 """
 from __future__ import annotations
@@ -63,7 +63,6 @@ def _make_client(monkeypatch, responses, *, enabled=True, ttl_seconds=3600):
         return _FakeResp(body, status)
 
     monkeypatch.setattr(private_client.urllib.request, "urlopen", fake_urlopen)
-    monkeypatch.setattr(private_client.time, "sleep", lambda *_: None)  # no real sleeps
     return client
 
 
@@ -237,23 +236,18 @@ def test_audit_log_has_no_credentials(monkeypatch):
         assert "signature" not in entry["logical_endpoint"].lower()
 
 
-# ---- 6. bounded rate-limit backoff (retry once, then succeed) ----
-def test_rate_limit_backoff_retries_once_then_succeeds(monkeypatch):
+# ---- 6. rate limit fails without an in-cycle retry ----
+@pytest.mark.parametrize("body,status", [
+    (json.dumps({"code": -1003, "msg": "busy"}), 400),
+    ('{"code":-1003,"msg":"x"}', 429),
+])
+def test_rate_limit_does_not_retry_until_next_scheduled_refresh(monkeypatch, body, status):
     client = _make_client(monkeypatch, [
-        (json.dumps({"code": -1003, "msg": "busy"}), 400),  # first: rate-limited
-        (json.dumps({"amount": "1.0", "borrowLimit": "60"}), 200),  # retry succeeds
+        (body, status),
     ])
-    result = client.fetch_max_borrowable("BTC")
-    assert result == {"max_borrowable": "1.0", "borrow_limit": "60", "error_code": None}
-    assert len(client.audit_log) == 2  # both attempts logged
-
-
-def test_rate_limit_429_also_retries(monkeypatch):
-    client = _make_client(monkeypatch, [
-        ('{"code":-1003,"msg":"x"}', 429),
-        (json.dumps({"amount": "2", "borrowLimit": "5"}), 200),
-    ])
-    assert client.fetch_max_borrowable("ETH") == {"max_borrowable": "2", "borrow_limit": "5", "error_code": None}
+    assert client.fetch_max_borrowable("BTC") is None
+    assert len(client.audit_log) == 1
+    assert client.last_error.startswith("max_borrowable_failed:BTC")
 
 
 # ---- 7. endpoint failure -> caller degrades (None + last_error) ----

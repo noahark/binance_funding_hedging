@@ -20,9 +20,9 @@ Security gates (all reviewer-checked + negative-tested in
    ``None`` and set ``last_error`` so the public snapshot still renders with
    ``borrow_validation.verified=false``.
 6. **Rate-limit robustness.** Per-``(method,path,params)`` TTL cache; on
-   429 / -1003 a single bounded backoff retry runs; persistent failure raises
-   ``PrivateEndpointError`` so the caller degrades without blocking the public
-   snapshot.
+   429 / -1003 the request fails immediately without an in-cycle retry, so the
+   caller degrades and the next scheduled refresh can retry without blocking
+   the public snapshot or escalating the exchange limit into an IP ban.
 
 Two TTL groups (10-design §1.6): the 1h rate-chain/maxBorrowable group and the
 60s account-balance group (E3/E4/E6), independent of each other. E1/E1b
@@ -150,7 +150,6 @@ class PrivateClient:
         method: str,
         path: str,
         params: Optional[Dict[str, str]] = None,
-        _retry: bool = True,
     ) -> Any:
         base = self._require_whitelisted(method, path)  # raises before signing
         if not self.enabled:
@@ -187,10 +186,6 @@ class PrivateClient:
                 "latency_ms": latency,
             }
         )
-        # bounded rate-limit backoff (one retry); failure raises -> caller degrades
-        if _retry and self._is_rate_limited(status, body):
-            time.sleep(0.5)
-            return self._signed_get(method, path, params, _retry=False)
         if status is None or status >= 400:
             biz_code = None
             if body:
