@@ -57,4 +57,12 @@
 
 ## Bookkeeper Verification (Bookkeeper append-only)
 
+- source_sha256: `77f9089daa10657fcf6331d93bba83fb546812f0900e257d909e6ad19a582051`（`BOOKKEEPER_APPEND_ONLY` 前的精确字节）
+- verified_at: `2026-08-12 19:42:54 CST`
+- status revision checked: `3` → verified status revision `4`
+- SHA: `git rev-parse 6452a077^ 6452a077` = `67ed20a48ed0c9ddf14467eeaaac0873340f0df5` / `6452a077b18a1451304e04aad0ab2793cfe254f7`; task base `3d49c4f0e23e2382b5ad66b6d4c7f06154ac81c0` matches the fixed stage base, and `delivery_sha` is the committed Kimi delivery.
+- Scope: `git diff --name-status 67ed20a..6452a077` contains only `frontend/index.html`, `frontend/self-check.js`, this handoff, and the permitted task-state transition in `status.json`.
+- Checks: `git diff --check 3d49c4f..6452a077` exit 0; `node frontend/self-check.js` exit 0（含标题 badge 与既有同源 fetch 白名单检查）；本机 `GET http://127.0.0.1:8787/` 回包含 `public-ip-badge` 和 `公网出口 IP（预览） 203.0.113.42`。
+- Result: accepted for Human visual preview. This verifies only the static fake; no real public-IP lookup, external request, backend change, deployment, or service control occurred.
+
 ## Errata (append-only)
