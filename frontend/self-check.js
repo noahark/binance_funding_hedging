@@ -4476,11 +4476,12 @@ setTimeout(async () => {
       if ((hedgeTbody.match(/<tr/g) || []).length !== 6) {
         throw new Error('开单断言前置：期望 6 行全量渲染');
       }
-      // 操作列结构：两输入 + 平滑 disabled + 阈值输入 + % + 立即开单；平滑开单仍 disabled
+      // 操作列结构：两输入 + 平滑 disabled + 阈值输入 + % + 立即开单；
+      // 平滑按钮/阈值/% 位于同一不换行的 hedge-op-smooth-row 内，输入框紧贴按钮右侧。
       const cusdtFwdOp = getRowCell(hedgeTbody, 'CUSDT', 13);
       const cusdtRevOp = getRowCell(hedgeTbody, 'CUSDT', 14);
       for (const [name, cell] of [['CUSDT 正向操作列', cusdtFwdOp], ['CUSDT 反向操作列', cusdtRevOp]]) {
-        for (const piece of ['单次开单币量', '计划尝试次数', '平滑开单', '立即开单', 'data-hedge-open="smooth"', 'data-hedge-open="immediate"', 'hedge-threshold-input', 'value="0.05"']) {
+        for (const piece of ['单次开单币量', '计划尝试次数', '平滑开单', '立即开单', 'data-hedge-open="smooth"', 'data-hedge-open="immediate"', 'hedge-threshold-input', 'value="0.05"', 'hedge-op-smooth-row']) {
           if (!cell.includes(piece)) throw new Error(`${name} 缺少「${piece}」: ${cell}`);
         }
         const smoothBtnMatch = cell.match(/<button[^>]*data-hedge-open="smooth"[^>]*>/);
@@ -4498,13 +4499,19 @@ setTimeout(async () => {
         if (immediateBtnMatch[0].includes('disabled')) {
           throw new Error(`${name} 立即开单按钮不应 disabled: ${immediateBtnMatch[0]}`);
         }
-        // 顺序：平滑按钮 → 阈值输入 → % 后缀 → 立即开单
-        const smoothIdx = cell.indexOf(smoothBtnMatch[0]);
-        const thresholdIdx = cell.indexOf(thresholdMatch[0]);
-        const pctIdx = cell.indexOf('%</span>');
+        // 顺序：同一 hedge-op-smooth-row 内 平滑按钮 → 阈值输入 → %；整行位于立即开单之前。
+        const rowMatch = cell.match(/<div class="hedge-op-smooth-row"[^>]*>[\s\S]*?<\/div>/);
+        if (!rowMatch) throw new Error(`${name} 缺少 hedge-op-smooth-row 容器: ${cell}`);
+        const smoothIdx = rowMatch[0].indexOf(smoothBtnMatch[0]);
+        const thresholdIdx = rowMatch[0].indexOf(thresholdMatch[0]);
+        const pctIdx = rowMatch[0].indexOf('%</span>');
+        if (!(smoothIdx < thresholdIdx && thresholdIdx < pctIdx)) {
+          throw new Error(`${name} 平滑组内顺序应为 平滑按钮 < 阈值输入 < %: ${rowMatch[0]}`);
+        }
+        const rowIdx = cell.indexOf(rowMatch[0]);
         const immediateIdx = cell.indexOf(immediateBtnMatch[0]);
-        if (!(smoothIdx < thresholdIdx && thresholdIdx < pctIdx && pctIdx < immediateIdx)) {
-          throw new Error(`${name} 控件顺序应为 平滑按钮 < 阈值输入 < % < 立即开单: ${cell}`);
+        if (!(rowIdx < immediateIdx)) {
+          throw new Error(`${name} 平滑控件组应位于立即开单按钮之前: ${cell}`);
         }
       }
       // 推荐高亮：CUSDT 正费率 → 正向列按钮高亮、反向列不高亮
@@ -4521,7 +4528,7 @@ setTimeout(async () => {
       if (fusdtFwdOp.includes('hedge-reco') || fusdtRevOp.includes('hedge-reco')) {
         throw new Error('零费率行两个方向都不应高亮');
       }
-      console.log('[PASS] 开单操作列两输入两按钮、平滑开单 disabled+下一轮、立即开单可点、推荐方向按费率符号高亮');
+      console.log('[PASS] 开单操作列两输入两按钮、平滑开单组内同行、disabled+下一轮、立即开单可点、推荐方向按费率符号高亮');
     }
 
     // 78. 立即开单创建：POST §3.1 冻结 body + 创建后重拉列表 + 非法输入零 POST + invalid_field 行内报错
@@ -4725,7 +4732,8 @@ setTimeout(async () => {
       console.log('[PASS] 任务生命周期：pause/start/fill-once/fill-all/delete 冻结路由 + 状态推进 + 软删除筛选与导航徽标');
     }
 
-    // 80b. 平滑开单 fake 样式预览卡：仅在「执行中」筛选器出现，不插入 state.hedgeTasks，控件禁用且无 actionable data-hedge-action
+    // 80b. 平滑开单 fake 样式预览卡：以完整立即开单卡布局为基准，仅追加平滑专属信息。
+    // 仅在「执行中」筛选器出现，不插入 state.hedgeTasks，控件禁用且无 actionable data-hedge-action。
     {
       helpers.resetHedgeStateForTest();
       hedgeTasksGetResponse = { status: 200, body: { tasks: [] } };
@@ -4742,22 +4750,70 @@ setTimeout(async () => {
       if (!runningHtml.includes('样式预览（不执行）')) {
         throw new Error('fake 卡应明确标注「样式预览（不执行）」');
       }
-      // 信息密度：阈值、轮次、剩余等待、连接状态、双向开单率、价格数量、覆盖率、等待原因
-      for (const piece of ['滑点阈值', '0.05%', '当前轮次', '1/5', '剩余等待', '现货', '合约', '正向开单率', '反向开单率', '一档覆盖', '等待原因']) {
-        if (!runningHtml.includes(piece)) throw new Error(`fake 卡缺少「${piece}」: ${runningHtml}`);
-      }
-      // 控件全部禁用，无 data-hedge-action，无 fill-all
       const cardStart = runningHtml.lastIndexOf('<div class="borrow-task-card');
       const fakeCard = cardStart >= 0 ? runningHtml.slice(cardStart) : runningHtml;
-      if (fakeCard.includes('data-hedge-action')) {
-        throw new Error('fake 卡不应携带可触发动作的 data-hedge-action');
+      // 复用完整立即开单卡基础字段（表头徽标、单次币量、计划次数、公共网格量、计数、执行线程）。
+      for (const piece of ['开单', '正向', '平滑', '运行', '单次币量', '计划尝试次数', '公共网格量', '已调度', '已受理', '连续提交失败', '执行线程', '暂停', '启动', '删除', '成交1次']) {
+        if (!fakeCard.includes(piece)) throw new Error(`fake 卡应保留真卡基础字段「${piece}」: ${fakeCard}`);
       }
+      // 平滑专属信息密度：阈值、轮次、轮次剩余时间、连接状态、双向开单率、买卖一价格数量、覆盖率、等待原因。
+      for (const piece of ['滑点阈值', '0.05%', '当前轮次', '1/5', '轮次剩余时间', '现货 连接中', '合约 已连接', '正向开单率', '反向开单率', '合约买一', '现货卖一', '两腿一档覆盖', '等待原因']) {
+        if (!fakeCard.includes(piece)) throw new Error(`fake 卡缺少平滑专属信息「${piece}」: ${fakeCard}`);
+      }
+      // V1 fake 卡不展示「立即成交所有」。
       if (fakeCard.includes('立即成交所有')) {
         throw new Error('fake 卡不应展示「立即成交所有」');
       }
+      // 控件全部禁用，无 data-hedge-action，无 data-hedge-task-id；使用独立 fake log toggle。
+      if (fakeCard.includes('data-hedge-action')) {
+        throw new Error('fake 卡不应携带可触发动作的 data-hedge-action');
+      }
+      if (fakeCard.includes('data-hedge-task-id')) {
+        throw new Error('fake 卡不应携带 data-hedge-task-id');
+      }
+      if (!fakeCard.includes('data-hedge-fake-log-toggle')) {
+        throw new Error('fake 卡应使用 data-hedge-fake-log-toggle 而不是真实 log toggle');
+      }
+      if (fakeCard.includes('data-hedge-log-toggle')) {
+        throw new Error('fake 卡不应绑定真实 data-hedge-log-toggle');
+      }
       const disabledButtons = (fakeCard.match(/<button[^>]*disabled[^>]*>/g) || []);
       if (disabledButtons.length < 4) {
-        throw new Error('fake 卡控件应全部 disabled: ' + fakeCard);
+        throw new Error('fake 卡动作按钮应全部 disabled: ' + fakeCard);
+      }
+      // 默认收起日志；fake 日志本地展开/收起不触发 fetch。
+      const fetchBefore = fetchCallLog.length;
+      if (!fakeCard.includes('展开日志')) throw new Error('fake 卡应保留「展开日志」按钮');
+      const logToggleMatch = fakeCard.match(/data-hedge-fake-log-toggle="([^"]+)"/);
+      if (!logToggleMatch) throw new Error('fake 卡缺少 fake log toggle');
+      const fakeId = logToggleMatch[1];
+      const wrapId = `hedge-task-log-${fakeId}`;
+      if (!fakeCard.includes(`id="${wrapId}"`)) throw new Error('fake 卡应包含对应日志包裹');
+      if (!fakeCard.includes('hidden')) throw new Error('fake 卡日志默认应 hidden');
+      // 触发本地 toggle（mock DOM 无真实事件委托，通过 helper 操作 state 并重新渲染验证）。
+      helpers.setHedgeFakeLogExpanded(true);
+      helpers.renderHedgeTasks();
+      const expandedHtml = elements['hedge-task-list'].innerHTML;
+      const expandedCard = expandedHtml.slice(expandedHtml.lastIndexOf('<div class="borrow-task-card'));
+      if (expandedCard.includes('hidden')) throw new Error('fake 卡展开后日志不应 hidden');
+      if (!expandedCard.includes('收起日志')) throw new Error('fake 卡展开后按钮应变更为「收起日志」');
+      // 十列表头 + 至少一条示例记录 + 中文错误原因。
+      for (const piece of ['进展', '状态', '尝试时间', '合约订单号', '现货订单号', '合约均价', '现货均价', '合约数量', '现货数量', '错误原因']) {
+        if (!expandedCard.includes(`<th>${piece}</th>`)) throw new Error(`fake 日志表缺少列「${piece}」: ${expandedCard}`);
+      }
+      if (!expandedCard.includes('可用余额不足')) {
+        throw new Error('fake 日志示例应在错误原因列回显中文示例原因: ' + expandedCard);
+      }
+      // fake 卡同时保留动作错误区域的可见示例。
+      if (!expandedCard.includes('示例错误原因：可用余额不足')) {
+        throw new Error('fake 卡动作错误区域应展示可见示例错误原因: ' + expandedCard);
+      }
+      if (fetchCallLog.length !== fetchBefore) {
+        throw new Error('fake 卡展开日志不应触发任何 fetch');
+      }
+      // fake 卡不进入 state.hedgeTasks。
+      if (helpers.getHedgeTasks().length !== 0) {
+        throw new Error('fake 平滑卡不应插入 state.hedgeTasks');
       }
       // 其他筛选器不渲染 fake 卡
       for (const f of ['all', 'paused', 'done', 'deleted']) {
@@ -4767,7 +4823,7 @@ setTimeout(async () => {
           throw new Error(`${f} 筛选不应渲染 fake 平滑任务卡`);
         }
       }
-      console.log('[PASS] 平滑开单 fake 样式预览卡：running 筛选独立渲染、不插入任务列表、控件禁用无 data-hedge-action、无 fill-all、其他筛选隔离');
+      console.log('[PASS] 平滑开单 fake 样式预览卡：复用完整真卡布局、本地 fake 日志 toggle、十列示例及错误原因、无 data-hedge-action/无 fill-all/不污染 state');
     }
 
     // 81. stopped/paused 语义返工（15 号修正案 I-4）：single_leg 只是提示且任务仍继续调度
