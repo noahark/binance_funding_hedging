@@ -19,7 +19,7 @@ Human 已确认：将标题右侧的静态 preview 替换为**运行本机后端
 
 新建 `backend/services/public_ip_service.py`。它只封装外部 HTTP、IP 校验和进程内缓存，接收可注入的 `urlopen` 与单调时钟以保持离线测试。使用 Python 标准库 `urllib.request`、`ipaddress`、`threading` 与 `time`；不读取环境变量。
 
-- 每个缓存周期最多一次主源请求，主源失败或返回非 IP 值时才依序请求备用源；两次请求均使用 2 秒 timeout、GET、无请求体。
+- 每个缓存周期最多一次主源请求，主源失败或返回非 IP 值时才依序请求备用源；两次请求均使用 2 秒 timeout、GET、无请求体，响应体最多读取 64 字节。
 - 成功值必须经 `ipaddress.ip_address` 校验，IPv4/IPv6 都接受；主源读 JSON 的 `ip` 字段，备用源读去空白后的纯文本。
 - 服务实例在进程内缓存 5 分钟；同一时刻缓存过期时由一个锁串行刷新，避免并发页面请求重复打外域。
 - 两源均失败但曾有成功值时，返回旧值并标为 `stale`；从未成功时返回 `unavailable`。失败结果同样缓存 5 分钟，避免页面 60 秒刷新反复外呼。
@@ -42,7 +42,7 @@ Human 已确认：将标题右侧的静态 preview 替换为**运行本机后端
 
 在 `backend/app/server.py` 将 `GET /api/system/public-ip` 路由到该服务，并以 HTTP 200 返回上述三态 JSON、`Cache-Control: no-store`。这不是公共市场快照的一部分，也不修改既有快照或账户接口。
 
-服务只在 `run()` 中创建并注入 `_Handler`；`build_server()` 增加一个可选、默认 `None` 的关键字注入参数并在每次建 server 时复位该 handler 属性，维持既有测试调用的参数形状且确保测试不会意外联网。若未注入，路由回答固定 `503 {"error":"public_ip_unavailable"}`，不尝试外呼。
+`build_server()` 不增加参数；它在每次构建 server 时将 `_Handler.public_ip_service` 显式复位为 `None`，以隔离进程内 HTTP 测试。`run()` 保持既有两参数调用 `build_server(config, service)`，并且**只在该调用返回后**创建 `PublicIpService`、赋给 `_Handler.public_ip_service`——与 `ledger_flow_service` 等现有 Handler 依赖采用同一装配顺序。不得在调用前赋值（会被复位清除），也不得传入新关键字参数（既有两参数 `build_server` 测试替身不接受它）。若未注入，路由回答固定 `503 {"error":"public_ip_unavailable"}`，不尝试外呼。
 
 ### 3. 前端：复用标题 badge 与现有刷新节奏
 
@@ -52,11 +52,11 @@ Human 已确认：将标题右侧的静态 preview 替换为**运行本机后端
 - `stale`：`公网出口 IP（上次成功） <IP>`，`title` 显示最后成功时间；
 - `unavailable`、HTTP 错误或响应形状非法：`公网出口 IP 暂不可用`。
 
-新增的 `loadPublicIp()` 只请求同源 `GET /api/system/public-ip`（浏览器缓存 bypass）。它从现有 `loadApi()` 触发，因此首屏、手动刷新与既有 60 秒市场刷新都会更新展示；不增设 timer、localStorage、外域 fetch 或重试。IP 请求失败不得让市场快照、持仓或右侧刷新控件进入失败态。
+新增的 `loadPublicIp()` 只请求同源 `GET /api/system/public-ip`（浏览器缓存 bypass）。它从现有 `loadApi()` 触发，因此首屏、手动刷新与既有 60 秒市场刷新都会更新展示；调用不被 `await` 进快照/持仓主链，并在自身 `catch` 中降级，故最坏 4 秒外呼不会拖慢既有刷新节奏。它不增设 timer、localStorage、外域 fetch 或重试。IP 请求失败不得让市场快照、持仓或右侧刷新控件进入失败态。
 
 ### 4. 测试与活文档
 
-- 新建 `backend/tests/test_public_ip_api.py`：用注入 fake 覆盖主源成功和 5 分钟缓存、主源失败转备用、非法响应拒绝、两源失败的 `unavailable`、已有成功值后的 `stale`、`build_server` 未注入时 503，以及 HTTP 精确字段、`Cache-Control: no-store`。全程不进行真实网络请求。
+- 新建 `backend/tests/test_public_ip_api.py`：用注入 fake 覆盖主源成功和 5 分钟缓存、主源失败转备用、非法响应拒绝、两源失败的 `unavailable`、**两源失败后 5 分钟内不再外呼的失败缓存**、已有成功值后的 `stale`、`build_server` 未注入时 503，以及 HTTP 精确字段、`Cache-Control: no-store`。全程不进行真实网络请求。
 - 更新 `frontend/self-check.js`：白名单加入且只加入 `/api/system/public-ip`；验证 `ok`/`stale`/`unavailable` 文案、该请求不创建新 timer 或 localStorage 键、失败不影响快照渲染；删除已不适用的静态 preview 地址断言。
 - 更新 `docs/api/public-market-contract.md`，记录该同源只读端点、三态、缓存/外呼边界和“不是币安白名单权威”的限制；不改产品 PRD、架构或开发指南，因为功能不变更交易/产品边界或开发操作。
 
@@ -77,9 +77,13 @@ Human 已确认：将标题右侧的静态 preview 替换为**运行本机后端
 3. 成功与失败缓存均为 5 分钟；缓存期内没有重复外呼；已有成功值刷新失败时只显示 `stale` 的上次值。
 4. 页面标题右侧真实显示三态；未就绪或失败不影响市场快照、任务或任何交易相关控件。
 5. 前端仅请求同源新接口，复用既有刷新，不新增 timer、localStorage、依赖或浏览器外域请求。
-6. `python3 -m pytest -q backend/tests/test_public_ip_api.py`、`node frontend/self-check.js` 与 `git diff --check` 全部通过；无需真实 IP、币安请求、凭据、服务重启或部署。
+6. `python3 -m pytest -q backend/tests/test_public_ip_api.py backend/tests/test_service_health.py backend/tests/test_max_withdraw_api.py backend/tests/test_ledger_flow_api.py backend/tests/test_asset_transfer.py backend/tests/test_margin_repay.py`、`node frontend/self-check.js` 与 `git diff --check` 全部通过，并保留原始输出；无需真实 IP、币安请求、凭据、服务重启或部署。
 7. 文档准确说明端点、两外部源、缓存和“仅供核对”的限制。
 
 ## 实施后关卡
 
 本计划须先由 Claude 独立只读复审。复审接受后，才准备 Kimi（前端）与 Claude-GLM（后端）任务；两者共享的端点契约不能拆分为互相独立的实现提交。实现完成后按实际风险和固定 SHA 走正式评审；任何接受不授权重启、部署、交易所访问或白名单变更。
+
+## 修订记录
+
+- 2026-08-12：按 Claude 计划复审 R1/R2 修订。明确 `build_server()` 只复位、`run()` 必须在其返回后注入且保持两参数调用；验收纳入全部受影响的既有 server 装配测试。同步采纳 R3/R4/R5(a)：IP 读取不阻塞快照主链，失败缓存 TTL 有专门测试，外部响应体限长 64 字节。未采纳隐私遮蔽建议；它是 Human 未提出的页面分享策略，重开条件为 Human 要求对外截图时遮蔽公网 IP。
