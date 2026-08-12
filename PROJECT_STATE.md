@@ -8,6 +8,8 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 - **Active stage: `2026-08-12-herdr-approved-handoff-v1` 已被 Human Fast Direct 置陈旧。** Human 已直接授权变更 Harness：模型在 Human 明确许可后可经 Herdr 通知下一任务终端，且不新增批准记录、审计日志或持久化授权。原 Planner packet `reports/agent-runs/2026-08-12-herdr-approved-handoff-v1/herdr-approved-handoff-plan.dispatch.md` 不得启动；若要继续该 stage，Bookkeeper 必须先建立新 baseline 和新 packet。本次未启动 Herdr 会话、发送模型消息、部署或重启服务。
 
+- **[2026-08-12 Human Fast Direct] 两次直接代码交付已推送：** `31d7ae6` 取消私有读取在 429/-1003 后的 0.5 秒立即重试；`0a0984c` 将空库首次利息/收入流水回补窗口改为 1 天。两项均已通过定向测试，接口/行为文档已同步。**当前手动前台服务未重启，运行进程尚未加载这两处代码。**
+
 - 最近完成的历史仓位滑点口径修复已归档；本次未部署或重启服务。
 
 - 上一 stage `2026-08-11-reverse-position-drift-v1` 已获 Human 最终验收并
@@ -364,7 +366,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   replacement is traceable and did not execute, so this is not a merge blocker.
 ## Next Priority
 
-- **No active stage.** Current priorities (detail in the sections above):
+- **存在一个已陈旧、不得启动的 active stage：** `2026-08-12-herdr-approved-handoff-v1`。在 Human 决定关闭它，或 Bookkeeper 建立新 baseline 与 dispatch 前，不得启动其旧任务包。当前优先事项（详见上文）：
   1. 1000x 腿量换算 —— 恢复乘数币能力仍须 Human 授权后单开一轮；
   2. launchd 已 disable、改手动前台模式（TCC 部分修复但 python 未授权；根治须移项目出 ~/Desktop）。
 - Nothing open authorizes deployment, Start-gate changes, credentials, or live
