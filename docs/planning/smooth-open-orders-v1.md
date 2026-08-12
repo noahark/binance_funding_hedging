@@ -1,6 +1,6 @@
 # 平滑开单 V1：设计上下文、决策记录与交付边界
 
-状态：**Human 已冻结整体框架，允许先做前端 fake 样式与 CCXT 公共行情摸排；正式集成仍待计划评审，不授权真实平滑下单、生产依赖安装、服务控制、部署或实盘。**
+状态：**Human 已冻结整体框架；前端 fake 与 CCXT 4.5.64 公共行情 P0 已完成，结论为有条件继续 CCXT。当前进入 Opus 5 实施细拆，细拆后仍须跨 provider 正式计划评审；不授权真实平滑下单、生产依赖安装、服务控制、部署或实盘。**
 日期：2026-08-12
 适用范围：现有对冲开仓任务的 `mode=smooth`。立即开单和平仓任务不是本轮改造对象。
 
@@ -61,7 +61,7 @@ Human 要恢复旧 JS 中“每轮在固定时间内等更好盘口”的产品�
 
 | 编号 | 最终决定 | 之前考虑/现状 | 选择原因与实际后果 | 来源 |
 |---|---|---|---|---|
-| D1 | 公共盘口统一层采用 CCXT Pro；V1 只负责公共市场数据 | 曾讨论把 CCXT Pro 当全部交易所统一层 | CCXT Pro 可统一 WebSocket 订阅和返回字段，但不能抽象本项目的组合保证金、借币、划转、两腿语义和本地恢复契约；这些继续使用现有 Binance 专用链 | Human 目标 + 当前代码事实 |
+| D1 | 公共盘口统一层采用 CCXT Pro；V1 只负责公共市场数据；候选版本锁为 `ccxt==4.5.64` | 曾讨论把 CCXT Pro 当全部交易所统一层 | CCXT Pro 可统一 WebSocket 订阅和返回字段，但不能抽象本项目的组合保证金、借币、划转、两腿语义和本地恢复契约；这些继续使用现有 Binance 专用链。P0 已在隔离环境实测该版本，正式依赖清单仍须单独交付和评审 | Human 目标 + 当前代码事实 + P0 实测 |
 | D2 | 每个现货/合约腿使用 `bookTicker` 语义；CCXT Pro 首选 `watchBidsAsks([symbol])` | 最初考虑两个 `watchOrderBook` | 本轮只需要买一/卖一价格和数量。完整订单簿需要快照、增量序列、重建与一致性维护，成本更高；一档机会过滤不需要它 | Human 明确决定 |
 | D3 | 现货和合约由两个独立 async 消费任务维护 | REST `getDepth` 可并发返回，但不是持续订阅；单一串行循环会让一侧异常阻塞另一侧 | 两侧独立等待、更新、异常和重连；gate 读取两侧最新有效快照。独立是故障隔离，不代表每个业务任务新建两条物理连接 | Human 明确决定 |
 | D4 | 当前方向开单率必须**严格大于**任务阈值 | 可选 `>=`，但 Human 原话是“大于” | `0.05%` 本身不通过，`0.06%` 才通过；负阈值仍保持同一数学比较 | Human 明确决定 |
@@ -84,11 +84,14 @@ Human 要恢复旧 JS 中“每轮在固定时间内等更好盘口”的产品�
 
 - spot client：现货统一 symbol 的 `watchBidsAsks`；
 - USDⓈ-M client：合约统一 symbol 的 `watchBidsAsks`；
-- 统一读取 `bid`、`bidVolume`、`ask`、`askVolume`，同时保留 exchange 原始更新时间（如有）和本地接收时间；
+- 从每项 `info` 只读取原始字符串 `b/B/a/A`，分别作为 bid price/qty、ask price/qty；禁止让 CCXT normalized float 进入 gate 或展示；
+- spot 记录 `exchange_ts = null`，perp 有 raw `E` 时记录该值；两侧都记录本地接收时间；
 - watcher 注册、共享、释放、断开后失效、首次新消息后恢复有效；
 - 进程关闭时关闭 CCXT Pro clients。
 
-当前 CCXT Pro 手册列出 `watchBidsAsks`，Binance Pro 实现将 bid/ask 频道解析为 `bookTicker`。实现前仍需用当前锁定版本做无凭证、只读的最小 proof：确认 spot 与 USDⓈ-M 的 symbol、数量单位、`contractSize`、断线异常和 close 行为。仓库当前没有 CCXT/CCXT Pro 依赖声明，因此这个 proof 是第一交付，不可把网上的最新版源码当成本项目运行证据。
+P0 已在仓库外隔离 venv 实测 `ccxt==4.5.64`：`binance` 和 `binanceusdm` 的 `watchBidsAsks` 可用；现货 key 为 `BTC/USDT`，合约返回 unified key `BTC/USDT:USDT`；双独立 watcher 取消其一不影响另一侧继续更新；普通 BTC U 本位永续 `contractSize=1.0`。同时证实 normalized 价量为 float、spot 无 `E/T`、1000PEPE 的 `contractSize` 也为 `1.0`，故 raw string、spot 本地接收时间和现有 1000x 封禁均是硬约束。原始证据见 `docs/planning/ccxt-bookticker-recon-2026-08-13.md`。
+
+P0 没有 executable 证明自动断线重连、重连 generation、引用归零、close 后零 CCXT 内部 task 或多 symbol 共享。这些不是可忽略观察，必须由 P1 的 fake source/lifecycle 测试证明；证明失败则按既定边界切 Binance 原生 public bookTicker fallback。
 
 本仓当前不仅没有 CCXT，也没有任何运行时依赖清单。P0 不得直接污染正在跑真钱服务所用的 `.venv`：先在隔离临时虚拟环境完成 proof；通过后才由单独授权的交付新建仓库唯一的运行时依赖清单并固定精确版本，随后才允许安装到生产运行环境。清单的维护者是后端运行环境，读者是安装/升级脚本；现有文件无法承载这一独立职责，故允许新增。
 
@@ -307,20 +310,21 @@ slippage_threshold_pct: decimal string
 - 不改变立即开单、平仓、借币、还款、划转和其他交易所的资金执行；
 - 不承诺仅靠 CCXT Pro 就完成其他交易所接入。
 
-## 11. 必须先做的只读 proof
+## 11. 已完成的只读 proof
 
-结论：**需要，但必须是无凭证、无订单、无服务控制的第一交付，不在本规划任务内执行。**
+结论：**已完成并由 Bookkeeper 核验，结果为 `continue-with-ccxt`（条件性）。**
 
-原因：仓库当前无 CCXT 依赖；官方最新源码只能证明接口存在，不能证明将被锁定版本在本机对 Binance spot/USDⓈ-M 的 symbol、数量单位、异常和关闭行为。这个 proof 应独立运行，不接任务 worker，更不接 executor。
+执行边界：仓库外隔离 venv、`ccxt==4.5.64`、无凭证公共行情；未接任务 worker/executor，未修改依赖清单或生产环境。报告、脚本和原始输出分别为 `docs/planning/ccxt-bookticker-recon-2026-08-13.md`、`reports/agent-runs/2026-08-12-smooth-open-orders-v1/evidence/ccxt-bookticker-recon-claude-glm-proof.py` 和 `reports/agent-runs/2026-08-12-smooth-open-orders-v1/evidence/ccxt-bookticker-recon-claude-glm-output.txt`。
 
-验收样本：
+已证明：
 
-1. 同一普通 symbol 同时收到 spot/perp `watchBidsAsks`，四价四量均保留为十进制字符串；
-2. 证明合约 volume 与当前 `q_common` 的单位一致，并验证可达普通 symbol 的 `contractSize == 1`；不能凭字段名猜，也不能在本轮实现通用乘数换算；
-3. 记录 spot 缺 exchange timestamp 时如何只使用本地 receive time；
-4. 人工中断其中一侧连接时另一侧仍更新，断侧 generation 失效，恢复后首条消息重新 live；
-5. 取消 watcher、引用归零及进程 close 能退出，不遗留 async task；
-6. 结果只写脱敏公共行情样本，不读取环境中的 API key。
+1. 同一普通 symbol 同时收到 spot/perp `watchBidsAsks`；raw `info` 含所需字段，normalized 价量为 float，adapter 必须保留 raw `b/B/a/A` 字符串；
+2. 普通 BTC U 本位永续 `contractSize == 1`，与当前 `q_common` 同量纲；1000PEPE 同样报告 `1.0`，不能用于解除现有 1000x 封禁；
+3. spot 缺 `E/T` 且 CCXT `timestamp=None`，perp 有 `E/T`；spot 必须使用本地 `received_at_us`；
+4. 两个独立 client/task 并发工作，取消 spot watcher 后 perp 仍持续更新；
+5. `close()` 正常返回；公共样本无凭证、无私有流、无订单/账户/资产调用。
+
+尚待 P1 证明：断线/异常后的 generation 失效与恢复、延迟消费者隔离、引用归零、最后订阅释放、close 后零 CCXT 内部 task、多 symbol 共享。P1 未通过时停止资金链集成并切原生 fallback。
 
 proof 失败时停止，不接资金 worker；改用 Binance 原生 public bookTicker adapter 作为备选，不改变本设计的 `BestBidAskProvider`、gate 和 UI 契约。
 
@@ -328,21 +332,19 @@ proof 失败时停止，不接资金 worker；改用 Binance 原生 public bookT
 
 本功能涉及订单触发时机、任务次数硬上限和实盘资金路径，整体为 **HIGH_RISK**。实现开始前需要一次跨 provider 的独立只读计划评审；交付后必须 Review-1 + Review-2。任何 ACCEPT 都不授权启动服务或实盘下单。
 
-### Human 2026-08-13：先做两项非资金前置
+### Human 2026-08-13：两项非资金前置（已完成）
 
 在正式集成和正式计划评审之前，先完成两项互不依赖的前置产物：
 
 1. **Kimi 前端 fake 样式**：只改前端，展示平滑按钮后的 `0.05 %` 输入框，并在任务页“执行中”区域加入一张明确标注“样式预览、不执行”的 fake 平滑任务卡。所有 fake 动作禁用，不发送 smooth 创建、fill-once 或任何真实请求；现有立即开单行为不变。它只用于 Human 看布局、文案和信息密度。
 2. **Claude-GLM CCXT 公共行情摸排**：只研究/验证后续会用到的 `watchBidsAsks`、spot/USDⓈ-M client、symbol、bid/ask volume 单位、contractSize、双独立 watcher、重连、取消和 close。允许访问公开文档/源码和在隔离临时环境连接公共行情；禁止读取凭证、连接私有流、安装进生产 `.venv`、启动本服务或调用订单/资产接口。
 
-两项完成后由 Planner/Bookkeeper 把真实证据回填本设计，再进入正式跨 provider 计划评审。fake UI 不冻结最终 API 字段；CCXT 摸排不授权把依赖接入生产。
+两项均已完成；P0 证据已回填本设计。fake UI 不冻结最终 API 字段；CCXT 摸排不授权把依赖接入生产。下一步由 Opus 5 根据 `docs/planning/smooth-open-orders-v1-development-checklist.md` 细拆独立 worktree、文件所有权、依赖次序与验收命令，之后再进入正式跨 provider 计划评审。
 
 ### P0：公共 WebSocket proof（只读、独立）
 
-- dispatch 须明确授权公共网络连接和在隔离临时虚拟环境安装候选依赖；不得安装进当前生产 `.venv`；
-- 锁定候选版本；验证 §11；产出原始样本和结论；通过后另行决定是否新增唯一运行时依赖清单；
-- 不修改 worker/executor，不使用凭证；
-- 决定 CCXT Pro adapter 继续或切 Binance 原生备选。
+- **完成**：候选版本 `ccxt==4.5.64`；结论 `continue-with-ccxt`（条件性）；未修改 worker/executor、依赖清单或生产环境。
+- P1 必须关闭 §11 的未证事项；失败则切 Binance 原生备选。
 
 ### P1：后端市场数据 provider 与确定性假源
 
