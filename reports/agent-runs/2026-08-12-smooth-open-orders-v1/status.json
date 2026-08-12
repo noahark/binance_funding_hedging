@@ -1,0 +1,22 @@
+{
+  "schema_version": "2",
+  "revision": 1,
+  "stage_id": "2026-08-12-smooth-open-orders-v1",
+  "bookkeeper": "codex",
+  "phase": "planning",
+  "checkpoint": "stage-opened",
+  "base_sha": "ee0e321af5f1989ff4588c6327f876368fbb7640",
+  "delivery_sha": null,
+  "ledger_sha": "ee0e321af5f1989ff4588c6327f876368fbb7640",
+  "current_task": {
+    "id": "smooth-open-orders-design-and-breakdown",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/01-smooth-open-orders-design-and-breakdown.dispatch.md"
+  },
+  "next": {
+    "actor": "human_operator",
+    "action": "start-prepared-task"
+  },
+  "rework_count": 0,
+  "blockers": []
+}
