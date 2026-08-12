@@ -1,25 +1,25 @@
 {
   "schema_version": "2",
-  "revision": 14,
+  "revision": 15,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
   "phase": "planning-rework",
-  "checkpoint": "deepseek-targeted-rereview-rework-verified-opus-micro-repair-dispatched",
+  "checkpoint": "opus-two-point-plan-repair-verified",
   "base_sha": "55008d30f4a0673112b7593adf7bef9e9dc46532",
-  "delivery_sha": null,
-  "ledger_sha": "55008d30f4a0673112b7593adf7bef9e9dc46532",
+  "delivery_sha": "ad887db6157d74359d28b31c36e936125c746850",
+  "ledger_sha": "ad887db6157d74359d28b31c36e936125c746850",
   "current_task": {
     "id": "smooth-open-plan-micro-repair-opus5",
-    "state": "dispatched",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/09-smooth-open-plan-micro-repair-opus5.dispatch.md"
   },
   "next": {
-    "actor": "human_operator",
-    "action": "start-prepared-opus5-two-point-plan-repair"
+    "actor": "codex",
+    "action": "prepare-deepseek-final-two-point-rereview"
   },
   "rework_count": 0,
   "blockers": [
-    "implementation-gate-closed: T1/T2 微型修订及最终定向复核 ACCEPT 前不得创建实现 worktree/dispatch 或启动实现",
-    "plan-micro-repair-pending: Opus 只修非空 sentinel 测试与 requirements.txt 维护者两处文字"
+    "implementation-gate-closed: DeepSeek 最终两点复核 ACCEPT 前不得创建实现 worktree/dispatch 或启动实现",
+    "final-plan-rereview-pending: 只核验 T1 非空 sentinel 与 T2 requirements.txt 维护者"
   ]
 }
