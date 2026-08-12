@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 1,
+  "revision": 2,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
-  "phase": "planning",
-  "checkpoint": "stage-opened",
-  "base_sha": "ee0e321af5f1989ff4588c6327f876368fbb7640",
+  "phase": "prototype",
+  "checkpoint": "planning-framework-frozen",
+  "base_sha": "e3fd7296088b1e643c8dd01a850373b06ffcecb8",
   "delivery_sha": null,
-  "ledger_sha": "ee0e321af5f1989ff4588c6327f876368fbb7640",
+  "ledger_sha": "e3fd7296088b1e643c8dd01a850373b06ffcecb8",
   "current_task": {
-    "id": "smooth-open-orders-design-and-breakdown",
+    "id": "smooth-open-fake-ui-kimi",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/01-smooth-open-orders-design-and-breakdown.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/02-smooth-open-fake-ui-kimi.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
