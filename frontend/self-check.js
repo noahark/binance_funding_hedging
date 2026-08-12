@@ -4476,11 +4476,11 @@ setTimeout(async () => {
       if ((hedgeTbody.match(/<tr/g) || []).length !== 6) {
         throw new Error('开单断言前置：期望 6 行全量渲染');
       }
-      // 操作列结构：两输入 + 两按钮；平滑开单 disabled 并标注「下一轮」，立即开单可点
+      // 操作列结构：两输入 + 平滑 disabled + 阈值输入 + % + 立即开单；平滑开单仍 disabled
       const cusdtFwdOp = getRowCell(hedgeTbody, 'CUSDT', 13);
       const cusdtRevOp = getRowCell(hedgeTbody, 'CUSDT', 14);
       for (const [name, cell] of [['CUSDT 正向操作列', cusdtFwdOp], ['CUSDT 反向操作列', cusdtRevOp]]) {
-        for (const piece of ['单次开单币量', '计划尝试次数', '平滑开单', '立即开单', 'data-hedge-open="smooth"', 'data-hedge-open="immediate"']) {
+        for (const piece of ['单次开单币量', '计划尝试次数', '平滑开单', '立即开单', 'data-hedge-open="smooth"', 'data-hedge-open="immediate"', 'hedge-threshold-input', 'value="0.05"']) {
           if (!cell.includes(piece)) throw new Error(`${name} 缺少「${piece}」: ${cell}`);
         }
         const smoothBtnMatch = cell.match(/<button[^>]*data-hedge-open="smooth"[^>]*>/);
@@ -4488,12 +4488,24 @@ setTimeout(async () => {
         if (!smoothBtnMatch[0].includes('disabled')) {
           throw new Error(`${name} 平滑开单按钮应 disabled（本轮无 ws）: ${smoothBtnMatch[0]}`);
         }
+        const thresholdMatch = cell.match(/<input[^>]*hedge-threshold-input[^>]*>/);
+        if (!thresholdMatch) throw new Error(`${name} 缺少滑点阈值输入: ${cell}`);
+        if (!thresholdMatch[0].includes('value="0.05"')) {
+          throw new Error(`${name} 滑点阈值默认值应为 0.05: ${thresholdMatch[0]}`);
+        }
         const immediateBtnMatch = cell.match(/<button[^>]*data-hedge-open="immediate"[^>]*>/);
         if (!immediateBtnMatch) throw new Error(`${name} 缺少立即开单按钮: ${cell}`);
         if (immediateBtnMatch[0].includes('disabled')) {
           throw new Error(`${name} 立即开单按钮不应 disabled: ${immediateBtnMatch[0]}`);
         }
-        if (!cell.includes('下一轮')) throw new Error(`${name} 缺少「下一轮」提示: ${cell}`);
+        // 顺序：平滑按钮 → 阈值输入 → % 后缀 → 立即开单
+        const smoothIdx = cell.indexOf(smoothBtnMatch[0]);
+        const thresholdIdx = cell.indexOf(thresholdMatch[0]);
+        const pctIdx = cell.indexOf('%</span>');
+        const immediateIdx = cell.indexOf(immediateBtnMatch[0]);
+        if (!(smoothIdx < thresholdIdx && thresholdIdx < pctIdx && pctIdx < immediateIdx)) {
+          throw new Error(`${name} 控件顺序应为 平滑按钮 < 阈值输入 < % < 立即开单: ${cell}`);
+        }
       }
       // 推荐高亮：CUSDT 正费率 → 正向列按钮高亮、反向列不高亮
       if (!cusdtFwdOp.includes('hedge-reco')) throw new Error('正费率行正向开单按钮应高亮推荐: ' + cusdtFwdOp);
@@ -4711,6 +4723,51 @@ setTimeout(async () => {
       helpers.setActiveView('market');
       if (elements['hedge-task-view'].style.display !== 'none') throw new Error('切回市场后开单任务视图应隐藏');
       console.log('[PASS] 任务生命周期：pause/start/fill-once/fill-all/delete 冻结路由 + 状态推进 + 软删除筛选与导航徽标');
+    }
+
+    // 80b. 平滑开单 fake 样式预览卡：仅在「执行中」筛选器出现，不插入 state.hedgeTasks，控件禁用且无 actionable data-hedge-action
+    {
+      helpers.resetHedgeStateForTest();
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [] } };
+      helpers.setActiveView('hedge-tasks');
+      helpers.setHedgeTaskFilter('running');
+      helpers.renderHedgeTasks();
+      if (helpers.getHedgeTasks().length !== 0) {
+        throw new Error('fake 平滑卡不应插入 state.hedgeTasks');
+      }
+      const runningHtml = elements['hedge-task-list'].innerHTML;
+      if (!runningHtml.includes('data-hedge-fake-smooth="true"')) {
+        throw new Error('执行中筛选应渲染 fake 平滑任务卡');
+      }
+      if (!runningHtml.includes('样式预览（不执行）')) {
+        throw new Error('fake 卡应明确标注「样式预览（不执行）」');
+      }
+      // 信息密度：阈值、轮次、剩余等待、连接状态、双向开单率、价格数量、覆盖率、等待原因
+      for (const piece of ['滑点阈值', '0.05%', '当前轮次', '1/5', '剩余等待', '现货', '合约', '正向开单率', '反向开单率', '一档覆盖', '等待原因']) {
+        if (!runningHtml.includes(piece)) throw new Error(`fake 卡缺少「${piece}」: ${runningHtml}`);
+      }
+      // 控件全部禁用，无 data-hedge-action，无 fill-all
+      const cardStart = runningHtml.lastIndexOf('<div class="borrow-task-card');
+      const fakeCard = cardStart >= 0 ? runningHtml.slice(cardStart) : runningHtml;
+      if (fakeCard.includes('data-hedge-action')) {
+        throw new Error('fake 卡不应携带可触发动作的 data-hedge-action');
+      }
+      if (fakeCard.includes('立即成交所有')) {
+        throw new Error('fake 卡不应展示「立即成交所有」');
+      }
+      const disabledButtons = (fakeCard.match(/<button[^>]*disabled[^>]*>/g) || []);
+      if (disabledButtons.length < 4) {
+        throw new Error('fake 卡控件应全部 disabled: ' + fakeCard);
+      }
+      // 其他筛选器不渲染 fake 卡
+      for (const f of ['all', 'paused', 'done', 'deleted']) {
+        helpers.setHedgeTaskFilter(f);
+        helpers.renderHedgeTasks();
+        if (elements['hedge-task-list'].innerHTML.includes('data-hedge-fake-smooth="true"')) {
+          throw new Error(`${f} 筛选不应渲染 fake 平滑任务卡`);
+        }
+      }
+      console.log('[PASS] 平滑开单 fake 样式预览卡：running 筛选独立渲染、不插入任务列表、控件禁用无 data-hedge-action、无 fill-all、其他筛选隔离');
     }
 
     // 81. stopped/paused 语义返工（15 号修正案 I-4）：single_leg 只是提示且任务仍继续调度

@@ -10,7 +10,7 @@
   "ledger_sha": "e3fd7296088b1e643c8dd01a850373b06ffcecb8",
   "current_task": {
     "id": "smooth-open-fake-ui-kimi",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/02-smooth-open-fake-ui-kimi.dispatch.md"
   },
   "next": {

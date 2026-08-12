@@ -1032,6 +1032,16 @@
     /* 开单操作列：复用借币输入控件布局 */
     .hedge-op-cell { white-space: normal; }
     .hedge-op-cell .borrow-op-inputs input { width: 110px; }
+    .hedge-op-cell .borrow-op-inputs input.hedge-threshold-input {
+      width: 56px;
+      text-align: right;
+      padding-right: 6px;
+      font-family: var(--mono);
+    }
+    .hedge-op-cell .borrow-op-inputs input.hedge-threshold-input[readonly] {
+      background: var(--surface-2);
+      color: var(--muted);
+    }
     /* 推荐方向高亮：仅视觉推荐，另一方向保持可点（ADR-3） */
     .btn.hedge-reco {
       border-color: #a8dbc0;
@@ -1118,6 +1128,30 @@
       margin-top: var(--space-2);
       padding-top: var(--space-2);
       border-top: 1px dashed var(--line);
+    }
+    /* 平滑开单 V1 fake 样式预览卡：虚线边框 + 浅色背景，明确与可执行任务区分 */
+    .hedge-fake-smooth-card {
+      border: 2px dashed var(--line-strong);
+      background: var(--surface-3);
+      opacity: 0.95;
+    }
+    .hedge-fake-market-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-3);
+      margin: var(--space-2) 0;
+    }
+    .hedge-fake-market-col {
+      padding: var(--space-3);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .hedge-fake-market-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: var(--space-1);
     }
     .hedge-task-log-wrap table {
       width: 100%;
@@ -5619,8 +5653,9 @@
                 <input id="hedge-amount-${direction}-${sym}" type="text" inputmode="decimal" placeholder="如 0.01" autocomplete="off"/>
                 <label for="hedge-count-${direction}-${sym}">计划尝试次数</label>
                 <input id="hedge-count-${direction}-${sym}" type="text" inputmode="numeric" placeholder="如 5" autocomplete="off"/>
-                <button class="${btnCls}" type="button" data-hedge-open="smooth" data-hedge-dir="${direction}" aria-label="平滑开单 ${sym} ${direction}" disabled title="平滑开单下一轮接入">平滑开单</button>
-                <span class="muted small">平滑开单下一轮</span>
+                <button class="${btnCls}" type="button" data-hedge-open="smooth" data-hedge-dir="${direction}" aria-label="平滑开单 ${sym} ${direction}" disabled title="平滑开单样式预览，本轮不执行">平滑开单</button>
+                <input id="hedge-threshold-${direction}-${sym}" class="hedge-threshold-input" type="text" inputmode="decimal" value="0.05" readonly aria-label="滑点阈值 %" title="平滑开单样式预览：滑点阈值"/>
+                <span class="muted small">%</span>
                 <button class="${btnCls}" type="button" data-hedge-open="immediate" data-hedge-dir="${direction}" aria-label="立即开单 ${sym} ${direction}">立即开单</button>
               </div>
               <div class="borrow-op-error" id="hedge-error-${direction}-${sym}" role="alert" aria-live="polite"></div>
@@ -5973,10 +6008,79 @@
             : `<strong>暂无「${HEDGE_TASK_FILTER_LABELS[state.hedgeTaskFilter]}」任务</strong>`;
           emptyCard = `<div class="empty-state">${emptyText}</div>`;
         }
+        // 仅在「执行中」筛选器下追加一张平滑开单 fake 样式预览卡；不插入 state.hedgeTasks，
+        // 不影响计数、导航、日志或任何后端请求。controls 全部禁用且无 data-hedge-action。
+        const fakeSmoothCard = state.hedgeTaskFilter === 'running' ? renderFakeSmoothTaskCard() : '';
         // 任务卡内嵌日志：真卡自带 toggle，始终绑定（不再依赖 fake 预览分支）。
-        els.hedgeTaskList.innerHTML = emptyCard + tasks.map(task => renderHedgeTaskCard(task)).join('');
+        els.hedgeTaskList.innerHTML = emptyCard + tasks.map(task => renderHedgeTaskCard(task)).join('') + fakeSmoothCard;
         bindHedgeTaskControls();
         bindHedgeTaskLogToggles();
+      }
+
+      // 平滑开单 V1 fake 样式预览卡：仅用于 Human 判断布局/文案/信息密度，不插入
+      // state.hedgeTasks，不触发请求，不绑定 data-hedge-action/data-hedge-log-toggle。
+      function renderFakeSmoothTaskCard() {
+        const threshold = '0.05';
+        const currentSeq = 1;
+        const targetN = 5;
+        const remainingWait = '03:42';
+        const spotConn = 'connecting';
+        const perpConn = 'live';
+        const forwardPct = '0.06';
+        const reversePct = '-0.03';
+        const spotBid = '64954.00';
+        const spotAsk = '64954.01';
+        const perpBid = '64925.00';
+        const perpAsk = '64925.10';
+        const spotQty = '1.250';
+        const perpQty = '8.500';
+        const spotCoverage = '85';
+        const perpCoverage = '92';
+        const waitReason = '等待开单率 > 阈值';
+        const fwdClass = classForOpeningSpread(forwardPct);
+        const revClass = classForOpeningSpread(reversePct);
+        const connBadge = (label, state) => {
+          const cls = state === 'live' ? 'success' : state === 'connecting' ? 'warn' : 'danger';
+          const text = state === 'live' ? '已连接' : state === 'connecting' ? '连接中' : '已断开';
+          return `<span class="badge compact ${cls}">${label} ${text}</span>`;
+        };
+        return `
+          <div class="borrow-task-card hedge-fake-smooth-card" data-hedge-fake-smooth="true">
+            <div class="borrow-task-head">
+              <h3>AUSDT</h3>
+              <span class="badge muted" title="样式预览，不执行任何操作">样式预览（不执行）</span>
+              <span class="badge success">正向</span>
+              <span class="badge info">平滑</span>
+              <span class="badge success">执行中</span>
+            </div>
+            <div class="borrow-task-lines">
+              <div>滑点阈值：<strong>${threshold}%</strong> · 当前轮次：<strong>${currentSeq}/${targetN}</strong> · 剩余等待：<strong>${remainingWait}</strong></div>
+              <div>盘口连接：${connBadge('现货', spotConn)} ${connBadge('合约', perpConn)}</div>
+              <div class="hedge-fake-market-grid">
+                <div class="hedge-fake-market-col">
+                  <div class="hedge-fake-market-title">正向开单率</div>
+                  <div class="muted small">合约买一 ${formatPriceTrimZeros(perpBid)} · 数量 ${perpQty}</div>
+                  <div class="muted small">现货卖一 ${formatPriceTrimZeros(spotAsk)} · 数量 ${spotQty}</div>
+                  <div class="${fwdClass}">${formatOpeningSpreadPct(forwardPct)}</div>
+                </div>
+                <div class="hedge-fake-market-col">
+                  <div class="hedge-fake-market-title">反向开单率</div>
+                  <div class="muted small">现货买一 ${formatPriceTrimZeros(spotBid)} · 数量 ${spotQty}</div>
+                  <div class="muted small">合约卖一 ${formatPriceTrimZeros(perpAsk)} · 数量 ${perpQty}</div>
+                  <div class="${revClass}">${formatOpeningSpreadPct(reversePct)}</div>
+                </div>
+              </div>
+              <div>一档覆盖：现货 <strong>${spotCoverage}%</strong> · 合约 <strong>${perpCoverage}%</strong></div>
+              <div class="borrow-task-note">等待原因：${waitReason}</div>
+            </div>
+            <div class="borrow-task-controls">
+              <button class="btn compact" type="button" disabled>暂停</button>
+              <button class="btn compact" type="button" disabled>启动</button>
+              <button class="btn compact" type="button" disabled>删除</button>
+              <button class="btn compact primary" type="button" disabled>成交1次</button>
+            </div>
+            <div class="borrow-op-error" role="alert" aria-live="polite">样式预览：不发送任何请求</div>
+          </div>`;
       }
 
       function renderHedgeTaskCard(task) {
