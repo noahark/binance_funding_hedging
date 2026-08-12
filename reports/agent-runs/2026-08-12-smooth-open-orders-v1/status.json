@@ -1,25 +1,25 @@
 {
   "schema_version": "2",
-  "revision": 11,
+  "revision": 12,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
-  "phase": "planning-rework",
-  "checkpoint": "opus-targeted-plan-repair-verified",
+  "phase": "plan-review",
+  "checkpoint": "opus-targeted-plan-repair-verified-deepseek-rereview-dispatched",
   "base_sha": "2e5902347c5f0ac81638c67dc7a1bf20a9141ac9",
   "delivery_sha": "8c2cce629a0688440836f07e3d089c35acbadd65",
-  "ledger_sha": "8c2cce629a0688440836f07e3d089c35acbadd65",
+  "ledger_sha": "5b17f8fcd7a7d74ee899a62fbbf514fefa4e3fec",
   "current_task": {
-    "id": "smooth-open-plan-repair-opus5",
-    "state": "verified",
-    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/07-smooth-open-plan-repair-opus5.dispatch.md"
+    "id": "smooth-open-targeted-plan-rereview-deepseek-v4-pro",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/08-smooth-open-targeted-plan-rereview-deepseek-v4-pro.dispatch.md"
   },
   "next": {
-    "actor": "codex",
-    "action": "prepare-deepseek-targeted-plan-rereview"
+    "actor": "human_operator",
+    "action": "start-prepared-deepseek-targeted-plan-rereview"
   },
   "rework_count": 0,
   "blockers": [
     "implementation-gate-closed: DeepSeek 定向计划复核 ACCEPT 前不得创建实现 worktree/dispatch 或启动实现",
-    "targeted-plan-rereview-pending: 只复核 R1/R2/R3、单任务范围与 Human 冻结语义"
+    "targeted-plan-rereview-dispatched: 只复核 R1/R2/R3、单任务范围与 Human 冻结语义"
   ]
 }
