@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 6,
+  "revision": 7,
   "stage_id": "2026-08-12-local-ip-display-v1",
   "bookkeeper": "codex / GPT-5",
-  "phase": "plan-rework",
-  "checkpoint": "plan-review-rework-verified",
-  "base_sha": "983e900fc4af257c834774d0eb1bdc5dc2e111b7",
-  "delivery_sha": "2625cf3a532f25d92a5f660aa2b845a6eaaaf009",
-  "ledger_sha": "a3fc3eb3b9049b558e4b1fd560381258fd638584",
+  "phase": "plan-review-r2",
+  "checkpoint": "revised-plan-delivery-sealed",
+  "base_sha": "90bcaae72a17de358e9edbfd9cf337136acf4b57",
+  "delivery_sha": "fefc8aac46e7dbc9a1e20467625288e9aa70ac48",
+  "ledger_sha": "fefc8aac46e7dbc9a1e20467625288e9aa70ac48",
   "current_task": {
-    "id": "public-ip-live-plan-review-claude",
-    "state": "verified",
-    "dispatch": "reports/agent-runs/2026-08-12-local-ip-display-v1/public-ip-live-plan-review-claude.dispatch.md"
+    "id": "public-ip-live-plan-review-claude-r2",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-12-local-ip-display-v1/public-ip-live-plan-review-claude-r2.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "authorize-plan-revision-for-reviewed-findings"
+    "action": "start-prepared-task"
   },
   "rework_count": 0,
   "blockers": []
