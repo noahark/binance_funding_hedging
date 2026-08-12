@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 12,
+  "revision": 13,
   "stage_id": "2026-08-12-local-ip-display-v1",
   "bookkeeper": "codex / GPT-5",
-  "phase": "review-1",
-  "checkpoint": "frontend-repair-verified",
+  "phase": "review-2",
+  "checkpoint": "review-1-accepted",
   "base_sha": "54b23cc904b9785e77f7f984f7bbdd4972de2f44",
   "delivery_sha": "f2ad1bfba56ec3f9822a4308c61e4ae1e27dc4dc",
   "ledger_sha": "f2ad1bfba56ec3f9822a4308c61e4ae1e27dc4dc",
   "current_task": {
-    "id": "public-ip-live-review-1-claude",
+    "id": "public-ip-live-review-2-sonnet5",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-12-local-ip-display-v1/public-ip-live-review-1-claude.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-12-local-ip-display-v1/public-ip-live-review-2-sonnet5.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
