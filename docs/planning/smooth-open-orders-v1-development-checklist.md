@@ -268,7 +268,9 @@ def prepare_attempt(..., *, expected_gate_seq: int | None = None,
 2. **fatal stop 清 gate**：同上初态 → `stop_task_fatal` 命中 → 三列全部为 `NULL`。
 3. **`set_task_status(非 running)` 清 gate**：分别对 `paused`、`deleted`、`done` 各断言一次三列清空；`set_task_status(running)` **不得**清空（进程重启续原 gate 依赖这一点）。
 4. **结算路径不误清、不复活**：smooth pair 走完 `prepare_attempt` → executor → `resolve_attempt`，断言结算前后三列恒为 `NULL`（路径 4 的不变量守卫）。
-5. **条件 UPDATE 未命中时不误清**：任务先 `deleted`（或 `done`）→ 再调 `pause_task` / `stop_task_fatal` → 断言返回未命中、`status` 未被改写、且三列保持调用前的值（不被误清，也不复活状态）。
+5. **条件 UPDATE 未命中时不误清（必须用非空 sentinel，禁止空断言）**：先把 task 置为 `deleted` / `done` / `stopped` 终态，再由 test fixture 在**同一个隔离 test DB** 中对该 task 行**直接写入三个明确非空 sentinel**（`smooth_gate_seq = 777`、`smooth_gate_started_at_us = 123456789`、`smooth_gate_force_requested = 1`）；随后分别调用 `pause_task` 与 `stop_task_fatal`，断言：条件 UPDATE 未命中（`pause_task` 返回 `(None, False)`、`stop_task_fatal` 返回 `None`）、`status` 未被改写、且三个 sentinel **逐值保持**（`777` / `123456789` / `1`）。
+   - 这里的直接 SQL 只用于构造一个正常 API 不会产生的观察态（终态任务 + 非空 gate 列），目的是让「miss 分支完全不写 gate 列」成为可观测事实：若实现把清理写在条件 UPDATE 之外（无条件清），sentinel 会变成 `NULL`，用例立刻红。
+   - **不得以三列本来就是 `NULL` 来构造断言**：走 `set_task_status` 进入终态会按 §4.2.3 路径 1 先清空三列，此时「保持调用前的值」等于断言 `NULL` 仍是 `NULL`，无条件清的错误实现也照样通过，抓不到任何回归。
 6. **immediate 零行为变化**：immediate task 走 pause/stop/settle 全部路径，断言与本次改动前逐字段一致，且三列恒为 `NULL`/默认值。
 
 ### 4.3 Service / API 读写模型
@@ -351,7 +353,7 @@ GET  /api/hedge-open-logs?task_id=...（service.py:1103 的 task_id 分支）
 |---|---|
 | 文件名 | `requirements.txt`（仓库根，新建） |
 | 内容 | 仅 `ccxt==4.5.64` 一行 + 一句中文注释说明「运行时依赖；开发工具（pytest/mypy/ruff）不在此清单」 |
-| 维护者 | 本交付创建；此后由 Bookkeeper 在依赖变更交付中维护 |
+| 维护者 | 本交付由当前获 dispatch 的 Implementer 创建；此后任何依赖变更也只能由获专门 dispatch 的 Implementer 在该交付中修改。Bookkeeper 只核验和记账，**绝不修改 `requirements.txt`**。生产安装仍须 Human 单独授权 |
 | 事实依据 | 仓库当前**没有任何依赖清单**（无 `requirements*.txt` / `pyproject.toml` / `setup.py`），生产代码全部 stdlib（`backend/adapters/binance_public.py:13` 用 `urllib.request`）；`.venv` 内只有 pytest/mypy/ruff/jsonschema 等开发校验工具。CCXT 将是本仓第一个运行时依赖 |
 | 安装边界 | **本交付不得执行 `pip install`**。全部测试必须在未安装 ccxt 的当前 `.venv` 下全绿（靠 §4.1 第 4 条的惰性 import 与 fake source 实现） |
 | 生产安装 | 只有在 Review-1 + Review-2 ACCEPT 且 Human 明确授权后，才允许装入正在跑真钱的 `.venv`；安装属于 `AGENTS.md` §3 的外部副作用类动作，需单独授权，不被任何 ACCEPT 隐含 |
