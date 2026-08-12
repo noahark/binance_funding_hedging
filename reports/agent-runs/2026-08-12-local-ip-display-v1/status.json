@@ -1,22 +1,24 @@
 {
   "schema_version": "2",
-  "revision": 10,
+  "revision": 11,
   "stage_id": "2026-08-12-local-ip-display-v1",
   "bookkeeper": "codex / GPT-5",
-  "phase": "implementation-frontend",
-  "checkpoint": "backend-delivery-verified",
-  "base_sha": "73f525d4c3033cd4e8d7c7afb09a975816742913",
-  "delivery_sha": "73f525d4c3033cd4e8d7c7afb09a975816742913",
-  "ledger_sha": "73f525d4c3033cd4e8d7c7afb09a975816742913",
+  "phase": "repair-frontend-status-scope",
+  "checkpoint": "frontend-delivery-rejected-unauthorized-revision",
+  "base_sha": "6d6678d2c9b7ce3638a72bb5190f8e793c6fc594",
+  "delivery_sha": "6d6678d2c9b7ce3638a72bb5190f8e793c6fc594",
+  "ledger_sha": "b373e98e4785611277119dd96bf87a211854e58d",
   "current_task": {
-    "id": "public-ip-frontend-kimi",
-    "state": "reported",
-    "dispatch": "reports/agent-runs/2026-08-12-local-ip-display-v1/public-ip-frontend-kimi.dispatch.md"
+    "id": "public-ip-frontend-kimi-status-scope-fix",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-12-local-ip-display-v1/public-ip-frontend-kimi-status-scope-fix.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
     "action": "start-prepared-task"
   },
-  "rework_count": 0,
-  "blockers": []
+  "rework_count": 1,
+  "blockers": [
+    "public-ip-frontend-kimi: unauthorized status.json revision 9→10; minimal repair dispatched"
+  ]
 }

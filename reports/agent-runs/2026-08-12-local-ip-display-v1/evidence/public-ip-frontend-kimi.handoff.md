@@ -71,4 +71,11 @@
 
 ## Bookkeeper Verification (Bookkeeper append-only)
 
+- source_sha256: `df34f42734bd4ddada7ac9c3c72cf151d1a7aa4d78a7927611a2818ee6dcfaef`（`perl -0777 -ne '$marker = "<!-- BOOKKEEPER_APPEND_ONLY:"; $i = index($_, $marker); die "missing marker\\n" if $i < 0; print substr($_, 0, $i)' reports/agent-runs/2026-08-12-local-ip-display-v1/evidence/public-ip-frontend-kimi.handoff.md | shasum -a 256`）
+- verified_at: `2026-08-12 20:59:42 CST`
+- status revision checked: `10`（`public-ip-frontend-kimi` 为 `reported`）
+- SHA and scope evidence: `git rev-parse 73f525d4c3033cd4e8d7c7afb09a975816742913` = author base；`git rev-parse HEAD` = `6d6678d2c9b7ce3638a72bb5190f8e793c6fc594`。`git diff --name-status b373e98e4785611277119dd96bf87a211854e58d..6d6678d2c9b7ce3638a72bb5190f8e793c6fc594` 的前端代码、原始输出和 handoff 均在 Allowed Files，`git diff --check` 通过；`node frontend/self-check.js` 由 Bookkeeper 复跑并通过。
+- 拒收依据：同一 diff 显示 implementer 将 `status.json.revision` 从 `9` 改为 `10`。dispatch 的 Allowed Files 明定该文件**仅**可把本 task 的 `current_task.state` 从 `dispatched` 改为 `reported`；revision 属 Bookkeeper 状态迁移，非 implementer 授权范围。此项不改变前端产品代码效果，但违反 AGENTS.md §3／§7 和 dispatch 文件边界，不能静默封存或进入正式评审。
+- 后续状态：保持前端交付未核验；Bookkeeper 已按发现修复计数准备最小范围 repair（`rework_count` 递增为 1）。repair 仅恢复状态写入边界并新建自身 handoff，不改前端、后端、端点契约或活文档；通过后才汇总固定 delivery SHA 并准备正式评审。
+
 ## Errata (append-only)
