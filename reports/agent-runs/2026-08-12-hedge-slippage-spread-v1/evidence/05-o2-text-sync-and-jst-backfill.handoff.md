@@ -101,5 +101,30 @@ close-log 行。delivery commit 只含 dispatch 授权的四个 Git 路径。O-2
 
 ## Bookkeeper Verification (Bookkeeper append-only)
 
+- source_sha256: `47582485f0e31432337fdd64878b7a75583b52bf8cf37fb71ac49841b5fdb99a`
+- verified_at: `2026-08-12 10:33:14 CST`
+- status_revision_checked: `9`
+- verification_result: `ACCEPTED_BY_HUMAN_FAST_DIRECT`
+- delivery_sha: `f99795c31b7af517c7d8655177afb02d0f6a49ee`
+- identity_and_scope: `pass`（task_id、role、stage_id、base SHA 与 dispatch/status/Git 一致；
+  delivery commit 恰含授权四路径，产品差异只有 O-2 三处前端文字与 `service.py` 同族注释；
+  Human 的“最近 10 条”hunk 和 `frontend/self-check.js` 仍只在工作区，未混入交付。）
+- checks: `pass`（Bookkeeper 复跑 `node frontend/self-check.js` 全部通过；定向后端测试
+  `131 passed in 2.95s`；`git diff --check` 通过。）
+- database_evidence: `pass`（备份 SHA-256 为
+  `11dd8cb0346de001d67c2139fe4dcc40994a726a69840570f58b1022d8703e59` 且
+  `integrity_check=ok`，目标行保留写前 `-0.37/NULL`；当前原库 `integrity_check=ok`，唯一
+  `id=6` 行为 `JSTUSDT/reverse/0.2316/-0.2192`。）
+- human_decision: Human 确认数据显示正常，明确不再执行本次 O-2 扩展后的 review-1/review-2，
+  并批准提交、合并及推送代码；按 `AGENTS.md` Human Fast Path 作为 `Fast Direct` 执行，Human
+  接受被省略的新增评审保证。本决定不授权部署、服务重启或其他数据库/实盘动作。
+- residuals: O-1/O-4 仍为 fail-closed 后续项——特定 UM drain 成交缺 quote 时均价/滑点可能
+  显示 `—`，不得臆造数值；不阻塞本次 Human 验收。
+- reproducible_commands:
+  - `perl -0ne '$i=index($_,"<!-- BOOKKEEPER_APPEND_ONLY:"); die if $i < 0; print substr($_,0,$i)' reports/agent-runs/2026-08-12-hedge-slippage-spread-v1/evidence/05-o2-text-sync-and-jst-backfill.handoff.md | shasum -a 256`
+  - `git show --format= --name-status f99795c31b7af517c7d8655177afb02d0f6a49ee`
+  - `shasum -a 256 data/hedge-open-tasks.sqlite3.bak-jst-slippage-row6-20260812-095000`
+  - `sqlite3 -readonly data/hedge-open-tasks.sqlite3 'PRAGMA integrity_check; SELECT id,cycle_id,symbol,direction,open_slippage,close_slippage FROM hedge_open_cycle_close_log WHERE id=6;'`
+
 ## Errata (append-only)
 任何更正均追加，说明日期、作者、改动原因与不改变的事实；不得改写 Source Report 或 Human Brief。

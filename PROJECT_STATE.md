@@ -6,9 +6,9 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-12)
 
-- **Active stage：`2026-08-12-hedge-slippage-spread-v1`。** Human 已确认历史仓位的
-  `open_slippage` / `close_slippage` 统一使用两腿真实成交加权均价，并以卖价高于买价为正；
-  当前已固定基线并派发跨 provider 只读计划评审，尚未实施代码、补录历史数据、重启或部署。
+- **Active stage：`2026-08-12-hedge-slippage-spread-v1` 已获 Human 最终业务验收，待归档。**
+  两腿真实成交价差代码、O-2 界面说明与 JSTUSDT 历史行 `0.2316/-0.2192` 均已核验；Human
+  对最后的文字/数据交付采用 Fast Direct，批准提交、合并、推送，未授权部署或服务重启。
 
 - 上一 stage `2026-08-11-reverse-position-drift-v1` 已获 Human 最终验收并
   push 到 `origin/main`，完整阶段证据归档在
@@ -82,19 +82,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   为主，读不到时红字提示 + drift 标记已兜底，维持现状不再整改。）
 
 ## Live Risks
-
-- `[OPEN][LIVE-INCIDENT][2026-08-12]` **历史仓位的开/平单滑点计算不符合 Human 确认口径；
-  两段式平仓还会令平单滑点显示为 `—`。**
-  JSTUSDT reverse 周期 `30918cf0-6f9d-4c93-b876-395eb37c804f` 于 06:36:22 CST 自动平仓完成；
-  **Human 2026-08-12 确认最终口径：**`open_slippage` / `close_slippage` 是对应阶段两腿真实
-  成交加权均价的价差百分比，统一为 `(卖出腿均价 - 买入腿均价) / min(两腿均价) × 100`；
-  只有卖价高于买价才为正。不得使用 preflight `est_price`。JSTUSDT reverse 开单为现货卖
-  `0.09808666666666666666666666667`、合约买 `0.09786`，应为 `+0.2316%`；平单为合约卖
-  `0.10036`、现货买 `0.10058`，应为 `-0.2192%`。当前 `cycle_slippage_pct` 只比较合约腿
-  与 task snapshot 的估价，未使用现货成交均价；两段式 close 的 task snapshot 又固定为
-  `no_preflight_snapshot`，所以现有开单值口径错误、平单值为 NULL。影响仅为历史页滑点
-  缺失/错误，不改变实际成交、持仓或订单状态。修复须对 open/close 复用一个按方向选择
-  买卖腿的计算，并覆盖两种方向；历史 JSTUSDT 是否补录由 Human 另行决定，模型不得直接改实盘库。
 
 - `[RESOLVED][LIVE-INCIDENT][2026-08-10]` **XLMUSDT reverse 平仓单腿成交，现货负债腿已由
   Human 人工收口。**
@@ -349,6 +336,10 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 - `[OPEN][RESIDUAL]` Perp average price can read blank — upstream: Binance dropped
   quote/avgPrice from the UM POST result (2026-07-14), so figures only arrive via
   the order-detail GET. Renders as an em-dash, not a fabricated zero.
+- `[OPEN][RESIDUAL]` **UM drain 可在 `cumulative_quote` 未知时把 FILLED 腿判为终态。**
+  该路径会保留 `avg_price` 但缺 quote，导致该周期的合约均价与开/平滑点显示 `—`；这是
+  fail-closed，不影响订单或持仓且不臆造数值。重开条件：出现真实历史周期命中该形态，或 Human
+  决定统一 drain/inline 终态规则；届时应同批评估 quote 缺失时用 `avg_price × qty` 加权的口径。
 - `[OPEN][RESIDUAL]` `_rate_limit_stamp_pending` is in-process: a restart mid-stamp
   costs one failure count (pauses one early, fail-closed). Fix = a new column.
 - `[OPEN][RESIDUAL]` The money-zero tripwire is a speed bump, not a proof: five

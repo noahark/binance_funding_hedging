@@ -43,7 +43,7 @@ This file is the canonical approved roadmap.
 |---|---|---|---|---|
 | ① | 持仓周期表 | `hedge_open_cycle` + `attempt.cycle_id` + 聚合按周期拆分 + 历史回填 + **预留 `close_cycle` 关闭接口（供功能③调用；不做自动归零观察、不接线触发逻辑）** | HIGH_RISK（改记账口径；纯记账无实盘下单） | 平仓再开仓不混算；起始持仓时间正确；`close_cycle` 契约（幂等/单向/事务）单测通过（设计 v1 §8 用例 1/2/2b/3/4/5/5b/8） |
 | ② | 费率/利息统计 | 持仓行 `accrued_funding`/`borrow_interest`/`net_pnl` 从占位「暂无」变周期窗口真值（自 ledger-flow 现算） | 中（资金/PnL 展示，纯读） | 三列真值；覆盖率不足降级显示 |
-| ③a | 平仓记录 | `hedge_open_cycle_close_log` + 平仓完成/人工核实时写结算日志 + 历史仓位页（已做 fake）接真数据 | 低（结构先行） | 历史仓位 fake → 真实（开/平时间、费率、利息真值；平单均价/滑点仍占位） |
+| ③a | 平仓记录 | `hedge_open_cycle_close_log` + 平仓完成/人工核实时写结算日志 + 历史仓位页接真数据 | 低（结构先行） | 开/平时间、费率、利息与均价真值；开/平滑点按两腿真实成交加权均价、卖减买、四位百分比记录 |
 | ③b | 平仓执行 | 真实平仓（实盘双腿、滑点校验、还债、资金移动），**平仓完成调用①预留的 `close_cycle`（close_reason='auto_close'）** | 最高（实盘资金操作，需 Human 授权 + 最严评审） | 平仓事件精确关周期；close_log 补全平单均价/滑点 |
 
 **状态（2026-08-06）**：① ② ③a ③b **全部开发完成并实盘验证，Human 2026-08-05 验收通过**；
@@ -61,6 +61,10 @@ This file is the canonical approved roadmap.
 全平），`close_gate` 默认开（`store.py` `DEFAULT 1`）。挂账 follow-up：本地数量与交易所脱节（X/Y/Z 方案待定）、
 close_log 利息 ≈U（价格源注入 service 层）。（「MUUUSDT 现货别名配对」已随 `SPOT_SYMBOL_MAP`
 解决：MUUSDT→MUBUSDT 与 MUUUSDT→MUUBUSDT 是两个并存的真实合约，均已收录。）
+
+**2026-08-12 滑点口径收口**：历史仓位开/平滑点改为对应阶段两腿真实成交数量加权均价的
+`(卖价 - 买价) / min(两腿均价) × 100`，卖价高于买价为正，四位小数；缺腿保持 `NULL/—`，
+不再使用 preflight `est_price`。JSTUSDT 历史行已在备份后补录为 `0.2316/-0.2192`。
 
 设计权威：`docs/planning/hedge-open-position-cycle-v1.md`（周期设计 v1；五项口径 + 关闭触发决策已拍板——**不做自动归零观察，关闭由功能三平仓任务触发、人工核实作纠偏**）。
 开发文稿：`docs/planning/hedge-open-cycle-stage2-cycle-dev.md`（功能 ①）、

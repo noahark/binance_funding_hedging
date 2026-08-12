@@ -224,6 +224,19 @@ weighted_average_price = cumulative_quote_amount / cumulative_base_quantity
 Small actual quantity/value differences between legs are normal. They are shown
 and retained for audit, but receive no special action in this stage.
 
+Historical-position `open_slippage` and `close_slippage` compare the two legs'
+actual quantity-weighted average prices for the corresponding stage:
+
+```text
+(seller_leg_average - buyer_leg_average) / min(two_leg_averages) * 100
+```
+
+The value is positive only when the seller's execution price is higher than the
+buyer's. Forward/reverse and open/close select the seller and buyer from the
+actual leg actions. Missing or non-positive leg prices remain unknown (`NULL`),
+while a genuine zero spread is recorded as `0.0000`. Preflight `est_price` is
+not part of this accounting value.
+
 ### 6.6 Real-execution gates
 
 Real hedge POST requires:
