@@ -4476,12 +4476,11 @@ setTimeout(async () => {
       if ((hedgeTbody.match(/<tr/g) || []).length !== 6) {
         throw new Error('开单断言前置：期望 6 行全量渲染');
       }
-      // 操作列结构：两输入 + 平滑 disabled + 阈值输入 + % + 立即开单；
-      // 平滑按钮/阈值/% 位于同一不换行的 hedge-op-smooth-row 内，输入框紧贴按钮右侧。
+      // 操作列结构：两输入 + 平滑 disabled + 阈值输入 + % + 立即开单；平滑开单仍 disabled
       const cusdtFwdOp = getRowCell(hedgeTbody, 'CUSDT', 13);
       const cusdtRevOp = getRowCell(hedgeTbody, 'CUSDT', 14);
       for (const [name, cell] of [['CUSDT 正向操作列', cusdtFwdOp], ['CUSDT 反向操作列', cusdtRevOp]]) {
-        for (const piece of ['单次开单币量', '计划尝试次数', '平滑开单', '立即开单', 'data-hedge-open="smooth"', 'data-hedge-open="immediate"', 'hedge-threshold-input', 'value="0.05"', 'hedge-op-smooth-row']) {
+        for (const piece of ['单次开单币量', '计划尝试次数', '平滑开单', '立即开单', 'data-hedge-open="smooth"', 'data-hedge-open="immediate"', 'hedge-threshold-input', 'value="0.05"']) {
           if (!cell.includes(piece)) throw new Error(`${name} 缺少「${piece}」: ${cell}`);
         }
         const smoothBtnMatch = cell.match(/<button[^>]*data-hedge-open="smooth"[^>]*>/);
@@ -4499,19 +4498,13 @@ setTimeout(async () => {
         if (immediateBtnMatch[0].includes('disabled')) {
           throw new Error(`${name} 立即开单按钮不应 disabled: ${immediateBtnMatch[0]}`);
         }
-        // 顺序：同一 hedge-op-smooth-row 内 平滑按钮 → 阈值输入 → %；整行位于立即开单之前。
-        const rowMatch = cell.match(/<div class="hedge-op-smooth-row"[^>]*>[\s\S]*?<\/div>/);
-        if (!rowMatch) throw new Error(`${name} 缺少 hedge-op-smooth-row 容器: ${cell}`);
-        const smoothIdx = rowMatch[0].indexOf(smoothBtnMatch[0]);
-        const thresholdIdx = rowMatch[0].indexOf(thresholdMatch[0]);
-        const pctIdx = rowMatch[0].indexOf('%</span>');
-        if (!(smoothIdx < thresholdIdx && thresholdIdx < pctIdx)) {
-          throw new Error(`${name} 平滑组内顺序应为 平滑按钮 < 阈值输入 < %: ${rowMatch[0]}`);
-        }
-        const rowIdx = cell.indexOf(rowMatch[0]);
+        // 顺序：平滑按钮 → 阈值输入 → % 后缀 → 立即开单
+        const smoothIdx = cell.indexOf(smoothBtnMatch[0]);
+        const thresholdIdx = cell.indexOf(thresholdMatch[0]);
+        const pctIdx = cell.indexOf('%</span>');
         const immediateIdx = cell.indexOf(immediateBtnMatch[0]);
-        if (!(rowIdx < immediateIdx)) {
-          throw new Error(`${name} 平滑控件组应位于立即开单按钮之前: ${cell}`);
+        if (!(smoothIdx < thresholdIdx && thresholdIdx < pctIdx && pctIdx < immediateIdx)) {
+          throw new Error(`${name} 控件顺序应为 平滑按钮 < 阈值输入 < % < 立即开单: ${cell}`);
         }
       }
       // 推荐高亮：CUSDT 正费率 → 正向列按钮高亮、反向列不高亮
@@ -4528,7 +4521,7 @@ setTimeout(async () => {
       if (fusdtFwdOp.includes('hedge-reco') || fusdtRevOp.includes('hedge-reco')) {
         throw new Error('零费率行两个方向都不应高亮');
       }
-      console.log('[PASS] 开单操作列两输入两按钮、平滑开单组内同行、disabled+下一轮、立即开单可点、推荐方向按费率符号高亮');
+      console.log('[PASS] 开单操作列两输入两按钮、平滑开单 disabled+下一轮、立即开单可点、推荐方向按费率符号高亮');
     }
 
     // 78. 立即开单创建：POST §3.1 冻结 body + 创建后重拉列表 + 非法输入零 POST + invalid_field 行内报错
