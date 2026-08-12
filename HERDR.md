@@ -41,9 +41,11 @@ herdr agent prompt <pane_id> <content>
 
 This is a local copy/paste-and-Enter operation. It does not create a model
 session, does not record an approval, and does not authorize a reply, a later
-send, or any state transition. Do not use `--wait` as proof that the newly sent
-task completed: it observes a terminal state and may be satisfied by work that
-was already in progress.
+send, or any state transition. Once Herdr returns `agent_prompted`, report that
+the message was sent successfully and stop. Do not run `agent wait`, `agent
+read`, polling, or `--wait` unless Human explicitly asks to observe the target
+window. Those status checks do not prove that the newly sent task completed:
+they may be satisfied by work that was already in progress.
 
 ## Label Maintenance
 
