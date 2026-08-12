@@ -11,8 +11,10 @@ give a model permission to act as the next workflow model or expand task scope.
 - A model's self-check against `target_model` is only a warning tripwire. The
   operator's launch record and Bookkeeper verification establish the actual
   model identity.
-- No model may start, call, relay to, or impersonate the next workflow model
-  session. Human starts each next workflow model session.
+- No model may act as or impersonate the next workflow model session. After
+  explicit Human permission, a model may use Herdr to notify the terminal for
+  the next task; that permission is an in-the-moment copy/paste instruction,
+  not a durable approval record.
 - Stay inside the dispatch file boundary. Stop and report if the boundary is
   insufficient or overlaps another terminal's work.
 - Preserve raw evidence. Do not replace test output, findings, or model output
@@ -435,8 +437,9 @@ replace it with a later bookkeeping commit.
 - Prepare the next dispatch packet, then make the final `status.json` revision
   point to that packet. Do not bump the revision again before human delivery.
 - Enforce the `rework_count` rule defined in `AGENTS.md`.
-- Prepare model-facing instructions, but never start or relay to the next
-  formal workflow terminal.
+- Prepare model-facing instructions. After explicit Human permission, it may
+  use Herdr to notify the terminal for the next task; it does not act as or
+  impersonate that workflow model.
 
 ### Stop Point
 

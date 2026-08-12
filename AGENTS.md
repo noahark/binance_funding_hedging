@@ -58,9 +58,8 @@ During a Harness change, each rule, field shape, state vocabulary, routing mappi
 These are Human-authorization gates: the actions below require explicit Human authorization before a model performs them. They are a different classification from the review-topology risk in §8 Review Rules.
 
 1. Money, orders, live gates, credentials, destructive data actions, risk-limit changes, deployment, and external side effects require explicit human authorization.
-2. No model may act as, start, call, relay to, assign, or impersonate the next
-   or another independent workflow model session. The human operator starts
-   each next formal workflow terminal from a prepared packet.
+2. No model may act as or impersonate the next or another independent workflow
+   model session.
 3. An implementer may modify only dispatch-approved files. It must not overwrite the human's or another terminal's work; insufficient scope is a blocker.
 4. An implementation or fix author cannot review its own delivery. Formal review uses a fresh read-only session.
 5. Review isolation follows the model vendor, not the CLI wrapper.
@@ -128,8 +127,8 @@ Detailed model routing and provider identity live only in `agents/roles.md`; thi
 9. After review-2 `ACCEPT`, a model explains the verdict and remaining risk; Human makes the final decision.
 10. Merge, deployment, or live activation requires explicit human authorization.
 
-Models prepare dispatch packets; only the human operator starts the selected
-next formal workflow terminal.
+Models prepare dispatch packets. After explicit Human permission, they may use
+Herdr to notify the terminal for the next task.
 
 ## 7. Task Result Protocol
 
@@ -198,10 +197,6 @@ Every formal `[TASK_RESULT v2]` must contain these three Chinese handoff lines:
 - `下一步任务` describes the action of that same immediate actor: the concrete
   evidence path, state transition, next gate, and any later reviewer only when
   it is part of the follow-on sequence. Do not use vague text.
-
-These fields are informational only and never authorize dispatch. The current
-model cannot start, call, relay to, or assign the next formal workflow
-actor.
 
 ### New-Stage Handoff Receipt
 

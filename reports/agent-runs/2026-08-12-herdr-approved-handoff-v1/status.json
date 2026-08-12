@@ -1,13 +1,13 @@
 {
   "schema_version": "2",
-  "revision": 2,
+  "revision": 3,
   "stage_id": "2026-08-12-herdr-approved-handoff-v1",
   "bookkeeper": "codex",
-  "phase": "planning",
-  "checkpoint": "planning packet narrowed to Human-directed Herdr copy/paste; awaiting Human start",
+  "phase": "fast-direct-delivered; planning-dispatch-stale",
+  "checkpoint": "Human Fast Direct changed the Herdr workflow boundary; do not start the stale planning packet before a new Bookkeeper baseline",
   "base_sha": "e7399ee1f3e00e3cc4dde78fd75c41263fd62a24",
   "delivery_sha": null,
-  "ledger_sha": "e7399ee1f3e00e3cc4dde78fd75c41263fd62a24",
+  "ledger_sha": "7ec5e4eca04d203b7b10c06d4e00ca41c9490c4b",
   "current_task": {
     "id": "herdr-approved-handoff-plan",
     "state": "dispatched",
@@ -15,8 +15,10 @@
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-task"
+    "action": "decide-whether-to-continue-or-close-the-stale-stage"
   },
   "rework_count": 0,
-  "blockers": []
+  "blockers": [
+    "Human Fast Direct changed AGENTS.md and agents/roles.md outside this stage; the planning dispatch is stale and must not be started."
+  ]
 }
