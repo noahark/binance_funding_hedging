@@ -346,9 +346,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   costs one failure count (pauses one early, fail-closed). Fix = a new column.
 - `[OPEN][RESIDUAL]` The money-zero tripwire is a speed bump, not a proof: five
   evasions + `fee_amount` outside the money names. DEC-2026-07-30-001.
-- `[OPEN][HARNESS]` ~41 completed stage dirs in `reports/agent-runs/`, vs §9.5.
-  v2 findings: batch A merged; batch B + R3/R4 wait for a real problem, G1/G14
-  OPEN by decision (Human 2026-07-31). Detail: archive `22-`.
 - `[RESOLVED][OPERATIONS][2026-08-05]` **COOKIEUSDT 平仓单腿事故**（已修复并实盘
   验证）：forward close 现货 SELL 被路由误导到普通现货账户而币在统一账户 → 单腿
   遗留。修复链含 close 固定账户路由 + 万向划转补足 + close 完成判定重构。
