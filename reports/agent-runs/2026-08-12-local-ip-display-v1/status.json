@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 7,
+  "revision": 8,
   "stage_id": "2026-08-12-local-ip-display-v1",
   "bookkeeper": "codex / GPT-5",
-  "phase": "plan-review-r2",
-  "checkpoint": "revised-plan-delivery-sealed",
-  "base_sha": "90bcaae72a17de358e9edbfd9cf337136acf4b57",
-  "delivery_sha": "fefc8aac46e7dbc9a1e20467625288e9aa70ac48",
-  "ledger_sha": "fefc8aac46e7dbc9a1e20467625288e9aa70ac48",
+  "phase": "implementation-backend",
+  "checkpoint": "r2-plan-accepted",
+  "base_sha": "54b23cc904b9785e77f7f984f7bbdd4972de2f44",
+  "delivery_sha": null,
+  "ledger_sha": "54b23cc904b9785e77f7f984f7bbdd4972de2f44",
   "current_task": {
-    "id": "public-ip-live-plan-review-claude-r2",
+    "id": "public-ip-backend-claude-glm",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-12-local-ip-display-v1/public-ip-live-plan-review-claude-r2.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-12-local-ip-display-v1/public-ip-backend-claude-glm.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
