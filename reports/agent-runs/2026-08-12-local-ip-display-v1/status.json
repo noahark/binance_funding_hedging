@@ -1,6 +1,6 @@
 {
   "schema_version": "2",
-  "revision": 9,
+  "revision": 10,
   "stage_id": "2026-08-12-local-ip-display-v1",
   "bookkeeper": "codex / GPT-5",
   "phase": "implementation-frontend",
@@ -10,7 +10,7 @@
   "ledger_sha": "73f525d4c3033cd4e8d7c7afb09a975816742913",
   "current_task": {
     "id": "public-ip-frontend-kimi",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-08-12-local-ip-display-v1/public-ip-frontend-kimi.dispatch.md"
   },
   "next": {

@@ -558,6 +558,8 @@ let marginRepayPostThrow = null;
 let marginRepayPostPendingSnapshot = null;
 // Q4：GET /api/private-account/max-withdraw 的响应槽；未设置时 503。
 let maxWithdrawGetResponse = null;
+// 公网出口 IP（stage 2026-08-12-local-ip-display-v1）：GET /api/system/public-ip 响应槽。
+let publicIpGetResponse = null;
 // 流水日志 private-ledger mock（task C）
 let flowLogGetResponse = null;
 let flowLogRefreshResponse = null;
@@ -953,6 +955,12 @@ global.fetch = async (url, options) => {
       body: { error: 'private_account_unavailable', detail: 'mock 未设置 max-withdraw 响应' }
     });
   }
+  if (urlStr === '/api/system/public-ip' && method === 'GET') {
+    return buildFetchResponse(publicIpGetResponse || {
+      status: 503,
+      body: { error: 'public_ip_unavailable', detail: 'mock 未设置 public-ip 响应' }
+    });
+  }
   if (urlStr === '/api/public-market/cache-refresh' && method === 'POST') {
     return buildFetchResponse(cacheRefreshPostResponse || {
       status: 503,
@@ -1219,36 +1227,24 @@ setTimeout(async () => {
     }
     console.log('[PASS] 数据说明已删除；市场表下北京时间元信息已渲染');
 
-    // 3b. 公网出口 IP fake 预览 badge：与标题同一行、紧邻右侧、含文档保留地址与预览标识
+    // 3b. 公网出口 IP：初始加载 fire-and-forget 同源 GET，失败降级为暂不可用
     {
-      const titleRowStart = html.indexOf('<div class="title-row">');
-      const titleRowEnd = html.indexOf('</div>', titleRowStart);
-      if (titleRowStart === -1 || titleRowEnd === -1) {
-        throw new Error('未找到 title-row 容器');
+      const publicIpCalls = fetchCallLog.filter(c => c.url === '/api/system/public-ip');
+      if (publicIpCalls.length !== 1) {
+        throw new Error(`初始加载应恰好一次 public-ip 请求，实际 ${publicIpCalls.length}`);
       }
-      const titleRowHtml = html.slice(titleRowStart, titleRowEnd + 6);
-      if (!titleRowHtml.includes('<h1>资金费率对冲工作台</h1>')) {
-        throw new Error('title-row 内应包含 h1 标题');
+      if (publicIpCalls[0].method !== 'GET') {
+        throw new Error(`public-ip 必须是 GET: ${publicIpCalls[0].method}`);
       }
-      const badgeMatch = titleRowHtml.match(/<span[^>]*id="public-ip-badge"[^>]*>([\s\S]*?)<\/span>/);
-      if (!badgeMatch) {
-        throw new Error('title-row 内应包含 IP badge');
+      if (publicIpCalls[0].cache !== 'no-store') {
+        throw new Error(`public-ip 必须 cache=no-store: ${publicIpCalls[0].cache}`);
       }
-      const badgeHtml = badgeMatch[0];
-      const badgeText = badgeMatch[1].replace(/<[^>]+>/g, '').trim();
-      if (!badgeText.includes('公网出口 IP')) {
-        throw new Error(`IP badge 缺少「公网出口 IP」文案: ${badgeText}`);
+      if (elements['public-ip-badge'].textContent !== '公网出口 IP 暂不可用') {
+        throw new Error(`默认失败后 badge 应为暂不可用: ${elements['public-ip-badge'].textContent}`);
       }
-      if (!badgeText.includes('预览')) {
-        throw new Error(`IP badge 缺少「预览」标识: ${badgeText}`);
-      }
-      if (!badgeText.includes('203.0.113.42')) {
-        throw new Error(`IP badge 缺少文档保留地址: ${badgeText}`);
-      }
-      const titleAttrMatch = badgeHtml.match(/title="([^"]*)"/);
-      const badgeTitle = titleAttrMatch ? titleAttrMatch[1] : '';
-      if (!badgeTitle || !badgeTitle.includes('预览')) {
-        throw new Error(`IP badge 应通过 title 提示为预览: ${badgeTitle}`);
+      // 不再有假 preview 地址/字样；badge 仍在标题行、不在右侧控件区
+      if (html.includes('203.0.113.42') || html.includes('（预览）')) {
+        throw new Error('页面不应再保留 fake preview 地址或预览字样');
       }
       const badgeRowStart = html.indexOf('<div class="badge-row" aria-label="刷新与排序">');
       const badgeIdIdx = html.indexOf('id="public-ip-badge"');
@@ -1256,7 +1252,7 @@ setTimeout(async () => {
         throw new Error('IP badge 不得放入右侧刷新/排序控件区');
       }
     }
-    console.log('[PASS] 公网出口 IP fake 预览 badge 位于标题同一行紧邻右侧');
+    console.log('[PASS] 公网出口 IP 初始加载请求与失败降级');
 
     // 低日费率过滤默认开启：设计期 fixture 的 CUSDT daily_funding_rate 正好是边界
     // 0.00030000，默认会被隐藏（6→5）。legacy 6 行基线段在此显式关闭该过滤并重渲染，
@@ -1650,6 +1646,78 @@ setTimeout(async () => {
       throw new Error('60s 自动刷新须强制重拉对冲持仓（cache=no-store）');
     }
     console.log('[PASS] 60s 自动刷新强制重拉快照与持仓，手动刷新后计时器重调度');
+
+    // 18b. 公网出口 IP 三态展示：ok / stale / unavailable / HTTP 失败 / schema 异常
+    {
+      // ok 态
+      publicIpGetResponse = {
+        status: 200,
+        body: { status: 'ok', public_ip: '203.0.113.10', source: 'api.ipify.org', checked_at: '2026-08-12T10:00:00Z' }
+      };
+      await Promise.all((elements['btn-refresh'].listeners.click || []).map(h => h()));
+      if (elements['public-ip-badge'].textContent !== '公网出口 IP 203.0.113.10') {
+        throw new Error(`ok 态 badge 文案错误: ${elements['public-ip-badge'].textContent}`);
+      }
+      const okTitle = elements['public-ip-badge'].getAttribute('title');
+      if (!okTitle || !okTitle.includes('api.ipify.org') || !okTitle.includes('不能证明币安')) {
+        throw new Error(`ok 态 title 错误: ${okTitle}`);
+      }
+
+      // stale 态
+      publicIpGetResponse = {
+        status: 200,
+        body: { status: 'stale', public_ip: '198.51.100.5', source: 'checkip.amazonaws.com', checked_at: '2026-08-12T09:00:00Z' }
+      };
+      await Promise.all((elements['btn-refresh'].listeners.click || []).map(h => h()));
+      if (elements['public-ip-badge'].textContent !== '公网出口 IP（上次成功） 198.51.100.5') {
+        throw new Error(`stale 态 badge 文案错误: ${elements['public-ip-badge'].textContent}`);
+      }
+      const staleTitle = elements['public-ip-badge'].getAttribute('title');
+      if (!staleTitle || !staleTitle.includes('2026-08-12T09:00:00Z') || !staleTitle.includes('不能证明币安')) {
+        throw new Error(`stale 态 title 错误: ${staleTitle}`);
+      }
+
+      // unavailable 态
+      publicIpGetResponse = {
+        status: 200,
+        body: { status: 'unavailable', public_ip: null, source: null, checked_at: null }
+      };
+      await Promise.all((elements['btn-refresh'].listeners.click || []).map(h => h()));
+      if (elements['public-ip-badge'].textContent !== '公网出口 IP 暂不可用') {
+        throw new Error(`unavailable 态 badge 文案错误: ${elements['public-ip-badge'].textContent}`);
+      }
+
+      // HTTP 非 200
+      publicIpGetResponse = { status: 503, body: { error: 'public_ip_unavailable' } };
+      await Promise.all((elements['btn-refresh'].listeners.click || []).map(h => h()));
+      if (elements['public-ip-badge'].textContent !== '公网出口 IP 暂不可用') {
+        throw new Error(`HTTP 失败应降级为暂不可用: ${elements['public-ip-badge'].textContent}`);
+      }
+
+      // schema 异常（字段缺失 / public_ip 非字符串）
+      publicIpGetResponse = { status: 200, body: { status: 'ok', public_ip: null, source: 'x', checked_at: 'x' } };
+      await Promise.all((elements['btn-refresh'].listeners.click || []).map(h => h()));
+      if (elements['public-ip-badge'].textContent !== '公网出口 IP 暂不可用') {
+        throw new Error(`schema 异常应降级为暂不可用: ${elements['public-ip-badge'].textContent}`);
+      }
+
+      // 未知 status
+      publicIpGetResponse = { status: 200, body: { status: 'weird', public_ip: '1.2.3.4', source: 'x', checked_at: 'x' } };
+      await Promise.all((elements['btn-refresh'].listeners.click || []).map(h => h()));
+      if (elements['public-ip-badge'].textContent !== '公网出口 IP 暂不可用') {
+        throw new Error(`未知 status 应降级为暂不可用: ${elements['public-ip-badge'].textContent}`);
+      }
+
+      // public-ip 请求始终为 GET、同源、no-store；本段刷新后又产生 5 次请求
+      const ipCalls = fetchCallLog.filter(c => c.url === '/api/system/public-ip');
+      if (!ipCalls.every(c => c.method === 'GET' && c.cache === 'no-store' && !/^[a-z][a-z0-9+.-]*:\/\//i.test(c.url))) {
+        throw new Error('public-ip 请求必须全部为同源 GET cache=no-store');
+      }
+
+      // 复位，避免影响后续断言
+      publicIpGetResponse = null;
+    }
+    console.log('[PASS] 公网出口 IP 三态展示与失败降级');
 
     // 19. 净收益列存在与格式（统一 3 位小数百分比）
     const netYieldChecks = [
@@ -8199,6 +8267,8 @@ setTimeout(async () => {
         /^\/api\/hedge-open-logs\?/,
         // 功能三 ③a：历史仓位——周期结算日志（同源、GET）。
         /^\/api\/hedge-open-close-logs$/,
+        // 公网出口 IP（stage 2026-08-12-local-ip-display-v1）：同源、只读、GET。
+        /^\/api\/system\/public-ip$/,
         // dual-ledger flow-log（task C）
         /^\/api\/private-ledger\/flow-log\?/,
         /^\/api\/private-ledger\/refresh$/,
@@ -8251,6 +8321,8 @@ setTimeout(async () => {
           if (c.method !== 'GET') throw new Error(`开单日志路由非法方法 ${c.method}`);
         } else if (c.url === '/api/borrow-logs/clear') {
           if (c.method !== 'POST') throw new Error(`清空借币日志路由非法方法 ${c.method}`);
+        } else if (c.url === '/api/system/public-ip') {
+          if (c.method !== 'GET') throw new Error(`public-ip 路由非法方法 ${c.method}`);
         } else if (c.url === '/api/public-market/cache-refresh') {
           if (c.method !== 'POST') throw new Error(`cache-refresh 路由非法方法 ${c.method}`);
         } else if (c.url.startsWith('/api/private-ledger/flow-log')) {

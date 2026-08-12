@@ -1307,7 +1307,7 @@
         <div class="title-block">
           <div class="title-row">
             <h1>资金费率对冲工作台</h1>
-            <span class="badge info compact" id="public-ip-badge" title="文档保留地址，仅供视觉预览">公网出口 IP（预览） 203.0.113.42</span>
+            <span class="badge info compact" id="public-ip-badge">公网出口 IP 读取中…</span>
           </div>
           <p class="subtitle" id="account-asset-updated-at">账户资产更新时间 —</p>
         </div>
@@ -6878,12 +6878,46 @@
         }
       }
 
+      function loadPublicIp() {
+        const badge = document.getElementById('public-ip-badge');
+        if (!badge) return;
+        badge.textContent = '公网出口 IP 读取中…';
+        badge.removeAttribute('title');
+        fetch('/api/system/public-ip', { cache: 'no-store' })
+          .then(res => {
+            if (!res.ok) throw new Error('non-200');
+            return res.json();
+          })
+          .then(data => {
+            if (!data || typeof data !== 'object') throw new Error('bad shape');
+            const { status, public_ip, source, checked_at } = data;
+            const okString = (s) => typeof s === 'string' && s.length > 0;
+            if (status === 'ok' && okString(public_ip) && okString(source) && okString(checked_at)) {
+              badge.textContent = `公网出口 IP ${public_ip}`;
+              badge.setAttribute('title', `来源：${source}；仅供核对 API 白名单，不能证明币安实际看到的出口 IP`);
+            } else if (status === 'stale' && okString(public_ip) && okString(source) && okString(checked_at)) {
+              badge.textContent = `公网出口 IP（上次成功） ${public_ip}`;
+              badge.setAttribute('title', `最后成功：${checked_at}（来源：${source}）；仅供核对，不能证明币安实际看到的出口 IP`);
+            } else if (status === 'unavailable') {
+              badge.textContent = '公网出口 IP 暂不可用';
+              badge.removeAttribute('title');
+            } else {
+              throw new Error('unknown status');
+            }
+          })
+          .catch(() => {
+            badge.textContent = '公网出口 IP 暂不可用';
+            badge.removeAttribute('title');
+          });
+      }
+
       async function loadApi() {
         refreshState.isRefreshing = true;
         updateCountdown();
         setStatus('loading', '正在请求 /api/public-market/snapshot ...');
         state.source = 'api';
         els.dataSourceLabel.textContent = '数据源: /api/public-market/snapshot';
+        loadPublicIp(); // fire-and-forget：不阻塞快照/持仓/定时器
         try {
           const res = await fetch('/api/public-market/snapshot', { cache: 'no-store' });
           if (!res.ok) {
