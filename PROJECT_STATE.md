@@ -362,16 +362,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   minimal record for a task packet that is prepared but never started and then
   replaced (for example, a provider quota change). The current Kimi-to-DeepSeek
   replacement is traceable and did not execute, so this is not a merge blocker.
-- `[OPEN][HARNESS-FOLLOW-UP]` **O-D — review-closure field lines omitted.** The
-  DeepSeek Review-1 receipt for `review-1-position-balance-display-v1-deepseek`
-  carried its ACCEPT only as the Source Report conclusion and omitted the
-  `评审结论:` / `问题记录:` / `修复要求:` field lines that `AGENTS.md` §7 requires
-  inside the result block. Bookkeeper judged it a non-rejecting format deviation
-  because the closure data was explicit and unambiguous in the same file, and the
-  Review-2 dispatch now demands the three explicit lines. Decide whether the
-  reviewer dispatch template should state them literally so the omission cannot
-  recur. Not a merge blocker.
-
 ## Next Priority
 
 - **No active stage.** Current priorities (detail in the sections above):
