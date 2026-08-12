@@ -331,20 +331,15 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Last Completed
 
-- stage: `2026-08-12-hedge-slippage-spread-v1`
-- archive_ref: `archive/2026-08-12-hedge-slippage-spread-v1`（tip
-  `ad774315eb56e933ab14615c7a92e0b697f4e5e9`，完整 dispatch/handoff/status 与 Human Fast
-  最终验收记录）
-- delivery: `05d2ac9..f99795c`；`rework_count` 0；核心计算经跨 provider 计划评审、review-1、
-  Sonnet 5 review-2 ACCEPT；O-2 文字与 JSTUSDT 单行补录由 Human 确认显示正常并以 Fast Direct
-  免除新增双评审，批准提交/合并/推送。
+- stage: `2026-08-12-local-ip-display-v1`
+- archive_ref: `archive/2026-08-12-local-ip-display-v1`（tip
+  `15eba3c92251dc5487e2c98f8fe8dbcec396887f`，完整 dispatch/handoff/status 与双正式评审记录）
+- delivery: `54b23cc..f2ad1bf`；`rework_count` 1（仅修复 implementer 越权改动 status revision 的流程范围，未改产品代码）；Review-1 与 Sonnet 5 Review-2 均 ACCEPT，Human 已最终验收并授权合并/推送。
 - recorded_completed_at: `2026-08-12`
-- outcome: 历史仓位开/平滑点按两腿真实成交数量加权均价的卖减买价差计算，卖价高于买价为正，
-  四位百分比且不读 `est_price`；O-2 界面说明已同步；本地 JSTUSDT close-log id=6 在备份后更正为
-  `0.2316/-0.2192`。前端自检与定向后端 131 项通过，数据库及备份完整性通过。
-- follow-ups: UM drain 缺 quote 的 O-1/O-4 保留在 Open Follow-ups；该形态 fail-closed 显示
-  `—`，不臆造数值。未部署、未重启服务。
-- previous stage: `2026-08-11-reverse-position-drift-v1` —— 统一账户 reverse 持仓弱告警修复；
+- outcome: 页面标题右侧同源展示后端进程观察到的公网出口 IP；后端主备读取、5 分钟成功/失败缓存和三态 fail-closed 契约已交付。该值仅供核对白名单，不能证明币安实际看到的出口 IP，绝不驱动白名单或交易。
+- follow-ups: 未部署、未重启手动前台服务；O-1..O-4 为带重开条件的非阻塞观察，完整证据在 archive。
+- previous stage: `2026-08-12-hedge-slippage-spread-v1` —— 历史仓位开/平滑点价差计算；归档 `archive/2026-08-12-hedge-slippage-spread-v1`（tip `ad774315eb56e933ab14615c7a92e0b697f4e5e9`）。
+- earlier previous stage: `2026-08-11-reverse-position-drift-v1` —— 统一账户 reverse 持仓弱告警修复；
   归档 `archive/2026-08-11-reverse-position-drift-v1`（tip `66135ce8e6529f8f2e13fd57cdaf7f7053a1b81c`）。
 - previous stage: `2026-08-10-cross-margin-flow-log-v1` —— 全仓杠杆流水本地缓存；归档
   `archive/2026-08-10-cross-margin-flow-log-v1`。
