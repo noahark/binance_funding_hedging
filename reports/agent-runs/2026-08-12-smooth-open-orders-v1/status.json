@@ -1,25 +1,26 @@
 {
   "schema_version": "2",
-  "revision": 17,
+  "revision": 18,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
-  "phase": "plan-review",
-  "checkpoint": "final-plan-rereview-accept-verified",
-  "base_sha": "55008d30f4a0673112b7593adf7bef9e9dc46532",
-  "delivery_sha": "ad887db6157d74359d28b31c36e936125c746850",
-  "ledger_sha": "3c43f3527c2cd6371ad0ff35faeaec7b7ab8dc14",
+  "phase": "implementation",
+  "checkpoint": "plan-review-accept-verified-implementation-dispatched",
+  "base_sha": "e955bdd300d214c5c3ad5c1acd629c0d21080165",
+  "delivery_sha": null,
+  "ledger_sha": "e955bdd300d214c5c3ad5c1acd629c0d21080165",
   "current_task": {
-    "id": "smooth-open-final-plan-rereview-deepseek-v4-pro",
-    "state": "verified",
-    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/10-smooth-open-final-plan-rereview-deepseek-v4-pro.dispatch.md"
+    "id": "smooth-open-v1-fullstack-gpt56sol-xhigh",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/11-smooth-open-v1-fullstack-gpt56sol-xhigh.dispatch.md"
   },
   "next": {
-    "actor": "codex",
-    "action": "prepare-single-gpt56sol-xhigh-implementation"
+    "actor": "human_operator",
+    "action": "start-prepared-gpt56sol-xhigh-implementation"
   },
   "rework_count": 0,
   "blockers": [
-    "implementation-dispatch-pending: 创建唯一 worktree/分支并以真实基线生成正式任务包",
-    "dependency-install-live-merge-not-authorized: 安装、联网、服务控制、实盘、合并与部署仍须 Human 单独授权"
+    "dependency-install-not-authorized: 本实现不得安装 ccxt 或修改任何虚拟环境",
+    "network-live-actions-not-authorized: 本实现不得联网、控制服务、读取凭证或执行真实行情/账户/订单动作",
+    "merge-deploy-not-authorized: push、merge、部署与实盘启用仍须 Human 单独授权"
   ]
 }
