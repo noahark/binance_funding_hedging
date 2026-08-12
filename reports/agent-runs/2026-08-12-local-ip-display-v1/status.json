@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 1,
+  "revision": 2,
   "stage_id": "2026-08-12-local-ip-display-v1",
   "bookkeeper": "codex / GPT-5",
   "phase": "requirements",
   "checkpoint": "stage-opened",
-  "base_sha": "66fabaec673fa729550ab08e9c2bc1cd226d0407",
+  "base_sha": "3d49c4f0e23e2382b5ad66b6d4c7f06154ac81c0",
   "delivery_sha": null,
-  "ledger_sha": "66fabaec673fa729550ab08e9c2bc1cd226d0407",
+  "ledger_sha": "3d49c4f0e23e2382b5ad66b6d4c7f06154ac81c0",
   "current_task": {
-    "id": "local-ip-display-requirements-intake",
+    "id": "local-ip-display-fake-kimi",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-12-local-ip-display-v1/requirements-intake.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-12-local-ip-display-v1/local-ip-display-fake-kimi.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "clarify-local-ip-display-requirements"
+    "action": "start-prepared-task"
   },
   "rework_count": 0,
   "blockers": []
