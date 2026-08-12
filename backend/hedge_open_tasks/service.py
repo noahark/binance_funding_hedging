@@ -1921,7 +1921,7 @@ class HedgeOpenTaskService:
         # 2026-08：历史页现货列——现货腿加权（买入=open、卖出=close）
         spot_open = self._store.cycle_spot_basis(cycle["id"], D.TASK_TYPE_OPEN)
         spot_close = self._store.cycle_spot_basis(cycle["id"], D.TASK_TYPE_CLOSE)
-        # 2026-08：滑点率（%，成交均价 vs 开/平仓 est_price 加权；Human 要求百分比）
+        # 2026-08：两腿真实成交数量加权均价价差百分比（卖价高于买价为正）
         open_slippage = self._store.cycle_slippage_pct(cycle["id"], D.TASK_TYPE_OPEN)
         close_slippage = self._store.cycle_slippage_pct(cycle["id"], D.TASK_TYPE_CLOSE)
         funding = None

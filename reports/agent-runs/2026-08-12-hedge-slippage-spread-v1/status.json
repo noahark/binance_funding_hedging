@@ -10,7 +10,7 @@
   "ledger_sha": "05d2ac9fa41c5ccecf7e0c50cf1c8615bf5b1f64",
   "current_task": {
     "id": "05-o2-text-sync-and-jst-backfill",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-08-12-hedge-slippage-spread-v1/05-o2-text-sync-and-jst-backfill.dispatch.md"
   },
   "next": {

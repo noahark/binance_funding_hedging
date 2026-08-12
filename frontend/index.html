@@ -5336,7 +5336,7 @@
               <td class="mono">${r.spot_close_avg != null ? formatHedgeAvgPrice(r.spot_close_avg) : '<span class="muted">—</span>'}</td>
               <td class="mono">${r.borrow_interest != null ? escapeHtml(r.borrow_interest) : '<span class="muted">—</span>'}</td>
               <td class="mono ${feeCls}">${r.funding_fee != null ? escapeHtml(r.funding_fee) : '<span class="muted">—</span>'}</td>
-              <!-- 2026-08：滑点（USDT，成交均价 vs 开/平仓 est_price 加权，合约腿；负=成交优于估价） -->
+              <!-- 2026-08：开/平单两腿真实成交数量加权均价价差百分比；(卖出腿均价 - 买入腿均价) / min(两腿均价) * 100，卖价高于买价为正 -->
               <td class="mono ${classForSignedNumber(hedgeNum(r.open_slippage))}">${r.open_slippage != null ? Number(r.open_slippage).toFixed(4) + '%' : '<span class="muted">—</span>'}</td>
               <td class="mono ${classForSignedNumber(hedgeNum(r.close_slippage))}">${r.close_slippage != null ? Number(r.close_slippage).toFixed(4) + '%' : '<span class="muted">—</span>'}</td>
             </tr>`;
@@ -5358,8 +5358,8 @@
               <th>现货卖出均价</th>
               <th>总借币利息</th>
               <th>总资金费率收益</th>
-              <th title="成交均价 vs 开仓估价(est_price) 的偏离率 %（负=成交优于估价）">总计开单滑点 %</th>
-              <th title="成交均价 vs 平仓估价(est_price) 的偏离率 %（负=成交优于估价）">总计平单滑点 %</th>
+              <th title="开单现货与合约两腿真实成交数量加权均价价差 %：(卖出腿均价 - 买入腿均价) / min(两腿均价) × 100；卖价高于买价为正">总计开单滑点 %</th>
+              <th title="平单现货与合约两腿真实成交数量加权均价价差 %：(卖出腿均价 - 买入腿均价) / min(两腿均价) × 100；卖价高于买价为正">总计平单滑点 %</th>
             </tr></thead>
             <tbody>${rowsHtml || '<tr><td colspan="16"><span class="muted small">暂无已平仓周期记录；平仓任务完成后在此展示结算日志</span></td></tr>'}</tbody>
           </table></div>`;
