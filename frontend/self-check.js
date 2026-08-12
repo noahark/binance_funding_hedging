@@ -5202,7 +5202,14 @@ setTimeout(async () => {
           // 非 attempt 日志条目：必须被忽略
           { id: 98, task_id: 'h-att-1', ts: '2026-07-23T11:59:00.000000Z', attempt_id: null, kind: 'info', payload: { message: 'scheduler tick' } },
           // 单腿成交（后端真实取值集之一，domain.py PAIR_SINGLE_LEG）
-          attemptC
+          attemptC,
+          ...Array.from({ length: 7 }, (_, index) => mockHedgeAttempt({
+            task_id: 'h-att-1', attempt_id: `att-extra-${index}`, attempt_seq: index + 4
+          })),
+          mockHedgeAttempt({
+            task_id: 'h-att-1', attempt_id: 'att-oldest', attempt_seq: 99,
+            q_common: 'oldest-sentinel'
+          })
         ],
         next_cursor: null
       } };
@@ -5212,8 +5219,8 @@ setTimeout(async () => {
       if (!attCall || attCall.url !== '/api/hedge-open-logs?limit=100' || attCall.method !== 'GET') {
         throw new Error(`尝试时间线应 GET /api/hedge-open-logs?limit=100: ${JSON.stringify(attCall)}`);
       }
-      if (helpers.getHedgeAttempts().length !== 3) {
-        throw new Error(`应提取 3 条 attempt（忽略非 attempt 日志），实际 ${helpers.getHedgeAttempts().length}`);
+      if (helpers.getHedgeAttempts().length !== 11) {
+        throw new Error(`应提取 11 条 attempt（忽略非 attempt 日志），实际 ${helpers.getHedgeAttempts().length}`);
       }
       helpers.setActiveView('hedge-tasks');
       const timeline = elements['hedge-attempt-list'].innerHTML;
@@ -5231,8 +5238,11 @@ setTimeout(async () => {
       }
       // 关联任务币种标签（task_id → 任务卡 coin）
       if (!timeline.includes('任务 AUSDT')) throw new Error('attempt 应标注关联任务币种');
+      if ((timeline.match(/class="borrow-task-card"/g) || []).length !== 10 || timeline.includes('oldest-sentinel')) {
+        throw new Error('attempt 时间线应只展示最新 10 条');
+      }
       helpers.setActiveView('market');
-      console.log('[PASS] attempt 时间线：logs 取数 + 两腿字段逐字渲染 + payload 内嵌兼容 + 非 attempt 忽略 + 缺腿降级');
+      console.log('[PASS] attempt 时间线：最新 10 条 + logs 取数 + 两腿字段逐字渲染 + payload 内嵌兼容 + 非 attempt 忽略 + 缺腿降级');
     }
 
     // 86. attempt 时间线降级：空记录空态、503 错误横幅不崩溃

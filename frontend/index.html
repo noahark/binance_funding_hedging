@@ -6599,7 +6599,7 @@
           els.hedgeAttemptsError.style.display = state.hedgeAttemptsError ? '' : 'none';
           els.hedgeAttemptsError.textContent = state.hedgeAttemptsError || '';
         }
-        const attempts = state.hedgeAttempts;
+        const attempts = state.hedgeAttempts.slice(0, 10);
         if (attempts.length === 0) {
           els.hedgeAttemptList.innerHTML = `
             <div class="account-section">
