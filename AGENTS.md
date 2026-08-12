@@ -230,6 +230,26 @@ Write a verified live incident to `PROJECT_STATE.md` immediately. Never present 
 
 This section defines review-topology risk: which task changes require review-1 plus review-2. It alone defines the `LOW_RISK` and `HIGH_RISK` review routes, which are a different classification from the Human-authorization gates in §3 Safety Kernel.
 
+### Human Fast Path
+
+- Human may explicitly invoke Fast in natural language; models never infer or self-authorize it.
+- Fast applies to any risk class and waives the normal stage, dispatch, plan-review,
+  review-1/review-2, handoff, Bookkeeper, and formal task-result workflow for the
+  stated delivery. Human accepts the assurance omitted by that choice.
+- `Fast Direct`: implement the stated change, run the necessary checks, commit,
+  and, when Human explicitly requests it, merge directly to `main`.
+- `Fast Review`: implement, check, and commit, then obtain exactly one fresh,
+  non-author independent review of the fixed commit. On `REWORK`, stop for Human
+  direction unless Human already authorized repair and another review.
+- Fast authorizes only actions Human states. It does not implicitly authorize
+  money, orders, live gates, credentials, destructive data actions, risk-limit
+  changes, deployment, other external side effects, push, or merge.
+- Fast work stays outside an active stage's delivery range. If it enters or
+  changes that range, the existing dispatch is stale and Bookkeeper must establish
+  a new committed baseline before the formal stage continues.
+- Report Fast results plainly with effect, files, checks, commit, and the single
+  review verdict when applicable; no `[TASK_RESULT]` block is required.
+
 - `HIGH_RISK`: orders, positions, borrowing, repayment, transfer, money/PnL meaning, accounting, live gates, risk limits, credentials, controlling contracts, Harness safety or workflow contract changes, or an unclear acceptance oracle — require review-1 plus review-2.
 - `LOW_RISK`: a documentation or mechanical change with none of the above may use one independent final review only when its dispatch records why.
 - Review-1 checks code, contracts, tests, and seams. Review-2 checks the requirement, actual effect, evidence, operational risk, and release readiness.
