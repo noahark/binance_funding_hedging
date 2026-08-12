@@ -1,13 +1,13 @@
 {
   "schema_version": "2",
-  "revision": 1,
+  "revision": 2,
   "stage_id": "2026-08-12-herdr-approved-handoff-v1",
   "bookkeeper": "codex",
   "phase": "planning",
-  "checkpoint": "stage-created; awaiting Human start of prepared planning task",
-  "base_sha": "6b9006a84b3988ea25f1e0f5cfc739e4e6331db4",
+  "checkpoint": "planning packet narrowed to Human-directed Herdr copy/paste; awaiting Human start",
+  "base_sha": "e7399ee1f3e00e3cc4dde78fd75c41263fd62a24",
   "delivery_sha": null,
-  "ledger_sha": "6b9006a84b3988ea25f1e0f5cfc739e4e6331db4",
+  "ledger_sha": "e7399ee1f3e00e3cc4dde78fd75c41263fd62a24",
   "current_task": {
     "id": "herdr-approved-handoff-plan",
     "state": "dispatched",
