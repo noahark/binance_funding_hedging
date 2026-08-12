@@ -6,19 +6,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-12)
 
-- **[2026-08-12 已归档] `2026-08-12-herdr-approved-handoff-v1`：** Human 关闭了被 Fast Direct 取代的未启动 stage。旧 Planner dispatch 从未执行，未产生交付、评审、handoff、Herdr 会话或外部动作；完整 dispatch/status 保留于 `archive/2026-08-12-herdr-approved-handoff-v1`（`040cdf0`）。
-
 - **[2026-08-12 Human Fast Direct] 两次直接代码交付已推送：** `31d7ae6` 取消私有读取在 429/-1003 后的 0.5 秒立即重试；`0a0984c` 将空库首次利息/收入流水回补窗口改为 1 天。两项均已通过定向测试，接口/行为文档已同步。**当前手动前台服务未重启，运行进程尚未加载这两处代码。**
-
-- 最近完成的历史仓位滑点口径修复已归档；本次未部署或重启服务。
-
-- 上一 stage `2026-08-11-reverse-position-drift-v1` 已获 Human 最终验收并
-  push 到 `origin/main`，完整阶段证据归档在
-  `archive/2026-08-11-reverse-position-drift-v1`。JSTUSDT 型 reverse 持仓不再因现货
-  free 为零长期误报；当前手动前台进程在交付提交后启动，已加载本修复，本次归档未重启
-  服务。交付只改展示校验，不改变下单、借还、划转或闸门；`drift=false` 仍不是对账证明。
-
-- 前一 stage `2026-08-10-cross-margin-flow-log-v1` 已归档；全仓杠杆流水使用本地缓存。
 
 - 当前服务仍以 Human 手动前台进程运行；统一账户手动还款已最终验收，
   `APP_MARGIN_REPAY_ENABLED` 按 Human 决定保持开启。XLM 指定 5 与 INJ 全部还款各一笔成功；
@@ -57,10 +45,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   缺陷而是正确行为；`decide_spot_route` 对 reverse 固定走 `papi_margin` 也因此
   自洽。判断影响面前先套这条（曾有模型缺了它误报 Live Risk）。
 
-- **[2026-08-08] 文档追平 + Harness 两条规则**（Human 直接驱动）：docs/ 活文档
-  一次性追平到 2026-08-08；AGENTS.md 新增「任何交付收口必须同步 docs 活文档」；
-  Update Rule 新增「完结留痕在 git 不进本文」。见 DEC-2026-08-08-001 与 git 历史。
-
 - **[2026-08-08 已收口] regular_spot 开仓自动划转 USDT + dispatch 路由核验**（Human
   直接驱动，无 stage；交付 `fb59c38..c837722`，细节见 git 历史 +
   `docs/planning/open-spot-usdt-transfer-2026-08-08.review-request.md`）：
@@ -84,20 +68,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   为主，读不到时红字提示 + drift 标记已兜底，维持现状不再整改。）
 
 ## Live Risks
-
-- `[RESOLVED][LIVE-INCIDENT][2026-08-10]` **XLMUSDT reverse 平仓单腿成交，现货负债腿已由
-  Human 人工收口。**
-  任务 `840a11a5-b47e-4406-858f-4947934901bf` 于 10:30:54 CST 并发提交两腿：
-  PAPI UM `reduceOnly SELL 100` 已 `FILLED`（order `22675869218`，均价 `0.16230`），
-  PAPI Margin `BUY 100` 被币安明确拒绝 `-2019 Margin is insufficient`。10:35 CST
-  只读快照确认 UM 已无
-  XLMUSDT 仓位，而 XLM `cross_margin_free=95`、`cross_margin_borrowed=195.10900819`
-  （约净空 `100.10900819 XLM`）；组合保证金 `total_available_balance_usdt=0`，虽
-  USDT `cross_margin_free=229.09557812`。Human 11:00:10 CST 通过 XLM 资产卡提交 `amount=0`
-  全额还款，11:01 快照确认 XLM 余额/可用/借款全为 `0`；按 Human 提供的现货
-  `BUY 100 @ 0.1632` 补录 `hedge_open_cycle_close_log.id=5`，周期以 `manual_verify`
-  于 11:00:11 CST 关闭，任务置 `done`。原始 attempt `60` / raw `169..171` 保持不变；
-  补录前备份为 `data/hedge-open-tasks.sqlite3.bak-manual-xlm-close-20260810-110010`。
 
 - `[OPEN][LIVE-RISK][2026-08-10]` **reverse 自动平仓仍可能因组合保证金口径再次单腿。**
   两腿非原子并发，合约腿不等待现货腿；close+reverse 预检仅以最长 5 分钟缓存可命中的
@@ -208,10 +178,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   `totalWalletBalance`，含 UM/CM 合约子钱包（同资产被当作合约保证金占用的部分
   也计入「持有」）。所以「有报警必真少」成立，「无报警即相符」**不成立**——
   别拿它当对账工具。
-
-- `[RESOLVED][OPERATIONS][2026-08-05]` Live DB schema 曾由服务重启自动迁移
-  （幂等 additive DDL，无数据变化；教训：迁移前应先备份）。全过程与证据：
-  `archive/2026-08-hedge-position-cycle-v1` 相关 handoff（见 git 历史）。
 
 ## Operating Limits (Task 3, merged 2026-08-02)
 
@@ -332,12 +298,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   which is temporary. Until the launchd service is repaired (see Live Risks),
   restart from an operator terminal so logs survive, or fix the LaunchAgent so
   they return to `~/Library/Logs/funding-hedging/`.
-- `[OPEN][RESIDUAL]` `resolve_leg_from_query` writes `avg_price` / `quote_amt`
-  without `COALESCE`, so a later `None` overwrites a known value. Unreachable
-  today. Was to ride Task 2.
-- `[OPEN][RESIDUAL]` Perp average price can read blank — upstream: Binance dropped
-  quote/avgPrice from the UM POST result (2026-07-14), so figures only arrive via
-  the order-detail GET. Renders as an em-dash, not a fabricated zero.
 - `[OPEN][RESIDUAL]` **UM drain 可在 `cumulative_quote` 未知时把 FILLED 腿判为终态。**
   该路径会保留 `avg_price` 但缺 quote，导致该周期的合约均价与开/平滑点显示 `—`；这是
   fail-closed，不影响订单或持仓且不臆造数值。重开条件：出现真实历史周期命中该形态，或 Human
