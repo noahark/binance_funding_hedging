@@ -6,9 +6,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-12)
 
-- **Active stage：`2026-08-12-hedge-slippage-spread-v1` 已获 Human 最终业务验收，待归档。**
-  两腿真实成交价差代码、O-2 界面说明与 JSTUSDT 历史行 `0.2316/-0.2192` 均已核验；Human
-  对最后的文字/数据交付采用 Fast Direct，批准提交、合并、推送，未授权部署或服务重启。
+- **No active stage.** 最近完成的历史仓位滑点口径修复已归档；本次未部署或重启服务。
 
 - 上一 stage `2026-08-11-reverse-position-drift-v1` 已获 Human 最终验收并
   push 到 `origin/main`，完整阶段证据归档在
@@ -382,17 +380,21 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Last Completed
 
-- stage: `2026-08-11-reverse-position-drift-v1`
-- archive_ref: `archive/2026-08-11-reverse-position-drift-v1`（tip
-  `66135ce8e6529f8f2e13fd57cdaf7f7053a1b81c`，完整 plan/dispatch/handoff/status）
-- delivery: `7194876..f1d9291`；`rework_count` 0；Kimi 跨 provider 计划评审 ACCEPT；
-  claude-glm review-1 ACCEPT；Opus 5 review-2 ACCEPT；Human 前端与最终业务验收通过。
-- recorded_completed_at: `2026-08-11`
-- outcome: 统一账户投影 `cross_margin_locked`；reverse 按资产聚合本地现货量并以
-  `A=max(B-F-L,0)`、既有 1% Decimal 容差判断弱告警，利息排除，坏值 fail-closed；
-  forward 与 positions/前端接口不变。目标测试 224 项、后端全量 1756 项通过。
-- follow-ups: O-2/O-4 文档项保留在 Open Follow-ups；账户级公式不按周期归因，
-  `drift=false` 不是对账证明；reverse 自动平仓 LIVE-RISK 与禁用边界未改变。
+- stage: `2026-08-12-hedge-slippage-spread-v1`
+- archive_ref: `archive/2026-08-12-hedge-slippage-spread-v1`（tip
+  `ad774315eb56e933ab14615c7a92e0b697f4e5e9`，完整 dispatch/handoff/status 与 Human Fast
+  最终验收记录）
+- delivery: `05d2ac9..f99795c`；`rework_count` 0；核心计算经跨 provider 计划评审、review-1、
+  Sonnet 5 review-2 ACCEPT；O-2 文字与 JSTUSDT 单行补录由 Human 确认显示正常并以 Fast Direct
+  免除新增双评审，批准提交/合并/推送。
+- recorded_completed_at: `2026-08-12`
+- outcome: 历史仓位开/平滑点按两腿真实成交数量加权均价的卖减买价差计算，卖价高于买价为正，
+  四位百分比且不读 `est_price`；O-2 界面说明已同步；本地 JSTUSDT close-log id=6 在备份后更正为
+  `0.2316/-0.2192`。前端自检与定向后端 131 项通过，数据库及备份完整性通过。
+- follow-ups: UM drain 缺 quote 的 O-1/O-4 保留在 Open Follow-ups；该形态 fail-closed 显示
+  `—`，不臆造数值。未部署、未重启服务。
+- previous stage: `2026-08-11-reverse-position-drift-v1` —— 统一账户 reverse 持仓弱告警修复；
+  归档 `archive/2026-08-11-reverse-position-drift-v1`（tip `66135ce8e6529f8f2e13fd57cdaf7f7053a1b81c`）。
 - previous stage: `2026-08-10-cross-margin-flow-log-v1` —— 全仓杠杆流水本地缓存；归档
   `archive/2026-08-10-cross-margin-flow-log-v1`。
 - previous stage: `2026-08-10-local-net-position-v1` —— 本地净持仓 open−close；归档
