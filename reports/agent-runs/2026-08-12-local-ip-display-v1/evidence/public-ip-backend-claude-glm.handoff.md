@@ -83,4 +83,13 @@ python3 -m pytest -q backend/tests/test_public_ip_api.py backend/tests/test_serv
 
 ## Bookkeeper Verification (Bookkeeper append-only)
 
+- source_sha256: `17c96c27d22e2902d0995bae62c0e9d96f22bee4b81ca5846d71fcded0af0b70`（`perl -0777 -ne '$marker = "<!-- BOOKKEEPER_APPEND_ONLY:"; $i = index($_, $marker); die "missing marker\\n" if $i < 0; print substr($_, 0, $i)' reports/agent-runs/2026-08-12-local-ip-display-v1/evidence/public-ip-backend-claude-glm.handoff.md | shasum -a 256`）
+- verified_at: `2026-08-12 20:48:28 CST`
+- status revision checked: `8`（`public-ip-backend-claude-glm` 为 `reported`）
+- SHA: `git rev-parse 54b23cc904b9785e77f7f984f7bbdd4972de2f44` = `54b23cc904b9785e77f7f984f7bbdd4972de2f44`；`git rev-parse HEAD` = delivery `73f525d4c3033cd4e8d7c7afb09a975816742913`。固定审阅范围保留为 `54b23cc904b9785e77f7f984f7bbdd4972de2f44..73f525d4c3033cd4e8d7c7afb09a975816742913`；其中 `13acc93f9e6af1276c3490686caee4a407c01606` 是阶段控制提交，仅作上下文。
+- 范围核验通过：`git diff --name-status 13acc93f9e6af1276c3490686caee4a407c01606..73f525d4c3033cd4e8d7c7afb09a975816742913` 仅列 dispatch 的七个 Allowed Files；`git diff --check 13acc93f9e6af1276c3490686caee4a407c01606..73f525d4c3033cd4e8d7c7afb09a975816742913` 通过。
+- 回执核验通过：deterministic handoff 已由本任务新建；Source Report 的 task/role/stage/base 与 status 和 Git 一致，`pending` delivery SHA 已按契约在本验证区解析；`TASK_RESULT v2`、八项 `pass` 检查、三条中文交接行、具体读取路径／立即动作／关卡均合规。
+- 证据核验通过：`evidence/public-ip-backend-claude-glm-pytest.txt` 是原始六文件命令输出，结尾为 `168 passed in 70.42s (0:01:10)`；Bookkeeper 另执行 `python3 -m pytest -q backend/tests/test_public_ip_api.py`，结果 `22 passed in 2.64s`。未执行真实公网查询、未重启或部署；该端点亦不能证明币安观察到的出口 IP，未据此变更白名单。
+- 结论：通过。后端交付 `73f525d4c3033cd4e8d7c7afb09a975816742913` 已核验；随后准备依赖此契约的 Kimi 前端 dispatch。Kimi 交付后由 Bookkeeper 汇总固定 delivery SHA 进入正式评审。
+
 ## Errata (append-only)
