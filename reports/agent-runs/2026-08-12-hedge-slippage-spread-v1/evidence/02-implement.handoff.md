@@ -78,5 +78,25 @@
 
 ## Bookkeeper Verification (Bookkeeper append-only)
 
+- source_sha256: `84746d7218e9c2c78d4a3986b1a1e21f08fc874e485c1198b6f385f6339a35c7`
+- verified_at: `2026-08-12 08:04:40 CST`
+- status_revision_checked: `3`
+- verification_result: `ACCEPTED_FOR_REVIEW`
+- identity_check: `pass`（task_id、role、target model、stage_id、status revision、base_sha 与
+  dispatch/status 一致；author `delivery_sha: pending` 合规）
+- delivery_sha_resolved: `db552a7b224fcebc84bb23a087ff2b28a350bf04`
+- commit_scope_check: `pass`（父提交为 dispatch 控制提交
+  `6aa9dd75ba62ad0ff7f93196ee6b9ebd7ca68e7a`；唯一 delivery commit 仅含
+  `backend/hedge_open_tasks/store.py`、两份授权测试、`status.json` 单字段状态变化与本 handoff）
+- tests_reproduced:
+  - `.venv/bin/python -m pytest backend/tests/test_hedge_store.py backend/tests/test_hedge_cycle_close.py -q`
+    → `131 passed in 3.13s`
+  - `.venv/bin/python -m pytest backend/tests -q` → `1763 passed in 143.58s`
+  - `git diff --check` → pass
+- worktree_isolation: `pass`（原有 `frontend/index.html`、`frontend/self-check.js` 未暂存改动不在
+  delivery commit，也不属于本交付）
+- next_state: 写入固定 `delivery_sha`，准备 Opus 5 review-1 dispatch；review 只使用已提交的
+  `base_sha..delivery_sha`，不使用移动 HEAD 或未提交前端工作树作为交付事实。
+
 ## Errata (append-only)
 任何更正均追加，说明日期、作者、改动原因与不改变的事实；不得改写 Source Report 或 Human Brief。
