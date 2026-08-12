@@ -200,6 +200,12 @@
     }
 
     .title-block { display: grid; gap: var(--space-1); }
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+    }
     h1, h2, h3, p { margin: 0; }
     h1 { font-size: 24px; line-height: 1.2; }
     h2 { font-size: 18px; line-height: 1.25; }
@@ -1299,7 +1305,10 @@
     <main class="content">
       <header class="topbar">
         <div class="title-block">
-          <h1>资金费率对冲工作台</h1>
+          <div class="title-row">
+            <h1>资金费率对冲工作台</h1>
+            <span class="badge info compact" id="public-ip-badge" title="文档保留地址，仅供视觉预览">公网出口 IP（预览） 203.0.113.42</span>
+          </div>
           <p class="subtitle" id="account-asset-updated-at">账户资产更新时间 —</p>
         </div>
         <div class="badge-row" aria-label="刷新与排序">

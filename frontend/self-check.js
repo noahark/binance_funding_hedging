@@ -165,7 +165,7 @@ function makeElement(id) {
 const elements = {};
 const ids = [
   'app-shell', 'app-sidebar', 'sidebar-toggle',
-  'market-snapshot-meta', 'data-source-label', 'sort-basis-badge', 'btn-refresh', 'btn-cache-refresh',
+  'market-snapshot-meta', 'data-source-label', 'public-ip-badge', 'sort-basis-badge', 'btn-refresh', 'btn-cache-refresh',
   'refresh-countdown', 'account-asset-updated-at',
   'filter-search', 'filter-asset', 'filter-route', 'filter-show-perp-only', 'filter-hide-low-daily-rate',
   'filter-hide-low-net-yield', 'filter-prefer-openable',
@@ -1218,6 +1218,45 @@ setTimeout(async () => {
       throw new Error(`快照时间应已转为北京时间，不应再显示 ISO Z: ${meta}`);
     }
     console.log('[PASS] 数据说明已删除；市场表下北京时间元信息已渲染');
+
+    // 3b. 公网出口 IP fake 预览 badge：与标题同一行、紧邻右侧、含文档保留地址与预览标识
+    {
+      const titleRowStart = html.indexOf('<div class="title-row">');
+      const titleRowEnd = html.indexOf('</div>', titleRowStart);
+      if (titleRowStart === -1 || titleRowEnd === -1) {
+        throw new Error('未找到 title-row 容器');
+      }
+      const titleRowHtml = html.slice(titleRowStart, titleRowEnd + 6);
+      if (!titleRowHtml.includes('<h1>资金费率对冲工作台</h1>')) {
+        throw new Error('title-row 内应包含 h1 标题');
+      }
+      const badgeMatch = titleRowHtml.match(/<span[^>]*id="public-ip-badge"[^>]*>([\s\S]*?)<\/span>/);
+      if (!badgeMatch) {
+        throw new Error('title-row 内应包含 IP badge');
+      }
+      const badgeHtml = badgeMatch[0];
+      const badgeText = badgeMatch[1].replace(/<[^>]+>/g, '').trim();
+      if (!badgeText.includes('公网出口 IP')) {
+        throw new Error(`IP badge 缺少「公网出口 IP」文案: ${badgeText}`);
+      }
+      if (!badgeText.includes('预览')) {
+        throw new Error(`IP badge 缺少「预览」标识: ${badgeText}`);
+      }
+      if (!badgeText.includes('203.0.113.42')) {
+        throw new Error(`IP badge 缺少文档保留地址: ${badgeText}`);
+      }
+      const titleAttrMatch = badgeHtml.match(/title="([^"]*)"/);
+      const badgeTitle = titleAttrMatch ? titleAttrMatch[1] : '';
+      if (!badgeTitle || !badgeTitle.includes('预览')) {
+        throw new Error(`IP badge 应通过 title 提示为预览: ${badgeTitle}`);
+      }
+      const badgeRowStart = html.indexOf('<div class="badge-row" aria-label="刷新与排序">');
+      const badgeIdIdx = html.indexOf('id="public-ip-badge"');
+      if (badgeRowStart !== -1 && badgeIdIdx > badgeRowStart) {
+        throw new Error('IP badge 不得放入右侧刷新/排序控件区');
+      }
+    }
+    console.log('[PASS] 公网出口 IP fake 预览 badge 位于标题同一行紧邻右侧');
 
     // 低日费率过滤默认开启：设计期 fixture 的 CUSDT daily_funding_rate 正好是边界
     // 0.00030000，默认会被隐藏（6→5）。legacy 6 行基线段在此显式关闭该过滤并重渲染，
