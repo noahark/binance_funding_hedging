@@ -1030,33 +1030,18 @@
     }
 
     /* 开单操作列：复用借币输入控件布局 */
-    .hedge-op-cell { white-space: normal; min-width: 280px; }
-    .hedge-op-cell .borrow-op-inputs {
-      display: flex;
-      flex-wrap: nowrap;
-      align-items: center;
-      gap: var(--space-2);
-    }
-    .hedge-op-cell .borrow-op-inputs input { width: 130px; }
+    .hedge-op-cell { white-space: normal; }
+    .hedge-op-cell .borrow-op-inputs input { width: 110px; }
     .hedge-op-cell .borrow-op-inputs input.hedge-threshold-input {
-      width: 72px;
+      width: 56px;
       text-align: right;
       padding-right: 6px;
       font-family: var(--mono);
-      flex: 0 0 auto;
     }
     .hedge-op-cell .borrow-op-inputs input.hedge-threshold-input[readonly] {
       background: var(--surface-2);
       color: var(--muted);
     }
-    .hedge-op-smooth-row {
-      display: inline-flex;
-      flex-wrap: nowrap;
-      align-items: center;
-      gap: var(--space-1);
-    }
-    .hedge-op-smooth-row .btn { flex: 0 0 auto; }
-    .hedge-op-smooth-row .muted.small { flex: 0 0 auto; }
     /* 推荐方向高亮：仅视觉推荐，另一方向保持可点（ADR-3） */
     .btn.hedge-reco {
       border-color: #a8dbc0;
@@ -5670,11 +5655,9 @@
                 <input id="hedge-amount-${direction}-${sym}" type="text" inputmode="decimal" placeholder="如 0.01" autocomplete="off"/>
                 <label for="hedge-count-${direction}-${sym}">计划尝试次数</label>
                 <input id="hedge-count-${direction}-${sym}" type="text" inputmode="numeric" placeholder="如 5" autocomplete="off"/>
-                <div class="hedge-op-smooth-row">
-                  <button class="${btnCls}" type="button" data-hedge-open="smooth" data-hedge-dir="${direction}" aria-label="平滑开单 ${sym} ${direction}" disabled title="平滑开单样式预览，本轮不执行">平滑开单</button>
-                  <input id="hedge-threshold-${direction}-${sym}" class="hedge-threshold-input" type="text" inputmode="decimal" value="0.05" readonly aria-label="滑点阈值 %" title="平滑开单样式预览：滑点阈值"/>
-                  <span class="muted small">%</span>
-                </div>
+                <button class="${btnCls}" type="button" data-hedge-open="smooth" data-hedge-dir="${direction}" aria-label="平滑开单 ${sym} ${direction}" disabled title="平滑开单样式预览，本轮不执行">平滑开单</button>
+                <input id="hedge-threshold-${direction}-${sym}" class="hedge-threshold-input" type="text" inputmode="decimal" value="0.05" readonly aria-label="滑点阈值 %" title="平滑开单样式预览：滑点阈值"/>
+                <span class="muted small">%</span>
                 <button class="${btnCls}" type="button" data-hedge-open="immediate" data-hedge-dir="${direction}" aria-label="立即开单 ${sym} ${direction}">立即开单</button>
               </div>
               <div class="borrow-op-error" id="hedge-error-${direction}-${sym}" role="alert" aria-live="polite"></div>
