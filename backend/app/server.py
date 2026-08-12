@@ -51,6 +51,7 @@ from ..services.hedge_open_live_client import (
     TRANSFER_TYPE_MAIN_PM,
     TRANSFER_TYPE_PM_MAIN,
 )
+from ..services.public_ip_service import PublicIpService
 from ..services.snapshot_service import SnapshotNotReady, SnapshotService
 
 # Borrow-task route table (breakdown §3.1). Path templates with their allowed
@@ -327,6 +328,7 @@ class _Handler(BaseHTTPRequestHandler):
     borrow_service = None  # injected via build_server; None -> 503 on borrow routes
     hedge_open_service = None  # injected via build_server; None -> 503 on hedge routes
     ledger_flow_service = None  # injected in run(); None -> 503 on private-ledger routes
+    public_ip_service = None  # injected in run(); None -> 503 on /api/system/public-ip
     # 资产互转（stage 2026-08-06-asset-transfer-live-v1）：store 与 PAPI 客户端
     # 分别注入；任一为 None -> 该路由 503（不做静默降级）。
     asset_transfer_store = None
@@ -379,6 +381,9 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/margin-repay":
             self._handle_margin_repay_get()
+            return
+        if path == "/api/system/public-ip":
+            self._handle_public_ip()
             return
         self._serve_static(path)
 
@@ -633,6 +638,18 @@ class _Handler(BaseHTTPRequestHandler):
                 "error": None if result else (client.last_error or "max_withdraw_failed"),
             })
         self._send_ledger(200, {"results": results})
+
+    def _handle_public_ip(self):
+        """GET /api/system/public-ip — 本机后端进程观察到的公网出口 IP（只读、同源）。
+
+        仅供 Human 核对 API 白名单；不能证明币安实际看到的出口 IP（VPN/代理/路由
+        可能不同），绝不驱动白名单、交易、借贷、划转、还款或任何 live gate。未注入
+        服务时固定 503，不外呼；该端点不是公共市场快照的一部分。
+        """
+        if self.public_ip_service is None:
+            self._send_ledger(503, {"error": "public_ip_unavailable"})
+            return
+        self._send_ledger(200, self.public_ip_service.get())
 
     def _handle_flow_refresh(self):
         # No request body field is read (§13.4); any posted body is drained.
@@ -1479,6 +1496,7 @@ def build_server(
     _Handler.service = service
     _Handler.borrow_service = borrow_service
     _Handler.hedge_open_service = hedge_open_service
+    _Handler.public_ip_service = None  # injected in run() after this returns
     _Handler.frontend_dir = config.frontend_dir
     return ThreadingHTTPServer((config.bind_host, config.bind_port), _Handler)
 
@@ -1716,6 +1734,10 @@ def run(config: Config = None) -> None:
     _Handler.borrow_service = borrow_service
     _Handler.hedge_open_service = hedge_open_service
     _Handler.ledger_flow_service = ledger_flow_service
+    # 真实公网出口 IP（stage 2026-08-12-local-ip-display-v1）：进程内缓存只读服务，
+    # 构造期零 I/O、惰性外呼；仅供 Human 核对 API 白名单。在 build_server 返回后注入，
+    # 与 ledger_flow_service 同一装配顺序（build_server 已把该属性复位为 None）。
+    _Handler.public_ip_service = PublicIpService()
     # 资产互转（stage 2026-08-06-asset-transfer-live-v1）：独立库 + 独立客户端。
     _Handler.asset_transfer_store = AssetTransferStore(
         str(config.borrow_db_path.parent / "asset-transfer.sqlite3")

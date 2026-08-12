@@ -237,7 +237,8 @@ health endpoints. Success (HTTP 200) responses carry `Cache-Control: no-store`;
 (Later amendments extend this surface beyond these three read-only endpoints —
 v0.10 adds the first write route, v0.11 the positions endpoint, v0.12 the
 private-ledger routes, v0.13 the money-moving asset transfer, v0.16 the
-max-withdraw read, v0.17 the gated money-moving margin repay; this paragraph
+max-withdraw read, v0.17 the gated money-moving margin repay; v0.19 adds the
+read-only public-egress IP display. This paragraph
 stays as the original baseline.)
 
 ### GET /api/public-market/snapshot
@@ -2045,3 +2046,67 @@ the ~60s refresh cadence, and the zero-upstream GET contract are unchanged. No
 new field, schema, DB migration, service/gate/order/borrow/repay/transfer path,
 or frontend behavior is introduced; only the value semantics of three existing
 local quantity fields is corrected.
+
+## Public Egress IP Display Amendment (v0.19, stage `2026-08-12-local-ip-display-v1`)
+
+Additive, read-only, same-origin. Adds one route so the page can show the public
+egress IP the **backend process** observes, for Human to cross-check the Binance
+API IP allowlist. This is NOT a market snapshot field and is NOT merged into any
+snapshot/positions response. Implementation authority: `backend/app/server.py`
+(`_handle_public_ip`) and `backend/services/public_ip_service.py`.
+
+### `GET /api/system/public-ip`
+
+Returns a fixed four-field, three-state body with `Cache-Control: no-store` on
+HTTP 200. The service is a process-local, lazily-fetched, in-process cache; it
+issues no request at construction and no background thread.
+
+| field | meaning |
+|---|---|
+| `status` | one of `ok` \| `stale` \| `unavailable` |
+| `public_ip` | the observed public IP string, or `null` |
+| `source` | `api.ipify.org` \| `checkip.amazonaws.com` \| `null` |
+| `checked_at` | last successful read as UTC ISO-8601 (`YYYY-MM-DDTHH:MM:SSZ`), or `null` |
+
+States:
+
+- `ok` — a value was obtained this cycle.
+- `stale` — both sources failed this cycle but a prior success exists; the prior
+  `public_ip` / `source` / `checked_at` are returned unchanged (`checked_at` does
+  not advance on failure).
+- `unavailable` — both sources failed and no prior success exists; `public_ip`,
+  `source`, and `checked_at` are all `null`. No value is guessed or synthesized.
+
+Sources are queried in a fixed order with a single attempt each per cache cycle:
+primary `https://api.ipify.org?format=json` (JSON `ip`), and only on a primary
+exception, non-dict body, missing/non-string `ip`, or an invalid/non-public IP
+does it fall back to `https://checkip.amazonaws.com/` (whitespace-stripped plain
+text). Each call is a GET, no request body, 2-second timeout, reading at most 64
+bytes. Every candidate must pass `ipaddress.ip_address` (IPv4 or IPv6) and is
+rejected if private/loopback — a captive-portal local value must never pose as
+the public egress IP. Exception text, URLs, and headers are never exposed to the
+browser.
+
+The single shared instance caches both success and failure for 5 minutes; a lock
+serializes cache misses so each cycle hits each source at most once, preventing
+the ~60-second page refresh from turning into repeated outbound calls. When the
+public-ip service is not injected (isolated/offline wiring), the route answers a
+fixed `503 {"error":"public_ip_unavailable"}` and makes no outbound call.
+
+### Boundary — display only, never an allowlist authority
+
+This value reflects one observation by this machine's backend process and ONLY
+helps Human cross-check the API allowlist. It CANNOT prove the IP Binance
+actually observes: a VPN, proxy, or different route between this machine and
+Binance can make the two differ. It must never drive an IP-allowlist change, an
+order, borrowing, repayment, transfer, any live gate, or any risk action. No new
+credential is read, no Binance endpoint is called, and no money path is touched.
+
+### Regression red lines (still unchanged)
+
+`negative_funding_status` / `route_class` / `asset_tag` enums and priority,
+`classify.py`, `normalize.py`, the v0.1–v0.18 field set, `sort_basis` semantics,
+the snapshot/positions contracts, the ~60s refresh cadence, and the
+zero-upstream GET contract on market routes are unchanged. No new market field,
+schema, DB migration, gate, order/borrow/repay/transfer path, or credential read
+is introduced.

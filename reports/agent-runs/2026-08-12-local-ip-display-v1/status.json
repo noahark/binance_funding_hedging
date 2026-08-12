@@ -10,7 +10,7 @@
   "ledger_sha": "54b23cc904b9785e77f7f984f7bbdd4972de2f44",
   "current_task": {
     "id": "public-ip-backend-claude-glm",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-08-12-local-ip-display-v1/public-ip-backend-claude-glm.dispatch.md"
   },
   "next": {
