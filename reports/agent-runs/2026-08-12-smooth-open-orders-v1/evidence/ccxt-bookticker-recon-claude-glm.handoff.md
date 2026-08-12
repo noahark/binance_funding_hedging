@@ -97,3 +97,20 @@ provider/manager/gate/executor；未改依赖清单；未启动服务或下单�
 [/TASK_RESULT]
 
 <!-- BOOKKEEPER_APPEND_ONLY: all bytes before this marker are the source payload -->
+
+## Bookkeeper Verification (Bookkeeper append-only)
+
+- source_sha256: `5f0923db9854775db6bb43473bdaa5a706b02bec16d352e11066c54ad99dd993`
+- verified_at: `2026-08-13 00:57:49 CST`
+- status_revision: `4`
+- base_sha: `9cab1ec4304bb1ce1df99123290daa559772a5fc`
+- delivery_sha: `5b744350a04b9f5555dff22cd9d7ba87160cac52`
+- verdict: `VERIFIED / pass（条件性 continue-with-ccxt）`
+- scope: delivery commit 仅含 dispatch 允许的 5 个文件；未修改产品代码、依赖清单、服务或资金路径。
+- reproduced: `python3 -m py_compile reports/agent-runs/2026-08-12-smooth-open-orders-v1/evidence/ccxt-bookticker-recon-claude-glm-proof.py`、`git diff --check 5b744350a04b9f5555dff22cd9d7ba87160cac52^..5b744350a04b9f5555dff22cd9d7ba87160cac52` 均通过；原始输出 A-F 完整，无 section failure、timeout 或 traceback。
+- evidence limit: executable 证明了双 client 订阅、有限样本、取消隔离和 `close()` 正常返回；没有证明断线自动重连、重连 generation、引用归零、关闭后零 CCXT 内部 task、多 symbol 共享。上述项目必须作为 P1 的 fail-closed 验收，不能据此启用生产集成。
+
+## Errata (append-only)
+
+- 2026-08-13 Bookkeeper editorial correction: Human Brief 的 `执行结果: completed` 按规范读取为 `执行结果: completed（完成）`；不改变任务完成状态或技术结论。
+- 2026-08-13 Bookkeeper editorial correction: Human Brief 的 9 个检查项按上限合并读取为 8 项：`[py_compile+proof exit: pass; watchBidsAsks 两 client 实测: pass; 双 watcher cancel 隔离: pass; 普通 contractSize/1000x 边界: pass; raw float 风险: pass; 无凭证/私有/订单/生产 venv: pass; git diff --check: pass; handoff+reported status+单 commit 未 push: pass]`。原始命令、证据和逐项 pass 状态不变；“九段证据”仅指九项 acceptance，对应原始输出 A-F。
