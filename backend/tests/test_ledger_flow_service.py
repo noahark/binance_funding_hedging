@@ -105,7 +105,7 @@ def _run(store, **over):
 # --------------------------------------------------------------------------- #
 # run_once: backfill / scheduled overlap / partial failure / single-flight
 # --------------------------------------------------------------------------- #
-def test_backfill_first_run_covers_30d(tmp_path):
+def test_backfill_first_run_covers_1d(tmp_path):
     client = StubClient()
     client.interest_pages = [{"total": 1, "rows": [
         {"txId": 1, "interestAccuredTime": NOW - 1000, "asset": "HOME", "interest": "0.1"}]}]
@@ -116,10 +116,10 @@ def test_backfill_first_run_covers_30d(tmp_path):
     out = svc.run_once("backfill")
     assert out["interest_new"] == 1 and out["income_new"] == 1
     cov = svc._store.get_coverage()
-    # first-ever → 30-day backfill window on both sources, end = now.
-    assert cov["interest_start_ms"] == NOW - 30 * 86400 * 1000
+    # first-ever → 1-day backfill window on both sources, end = now.
+    assert cov["interest_start_ms"] == NOW - 86400 * 1000
     assert cov["interest_end_ms"] == NOW
-    assert cov["income_start_ms"] == NOW - 30 * 86400 * 1000
+    assert cov["income_start_ms"] == NOW - 86400 * 1000
     assert cov["income_end_ms"] == NOW
 
 
@@ -193,7 +193,7 @@ def test_truncation_interest_left_records_gap(tmp_path):
     out = svc.run_once("backfill")
     assert out["run"]["truncated"] == 1
     cov = svc._store.get_coverage()
-    ws = NOW - 30 * 86400 * 1000
+    ws = NOW - 86400 * 1000
     assert cov["interest_end_ms"] == NOW            # left end advances to window_end
     assert cov["interest_start_ms"] != ws           # start NOT moved to window_start
     gap = [g for g in cov["gaps"] if g["source"] == "interest"]
@@ -593,22 +593,24 @@ def test_capital_never_succeeded_leaves_coverage_for_window_untouched(tmp_path):
 
 
 def test_capital_succeeding_does_not_shrink_coverage_aggregate(tmp_path):
-    # P0-1 (the regression): capital succeeding has start=now-1d, far more
-    # recent than the two-source start=now-30d. If it leaked into the aggregate,
-    # cov_start would jump to now-1d and a 5-day-old window would flip
-    # complete→False (the exact regression plan-review P0-1 named).
+    # P0-1: capital coverage is display-only and must not shrink the two-source
+    # aggregate, even when it begins later.
     client = StubClient()
     _seed_two(client)
     client.capital_pages = [[_crow(1, NOW - 1000)]]
     svc = _svc(tmp_path, client)
     svc.run_once("backfill")
     assert svc._store.get_capital_flow_state()["start_ms"] == NOW - _D  # capital start
+    run_id = _run(svc._store)
+    for commit in (svc._store.commit_interest, svc._store.commit_income):
+        commit(rows=[], run_id=run_id, first_seen_at_ms=NOW,
+               coverage_start_ms=NOW - 5 * _D, coverage_end_ms=NOW)
     payload = svc.get_flow_log(NOW - 5 * _D, NOW)
     # capital present in by_source (display-only) but the aggregate start stays
-    # at the two-source 30d floor, and the 5-day window stays complete:
+    # at the two-source 5d floor:
     assert payload["coverage"]["by_source"]["capital_flow"] == {
         "start_ms": NOW - _D, "end_ms": NOW}
-    assert payload["coverage"]["start_ms"] == NOW - 30 * _D
+    assert payload["coverage"]["start_ms"] == NOW - 5 * _D
     assert payload["coverage"]["complete"] is True
 
 

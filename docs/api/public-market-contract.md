@@ -1474,7 +1474,7 @@ Left `GET /sapi/v1/margin/interestHistory` (`size≤100`, `current` from 1, ≤4
 pages; response `{total, rows[]}`, **descending**); right `GET /papi/v1/um/income`
 (`limit≤1000`, `page` from 1, ≤10 pages, no `incomeType`/`symbol`; response is an
 array, **ascending**). Per-source window: `window_end = now`,
-`window_start = max(<src>_coverage_end_ms - 3h, now - 30d)` (first-ever ⇒ 30-day
+`window_start = max(<src>_coverage_end_ms - 3h, now - 30d)` (first-ever ⇒ 1-day
 backfill). A page failure ⇒ that pane is `error`, zero rows, coverage unchanged;
 the other pane is unaffected. On truncation (`truncated=true`): rows are still
 written, but coverage advances only to the proven-continuous point — left pane

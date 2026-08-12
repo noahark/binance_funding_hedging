@@ -196,12 +196,12 @@ class LedgerFlowService:
         """Return (window_start, window_end, downtime_gap_or_None).
 
         ``window_end = now``; ``window_start = max(cov_end - 3h, now - 30d)``;
-        first-ever (cov_end None) → 30-day backfill window. A downtime gap is
+        first-ever (cov_end None) → 1-day backfill window. A downtime gap is
         recorded when the 30-day floor cuts off before the old coverage end
         (downtime > 30d)."""
         floor = now - _30D_MS
         if cov_end_ms is None:
-            return now - _30D_MS, now, None
+            return now - _1D_MS, now, None
         window_start = max(cov_end_ms - _3H_MS, floor)
         gap = None if cov_end_ms >= floor else {
             "source": src, "start_ms": cov_end_ms, "end_ms": floor,
