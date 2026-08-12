@@ -78,7 +78,8 @@ When the human delivers a task packet, read in this order:
 6. the matching section of `agents/roles.md`;
 7. `agents/developer-discipline.md` for implementation or fix work;
 8. at most one skill named by the dispatch;
-9. only source files and evidence explicitly required for the task.
+9. `HERDR.md` only when the task inspects or uses Herdr;
+10. only source files and evidence explicitly required for the task.
 
 The packet is the session entry; `status.json` verifies it. Stop if stage, task, target model, or revision differs.
 
@@ -94,6 +95,7 @@ Without a packet, read `ACTIVE.json`, `PROJECT_STATE.md`, and active `status.jso
 | `agents/roles.md` | Role duties, model routing, provider identity |
 | `agents/developer-discipline.md` | Shared implementation and fix discipline |
 | `agents/skills/*.md` | One task-specific capability, read on demand |
+| `HERDR.md` | Fixed Herdr window labels and local routing procedure; it never authorizes a send |
 | `<stage>/evidence/*` | Raw tests, reports, verdicts, and samples |
 
 Target at most about 8K tokens for startup and 15K for a loaded task. Required high-risk evidence may exceed the target with a recorded reason; never skip necessary evidence.
