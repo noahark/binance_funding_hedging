@@ -10,10 +10,17 @@ message send.
 | Window label | Intended model terminal |
 |---|---|
 | `codex` | Codex |
+| `codex-review` | Codex Review |
 | `grok` | Grok |
+| `grok-review` | Grok Review |
 | `claude-glm` | Claude Code using GLM |
+| `claude-glm-review` | Claude Code using GLM Review |
 | `claude` | Claude Code |
+| `claude-review` | Claude Code Review |
 | `kimi` | Kimi |
+| `kimi-review` | Kimi Review |
+| `agy` | Antigravity (AGY) |
+| `agy-review` | Antigravity (AGY) Review |
 
 These are expected labels, not a saved snapshot of live sessions. Pane IDs,
 agent names, session UUIDs, agent status, and terminal titles are transient and

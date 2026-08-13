@@ -258,6 +258,7 @@ Provider identity means the model vendor, not the CLI wrapper:
 
 | Model or adapter | Provider identity |
 |---|---|
+| `agy` | `google` |
 | `claude_glm` | `zhipu_glm` |
 | `kimi` | `moonshot` |
 | `codex` / GPT | `openai` |
@@ -283,19 +284,26 @@ Claude Code using GLM is still a Zhipu provider session, not Anthropic.
 ### Review-1
 
 - Default skill: `agents/skills/code-reviewer.md`.
+- All models may participate in an initial draft review. It is non-formal: it
+  cannot replace a required plan review, Review-1, or Review-2, and cannot
+  return an accepting verdict.
+- `agy` (Gemini 3.1 Pro) is preferred for initial draft reviews. Unless Human
+  specifies otherwise in the dispatch, its formal review work is normally
+  limited to lightweight Review-1 tasks.
+- Grok 4.6 is suited to initial operational reviews and heavyweight Review-1
+  tasks. It is the Human-approved fallback when Kimi quota or service is
+  unavailable.
 - For `claude_glm` implementation, Kimi is the preferred cross-provider review-1
   model when available.
-- Grok 4.5 is a Human-approved fallback when Kimi quota or service is unavailable.
 - For Kimi implementation, prefer `claude_glm`.
+- Every formal Review-1 remains subject to the Isolation rules above.
 - Inspect correctness, contracts, tests, integration seams, and the fixed
   `base_sha..delivery_sha` diff.
 
 ### Review-2
 
 - Default skill: `agents/skills/reality-checker.md`.
-- `sonnet5` (anthropic) is the default review-2 model (Human decision
-  2026-08-04, DEC-2026-08-04-001, changed from Opus 5 for Claude-quota
-  reasons).
+- `opus5` (anthropic) is the default review-2 model.
 - Fable5 is used only when Human explicitly selects its separate paid quota.
 - Judge the user's approved requirement, actual delivery effect, evidence,
   operational risk, and release readiness.
@@ -324,6 +332,17 @@ workflow terminal.
 
 Maintain the authoritative current-stage state and prepare the next bounded
 dispatch without becoming an implementer, reviewer, or autonomous dispatcher.
+
+### Candidate Models And Assignment
+
+- Eligible Bookkeepers are `agy`, Codex/GPT, and Claude.
+- Human selects the Bookkeeper at each stage intake. There is no automatic
+  default, replacement, or fallback based on quota, availability, or context
+  size.
+- `status.json.bookkeeper` records the selected canonical model ID. Codex/GPT
+  and Claude selections must name the exact model ID (for example,
+  `gpt-5.6-sol` or `opus5`), not a terminal label such as `codex` or `claude`.
+  A mid-stage handover still needs a new Human decision and status revision.
 
 ### Write Authority
 
