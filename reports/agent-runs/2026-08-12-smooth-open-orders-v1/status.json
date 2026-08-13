@@ -1,13 +1,13 @@
 {
   "schema_version": "2",
-  "revision": 50,
+  "revision": 51,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
   "phase": "human-validation",
-  "checkpoint": "running-card-refresh-review-1-accept-live-loaded-awaiting-human-page-result",
+  "checkpoint": "live-card-connected-threshold-equality-ux-observed-awaiting-human-decision",
   "base_sha": "52eb1ab0de8ab890b4169068e8ef3848c9b5caf7",
   "delivery_sha": "ad8c6317369e8a643f225cc37f22ad0eb949395b",
-  "ledger_sha": "5e96b862706a182f19e6e5eaf02c07f1574aaef5",
+  "ledger_sha": "8d0b1acabbc5913d7244c634569b0a0bf6304a19",
   "current_task": {
     "id": "smooth-open-v1-running-cards-refresh-review-1-claude-glm",
     "state": "verified",
@@ -15,11 +15,12 @@
   },
   "next": {
     "actor": "human_operator",
-    "action": "human-revalidate-running-card-refresh-in-live-page"
+    "action": "human-decide-threshold-equality-ui-or-proceed-review-2"
   },
   "rework_count": 5,
   "blockers": [
     "running-card-refresh-page-revalidation-pending: fresh Claude-GLM Review-1 已 ACCEPT；ad8c631 已由 Human 授权重启加载，等待 Human 页面复验结果",
+    "threshold-equality-ui-decision-pending: 实盘卡把量化后等于阈值的 0.05% 显示为 +0.05%，gate 按严格大于正确等待；Human 决定接受当前说明或增加未通过比较提示",
     "rework-limit-human-waiver: rework_count=5；Human 已明确本次重任务不限制 fix 次数，允许继续修复",
     "live-runtime-loaded: PID 23396 从 smooth worktree 运行，显式使用主仓运行数据库；executor_mode=live、Start gate=true、当前开单/借币均无 active",
     "real-task-actions-not-authorized-to-model: 本次只授权重启；模型不得改 gate、创建/启动任务或下单，Human 页面操作会进入真实订单链",

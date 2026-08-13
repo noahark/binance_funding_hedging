@@ -82,6 +82,18 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Live Risks
 
+- `[OPEN][LIVE-OBSERVATION][2026-08-13]` **平滑卡两位开单率在“等于阈值”时容易被误读为已通过。**
+  Human 验收任务 `2fb9cfef-b9b1-46f4-bc6d-03c789fa7214`（SHELLUSDT、forward、threshold
+  `0.05%`）于 `20:00:42 CST` 显示现货 ask `0.01970000`、合约 bid `0.0197100`、正向开单率
+  `+0.05%`。原始计算约 `0.0507614%`，但冻结公共 formatter 先按 `ROUND_HALF_UP` 量化为
+  `0.05%`，gate 再执行严格 `0.05 > 0.05`，所以 `spread_pass=false`、覆盖率通过但未放行；页面的
+  wait reason 正确，却没有把“等于阈值仍未通过”单独醒目标记。`20:01:12 CST` 行情移动到 spot ask
+  `0.01970000` / perp bid `0.0197300`，量化 spread `0.15%` 后以 `reason=market` 正常放行，两腿
+  各成交 `500`；gate→现货/合约订单客户端调用分别约 `4.523ms` / `4.893ms`，证明本次不是下单前
+  阻塞。实际影响仅是 Human 可能把等待误判成 worker 故障，资金判定仍按冻结严格 `>` 正确执行。
+  临时口径：以卡片 wait reason 与后端 pass 状态为准，显示值与阈值相等不算通过。若 Human 要求
+  消除歧义，最小 UI 修复是展示“当前 0.05% ≤ 阈值 0.05%，未通过”状态，不改 gate 或精度契约。
+
 - `[OPEN][LIVE-OBSERVATION][2026-08-13]` **首笔真实平滑任务已成交；任务卡初始盘口展示误导，且放行瞬间盘口未持久化。**
   Human 页面验收创建任务 `36951966-6942-43e3-833c-99606ca3fae5`
   （`1000CATUSDT`、forward、smooth、阈值 `+0.05%`、单次 `5000`、目标 `1`）。因全局
