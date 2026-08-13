@@ -1,30 +1,30 @@
 {
   "schema_version": "2",
-  "revision": 51,
+  "revision": 52,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
-  "phase": "human-validation",
-  "checkpoint": "live-card-connected-threshold-equality-ux-observed-awaiting-human-decision",
-  "base_sha": "52eb1ab0de8ab890b4169068e8ef3848c9b5caf7",
+  "phase": "review-1",
+  "checkpoint": "threshold-display-limit-accepted-final-cumulative-review-1-dispatched",
+  "base_sha": "e955bdd300d214c5c3ad5c1acd629c0d21080165",
   "delivery_sha": "ad8c6317369e8a643f225cc37f22ad0eb949395b",
-  "ledger_sha": "8d0b1acabbc5913d7244c634569b0a0bf6304a19",
+  "ledger_sha": "d4e5c0bc42bb50171316703913190f78582e1605",
   "current_task": {
-    "id": "smooth-open-v1-running-cards-refresh-review-1-claude-glm",
-    "state": "verified",
-    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/31-smooth-open-v1-running-cards-refresh-review-1-claude-glm.dispatch.md"
+    "id": "smooth-open-v1-final-cumulative-review-1-claude-glm",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/32-smooth-open-v1-final-cumulative-review-1-claude-glm.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "human-decide-threshold-equality-ui-or-proceed-review-2"
+    "action": "start-fresh-claude-glm-final-cumulative-review-1"
   },
   "rework_count": 5,
   "blockers": [
-    "running-card-refresh-page-revalidation-pending: fresh Claude-GLM Review-1 已 ACCEPT；ad8c631 已由 Human 授权重启加载，等待 Human 页面复验结果",
-    "threshold-equality-ui-decision-pending: 实盘卡把量化后等于阈值的 0.05% 显示为 +0.05%，gate 按严格大于正确等待；Human 决定接受当前说明或增加未通过比较提示",
+    "final-cumulative-review-1-pending: 29 号 D17-D19 Review-1 从未执行，31 号仅覆盖最终 Kimi 前端修复；HIGH_RISK 最终交付须先由 fresh Claude-GLM 累计审查 e955bdd..ad8c631",
+    "threshold-equality-ui-accepted: Human 接受量化值等于阈值时页面只以 wait reason 表达未通过，不改 UI、gate 或两位精度契约",
     "rework-limit-human-waiver: rework_count=5；Human 已明确本次重任务不限制 fix 次数，允许继续修复",
     "live-runtime-loaded: PID 23396 从 smooth worktree 运行，显式使用主仓运行数据库；executor_mode=live、Start gate=true、当前开单/借币均无 active",
     "real-task-actions-not-authorized-to-model: 本次只授权重启；模型不得改 gate、创建/启动任务或下单，Human 页面操作会进入真实订单链",
-    "review-2-routing-fixed-pending-page-evidence: Human 已指定页面复验后的 fresh Review-2 由 Opus 5（anthropic）执行；页面证据完成前不得派发",
+    "review-2-routing-fixed-pending-cumulative-review-1: Human 已指定最终 fresh Review-2 由 Opus 5（anthropic）执行；累计 Review-1 ACCEPT 前不得派发",
     "merge-deploy-not-authorized: push、merge、部署与实盘启用仍须 Human 单独授权"
   ]
 }

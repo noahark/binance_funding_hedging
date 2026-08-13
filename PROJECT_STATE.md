@@ -82,7 +82,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Live Risks
 
-- `[OPEN][LIVE-OBSERVATION][2026-08-13]` **平滑卡两位开单率在“等于阈值”时容易被误读为已通过。**
+- `[OPEN][ACCEPTED][LIVE-OBSERVATION][2026-08-13]` **平滑卡两位开单率在“等于阈值”时容易被误读为已通过。**
   Human 验收任务 `2fb9cfef-b9b1-46f4-bc6d-03c789fa7214`（SHELLUSDT、forward、threshold
   `0.05%`）于 `20:00:42 CST` 显示现货 ask `0.01970000`、合约 bid `0.0197100`、正向开单率
   `+0.05%`。原始计算约 `0.0507614%`，但冻结公共 formatter 先按 `ROUND_HALF_UP` 量化为
@@ -93,6 +93,8 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   阻塞。实际影响仅是 Human 可能把等待误判成 worker 故障，资金判定仍按冻结严格 `>` 正确执行。
   临时口径：以卡片 wait reason 与后端 pass 状态为准，显示值与阈值相等不算通过。若 Human 要求
   消除歧义，最小 UI 修复是展示“当前 0.05% ≤ 阈值 0.05%，未通过”状态，不改 gate 或精度契约。
+  Human 于 `2026-08-13 20:03 CST` 接受当前展示限制并决定继续最终评审；本次接受不改变严格 `>`
+  或两位量化契约。重开条件：Human 实际因此误操作，或后续明确要求醒目的通过/未通过比较状态。
 
 - `[OPEN][LIVE-OBSERVATION][2026-08-13]` **首笔真实平滑任务已成交；任务卡初始盘口展示误导，且放行瞬间盘口未持久化。**
   Human 页面验收创建任务 `36951966-6942-43e3-833c-99606ca3fae5`
