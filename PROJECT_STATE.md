@@ -6,19 +6,18 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-12)
 
-- **[2026-08-13 18:23 Human 授权重启] D17–D19 已从 smooth worktree 加载，等待页面复验：**
-  重启前只读确认开单 running=0、未终态订单腿=0、借币 active/unresolved=0；原 PID `81292`
-  已由 Human/原终端先行停止，Bookkeeper 未再向它发信号。新 PID `3722` 于
-  `2026-08-13 18:23:51 CST` 从 `/Users/ark/Desktop/ai code/funding_hedging-smooth-v1`
-  启动，显式清除继承 `PYTHONPATH`，代码/前端来自 smooth worktree，数据库与 `.env` 继续使用
-  主仓现有运行配置。启动 HEAD `39d6933`，其中受测产品 delivery 为 `bba31ea`，其后只有
-  Harness/活状态控制提交。HTTP 运行指纹已通过：task-id 日志含 `smooth_market` 与
-  `smooth_dispatch_audits`，首页含 running-only `smoothExtras` 且不含旧 `fakeSmooth`；历史开单
-  28 条保留、当前 running=0，`/healthz` 正常。**当前仍为 `executor_mode=live`、
-  `start_gate=true`，Human 创建并启动 smooth 任务会进入真实行情和真钱订单链。**页面验收后新增的
-  running 卡统一 2 秒刷新修复 `ad8c631` 已通过 fresh Claude-GLM Review-1，但当前服务尚未加载；
-  仍待 Human 单独授权重启后页面复验，再由 Human 已指定的 fresh Opus 5 执行 Review-2。未授权
-  push、merge、部署或新的实盘操作。
+- **[2026-08-13 19:56 Human 授权重启] running 卡统一 2 秒刷新修复已加载，等待页面复验：**
+  停机前只读确认开单 running/paused=0、未终态订单腿=0、借币 active/unresolved=0；原 PID `3722`
+  已正常退出。第一次替换进程误用 worktree 相对 `data/`，显示历史任务为 0，发现后立即停止；该进程
+  未创建任务或订单，也未接触主仓数据库，隔离的空 SQLite 文件留在 worktree ignored `data/`，未作
+  删除。最终 PID `23396` 于 `2026-08-13 19:56:22 CST` 从
+  `/Users/ark/Desktop/ai code/funding_hedging-smooth-v1` 启动，并显式使用主仓
+  `/Users/ark/Desktop/ai code/funding_hedging/data/borrow-tasks.sqlite3` 及同目录五份运行数据库。
+  `/healthz` 正常，历史开单 41 条、借币 10 条恢复，当前均无 active；首页运行指纹包含
+  `new Set([...runningIds, ...expandedIds])`，确认产品交付 `ad8c631` 已加载。**当前为
+  `executor_mode=live`、`start_gate=true`；Human 创建并启动任务会进入真实行情和真钱订单链。**
+  fresh Claude-GLM Review-1 已 ACCEPT；仍待 Human 页面复验，再由已指定的 fresh Opus 5 执行
+  Review-2。未授权 push、merge、部署或由模型创建真实任务/下单。
 
 - **[2026-08-12 Human Fast Direct] 两次直接代码交付已推送：** `31d7ae6` 取消私有读取在 429/-1003 后的 0.5 秒立即重试；`0a0984c` 将空库首次利息/收入流水回补窗口改为 1 天。两项均已通过定向测试，接口/行为文档已同步。**当前手动前台服务未重启，运行进程尚未加载这两处代码。**
 
