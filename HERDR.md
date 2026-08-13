@@ -19,8 +19,8 @@ message send.
 | `claude-review` | Claude Code Review |
 | `kimi` | Kimi |
 | `kimi-review` | Kimi Review |
-| `agy` | Antigravity (AGY) |
-| `agy-review` | Antigravity (AGY) Review |
+| `agy` | Antigravity (AGY), expected to run `gemini-3.1-pro` |
+| `agy-review` | Antigravity (AGY) Review, expected to run `gemini-3.1-pro` |
 
 These are expected labels, not a saved snapshot of live sessions. Pane IDs,
 agent names, session UUIDs, agent status, and terminal titles are transient and

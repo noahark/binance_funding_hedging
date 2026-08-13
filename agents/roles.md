@@ -258,7 +258,7 @@ Provider identity means the model vendor, not the CLI wrapper:
 
 | Model or adapter | Provider identity |
 |---|---|
-| `agy` | `google` |
+| `gemini-3.1-pro` (the `agy` window) | `google` |
 | `claude_glm` | `zhipu_glm` |
 | `kimi` | `moonshot` |
 | `codex` / GPT | `openai` |
@@ -267,6 +267,11 @@ Provider identity means the model vendor, not the CLI wrapper:
 | DeepSeek | `deepseek` |
 
 Claude Code using GLM is still a Zhipu provider session, not Anthropic.
+
+Antigravity is a CLI wrapper, not a provider. The `agy` window is expected to
+run `gemini-3.1-pro` (`google`), but if that session runs another vendor's
+model, its provider identity is that vendor's. Name the model, never the
+window label, wherever provider identity or isolation is decided.
 
 ### Isolation
 
@@ -287,9 +292,9 @@ Claude Code using GLM is still a Zhipu provider session, not Anthropic.
 - All models may participate in an initial draft review. It is non-formal: it
   cannot replace a required plan review, Review-1, or Review-2, and cannot
   return an accepting verdict.
-- `agy` (Gemini 3.1 Pro) is preferred for initial draft reviews. Unless Human
-  specifies otherwise in the dispatch, its formal review work is normally
-  limited to lightweight Review-1 tasks.
+- `gemini-3.1-pro` (the `agy` window) is preferred for initial draft reviews.
+  Unless Human specifies otherwise in the dispatch, its formal review work is
+  normally limited to lightweight Review-1 tasks.
 - Grok 4.6 is suited to initial operational reviews and heavyweight Review-1
   tasks. It is the Human-approved fallback when Kimi quota or service is
   unavailable.
@@ -335,14 +340,16 @@ dispatch without becoming an implementer, reviewer, or autonomous dispatcher.
 
 ### Candidate Models And Assignment
 
-- Eligible Bookkeepers are `agy`, Codex/GPT, and Claude.
+- Eligible Bookkeepers are `gemini-3.1-pro` (the `agy` window), Codex/GPT, and
+  Claude.
 - Human selects the Bookkeeper at each stage intake. There is no automatic
   default, replacement, or fallback based on quota, availability, or context
   size.
-- `status.json.bookkeeper` records the selected canonical model ID. Codex/GPT
-  and Claude selections must name the exact model ID (for example,
-  `gpt-5.6-sol` or `opus5`), not a terminal label such as `codex` or `claude`.
-  A mid-stage handover still needs a new Human decision and status revision.
+- `status.json.bookkeeper` records the selected canonical model ID. Every
+  selection must name the exact model ID (for example, `gpt-5.6-sol`, `opus5`,
+  or `gemini-3.1-pro`), not a terminal label such as `codex`, `claude`, or
+  `agy`. A mid-stage handover still needs a new Human decision and status
+  revision.
 
 ### Write Authority
 
