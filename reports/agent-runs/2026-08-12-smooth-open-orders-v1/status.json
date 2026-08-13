@@ -1,26 +1,26 @@
 {
   "schema_version": "2",
-  "revision": 38,
+  "revision": 39,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
-  "phase": "implementation-repair",
-  "checkpoint": "human-authorized-unlimited-fix-rounds-f1-fix-dispatched",
+  "phase": "review-1",
+  "checkpoint": "f1-fix-verified-human-requested-review-1-dispatched",
   "base_sha": "e74f3d5cf20f9f980ef023ed35a9c40ff3b8b174",
-  "delivery_sha": null,
-  "ledger_sha": "e74f3d5cf20f9f980ef023ed35a9c40ff3b8b174",
+  "delivery_sha": "5d65a96b8c0435297c1511c228cec9a6d38df4b8",
+  "ledger_sha": "5d65a96b8c0435297c1511c228cec9a6d38df4b8",
   "current_task": {
-    "id": "smooth-open-v1-f1-fix-gpt56sol-xhigh",
+    "id": "smooth-open-v1-f1-review-1-kimi",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/24-smooth-open-v1-f1-fix-gpt56sol-xhigh.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/25-smooth-open-v1-f1-review-1-kimi.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-gpt56sol-xhigh-f1-fix"
+    "action": "start-fresh-kimi-f1-review-1"
   },
   "rework_count": 4,
   "blockers": [
-    "review-2-f1-in-range-repair-dispatched: 真实 BestBidAskProvider 回调与 service _smooth_lock 互锁，须完成本轮修复和 fresh Review-2",
-    "dependency-install-not-authorized: 本实现不得安装 ccxt 或修改任何虚拟环境",
+    "f1-fix-review-1-pending: Human 要求先通过 fresh 跨 provider Review-1，再安装 ccxt 并准备页面验收",
+    "dependency-install-authorized-deferred: Human 已授权安装 ccxt==4.5.64，但须等待 Review-1 ACCEPT",
     "network-live-actions-not-authorized: 本实现不得联网、控制服务、读取凭证或执行真实行情/账户/订单动作",
     "merge-deploy-not-authorized: push、merge、部署与实盘启用仍须 Human 单独授权"
   ]

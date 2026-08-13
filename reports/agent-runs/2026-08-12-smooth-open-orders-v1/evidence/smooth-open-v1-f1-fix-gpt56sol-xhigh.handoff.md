@@ -85,3 +85,16 @@ server、frontend、executor、live client、preflight、snapshot、requirements
 <!-- BOOKKEEPER_APPEND_ONLY: all bytes before this marker are the source payload -->
 
 ## Bookkeeper Verification (Bookkeeper append-only)
+
+- verified_at: `2026-08-13 16:02:34 CST`
+- source_sha256: `2dda52a3ed6390993c7bba317756636615703097e5c9b2cc23e25015cfe010d0`
+- status_revision_checked: `38`
+- resolved_delivery_sha: `5d65a96b8c0435297c1511c228cec9a6d38df4b8`
+- fixed_range: `e74f3d5cf20f9f980ef023ed35a9c40ff3b8b174..5d65a96b8c0435297c1511c228cec9a6d38df4b8`
+- verdict: `verified-pass`
+
+核验通过：author source 的 task/stage/role/model、base、唯一 handoff、marker、99 字摘要、八项检查、明确下一关卡均合规；实现 commit 的直接父提交为 dispatch 控制提交 `14d8029`，该 commit 本身只改 `service.py`、`test_smooth_gate_worker.py` 和本 handoff，符合 Allowed Files。固定区间中 `14d8029` 的 dispatch/status 仅为控制上下文。
+
+Bookkeeper 独立复跑：worker 专项 `17 passed`；专项组合 `253 passed`；核心组合 `352 passed`；executor `75 passed`；前端 self-check 全绿且字段绑定 `13 passed`；全后端 `1879 passed, 1 failed`。唯一失败仍为 `test_private_client.py::test_urlopen_only_in_designated_http_clients`，相关测试与 `public_ip_service.py` 相对本修复基线零 diff，已知引入提交 `73f525d4` 是基线祖先，维持 `pre-existing-independent`。真实 provider、并发 refs、失败暂停/恢复三项又独立循环 `10/10` 通过；`git diff --check` 通过，ccxt 仍未安装，工作树在本追加前干净。
+
+Human 最新路由覆盖 author handoff 的旧建议：本交付先走 fresh、跨 provider Review-1；Review-1 `ACCEPT` 后才按 Human 授权安装 `ccxt==4.5.64` 并准备页面验收，随后仍须完成 Review-2。安装授权不等于联网、服务控制、合并、部署或实盘授权。
