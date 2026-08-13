@@ -1,13 +1,13 @@
 {
   "schema_version": "2",
-  "revision": 26,
+  "revision": 27,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
   "phase": "plan-repair",
-  "checkpoint": "smooth-open-v1-review-2-source-verified-nonaccepting-human-repair-scope-decided",
-  "base_sha": "08ece7e30021db537d375347a5d54accca572d70",
+  "checkpoint": "smooth-open-v1-review-2-nonaccepting-human-repair-scope-and-pre-gate-leverage-decided",
+  "base_sha": "bfb633799ed904ba6d8364bffef7f048d77137dd",
   "delivery_sha": "24074b144dcdb745c511d866a75528a8930e8475",
-  "ledger_sha": "08ece7e30021db537d375347a5d54accca572d70",
+  "ledger_sha": "bfb633799ed904ba6d8364bffef7f048d77137dd",
   "current_task": {
     "id": "smooth-open-v1-repair-plan-opus5",
     "state": "dispatched",

@@ -4,7 +4,7 @@
 - target_role: `Planner`
 - target_model: `claude-opus-5`
 - provider: `anthropic`
-- status_revision: `26`
+- status_revision: `27`
 - required_skill: `agents/skills/task-planner.md`
 
 # Goal
@@ -13,7 +13,7 @@
 
 1. **Human 接受、不修**：Start 总开关/`service.stop()` 与本轮 reserve→dispatch 的竞态；上一轮查单耗时可能让下一 gate 少于完整 5 分钟；行情表重绘可能把尚未提交的 threshold 输入复位为 `0.05`。把三项写成这次交付的具名已知限制、实际影响、临时操作方式和重开条件，不再列为本轮验收失败。
 2. **本轮必须修**：provider 并发冷启动僵尸订阅；`APP_OFFLINE=true` 仍构造真实公共 WebSocket provider；无限长度合法 signed 大整数 threshold 在 `Decimal.quantize` 逃逸；provider 持续异常/无效快照无等待热循环；暂停/删除任务仍 drain/settle 在途订单时展开日志停止刷新。
-3. **Human 新需求**：平滑模式建任务时的首次完整 preflight 保留；每轮 WebSocket 滑点严格 `>` threshold 且两腿一档数量各 `>=80%` 后，删除 `_dispatch_one_for_task` 中对 smooth 的每轮联网 fresh preflight，直接复用任务已固化的 `q_common`、`position_side_mode`、`preflight_snapshot`/route，原子 reserve 本轮后进入既有异步两腿下单、同步等返回、查单、结算与单腿暂停链。立即模式的 fresh preflight 完全不变。首轮既有 `set_leverage` 保留，它是下单设置而非重复复核；不得提前到建卡时产生新的交易所写副作用。
+3. **Human 新需求**：平滑模式建任务时的首次完整 preflight 保留；任务开始执行且首轮尚未调度时，先完成该任务唯一一次杠杆设置，成功后才允许订阅 WebSocket、建立或恢复 gate、第一次计算滑点。每轮 WebSocket 滑点严格 `>` threshold 且两腿一档数量各 `>=80%` 后，删除 `_dispatch_one_for_task` 中对 smooth 的每轮联网 fresh preflight，直接复用任务已固化的 `q_common`、`position_side_mode`、`preflight_snapshot`/route，原子 reserve 本轮后进入既有异步两腿下单、同步等返回、查单、结算与单腿暂停链。立即模式的 fresh preflight 和杠杆设置时机完全不变。不得把杠杆设置提前到建卡时；盘口通过到异步两腿提交之间不得再发生任何联网读取、交易所设置或其他阻塞调用。
 
 这是 HIGH_RISK 的计划修订，不授权实现、安装 CCXT、联网、启动/停止服务、读取凭证、创建任务、下单、push、merge、部署或实盘。完成后须先由 provider 非 `anthropic` 的 fresh Reviewer 做一次只查本增量的计划复核；`ACCEPT` 前不得准备或启动实现。
 
@@ -47,7 +47,7 @@
 10. `docs/planning/smooth-open-orders-v1-development-checklist.md`
 11. 只读核对以下当前实现锚点：`backend/services/best_bid_ask_provider.py` 的 `start/subscribe/_watch`；`backend/hedge_open_tasks/domain.py::validate_slippage_threshold_pct`；`backend/hedge_open_tasks/service.py::_ensure_smooth_subscriptions/_wait_for_smooth_gate/_dispatch_one_for_task/post_pause/post_delete`；`backend/app/server.py::_build_hedge_service`；`frontend/index.html::loadHedgeTasks/refreshExpandedRunningHedgeLogs`；对应 smooth/provider/frontend 测试。
 
-启动核对：cwd 为 `/Users/ark/Desktop/ai code/funding_hedging-smooth-v1`，分支为 `smooth/v1-fullstack`，status revision `26`、本 task_id/model/provider 一致，`base_sha=08ece7e30021db537d375347a5d54accca572d70`，唯一 handoff 路径不存在。任一不一致即停止并返回 blocked handoff。
+启动核对：cwd 为 `/Users/ark/Desktop/ai code/funding_hedging-smooth-v1`，分支为 `smooth/v1-fullstack`，status revision `27`、本 task_id/model/provider 一致，`base_sha=bfb633799ed904ba6d8364bffef7f048d77137dd`，唯一 handoff 路径不存在。任一不一致即停止并返回 blocked handoff。
 
 # Acceptance Checks
 
@@ -63,12 +63,13 @@
 7. **非 running 展开日志继续刷新**：只要任务仍存在且日志已展开，共享 2 秒 tick/既有 `loadHedgeTasks` 链继续取日志；paused/deleted/done/stopped 在途 drain/settle 的新增 attempt/腿状态最终可见。不得新增 timer；同步修正当前“暂停后不得请求日志”的错误 self-check。
 8. **smooth-only 删除每轮 fresh preflight**：
    - create-task 首次 preflight、固化数据、regular-spot 预划转、缺腿/乘数合约拒绝全部保留；immediate 每轮 fresh preflight 逐字保持。
+   - 对 live smooth 且 `scheduled_attempt_count == 0` 的任务，把既有 `_set_leverage_before_open` 从 gate 通过后的 `_dispatch_one_for_task` 移到 `_worker_round` 的任何 `_ensure_smooth_subscriptions`、`open_smooth_gate`、已有 gate 恢复和第一次 `_smooth_eval` 之前。成功后才开始监听/判断盘口；失败沿用现有 `leverage_set_failed` 暂停、中文日志、零 gate、零订阅、零 attempt、零订单。后续轮次不重复设置；若首轮尚未产生 attempt 就因失败或进程重启重新启动，可在新的执行入口幂等重试，但仍必须发生在任何 gate/订阅之前，不新增持久化列或新状态机。
    - smooth 的 market/manual/timeout 三种 gate 通过后，不调用 `HedgePreflightProvider.get_snapshot`，直接用 task 固化的 `q_common`、`position_side_mode`、`preflight_snapshot` 和 route 构造既有请求；随后仍由 `prepare_attempt` 原子复核 task 状态、target、无在途 pair、当前 gate seq 与 pass reason，再调用既有 `_dispatch_live` 两腿异步提交。
    - 不复制 executor，不新建 smooth 下单实现，不改 `live_hedge_executor.py`、live client 或 preflight provider；单腿/429/余额拒绝/查单/结算仍走原链并按既有原因暂停。
    - 明确接受的代价：等待期间余额、交易规则、position mode、rate-limit 或路由事实变化不再被每轮预检拦截，可能双腿拒绝或单腿；单腿由现有任务卡告警、暂停与 Human 人工核对收口。不得把该接受风险包装成 fail-closed。
-   - 首次 attempt 的既有 leverage 设置保留在 dispatch 前；后续 attempt 不重复。除这一步外，盘口通过到 reserve/异步下单之间不得新增网络读取。
+   - `_dispatch_one_for_task` 对 smooth 不得再次设置杠杆；immediate 仍按现状在自己的首个 attempt 前设置。smooth 从任何一次 gate 判定通过到 `prepare_attempt`/`_dispatch_live` 之间不得再有网络读取、杠杆设置、sleep 或其他人为等待。计划须增加顺序型回归，用 spy 明确断言 `set_leverage → subscribe/open gate → market evaluation → prepare → dispatch`，且 market pass 后 leverage/preflight 调用数均不再增加。
 9. **单一返修任务边界**：计划仍使用原实现作者 `gpt-5.6-sol`/provider `openai`/reasoning `xhigh`、同一 worktree/branch，`rework_count=1`。建议 Allowed Files 只含上述根因所需的 provider/domain/service/server/frontend 与对应测试、自检、唯一 fix handoff；不得修改 store、executor、live client、preflight provider、snapshot、requirements 或无关模块。列出逐项确定性回归、核心回归、全后端既存白名单勘误、前端 self-check 与 diff/scope 检查。
-10. **窄计划复核请求**：在清单中给出 copy-ready 的只读复核正文，只检查三项 Human 接受风险是否被错误重新纳入、五项修复是否覆盖根因、smooth-only preflight 删除是否准确保留 create/immediate/leverage/原子 reserve/单腿后续。目标 reviewer provider 必须非 `anthropic`，结论仍为 `ACCEPT | REWORK`。
+10. **窄计划复核请求**：在清单中给出 copy-ready 的只读复核正文，只检查三项 Human 接受风险是否被错误重新纳入、五项修复是否覆盖根因、smooth-only preflight 删除是否准确保留 create/immediate/原子 reserve/单腿后续，以及 smooth 杠杆是否严格前移到订阅与首次 gate 判断之前、gate 通过后是否再无联网读取或设置。目标 reviewer provider 必须非 `anthropic`，结论仍为 `ACCEPT | REWORK`。
 11. `git diff --check` 无输出，变更只有两份 Allowed planning 文件；创建合规唯一 handoff，返回 Human Brief 的 `[TASK_RESULT v2]`。不提交、不改状态、不启动下一模型。
 
 # Stop
