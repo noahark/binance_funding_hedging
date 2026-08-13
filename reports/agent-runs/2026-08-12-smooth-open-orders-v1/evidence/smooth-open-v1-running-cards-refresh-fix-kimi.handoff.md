@@ -74,3 +74,14 @@
 <!-- BOOKKEEPER_APPEND_ONLY: all bytes before this marker are the source payload -->
 
 ## Bookkeeper Verification (Bookkeeper append-only)
+
+- source_sha256: `2bda4b87ff51da2a217a6a08878e5b1d8307ae5de8ac38f31da5872e197f01ae`
+- verified_at: `2026-08-13 19:26:00 CST`
+- verified_status_revision: `47`
+- verdict: `verified`
+- fixed_range: `52eb1ab0de8ab890b4169068e8ef3848c9b5caf7..ad8c6317369e8a643f225cc37f22ad0eb949395b`
+- control_tip_sha: `054fbb397b7fca31522a47bd192f5a6f69bea309`
+- delivery_sha: `ad8c6317369e8a643f225cc37f22ad0eb949395b`
+- 核验依据：source 区块工作树与 delivery tree 的 SHA-256 相同；`control_tip_sha..delivery_sha` 恰一个提交，修改文件为五个 Allowed Files 与唯一 handoff，禁止文件、既有 dispatch/status/ACTIVE/PROJECT_STATE 和 backend 产品代码零 diff；工作树核验前干净。
+- 独立检查：`node frontend/self-check.js` 全部通过；`pytest backend/tests/test_frontend_field_binding.py -q` 为 `14 passed`；dispatch 指定 smooth/hedge 回归为 `112 passed`；固定区间 `git diff --check` 无输出；`frontend/index.html` 的 `setInterval(() =>` 仍为 `4`。
+- 行为裁定：`loadHedgeTasks()` 先刷新最新任务快照，再对全部 running ID 与仍存在的 expanded ID 做 `Set` 去重并拉 task-id 日志；选择无 `mode`/`task_type`/方向特判。共享 2 秒入口只在开单任务 tab 调用该路径；非 running 收起停止、展开继续。实现满足 Human 统一刷新口径，无 contested 项。
