@@ -1,24 +1,26 @@
 {
   "schema_version": "2",
-  "revision": 36,
+  "revision": 37,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
-  "phase": "review-2",
-  "checkpoint": "sonnet5-review-2-replaced-before-start-grok46-dispatched",
+  "phase": "human-decision",
+  "checkpoint": "grok46-review-2-rework-f1-verified-rework-limit-decision-required",
   "base_sha": "9c333cdb58f38f7d19fa8d42b36379abd07baba8",
   "delivery_sha": "dfd38a6b71e686caf02475aa7954056d670fcead",
-  "ledger_sha": "508d6fc01bfeb7745c0fed171fc4ad8e6bc0c576",
+  "ledger_sha": "6825d37871791f3f37b2c24118e693cddecf7a2b",
   "current_task": {
     "id": "smooth-open-v1-fix-review-2-grok46",
-    "state": "dispatched",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/23-smooth-open-v1-fix-review-2-grok46.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-fresh-grok46-independent-review-2"
+    "action": "choose-f1-outcome-narrow-redesign-accept-limit-or-stop"
   },
   "rework_count": 3,
   "blockers": [
+    "review-2-f1-in-range: 真实 BestBidAskProvider 回调与 service _smooth_lock 互锁，订阅稳定 5 秒超时并使 worker 退出",
+    "human-rework-limit-decision-required: rework_count=3 已达上限，Human 未选择缩窄、重设计、接受限制或停止前不得派修复",
     "dependency-install-not-authorized: 本实现不得安装 ccxt 或修改任何虚拟环境",
     "network-live-actions-not-authorized: 本实现不得联网、控制服务、读取凭证或执行真实行情/账户/订单动作",
     "merge-deploy-not-authorized: push、merge、部署与实盘启用仍须 Human 单独授权"
