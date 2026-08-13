@@ -1,28 +1,28 @@
 {
   "schema_version": "2",
-  "revision": 45,
+  "revision": 46,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
-  "phase": "implementation-repair",
-  "checkpoint": "d17-d19-implementation-rerouted-to-grok46-before-start",
+  "phase": "review-1",
+  "checkpoint": "d17-d19-grok46-delivery-verified-review-1-dispatched",
   "base_sha": "a55a673664ee3cf6b2a177774d7ba40890a2d4b3",
-  "delivery_sha": null,
-  "ledger_sha": "a55a673664ee3cf6b2a177774d7ba40890a2d4b3",
+  "delivery_sha": "bba31ea519c9831b38256918d8854f4c20d58aad",
+  "ledger_sha": "8e986723a0f9ad45e088e8ba9af10ccde6f1cf5d",
   "current_task": {
-    "id": "smooth-open-v1-human-validation-fix-grok46",
+    "id": "smooth-open-v1-d17-d19-review-1-claude-glm",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/28-smooth-open-v1-human-validation-fix-grok46.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/29-smooth-open-v1-d17-d19-review-1-claude-glm.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-grok46-d17-d19-implementation"
+    "action": "start-fresh-claude-glm-d17-d19-review-1"
   },
   "rework_count": 4,
   "blockers": [
-    "d17-d19-implementation-pending: Human 因 gpt-5.6-sol 额度不足改派 Grok 4.6；27 号旧包未启动，28 号唯一活动包尚待交付",
+    "d17-d19-review-1-pending: Grok 4.6 交付与测试已由 Bookkeeper 核验，尚待 fresh Claude-GLM 跨 provider Review-1 verdict",
     "live-runtime-warning: 当前未合并 worktree 在 127.0.0.1:8787 仍运行旧交付且 Start gate=true；修复未加载，新建 smooth 仍可能立即真实成交",
     "environment-service-actions-not-authorized: ccxt 已由 Human 为页面验收安装；本实现不得修改环境、联网、控制服务、改 gate 或触碰真实任务",
-    "implementation-review-pending: 返修后须 fresh 跨 provider Review-1、Human 页面复验与 fresh Review-2",
+    "human-page-revalidation-and-review-2-pending: Review-1 ACCEPT 后由 Human 决定是否重启页面复验，随后仍须 fresh Review-2",
     "merge-deploy-not-authorized: push、merge、部署与实盘启用仍须 Human 单独授权"
   ]
 }
