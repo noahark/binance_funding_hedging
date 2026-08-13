@@ -1,30 +1,30 @@
 {
   "schema_version": "2",
-  "revision": 52,
+  "revision": 53,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
-  "phase": "review-1",
-  "checkpoint": "threshold-display-limit-accepted-final-cumulative-review-1-dispatched",
+  "phase": "review-2",
+  "checkpoint": "final-cumulative-review-1-accepted-final-review-2-prepared",
   "base_sha": "e955bdd300d214c5c3ad5c1acd629c0d21080165",
   "delivery_sha": "ad8c6317369e8a643f225cc37f22ad0eb949395b",
-  "ledger_sha": "d4e5c0bc42bb50171316703913190f78582e1605",
+  "ledger_sha": "f305c8a0baf0aa1579fb7464d3bea697403db747",
   "current_task": {
-    "id": "smooth-open-v1-final-cumulative-review-1-claude-glm",
+    "id": "smooth-open-v1-final-review-2-opus5",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/32-smooth-open-v1-final-cumulative-review-1-claude-glm.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/33-smooth-open-v1-final-review-2-opus5.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-fresh-claude-glm-final-cumulative-review-1"
+    "action": "start-fresh-opus5-final-review-2"
   },
   "rework_count": 5,
   "blockers": [
-    "final-cumulative-review-1-pending: 29 号 D17-D19 Review-1 从未执行，31 号仅覆盖最终 Kimi 前端修复；HIGH_RISK 最终交付须先由 fresh Claude-GLM 累计审查 e955bdd..ad8c631",
+    "final-review-2-pending: 累计 Review-1 已 verified-accept；仍须由 Human 指定的 fresh Opus 5 独立完成 Review-2",
     "threshold-equality-ui-accepted: Human 接受量化值等于阈值时页面只以 wait reason 表达未通过，不改 UI、gate 或两位精度契约",
     "rework-limit-human-waiver: rework_count=5；Human 已明确本次重任务不限制 fix 次数，允许继续修复",
-    "live-runtime-loaded: PID 23396 从 smooth worktree 运行，显式使用主仓运行数据库；executor_mode=live、Start gate=true、当前开单/借币均无 active",
+    "live-runtime-loaded: 2026-08-13 20:33 CST 核验 PID 23396 从 smooth worktree 运行且 ccxt=4.5.64；executor_mode=live、Start gate=true，模型不得据此操作任务或订单",
     "real-task-actions-not-authorized-to-model: 本次只授权重启；模型不得改 gate、创建/启动任务或下单，Human 页面操作会进入真实订单链",
-    "review-2-routing-fixed-pending-cumulative-review-1: Human 已指定最终 fresh Review-2 由 Opus 5（anthropic）执行；累计 Review-1 ACCEPT 前不得派发",
+    "review-2-routing-fixed: Human 已指定最终 fresh Review-2 由 Opus 5（anthropic）执行；文稿已准备但尚未由 Human 启动",
     "merge-deploy-not-authorized: push、merge、部署与实盘启用仍须 Human 单独授权"
   ]
 }
