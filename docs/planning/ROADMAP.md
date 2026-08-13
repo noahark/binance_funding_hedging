@@ -1,6 +1,6 @@
 # Roadmap
 
-Status: as-built roadmap sync, 2026-08-10. Live detail and acceptance state:
+Status: as-built roadmap sync, 2026-08-13. Live detail and acceptance state:
 `PROJECT_STATE.md`.
 
 This file is the canonical approved roadmap.
@@ -19,12 +19,13 @@ This file is the canonical approved roadmap.
    Landed on local main; operator live validation ongoing. See
    `docs/planning/CHANGELOG-2026-07-22-live-borrow-ops.md` and
    DEC-2026-07-22-001…003.
-7. Manual open planning + market-order execution (spot/perp hedge). **Live and
-   in use, with known limitations.** Durable hedge-open tasks, a task-local
-   worker, real PAPI order dispatch behind the Start gate, an inline per-attempt
-   log, and a backend-merged position table have all shipped. Real orders have
-   been placed and closed. Remaining follow-ups are tracked in
-   `PROJECT_STATE.md`; the display-honesty family closed on 2026-08-07.
+7. Manual immediate and smooth market-order execution (spot/perp hedge).
+   **Live and in use, with known limitations.** Durable tasks, Human Start,
+   public spot/perpetual L1 WebSocket gates, timeout/manual current-round
+   release, concurrent two-leg dispatch, per-attempt logs, smooth dispatch
+   audits, and the backend-merged position table have shipped. Real orders have
+   been placed and closed. F-A and the accepted timing/UI limits remain in
+   `PROJECT_STATE.md`.
 8. Accounting, reconciliation, and alerting. Future.
 9. **Position cycle + per-cycle cost statistics. Done — developed,
    live-validated, Human acceptance 2026-08-05 (see below).**
@@ -140,7 +141,8 @@ Follow-ups).
   read-only snapshot contract.
 - Clearer borrowability state semantics beyond the generic `verified` flag
   (green「已验证可借」still does not mean maxBorrowable was probed).
-- Websocket depth display after operator clicks open.
+- Optional F-A hardening if its accepted-risk reopen condition is met: reject
+  or pause a smooth card whose create-time frozen preflight was never complete.
 - Position mismatch monitoring beyond the current merged table (the single-leg
   and drift markers themselves were fixed 2026-08-07 — partial-imbalance
   tolerance `_EXPOSURE_IMBALANCE_TOLERANCE`, drift sums both accounts;

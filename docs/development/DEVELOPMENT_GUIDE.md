@@ -1,7 +1,7 @@
 # Development Guide
 
-Status: as-built hedge execution system with live order, borrow, asset-transfer,
-and manual margin-repay paths, 2026-08-10. Current runtime state and live risks:
+Status: as-built hedge execution system with immediate/smooth live order,
+borrow, asset-transfer, and manual margin-repay paths, 2026-08-13. Current runtime state and live risks:
 `PROJECT_STATE.md`.
 
 This file is the canonical approved development guide for the project.
@@ -27,9 +27,11 @@ Model drafts must not be written here directly. Drafts belong in
 
 ## Environment
 
-The current application is a lightweight Python stdlib backend plus static
-frontend. Runtime defaults bind to `127.0.0.1:8787` and can run without Binance
-credentials by using public endpoints or offline fixtures.
+The application is a lightweight Python backend plus static frontend. Runtime
+defaults bind to `127.0.0.1:8787`; `requirements.txt` pins `ccxt==4.5.64` for
+the public smooth-open best-bid/ask WebSockets. Without CCXT the rest of the
+application still starts, but smooth creation fails closed. Offline mode never
+constructs the WebSocket provider.
 
 Useful environment variables:
 
@@ -71,8 +73,9 @@ Useful environment variables:
   borrow tasks (default `data/borrow-tasks.sqlite3`).
 - `APP_HEDGE_EXECUTOR` / `FUNDING_HEDGING_HEDGE_EXECUTOR`: `disabled` (default,
   no signed order POST) or `live` (narrow exact-path PAPI margin/UM order
-  adapter). Live mode still requires the global Start gate and a fresh
-  preflight per task.
+  adapter). Live mode still requires the global Start gate. Immediate attempts
+  use fresh preflight; smooth tasks perform one complete create-time preflight,
+  persist paused, and reuse the frozen result after Human Start.
 - `BINANCE_HEDGE_API_KEY` / `BINANCE_HEDGE_API_SECRET`: dedicated hedge-open
   credentials. Empty keys in live mode block dispatch (the live adapter never
   POSTs).
@@ -163,6 +166,12 @@ operator on a stopped server; always take a `.bak` copy first.
 
 ## Commands
 
+- Install the pinned runtime dependency:
+
+  ```bash
+  python3 -m pip install -r requirements.txt
+  ```
+
 - Backend tests without bytecode/cache churn:
 
   ```bash
@@ -198,6 +207,15 @@ operator on a stopped server; always take a `.bak` copy first.
 
   ```bash
   node frontend/self-check.js
+  ```
+
+- Smooth-open provider, gate, executor, API, and UI-binding regression:
+
+  ```bash
+  python3 -m pytest backend/tests/test_best_bid_ask_provider.py \
+    backend/tests/test_smooth_gate_store.py backend/tests/test_smooth_gate_worker.py \
+    backend/tests/test_smooth_api.py backend/tests/test_live_hedge_executor.py \
+    backend/tests/test_frontend_field_binding.py -q
   ```
 
 - Start the local server:

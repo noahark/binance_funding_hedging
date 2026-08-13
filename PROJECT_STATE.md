@@ -4,25 +4,20 @@ Cross-stage state, read at startup. Keep under 64 KB. Git history is not a runti
 check. Completed work's trace is git history and archive references (see Update
 Rule); this file records only live risks, open follow-ups, and pointers.
 
-## Current Status (2026-08-12)
+## Current Status (2026-08-13)
 
-- **[2026-08-13 19:56 Human 授权重启] running 卡统一 2 秒刷新修复已加载，等待页面复验：**
-  停机前只读确认开单 running/paused=0、未终态订单腿=0、借币 active/unresolved=0；原 PID `3722`
-  已正常退出。第一次替换进程误用 worktree 相对 `data/`，显示历史任务为 0，发现后立即停止；该进程
-  未创建任务或订单，也未接触主仓数据库，隔离的空 SQLite 文件留在 worktree ignored `data/`，未作
-  删除。最终 PID `23396` 于 `2026-08-13 19:56:22 CST` 从
-  `/Users/ark/Desktop/ai code/funding_hedging-smooth-v1` 启动，并显式使用主仓
-  `/Users/ark/Desktop/ai code/funding_hedging/data/borrow-tasks.sqlite3` 及同目录五份运行数据库。
-  `/healthz` 正常，历史开单 41 条、借币 10 条恢复，当前均无 active；首页运行指纹包含
-  `new Set([...runningIds, ...expandedIds])`，确认产品交付 `ad8c631` 已加载。**当前为
-  `executor_mode=live`、`start_gate=true`；Human 创建并启动任务会进入真实行情和真钱订单链。**
-  fresh Claude-GLM 累计 Review-1 已 ACCEPT；fresh Opus 5 最终 Review-2 技术结论为 REWORK，唯一
-  finding F-A 已由 Bookkeeper 独立复现，Human 决定按下方具名风险接受、本轮不修。当前等待 Human
-  最终合并决定；未授权 push、merge、部署、服务控制或由模型创建真实任务/下单。
+- **[2026-08-13 Human 授权合并并停服] 平滑开单 V1 已合并本地 `main`，服务等待 Human 手动启动：**
+  `smooth/v1-fullstack` 已以 `--ff-only` 合并，产品 delivery 为 `ad8c631`，完整阶段归档 tip 为
+  `d404e20`。合并前只读确认开单 active=0、未结算 attempt=0、未终态订单腿=0、借币 active/
+  unresolved=0；从 smooth worktree 运行的 PID `23396` 于 `2026-08-13 21:15 CST` 收到 `SIGINT`
+  并走服务清理后退出，`127.0.0.1:8787` 已不再监听。主仓 `.venv` 已有 `ccxt==4.5.64`；下一次服务
+  启动由 Human 在主仓本地执行。fresh Claude-GLM 累计 Review-1 为 ACCEPT；fresh Opus 5 最终
+  Review-2 技术结论为 REWORK，唯一 finding F-A 已复现并由 Human 按下方具名风险接受、本轮不修。
+  未授权 push、部署或由模型启动服务、创建任务、下单。
 
-- **[2026-08-12 Human Fast Direct] 两次直接代码交付已推送：** `31d7ae6` 取消私有读取在 429/-1003 后的 0.5 秒立即重试；`0a0984c` 将空库首次利息/收入流水回补窗口改为 1 天。两项均已通过定向测试，接口/行为文档已同步。**当前手动前台服务未重启，运行进程尚未加载这两处代码。**
+- **[2026-08-12 Human Fast Direct] 两次直接代码交付已推送：** `31d7ae6` 取消私有读取在 429/-1003 后的 0.5 秒立即重试；`0a0984c` 将空库首次利息/收入流水回补窗口改为 1 天。两项均已通过定向测试，接口/行为文档已同步；下一次从当前 main 启动时会一并加载。
 
-- 当前服务仍以 Human 手动前台进程运行；统一账户手动还款已最终验收，
+- 当前服务已按 Human 要求停止、仍采用 Human 手动前台启动方式；统一账户手动还款已最终验收，
   `APP_MARGIN_REPAY_ENABLED` 按 Human 决定保持开启。XLM 指定 5 与 INJ 全部还款各一笔成功；
   日常操作只用一个标签页，全额还款以刷新后负债为准。归档与操作限制见 Last Completed / Live
   Risks。实盘库数据自 2026-08-06 清理后从新起点累积（备份
@@ -395,14 +390,22 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Last Completed
 
-- stage: `2026-08-12-local-ip-display-v1`
-- archive_ref: `archive/2026-08-12-local-ip-display-v1`（tip
-  `15eba3c92251dc5487e2c98f8fe8dbcec396887f`，完整 dispatch/handoff/status 与双正式评审记录）
-- delivery: `54b23cc..f2ad1bf`；`rework_count` 1（仅修复 implementer 越权改动 status revision 的流程范围，未改产品代码）；Review-1 与 Sonnet 5 Review-2 均 ACCEPT，Human 已最终验收并授权合并/推送。
-- recorded_completed_at: `2026-08-12`
-- outcome: 页面标题右侧同源展示后端进程观察到的公网出口 IP；后端主备读取、5 分钟成功/失败缓存和三态 fail-closed 契约已交付。该值仅供核对白名单，不能证明币安实际看到的出口 IP，绝不驱动白名单或交易。
-- follow-ups: 未部署、未重启手动前台服务；O-1..O-4 为带重开条件的非阻塞观察，完整证据在 archive。
-- previous stage: `2026-08-12-hedge-slippage-spread-v1` —— 历史仓位开/平滑点价差计算；归档 `archive/2026-08-12-hedge-slippage-spread-v1`（tip `ad774315eb56e933ab14615c7a92e0b697f4e5e9`）。
+- stage: `2026-08-12-smooth-open-orders-v1`
+- archive_ref: `archive/2026-08-12-smooth-open-orders-v1`（tip
+  `d404e204f124fc2f8b11a2634f4d54b1866d1bdc`，完整 planning、dispatch、handoff、status、Review-1/
+  Review-2 与 Human 风险接受记录）
+- delivery: `e955bdd..ad8c631`；`rework_count` 5。累计 Review-1 ACCEPT；最终 Review-2 技术结论
+  REWORK，F-A 经 Bookkeeper 复现后由 Human 接受为本次合并已知风险且决定不修；Human 已授权本地
+  `main` 合并，未授权 push/部署。
+- recorded_completed_at: `2026-08-13`
+- outcome: 平滑开单创建暂停、Human Start 后首轮杠杆前置、spot/perp 一档公共 WS gate、严格阈值与
+  80% 覆盖、timeout/manual 当前轮放行、两腿并发、同次放行快照和分段延迟审计、running 卡统一 2 秒
+  刷新均已交付并经页面/一笔真实订单链验证。
+- follow-ups: F-A、L1/L2/L3 与两位等值展示限制继续按 Live Risks 的临时边界和重开条件管理；服务已停，
+  下一次启动由 Human 本地执行。
+- previous stage: `2026-08-12-local-ip-display-v1` —— 公网出口 IP 展示；归档
+  `archive/2026-08-12-local-ip-display-v1`（tip `15eba3c92251dc5487e2c98f8fe8dbcec396887f`）。
+- earlier previous stage: `2026-08-12-hedge-slippage-spread-v1` —— 历史仓位开/平滑点价差计算；归档 `archive/2026-08-12-hedge-slippage-spread-v1`（tip `ad774315eb56e933ab14615c7a92e0b697f4e5e9`）。
 - earlier previous stage: `2026-08-11-reverse-position-drift-v1` —— 统一账户 reverse 持仓弱告警修复；
   归档 `archive/2026-08-11-reverse-position-drift-v1`（tip `66135ce8e6529f8f2e13fd57cdaf7f7053a1b81c`）。
 - previous stage: `2026-08-10-cross-margin-flow-log-v1` —— 全仓杠杆流水本地缓存；归档

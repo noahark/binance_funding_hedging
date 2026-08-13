@@ -1,6 +1,6 @@
 # Architecture
 
-Status: as-built snapshot, 2026-08-10
+Status: as-built snapshot, 2026-08-13
 
 This document describes an evolving system; where it and the code disagree,
 the code and `PROJECT_STATE.md` are authoritative.
@@ -35,9 +35,10 @@ margin repayment):
    `GET /api/public-market/snapshot`.
 4. Frontend consumes only the backend snapshot contract. It does not call
    Binance directly.
-5. Live order placement, manual close, live borrowing, asset transfer, and
-   manual debt repayment are delivered and human-gated; websocket execution
-   and automatic repayment remain future stages. Current gates and live risks:
+5. Live order placement, smooth opening over public spot/perpetual best-bid/ask
+   WebSockets, manual close, live borrowing, asset transfer, and manual debt
+   repayment are delivered and human-gated. Automatic task creation and
+   automatic repayment remain out of scope. Current gates and live risks:
    `PROJECT_STATE.md`.
 
 The `/api/public-market/snapshot` route name is historical and
@@ -75,6 +76,14 @@ future contract stage.
   Human Start launches the worker. Required dispatch facts remain
   cache-first/live-fallback, with signed UM position and forward spot-base gates
   completed before the durable attempt is prepared.
+- Smooth-open creation likewise persists a paused card after its one complete
+  preflight. Human Start sets first-round leverage, subscribes two independent
+  public best-bid/ask watchers through
+  `backend/services/best_bid_ask_provider.py`, and opens the five-minute gate.
+  A market pass requires strict spread `>` threshold and at least 80% L1
+  coverage on both legs; manual/timeout consume the same gate before the
+  existing concurrent two-leg executor. Accepted limits and F-A are recorded
+  in `PROJECT_STATE.md`.
 
 ## Data Flow
 
@@ -97,6 +106,12 @@ channel). It reuses `cache_ttl_seconds` (default 60s) as its Group A cadence and
 publishes last-good quotes for at most `2 * cache_ttl_seconds` (default 120s)
 before the row-level `opening_quotes.status` goes `stale`; a selected-symbol
 click reuses the canonical row's quotes and adds no bookTicker HTTP.
+
+That snapshot REST source is separate from smooth execution. Running smooth
+cards use CCXT Pro public `watchBidsAsks` subscriptions for spot and perpetual
+L1 data; their task-id log projection drives the shared two-second UI refresh.
+Offline mode constructs no WebSocket provider, and a missing CCXT dependency
+makes smooth creation fail closed while immediate tasks remain available.
 
 ## Key Decisions
 
