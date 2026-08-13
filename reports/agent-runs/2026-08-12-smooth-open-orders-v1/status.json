@@ -1,27 +1,26 @@
 {
   "schema_version": "2",
-  "revision": 39,
+  "revision": 40,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
-  "phase": "review-1",
-  "checkpoint": "f1-fix-verified-human-requested-review-1-dispatched",
+  "phase": "human-validation",
+  "checkpoint": "f1-review-1-accept-verified-ccxt-installed-awaiting-page-runtime-authorization",
   "base_sha": "e74f3d5cf20f9f980ef023ed35a9c40ff3b8b174",
   "delivery_sha": "5d65a96b8c0435297c1511c228cec9a6d38df4b8",
-  "ledger_sha": "5d65a96b8c0435297c1511c228cec9a6d38df4b8",
+  "ledger_sha": "dd650a145eecc96aaddf84675138dfe54ed994c3",
   "current_task": {
     "id": "smooth-open-v1-f1-review-1-kimi",
-    "state": "dispatched",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/25-smooth-open-v1-f1-review-1-kimi.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-fresh-kimi-f1-review-1"
+    "action": "authorize-page-validation-runtime-and-public-websocket-or-production-restart"
   },
   "rework_count": 4,
   "blockers": [
-    "f1-fix-review-1-pending: Human 要求先通过 fresh 跨 provider Review-1，再安装 ccxt 并准备页面验收",
-    "dependency-install-authorized-deferred: Human 已授权安装 ccxt==4.5.64，但须等待 Review-1 ACCEPT",
-    "network-live-actions-not-authorized: 本实现不得联网、控制服务、读取凭证或执行真实行情/账户/订单动作",
+    "page-validation-runtime-not-authorized: ccxt==4.5.64 已安装；启动测试实例、公共 WebSocket 联网或重启生产服务仍须 Human 明确选择并授权",
+    "review-2-pending-after-human-page-validation: 页面验收及必要修复后仍须 fresh 跨 provider Review-2",
     "merge-deploy-not-authorized: push、merge、部署与实盘启用仍须 Human 单独授权"
   ]
 }
