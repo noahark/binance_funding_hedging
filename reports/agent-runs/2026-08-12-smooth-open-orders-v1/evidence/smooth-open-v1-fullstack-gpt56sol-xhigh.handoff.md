@@ -73,4 +73,18 @@ Human 额外授权下，还在仓库外临时 venv 安装 `ccxt==4.5.64` 并连�
 
 ## Bookkeeper Verification (Bookkeeper append-only)
 
+- source_sha256: `305a9dc7f7d0923ecc394abef1373460c658c24e680c1d8ac0169ca19849e3a1`
+- verified_at: `2026-08-13 08:00:11 CST`
+- status_revision_verified: `18`
+- verdict: `verified-delivery`
+- identity_and_range: task/stage/model/provider 与 dispatch 11、status revision 18 一致；`base_sha=e955bdd300d214c5c3ad5c1acd629c0d21080165`、控制提交 `80eeef0171a121d91c96debdda81309df3fb9500`、实际 `delivery_sha=24074b144dcdb745c511d866a75528a8930e8475` 均由 Git 核验为 commit；实现分支仅有一个控制提交和一个 delivery commit，delivery 的 parent 为控制提交。
+- handoff_and_scope: source marker、`[TASK_RESULT v2]`、中文交接三行、`delivery_sha: pending` 与闭合标记合规；delivery commit 共 17 个路径，全部属于 dispatch Allowed Files，状态文件与全部禁止文件在控制提交到 delivery 间零 diff，工作树干净。
+- tests_replayed: 新增矩阵 `57 passed`；核心矩阵 `502 passed`；全后端 `1862 passed, 1 failed`；executor `75 passed`；前端字段绑定 `12 passed`；`node frontend/self-check.js` 末行“全部自检通过”；`git diff --check` 无输出；当前开发 `.venv` 中 ccxt 不存在。
+- contested_r1: **采信**。被质疑检查原文为“`.venv/bin/python -m pytest backend/tests -q` 应全绿”；唯一失败 `test_private_client.py::test_urlopen_only_in_designated_http_clients` 只报告 `backend/services/public_ip_service.py`。两文件相对 base 零 diff，触发代码由 `73f525d4c3033cd4e8d7c7afb09a975816742913` 引入且该提交早于 base。该检查在 dispatch 前已不可全绿，属于 packet 的基线验收错误，不是本交付缺陷；替代验收为全套不得出现 delivery 引入的新失败，实测仍只有同一条既存失败。采信不消耗 `rework_count`。
+- safety_and_external_claim: 未发现新增凭证、token、私钥或明文密码；Bookkeeper 未安装依赖、未联网、未控制服务、未读取凭证、未执行订单。handoff 所述 Human 另行授权的仓库外公开行情实测不作为本次封存所必需的替代证据，Bookkeeper 未重跑该外部动作。
+- commands: `git log --format=... base..delivery`；`git diff-tree --name-status delivery`；`git diff --quiet` 核对状态/禁止/R1 文件；`git blame base -- <R1 files>`；`git merge-base --is-ancestor 73f525d4 base`；dispatch 规定的五组 pytest/node/diff 命令；`find_spec("ccxt")`；新增行敏感信息模式扫描。
+- next_gate: 固定 `base_sha..delivery_sha` 后准备 provider 非 `openai` 的正式 Review-1；本核验不构成代码评审，也不授权生产安装、服务控制、下单、push、merge、部署或实盘启用。
+
 ## Errata (append-only)
+
+- `2026-08-13 08:00:11 CST / Bookkeeper`：将 dispatch Acceptance Check 5 的“全后端必须退出码 0”更正为“全后端不得新增相对固定 base 的失败；已知唯一基线失败须保持同一测试、同一触发文件且相关文件零 diff”。原因是固定 base 已含 `73f525d4` 引入的 `public_ip_service.py`，旧 `urlopen` 白名单未同步；本勘误不改变产品契约、实现范围、交付 SHA、资金语义或双评审关卡。
