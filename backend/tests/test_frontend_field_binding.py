@@ -260,7 +260,8 @@ def test_smooth_frontend_reuses_log_poll_and_has_no_new_timer():
     assert text.count("setInterval(() =>") == 4
 
 
-def test_expanded_log_poll_keeps_non_running_tasks_and_skips_collapsed_tasks():
+def test_expanded_log_poll_includes_all_running_tasks_and_retains_non_running_expanded():
+    """统一 2 秒刷新资格：running 任务必刷新，非 running 仅展开时刷新，无 mode/task_type 特判。"""
     text = INDEX_HTML.read_text(encoding="utf-8")
     load_start = text.index("async function loadHedgeTasks()")
     load_end = text.index("async function loadHedgePositions()", load_start)
@@ -268,10 +269,26 @@ def test_expanded_log_poll_keeps_non_running_tasks_and_skips_collapsed_tasks():
     refresh_start = text.index("async function refreshExpandedRunningHedgeLogs()")
     refresh_end = text.index("function patchHedgeTaskLogTable", refresh_start)
     refresh_block = text[refresh_start:refresh_end]
-    assert "task && task.status === 'running'" not in load_block
-    assert "return task\n              ? loadHedgeTaskLogs(id)" in load_block
-    assert "return Boolean(task);" in refresh_block
-    assert "state.hedgeLogExpanded" in refresh_block
+
+    # running 选择只依赖 task.status，不得按 mode、task_type 或方向过滤。
+    assert "task.status === 'running'" in load_block
+    union_start = load_block.index("const idsToRefresh")
+    union_block = load_block[union_start:]
+    assert "mode" not in union_block
+    assert "task_type" not in union_block
+    assert "direction" not in union_block
+
+    # 非 running 且已展开的任务仍保留在刷新集合中；任务不存在时不请求。
+    assert "state.hedgeLogExpanded" in load_block
+    assert "findHedgeTask(id)" in load_block
+    assert "expandedIds" in load_block
+
+    # 同一任务 running 与 expanded 同时满足时只请求一次。
+    assert "new Set([...runningIds, ...expandedIds])" in load_block
+
+    # refreshExpandedRunningHedgeLogs 仅在任务标签页复用共享 tick 调用 loadHedgeTasks。
+    assert "state.activeView !== 'hedge-tasks' || state.hedgeTab !== 'tasks'" in refresh_block
+    assert "await loadHedgeTasks()" in refresh_block
 
 
 def test_smooth_dynamic_market_only_renders_for_running_cards():

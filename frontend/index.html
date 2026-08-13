@@ -5308,15 +5308,18 @@
         } catch (err) {
           state.hedgeTasksError = err.message || '开单任务加载失败';
         }
-        // 内嵌日志随既有快照 tick 重取（§3.11 刷新策略：显示刷新，非执行时钟；不新增定时器）：
-        // 仅刷新当前展开且仍存在的任务，保持金额/尝试行新鲜；展开状态由 hedgeLogExpanded 保持。
-        const openIds = state.hedgeLogExpanded ? [...state.hedgeLogExpanded] : [];
-        if (openIds.length) {
-          await Promise.all(openIds.map(id => {
-            const task = findHedgeTask(id);
-            return task
-              ? loadHedgeTaskLogs(id) : Promise.resolve();
-          }));
+        // 统一 2 秒刷新资格（Human 2026-08-13 页面验收修订）：
+        // 最新任务快照中所有 status === 'running' 的任务，与仍存在且日志已展开的任务 ID 去重并集，
+        // 均请求 task-id 日志。不区分 mode、task_type、方向或日志展开状态；非 running 且收起后不请求。
+        const runningIds = state.hedgeTasks
+          .filter(task => task && task.status === 'running')
+          .map(task => task.id);
+        const expandedIds = state.hedgeLogExpanded
+          ? [...state.hedgeLogExpanded].filter(id => findHedgeTask(id))
+          : [];
+        const idsToRefresh = [...new Set([...runningIds, ...expandedIds])];
+        if (idsToRefresh.length) {
+          await Promise.all(idsToRefresh.map(id => loadHedgeTaskLogs(id)));
         }
         updateHedgeTaskNav();
         if (state.activeView === 'hedge-tasks') renderHedgeTasks();
@@ -6326,13 +6329,8 @@
 
       async function refreshExpandedRunningHedgeLogs() {
         if (state.activeView !== 'hedge-tasks' || state.hedgeTab !== 'tasks') return;
-        const ids = state.hedgeLogExpanded ? [...state.hedgeLogExpanded] : [];
-        if (!ids.some(id => {
-          const task = findHedgeTask(id);
-          return Boolean(task);
-        })) return;
-        // 复用既有 2 秒显示轮询：任务 GET 刷新 gate_seq/deadline，随后
-        // loadHedgeTasks 内部用同源日志 GET 更新盘口；无新 timer。
+        // 复用既有 2 秒显示轮询：先刷新任务列表，再由 loadHedgeTasks 按最新状态选择
+        // running 与 expanded 的并集去重刷新；无新 timer。
         await loadHedgeTasks();
       }
 

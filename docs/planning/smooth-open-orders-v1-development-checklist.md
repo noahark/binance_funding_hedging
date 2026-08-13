@@ -788,3 +788,37 @@ git diff --check
 只检查四点：① paused-create 是否真正零 worker/订阅/gate/attempt/order，且没有把既有 preflight/预划转挪到 Start、没有改 immediate；② running-only 盘口是否与 non-running 展开日志继续刷新相容；③同次 gate 快照是否禁止二次读盘口，分段是否准确覆盖到两腿各自订单客户端调用开始；④审计是否在 executor 返回后才落既有 log、失败不影响订单、Allowed Files 足够且没有隐含 schema/端点/锁/二次复核。任何要求恢复 fresh preflight 或滑点二次复核、改变两腿/单腿链、修改当前运行服务，均超出本计划。
 
 计划复核必须是 fresh、只读、provider 非 openai 的 Reviewer，只能创建自己的 handoff，给出 `ACCEPT | REWORK`。ACCEPT 后由 Bookkeeper 固化实现 base 并准备 §15 的唯一 Implementer dispatch；不得由 Reviewer 改代码、状态、服务或环境。
+
+## 17. Human 页面验收后追加：running 任务卡统一 2 秒刷新修复（2026-08-13）
+
+Human 在 D17–D19 页面验收中实测确认：浏览器刷新会清空仅存在内存的 `hedgeLogExpanded`，前端随后只为“已展开日志”任务请求 task-id 日志，导致仍在运行的平滑任务卡长期误报“现货/合约 数据不完整”。产品口径扩展为统一规则：
+
+- 当 `activeView === 'hedge-tasks' && hedgeTab === 'tasks'` 时，复用现有 `EXECUTION_POLL_MS` tick 调用 `loadHedgeTasks()`；不得新增 `setInterval`。
+- 每轮先读取 `GET /api/hedge-open-tasks?status=all`。
+- task-id 日志刷新集合 = “最新任务快照中全部 `status === 'running'` 的任务 ID” ∪ “仍存在且日志已展开的任务 ID”，去重。
+- 选择条件只依赖任务存在、`status` 和展开状态，不得按 `mode`、`task_type`、方向或 smooth 字段过滤；running immediate/open/close 与 running smooth 同等刷新。
+- 页面首次加载、浏览器刷新、进入开单任务页或 Start 成功后的第一次 `loadHedgeTasks()` 须立即补齐全部 running 任务的 task-id 数据，不能先长期显示伪“数据不完整”。
+- 非 running 且日志收起的任务不请求 task-id 日志；已展开且任务仍存在的非 running 任务继续每 2 秒刷新 attempt/腿日志。
+- running 任务日志收起只隐藏日志表，不停止动态数据请求；展开/收起按钮、表格、错误回显和 D18“只有 running smooth 卡渲染动态盘口块”保持不变。
+
+### 17.1 修改范围
+
+仅改前端刷新选择与回归测试，不新增 timer、端点、后端轮询、WebSocket 订阅、状态层、锁、重试器或配置；不修改盘口、gate、下单、结算、按钮和日志展开语义。
+
+- `frontend/index.html`：`loadHedgeTasks()` 按上述并集刷新；`refreshExpandedRunningHedgeLogs()` 仅在任务标签页复用共享 tick 调用 `loadHedgeTasks()`。
+- `frontend/self-check.js`：新增 running smooth/ immediate/ close、paused-expanded、paused-collapsed 五任务并集断言；running 收起仍刷新、paused 收起停止、paused 展开继续；删除 running 并集逻辑时测试变红。
+- `backend/tests/test_frontend_field_binding.py`：静态断言 running 选择不含 mode/task_type 特判、非运行展开仍保留、去重并集、timer 数量不增加。
+- `docs/planning/smooth-open-orders-v1.md`：同步 D12/§8.4/§16.2 必修 5 为统一刷新口径。
+- `docs/planning/smooth-open-orders-v1-development-checklist.md`：追加本节。
+
+### 17.2 验收命令
+
+```bash
+node frontend/self-check.js
+.venv/bin/python -m pytest backend/tests/test_frontend_field_binding.py -q
+.venv/bin/python -m pytest backend/tests/test_smooth_api.py backend/tests/test_smooth_gate_worker.py \
+  backend/tests/test_hedge_service.py backend/tests/test_hedge_api.py -q
+git diff --check
+```
+
+任何新失败不通过，不删断言、不跳测试。交付后仍须 fresh 跨 provider Review-1、Human 页面复验、fresh Review-2；不授权控制服务、改 Start gate、创建真实任务、下单、push、merge 或部署。

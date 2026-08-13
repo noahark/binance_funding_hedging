@@ -72,7 +72,7 @@ Human 要恢复旧 JS 中“每轮在固定时间内等更好盘口”的产品�
 | D9 | `成交1次` 只强制当前活动 gate，绝不创建新 attempt | 若按钮直接调用 executor，恰逢第 10 轮自然通过可能出现第 11 单 | 自然通过、5 分钟超时、Human 点击是同一 gate 的三个放行原因；只有 worker owner 能消费一次并进入原 dispatch。无活动 gate、已达 `target_n`、暂停/结束时拒绝 | Human 明确决定 + 资金安全约束 |
 | D10 | 两腿继续并发提交，worker 同步等待并处理结果 | 为平滑功能另写串行下单会改变单腿风险与现有审计语义 | 平滑只决定“何时调用”，不改变“如何调用、如何查单和结算”；单腿场景原样复用立即开单逻辑 | Human 明确决定 |
 | D11 | 任务卡显示动态正向/反向盘口，格式与费率行情页一致 | 市场页 REST 约 60 秒缓存不能代表 gate 当前值 | 任务卡展示来自平滑 WS cache；复用现有百分比 formatter/颜色规则并扩展新盘口块，正向显示合约买一/现货卖一，反向显示现货买一/合约卖一，同时显示两侧数量和覆盖率；不是直接复用只支持价格的旧 cell | Human 明确决定 |
-| D12 | 任务卡同源读请求跟随展开日志：展开立即取，随后复用共享 2 秒 tick 取；**任务仍存在且日志展开时，无论 `running`/`paused`/`deleted`/`done`/`stopped` 都继续刷新 attempt/腿日志**（2026-08-13 更正，见 §16.2 必修 5）；收起、或任务已不存在才停止。动态盘口块是否渲染另由 D18 决定，只限 `running` | 另开 timer 会重复请求且把“UI 刷新率”误当“成交校验率”；而只刷新 `running` 会让暂停/删除后仍在 drain/settle 的在途订单在页面上不可见 | 前端只每 2 秒看一次；后端仍在每次 WebSocket 更新时重新评估 gate。两者时钟完全分离 | Human 明确决定 + 2026-08-13 必修 5/D18 更正 |
+| D12 | 任务卡同源读请求复用共享 2 秒 tick；**最新任务快照中所有 `status === 'running'` 的任务均刷新 task-id 日志，不区分 `mode`、`task_type`、方向或日志展开状态**；非 running 任务仅在仍存在且日志已展开时继续刷新 attempt/腿日志，收起或任务不存在时停止。动态盘口块是否渲染另由 D18 决定，只限 `running`（2026-08-13 页面验收后再次更正：running 刷新不再以“日志已展开”为前提，避免刷新后空 `hedgeLogExpanded` 导致 running 卡长期误报“数据不完整”） | 另开 timer 会重复请求且把“UI 刷新率”误当“成交校验率”；只刷新 `running` 且仅当展开时，会让浏览器刷新/切页后丢失展开状态，从而 running 卡长期拿不到真实盘口；而刷新非 running 展开日志可让暂停/删除后仍在 drain/settle 的在途订单在页面上可见 | 前端只每 2 秒看一次；后端仍在每次 WebSocket 更新时重新评估 gate。两者时钟完全分离 | Human 明确决定 + 2026-08-13 页面验收再次更正 |
 | D13 | V1 平滑任务只保留 `成交1次`，不展示 `立即成交所有` | 现 UI 为 smooth 预留了 `立即成交所有`，但 Human 本轮只定义逐轮 5 分钟和“成交1次” | 一次放行有清晰 gate 身份；“所有”会引入永久绕过或批量新 attempt 的第二语义，且与逐轮校验目标冲突 | 本轮最小范围结论 |
 | D14 | 多个任务订阅同一交易所同一 symbol 时，共享一个 watcher 的 latest snapshot | 若每个 task 各开两条逻辑订阅，任务数会线性放大订阅和重连工作 | 以 `(exchange_id, market_type, unified_symbol)` 为 key 引用计数；task 只订阅/释放，不拥有 socket。现货与合约仍是两个独立 key 和两个 async loop | D3 的最小可维护实现 |
 | D15 | **smooth 的每轮联网 fresh preflight 取消**：gate 以 market/manual/timeout 任一原因通过后，直接复用建卡固化的 `q_common`、`position_side_mode`、`preflight_snapshot`/route 构造请求，原子 reserve 后进入既有两腿异步提交 | 首轮实现里 gate 通过后仍走 `_resolve_fresh_preflight`，一次联网读取插在“判定成交”和“真正发单”之间 | 让「WS 判定通过」到「两腿提交」之间不再有任何联网读取、交易所设置、sleep 或其他阻塞调用，否则一档价差过滤的时效性被自己抵消。**代价（Human 明确接受，不得包装成 fail-closed）**：等待期间余额/保证金、交易规则、position mode、下单限频、现货路由等事实若发生变化，不再有每轮预检拦截，可能出现两腿都被拒或单腿成交；单腿仍由现有任务卡告警、任务暂停与 Human 人工核对收口。建卡时的首次完整 preflight、固化数据、regular-spot 预划转、缺腿/乘数合约拒绝全部保留；immediate 每轮 fresh preflight 逐字不变 | Human 2026-08-13 决定 |
@@ -333,7 +333,7 @@ slippage_threshold_pct: decimal string
 -0.03%
 ```
 
-任务卡始终显示固化 threshold；只有 `status=running` 才渲染由日志 GET 填充的 gate/倒计时、连接、正反向盘口和覆盖率块。非 running 卡隐藏整个动态块，不能渲染“数据不完整”的占位。展开日志立即刷新；**只要任务仍存在且日志处于展开态，就复用共享 2 秒 tick 继续刷新，不区分 `running`/`paused`/`deleted`/`done`/`stopped`**（attempt/腿 drain 可见性与盘口块可见性是两件事）；收起、或任务已不存在才停止自动刷新并保留最后值。启动成功沿用现有自动展开与立即 GET，因此 running 卡无需新增 timer 就能显示盘口。收起态点击 `成交1次` 会额外执行一次同源 GET 只为取得当前 gate seq。`connecting/disconnected/incomplete` 只可能出现在 running 动态块中，且必须显示 `—`，不得把旧值涂成 fresh。
+任务卡始终显示固化 threshold；只有 `status=running` 才渲染由日志 GET 填充的 gate/倒计时、连接、正反向盘口和覆盖率块。非 running 卡隐藏整个动态块，不能渲染“数据不完整”的占位。**共享 2 秒 tick 在任务标签页内先刷新任务列表，再为“所有 running 任务”与“仍存在且日志已展开的非 running 任务”的去重并集请求 task-id 日志；running 任务日志收起只隐藏日志表，不停止动态数据请求。** 页面首次加载、浏览器刷新、进入开单任务页或 Start 成功后的第一次 `loadHedgeTasks()` 走同一路径，running smooth 即使 `hedgeLogExpanded` 为空也能立即显示真实盘口。非 running 任务收起或任务不存在时停止自动刷新并保留最后值。启动成功沿用现有自动展开与立即 GET。收起态点击 `成交1次` 会额外执行一次同源 GET 只为取得当前 gate seq。`connecting/disconnected/incomplete` 只可能出现在 running 动态块中，且必须显示 `—`，不得把旧值涂成 fresh。
 
 ## 9. 超时、暂停、故障与收尾
 
@@ -496,7 +496,7 @@ proof 失败时停止，不接资金 worker；改用 Binance 原生 public bookT
 2. **`APP_OFFLINE=true` 仍构造真实公共 WebSocket provider**：组合根只看 `default_source_available()`，未判 `config.offline`；离线模式本应零构造、零线程、零订阅。
 3. **超长 signed 整数 threshold 逃逸为服务异常**：合法字符（无科学记数、无 `%`、整数）但位数超出 Decimal 默认 context，`quantize` 抛 `InvalidOperation`，接口返回 500，而不是正常规范化并由创建接口接受（`201`）。这类输入是合法值，不应改判为 `400`；只有格式非法输入才返回 `400`。
 4. **provider 持续异常/无效快照零等待热循环**：`_watch` 的异常分支与“立即返回无效快照”分支在重试前没有任何等待；零网络 always-fail 假源实测 0.1 秒约 15 万次回调，会同时空转 provider 线程并风暴式唤醒等待中的 worker。
-5. **暂停/删除后仍在 drain/settle 时前端停止刷新展开日志**：`post_pause`/`post_delete` 明确不打断 worker（在途订单继续 drain/settle），而前端只刷新 `status === 'running'` 的展开卡，导致这段时间新增的 attempt/腿状态在页面上不可见。
+5. **暂停/删除后仍在 drain/settle 时前端停止刷新展开日志**：`post_pause`/`post_delete` 明确不打断 worker（在途订单继续 drain/settle），而前端原只刷新 `status === 'running'` 且日志已展开的卡，导致这段时间新增的 attempt/腿状态在页面上不可见。修复后统一规则：所有 `status === 'running'` 的任务均刷新 task-id 日志（不再要求日志展开），非 running 任务仅在仍存在且日志已展开时继续刷新；收起或任务不存在时停止。
 
 ## 17. Human 页面验收后的窄修订（2026-08-13）
 

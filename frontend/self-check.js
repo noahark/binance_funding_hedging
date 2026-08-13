@@ -4845,6 +4845,93 @@ setTimeout(async () => {
       console.log('[PASS] D18：paused 平滑卡有阈值、无动态盘口、启动可点');
     }
 
+    // 80d. 统一 2 秒刷新资格：running 任务无论日志展开/收起均刷新；非 running 仅展开时刷新；
+    //      不区分 mode/task_type/方向；删除 running 并集逻辑时本测试必须变红。
+    {
+      helpers.resetHedgeStateForTest();
+      const runningSmooth = mockHedgeTask({
+        id: 'h-run-smooth', coin: 'AUSDT', direction: 'forward', mode: 'smooth', status: 'running', target_n: 5,
+        slippage_threshold_pct: '0.05', smooth_gate_seq: 1,
+        smooth_gate_started_at_us: Date.now() * 1000,
+        smooth_gate_deadline_at_us: (Date.now() + 300000) * 1000,
+        smooth_gate_state: 'waiting',
+      });
+      const runningImmediate = mockHedgeTask({
+        id: 'h-run-immediate', coin: 'BUSDT', direction: 'forward', mode: 'immediate', status: 'running',
+      });
+      const runningClose = mockHedgeTask({
+        id: 'h-run-close', coin: 'CUSDT', direction: 'reverse', mode: 'immediate', status: 'running', task_type: 'close',
+      });
+      const pausedExpanded = mockHedgeTask({
+        id: 'h-pause-exp', coin: 'DUSDT', direction: 'reverse', mode: 'smooth', status: 'paused',
+        slippage_threshold_pct: '0.03',
+      });
+      const pausedCollapsed = mockHedgeTask({
+        id: 'h-pause-col', coin: 'EUSDT', direction: 'forward', mode: 'immediate', status: 'paused',
+      });
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [runningSmooth, runningImmediate, runningClose, pausedExpanded, pausedCollapsed] } };
+      hedgeTaskLogsGetResponse = { status: 200, body: {
+        attempts: [], smooth_market: {
+          spot: { status: 'live', received_at_us: 1, bid: '100.00', bid_qty: '10', ask: '100.10', ask_qty: '11' },
+          perp: { status: 'live', received_at_us: 2, bid: '100.05', bid_qty: '12', ask: '100.15', ask_qty: '13' },
+          forward_spread_pct: '0.06', reverse_spread_pct: '-0.04',
+          spot_coverage_pct: '100.00', perp_coverage_pct: '100.00',
+          spread_pass: true, coverage_pass: true, gate_pass: true,
+          wait_reason: '等待条件触发',
+        }
+      } };
+      helpers.setActiveView('hedge-tasks');
+      helpers.getHedgeLogExpanded().add('h-pause-exp');
+      const mark = fetchCallLog.length;
+      await helpers.loadHedgeTasks();
+      const logCalls = fetchCallLog.slice(mark).filter(c => c.url.startsWith('/api/hedge-open-logs?task_id='));
+      const requestedIds = logCalls.map(c => {
+        const m = c.url.match(/task_id=([^&]+)/);
+        return m ? decodeURIComponent(m[1]) : null;
+      }).filter(Boolean);
+      const expectedIds = ['h-run-smooth', 'h-run-immediate', 'h-run-close', 'h-pause-exp'];
+      if (JSON.stringify(requestedIds.sort()) !== JSON.stringify(expectedIds.sort())) {
+        throw new Error(`统一刷新资格请求集合错误: 实际 ${JSON.stringify(requestedIds)} 期望 ${JSON.stringify(expectedIds)}`);
+      }
+      const uniqueIds = new Set(requestedIds);
+      if (uniqueIds.size !== requestedIds.length) {
+        throw new Error('同一 task-id 日志在同一轮被重复请求: ' + JSON.stringify(requestedIds));
+      }
+      if (requestedIds.includes('h-pause-col')) {
+        throw new Error('paused-collapsed 不应请求 task-id 日志');
+      }
+      helpers.setHedgeTaskFilter('running');
+      const runningCard = elements['hedge-task-list'].innerHTML;
+      // running smooth 即使 hedgeLogExpanded 为空，也应从同源响应写入 smoothMarket 并渲染为已连接。
+      for (const piece of ['data-hedge-task-id="h-run-smooth"', '现货 已连接', '合约 已连接',
+          '正向开单率', '合约买一 100.05', '现货卖一 100.1', '+0.06%', '反向开单率',
+          '现货买一 100', '合约卖一 100.15', '-0.04%', '两腿一档覆盖']) {
+        if (!runningCard.includes(piece)) {
+          throw new Error(`running smooth 卡应显示真实连接与价量，缺少「${piece}」: ${runningCard}`);
+        }
+      }
+      if (runningCard.includes('数据不完整')) {
+        throw new Error('running smooth 卡不应再显示“数据不完整”: ' + runningCard);
+      }
+      // 共享 tick 在任务页每轮先刷新任务列表，再按最新状态选择 task-id 日志；
+      // 切到其他 view 或日志 tab 时保持现有不刷新任务卡规则。
+      helpers.setActiveView('market');
+      const marketMark = fetchCallLog.length;
+      await helpers.refreshExpandedRunningHedgeLogs();
+      if (fetchCallLog.slice(marketMark).some(c => c.url.startsWith('/api/hedge-open-tasks') || c.url.startsWith('/api/hedge-open-logs'))) {
+        throw new Error('切出 hedge-tasks 视图后共享 tick 不应刷新任务卡或日志');
+      }
+      helpers.setActiveView('hedge-tasks');
+      helpers.setHedgeTab('logs');
+      const logsTabMark = fetchCallLog.length;
+      await helpers.refreshExpandedRunningHedgeLogs();
+      if (fetchCallLog.slice(logsTabMark).some(c => c.url.startsWith('/api/hedge-open-tasks') || c.url.startsWith('/api/hedge-open-logs?task_id='))) {
+        throw new Error('hedge 日志 tab 下共享 tick 不应刷新任务卡或内嵌日志');
+      }
+      helpers.setHedgeTab('tasks');
+      console.log('[PASS] 统一 2 秒刷新资格：running 全刷新、非 running 仅展开刷新、不区分模式方向、无重复');
+    }
+
     // 81. stopped/paused 语义返工（15 号修正案 I-4）：single_leg 只是提示且任务仍继续调度
     //     （除非后端 status 为 paused/stopped）；stopped 显示致命错误终止 stop_reason；
     //     删除旧的「累计失败 >3」推导与硬编码 /3；按钮矩阵只服从后端 status；invalid_state 409。
@@ -5635,17 +5722,25 @@ setTimeout(async () => {
       if (!fetchCallLog.slice(pollMark).some(c => c.url === '/api/hedge-open-logs?task_id=h-inline-1')) {
         throw new Error('执行中任务的已展开日志须由共享 2s tick 自动刷新');
       }
+      // Human 2026-08-13 统一刷新规则：running 任务无论日志展开/收起均须刷新动态数据。
       helpers.getHedgeLogExpanded().delete('h-inline-1');
-      const collapsedMark = fetchCallLog.length;
+      const runningCollapsedMark = fetchCallLog.length;
       await helpers.refreshExpandedRunningHedgeLogs();
-      if (fetchCallLog.slice(collapsedMark).some(c => c.url.includes('hedge-open-logs?task_id='))) {
-        throw new Error('日志收起后须停止自动刷新');
+      if (!fetchCallLog.slice(runningCollapsedMark).some(c => c.url === '/api/hedge-open-logs?task_id=h-inline-1')) {
+        throw new Error('running 任务日志收起后仍须继续刷新动态数据');
       }
-      helpers.getHedgeLogExpanded().add('h-inline-1');
+      // 非 running 且收起后须停止刷新。
       helpers.getHedgeTasks()[0].status = 'paused';
-      const pausedMark = fetchCallLog.length;
+      const pausedCollapsedMark = fetchCallLog.length;
       await helpers.refreshExpandedRunningHedgeLogs();
-      if (!fetchCallLog.slice(pausedMark).some(c => c.url === '/api/hedge-open-logs?task_id=h-inline-1')) {
+      if (fetchCallLog.slice(pausedCollapsedMark).some(c => c.url.includes('hedge-open-logs?task_id='))) {
+        throw new Error('非 running 任务收起后须停止自动刷新');
+      }
+      // 非 running 且展开后仍须刷新 attempt/腿日志。
+      helpers.getHedgeLogExpanded().add('h-inline-1');
+      const pausedExpandedMark = fetchCallLog.length;
+      await helpers.refreshExpandedRunningHedgeLogs();
+      if (!fetchCallLog.slice(pausedExpandedMark).some(c => c.url === '/api/hedge-open-logs?task_id=h-inline-1')) {
         throw new Error('非 running 任务的已展开日志仍须自动刷新');
       }
       helpers.setActiveView('market');
@@ -5715,6 +5810,7 @@ setTimeout(async () => {
       }
       helpers.resetHedgeStateForTest();
       elements['hedge-logs-panel'].style.display = 'none';
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [] } };
       hedgeLogPageResponses = [{ status: 200, body: HEDGE_LOG_PAGE_1 }];
       helpers.setActiveView('hedge-tasks');
       if (elements['hedge-tasks-panel'].style.display === 'none') throw new Error('初始应显示开单任务 tab');
