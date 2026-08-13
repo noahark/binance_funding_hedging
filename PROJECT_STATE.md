@@ -15,8 +15,10 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   Harness/活状态控制提交。HTTP 运行指纹已通过：task-id 日志含 `smooth_market` 与
   `smooth_dispatch_audits`，首页含 running-only `smoothExtras` 且不含旧 `fakeSmooth`；历史开单
   28 条保留、当前 running=0，`/healthz` 正常。**当前仍为 `executor_mode=live`、
-  `start_gate=true`，Human 创建并启动 smooth 任务会进入真实行情和真钱订单链。**本轮尚待
-  fresh Review-1 verdict、Human 页面复验与 fresh Review-2；未授权 push、merge 或部署。
+  `start_gate=true`，Human 创建并启动 smooth 任务会进入真实行情和真钱订单链。**页面验收后新增的
+  running 卡统一 2 秒刷新修复 `ad8c631` 已通过 fresh Claude-GLM Review-1，但当前服务尚未加载；
+  仍待 Human 单独授权重启后页面复验，再由 Human 已指定的 fresh Opus 5 执行 Review-2。未授权
+  push、merge、部署或新的实盘操作。
 
 - **[2026-08-12 Human Fast Direct] 两次直接代码交付已推送：** `31d7ae6` 取消私有读取在 429/-1003 后的 0.5 秒立即重试；`0a0984c` 将空库首次利息/收入流水回补窗口改为 1 天。两项均已通过定向测试，接口/行为文档已同步。**当前手动前台服务未重启，运行进程尚未加载这两处代码。**
 

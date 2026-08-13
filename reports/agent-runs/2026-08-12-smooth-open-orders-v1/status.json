@@ -1,29 +1,29 @@
 {
   "schema_version": "2",
-  "revision": 48,
+  "revision": 49,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
-  "phase": "review-1",
-  "checkpoint": "running-card-refresh-kimi-delivery-verified-review-1-dispatched",
+  "phase": "human-validation",
+  "checkpoint": "running-card-refresh-review-1-accept-verified-awaiting-live-revalidation",
   "base_sha": "52eb1ab0de8ab890b4169068e8ef3848c9b5caf7",
   "delivery_sha": "ad8c6317369e8a643f225cc37f22ad0eb949395b",
-  "ledger_sha": "a764f0614de46ace963ed4c530d609944584f1bd",
+  "ledger_sha": "bb12176a14ef7791599feab759a26021a88c41c5",
   "current_task": {
     "id": "smooth-open-v1-running-cards-refresh-review-1-claude-glm",
-    "state": "dispatched",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/31-smooth-open-v1-running-cards-refresh-review-1-claude-glm.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-fresh-claude-glm-running-cards-refresh-review-1"
+    "action": "decide-authorize-live-restart-for-running-card-page-revalidation"
   },
   "rework_count": 5,
   "blockers": [
-    "running-card-refresh-review-1-pending: Kimi 交付与独立离线测试已由 Bookkeeper 核验，尚待 fresh Claude-GLM 跨 provider Review-1 verdict；29 号旧 Review-1 未执行且已被取代",
+    "running-card-refresh-page-revalidation-pending: fresh Claude-GLM Review-1 已 ACCEPT 并由 Bookkeeper 核验；ad8c631 尚未加载，等待 Human 单独授权重启后页面复验",
     "rework-limit-human-waiver: rework_count=5；Human 已明确本次重任务不限制 fix 次数，允许继续修复",
     "live-runtime-warning: 当前未合并 worktree 在 127.0.0.1:8787 仍运行修复前交付且 Start gate=true；ad8c631 未加载，刷新页面仍会误报 running smooth 盘口数据不完整",
-    "environment-service-actions-not-authorized: ccxt 已由 Human 为页面验收安装；本实现不得修改环境、联网、控制服务、改 gate 或触碰真实任务",
-    "review-and-validation-pending: 修复交付须先走 fresh 跨 provider Review-1，再由 Human 页面复验，最后仍须 fresh Review-2",
+    "service-restart-not-authorized: ccxt 已由 Human 为页面验收安装，但本轮尚未授权重启、改 gate、触碰真实任务或下单",
+    "review-2-routing-fixed-pending-page-evidence: Human 已指定页面复验后的 fresh Review-2 由 Opus 5（anthropic）执行；页面证据完成前不得派发",
     "merge-deploy-not-authorized: push、merge、部署与实盘启用仍须 Human 单独授权"
   ]
 }
