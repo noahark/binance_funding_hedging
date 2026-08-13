@@ -6,17 +6,17 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-12)
 
-- **[2026-08-13 18:05 Human 手动重启；18:13 只读核验] 当前页面服务没有加载 D17–D19：**
-  当前监听 PID `81292`，启动于 `2026-08-13 18:05:59 CST`，进程 `cwd` 虽显示
-  `/Users/ark/Desktop/ai code/funding_hedging-smooth-v1`，但 HTTP 运行指纹证明实际加载/提供的
-  是主工作区旧代码：task-id 日志响应缺少 smooth worktree 已有的 `smooth_market` 与
-  `smooth_dispatch_audits` 两个字段，首页仍含仅主工作区存在的 `fakeSmooth` 分支。当前运行
-  设置为 `executor_mode=live`、`start_gate=true`。因此 PID `81292` 上的操作**不能作为
-  D17–D19 验收证据**，且任何开单仍会进入真钱链。Human 实际任务
-  `110533c2-ff34-4174-8577-0c580a5c098a` 是 `mode=immediate`，不是 smooth；它没有 WebSocket
-  滑点 gate 或 D19 audit。重开条件：要验证 D17–D19，须在另行明确授权后以隔离 import/path
-  启动固定 delivery `bba31ea`（或其后仅控制提交），先通过只读运行指纹确认新字段和前端分支，
-  再由 Human 操作；当前模型未停止或重启服务、未改 gate、未创建任务或下单。
+- **[2026-08-13 18:23 Human 授权重启] D17–D19 已从 smooth worktree 加载，等待页面复验：**
+  重启前只读确认开单 running=0、未终态订单腿=0、借币 active/unresolved=0；原 PID `81292`
+  已由 Human/原终端先行停止，Bookkeeper 未再向它发信号。新 PID `3722` 于
+  `2026-08-13 18:23:51 CST` 从 `/Users/ark/Desktop/ai code/funding_hedging-smooth-v1`
+  启动，显式清除继承 `PYTHONPATH`，代码/前端来自 smooth worktree，数据库与 `.env` 继续使用
+  主仓现有运行配置。启动 HEAD `39d6933`，其中受测产品 delivery 为 `bba31ea`，其后只有
+  Harness/活状态控制提交。HTTP 运行指纹已通过：task-id 日志含 `smooth_market` 与
+  `smooth_dispatch_audits`，首页含 running-only `smoothExtras` 且不含旧 `fakeSmooth`；历史开单
+  28 条保留、当前 running=0，`/healthz` 正常。**当前仍为 `executor_mode=live`、
+  `start_gate=true`，Human 创建并启动 smooth 任务会进入真实行情和真钱订单链。**本轮尚待
+  fresh Review-1 verdict、Human 页面复验与 fresh Review-2；未授权 push、merge 或部署。
 
 - **[2026-08-12 Human Fast Direct] 两次直接代码交付已推送：** `31d7ae6` 取消私有读取在 429/-1003 后的 0.5 秒立即重试；`0a0984c` 将空库首次利息/收入流水回补窗口改为 1 天。两项均已通过定向测试，接口/行为文档已同步。**当前手动前台服务未重启，运行进程尚未加载这两处代码。**
 
