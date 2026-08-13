@@ -1599,12 +1599,18 @@ class HedgeOpenTaskService:
         with self._smooth_lock:
             if task_id in self._smooth_subscriptions:
                 return
-            subscribed = []
-            try:
-                for key in keys:
-                    subscribe(key)
-                    subscribed.append(key)
-            except Exception:
+        subscribed = []
+        registered = False
+        try:
+            for key in keys:
+                subscribe(key)
+                subscribed.append(key)
+            with self._smooth_lock:
+                if task_id not in self._smooth_subscriptions:
+                    self._smooth_subscriptions[task_id] = keys
+                    registered = True
+        finally:
+            if not registered:
                 release = getattr(provider, "release", None)
                 if callable(release):
                     for key in subscribed:
@@ -1612,8 +1618,6 @@ class HedgeOpenTaskService:
                             release(key)
                         except Exception:
                             pass
-                raise
-            self._smooth_subscriptions[task_id] = keys
 
     def _release_smooth_subscriptions(self, task_id: str) -> None:
         with self._smooth_lock:
@@ -1718,7 +1722,18 @@ class HedgeOpenTaskService:
         current = self._store.open_smooth_gate(task["id"], gate_seq, now_us)
         if current is None:
             return None
-        self._ensure_smooth_subscriptions(current)
+        try:
+            self._ensure_smooth_subscriptions(current)
+        except Exception:
+            self._pause_task_local(
+                current, D.PAUSE_REASON_PREFLIGHT_INCOMPLETE, None,
+                self._wall_us(),
+                pause_zh=(
+                    "公共盘口订阅失败，任务已暂停（fail-closed，未发单）；"
+                    "请检查网络后手动恢复"
+                ),
+            )
+            return None
         wake = self._smooth_wake(task["id"])
         while True:
             with wake.condition:

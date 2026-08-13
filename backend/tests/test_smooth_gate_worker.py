@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import threading
 import time
 from decimal import Decimal
@@ -8,7 +9,10 @@ import pytest
 
 from backend.hedge_open_tasks import domain as D
 from backend.hedge_open_tasks.service import HedgeOpenTaskService
-from backend.services.best_bid_ask_provider import BookTickerSnapshot
+from backend.services.best_bid_ask_provider import (
+    BestBidAskProvider,
+    BookTickerSnapshot,
+)
 from backend.services.live_hedge_executor import (
     LEG_ACCEPTED,
     LegDispatch,
@@ -106,6 +110,40 @@ class _FailSecondSubscriptionMarket(_Market):
             self.fail_once = False
             raise RuntimeError("swap subscribe failed")
         super().subscribe(key)
+
+
+class _ImmediateBookTickerSource:
+    def __init__(self, contract_size):
+        self.contract_size = contract_size
+        self.first = True
+
+    async def watch(self):
+        if self.first:
+            self.first = False
+            return {
+                "info": {"b": "100", "B": "1", "a": "100.01", "A": "1"}
+            }, self.contract_size
+        await asyncio.Event().wait()
+
+    async def close(self):
+        pass
+
+
+class _ConcurrentSubscriptionMarket(_Market):
+    def __init__(self):
+        super().__init__()
+        self.first_subscribers = threading.Barrier(2)
+        self.refs_lock = threading.Lock()
+
+    def subscribe(self, key):
+        if key == SPOT:
+            self.first_subscribers.wait(timeout=1)
+        with self.refs_lock:
+            super().subscribe(key)
+
+    def release(self, key):
+        with self.refs_lock:
+            super().release(key)
 
 
 class _OrderedMarket(_Market):
@@ -255,6 +293,86 @@ def test_partial_subscription_failure_rolls_back_and_next_call_retries(tmp_path)
         svc._ensure_smooth_subscriptions(task)
         assert market.refs == {SPOT: 1, SWAP: 1}
         assert svc._smooth_subscriptions[task["id"]] == (SPOT, SWAP)
+    finally:
+        svc.close()
+
+
+def test_real_provider_subscribes_both_sides_without_blocking_callback(tmp_path):
+    provider = BestBidAskProvider(
+        source_factory=lambda key: _ImmediateBookTickerSource(
+            1 if key[1] == "swap" else None
+        )
+    )
+    svc, task, _, _, _ = _service(tmp_path, market=provider)
+    try:
+        started = time.monotonic()
+        svc._ensure_smooth_subscriptions(task)
+
+        assert time.monotonic() - started < 1
+        assert svc._smooth_subscriptions[task["id"]] == (SPOT, SWAP)
+        assert {key: provider._states[key].refs for key in (SPOT, SWAP)} == {
+            SPOT: 1,
+            SWAP: 1,
+        }
+    finally:
+        svc.close()
+
+
+def test_concurrent_subscription_keeps_only_one_ref_per_side(tmp_path):
+    market = _ConcurrentSubscriptionMarket()
+    svc, task, _, _, _ = _service(tmp_path, market=market)
+    errors = []
+
+    def subscribe():
+        try:
+            svc._ensure_smooth_subscriptions(task)
+        except Exception as exc:
+            errors.append(exc)
+
+    try:
+        threads = [threading.Thread(target=subscribe) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert errors == []
+        assert market.refs == {SPOT: 1, SWAP: 1}
+        assert svc._smooth_subscriptions[task["id"]] == (SPOT, SWAP)
+    finally:
+        svc.close()
+
+
+def test_subscription_failure_pauses_without_attempt_and_can_restart(tmp_path):
+    market = _FailSecondSubscriptionMarket()
+    svc, task, _, _, executor = _service(tmp_path, market=market)
+    try:
+        svc.set_start_gate(True)
+        paused = _wait(
+            lambda: (
+                row if (row := svc.store.get_task(task["id"]))
+                and row["status"] == D.STATUS_PAUSED else None
+            )
+        )
+        assert paused["pause_reason"] == D.PAUSE_REASON_PREFLIGHT_INCOMPLETE
+        assert "公共盘口订阅失败" in paused["pause_reason_zh"]
+        assert "未发单" in paused["pause_reason_zh"]
+        assert paused["smooth_gate_seq"] is None
+        assert svc.store.list_attempts_for_task(task["id"]) == []
+        assert executor.records == []
+        assert market.refs == {}
+        assert task["id"] not in svc._smooth_subscriptions
+
+        _wait(
+            lambda: task["id"] not in svc._workers
+            or not svc._workers[task["id"]].is_alive()
+        )
+        svc.post_start(task["id"])
+        _wait(lambda: task["id"] in svc._smooth_subscriptions)
+        restarted = svc.store.get_task(task["id"])
+        assert restarted["status"] == D.STATUS_RUNNING
+        assert restarted["smooth_gate_seq"] == 1
+        assert market.refs == {SPOT: 1, SWAP: 1}
     finally:
         svc.close()
 
