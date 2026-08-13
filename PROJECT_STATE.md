@@ -91,7 +91,11 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   exact `1000CAT` 资产，不是当前表内的 multiplier alias。
   **已证实的 UI 缺陷：**动态盘口块数据只由任务日志 GET 填充；新建 smooth 任务不会自动展开/
   拉取日志，因此卡片先显示“现货/合约 数据不完整”，即使后台 provider 已 live。手动展开日志后
-  同源 GET 显示两侧 `live`，不是行情订阅故障。
+  同源 GET 显示两侧 `live`，不是行情订阅故障。D17–D19 重启后，Human 于 `2026-08-13 18:50`
+  启动 reverse smooth 任务 `b3ebc0fa-cc61-46f7-90da-85c1af29a596` 再次复现：启动当页可读，
+  但浏览器刷新会清空仅存内存的 `hedgeLogExpanded`，运行卡仍渲染动态盘口块却不再请求
+  `GET /api/hedge-open-logs?task_id=…`，因而永久误报两侧“数据不完整”；后端同一时刻两侧均为
+  `live`。手动展开一次日志后卡片立即恢复真实价格，证明根因是前端刷新触发条件，不是 WebSocket。
   **审计观察：**最终成交均价折算 forward spread 约 `-0.465%`，与 `+0.05%` 阈值相反；当前
   attempt 只记录 `market`，不持久化放行瞬间两侧 bookTicker，故不能区分“放行后约 0.3–0.4 秒
   内行情跳动一档”与“放行快照本身异常”。D15 明确取消发单前联网复核，所以成交价偏离本身不证明
