@@ -94,4 +94,15 @@
 
 ## Bookkeeper Verification (Bookkeeper append-only)
 
+- source_sha256: `4af58f867ca4ba48bdad7f0d08748de449a613d8c7046367ab2877462e33416b`
+- verified_at: `2026-08-13 13:04:09 CST`
+- status_revision_verified: `33`
+- base_sha: `9c333cdb58f38f7d19fa8d42b36379abd07baba8`
+- delivery_sha: `dfd38a6b71e686caf02475aa7954056d670fcead`
+- verdict: `verified-delivery-ready-for-review-1`
+- identity_and_structure: task/stage/role/model/provider、author `base_sha`、`delivery_sha=pending`、唯一 source marker、Human Brief 与 dispatch 一致；摘要 143 字符，检查项 7 条且全为 `pass`，完整 `[TASK_RESULT v2]` 与具体下一关卡合规。
+- scope: delivery commit `dfd38a6` 含 12 个既有 Allowed Files 与唯一 handoff；固定范围 `9c333cd..dfd38a6` 另含 Bookkeeper 控制提交 `e369a23` 的 dispatch/status，仅作评审上下文。所有禁止生产文件、禁止测试、`requirements.txt`、`status.json`（相对 implementer commit）和其他 stage 文件零产品差异；工作树在作者提交后干净，`git diff --check` 无输出，`.venv` 中 ccxt 仍未安装。
+- independent_replay: 专项/边界 `250 passed`；immediate/close/store 核心回归 `352 passed`；executor `75 passed`；前端 self-check 全绿且字段绑定 `13 passed`；全后端 `1876 passed, 1 failed`。唯一失败仍为 `backend/tests/test_private_client.py::test_urlopen_only_in_designated_http_clients` 命中 `backend/services/public_ip_service.py`；两文件相对固定 base 零 diff，`git blame` 引入提交 `73f525d4c3033cd4e8d7c7afb09a975816742913` 是 base 祖先，采信为 `pre-existing-independent` 基线勘误，不构成 contested 或本交付失败。
+- decision: 接受交付回执并固定上述 `base_sha..delivery_sha`。下一步为 fresh Kimi（provider `moonshot`）跨 provider Review-1；本核验不等于代码评审、合并、安装、联网、服务控制或实盘授权。
+
 ## Errata (append-only)

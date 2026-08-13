@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 33,
+  "revision": 34,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
-  "phase": "implementation-repair",
-  "checkpoint": "human-accepted-current-limitations-first-code-repair-dispatched",
+  "phase": "review-1",
+  "checkpoint": "first-code-repair-verified-review-1-dispatched",
   "base_sha": "9c333cdb58f38f7d19fa8d42b36379abd07baba8",
-  "delivery_sha": null,
-  "ledger_sha": "9c333cdb58f38f7d19fa8d42b36379abd07baba8",
+  "delivery_sha": "dfd38a6b71e686caf02475aa7954056d670fcead",
+  "ledger_sha": "dfd38a6b71e686caf02475aa7954056d670fcead",
   "current_task": {
-    "id": "smooth-open-v1-fix-gpt56sol-xhigh",
+    "id": "smooth-open-v1-fix-review-1-kimi",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/20-smooth-open-v1-fix-gpt56sol-xhigh.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/21-smooth-open-v1-fix-review-1-kimi.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-gpt56sol-xhigh-first-code-repair"
+    "action": "start-fresh-kimi-cross-provider-review-1"
   },
   "rework_count": 3,
   "blockers": [
