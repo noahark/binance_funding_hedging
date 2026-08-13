@@ -1,24 +1,26 @@
 {
   "schema_version": "2",
-  "revision": 25,
+  "revision": 26,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
-  "phase": "review-2",
-  "checkpoint": "smooth-open-v1-review-1-accept-verified-review-2-dispatched",
-  "base_sha": "e955bdd300d214c5c3ad5c1acd629c0d21080165",
+  "phase": "plan-repair",
+  "checkpoint": "smooth-open-v1-review-2-source-verified-nonaccepting-human-repair-scope-decided",
+  "base_sha": "08ece7e30021db537d375347a5d54accca572d70",
   "delivery_sha": "24074b144dcdb745c511d866a75528a8930e8475",
-  "ledger_sha": "523e8da426fac754821fe44603296a08ebfd7584",
+  "ledger_sha": "08ece7e30021db537d375347a5d54accca572d70",
   "current_task": {
-    "id": "smooth-open-v1-review-2-sonnet5",
+    "id": "smooth-open-v1-repair-plan-opus5",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/14-smooth-open-v1-review-2-sonnet5.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/15-smooth-open-v1-repair-plan-opus5.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-fresh-sonnet5-review-2"
+    "action": "start-smooth-open-v1-repair-plan-opus5"
   },
-  "rework_count": 0,
+  "rework_count": 1,
   "blockers": [
+    "review-2-nonaccepting: Sonnet5 source ACCEPT 已核验但被后续可执行证据推翻；Human 已定五项修复与三项接受风险",
+    "high-risk-plan-review-required: smooth-only 删除每轮 fresh preflight 改变实盘准入语义，计划增量须跨 provider ACCEPT 后才能实现",
     "dependency-install-not-authorized: 本实现不得安装 ccxt 或修改任何虚拟环境",
     "network-live-actions-not-authorized: 本实现不得联网、控制服务、读取凭证或执行真实行情/账户/订单动作",
     "merge-deploy-not-authorized: push、merge、部署与实盘启用仍须 Human 单独授权"
