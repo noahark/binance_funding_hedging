@@ -9,6 +9,11 @@ import pytest
 from backend.hedge_open_tasks import domain as D
 from backend.hedge_open_tasks.service import HedgeOpenTaskService
 from backend.services.best_bid_ask_provider import BookTickerSnapshot
+from backend.services.live_hedge_executor import (
+    LEG_ACCEPTED,
+    LegDispatch,
+    LiveAttemptDispatch,
+)
 from backend.tests.fakes import RecordTransportFake
 
 
@@ -28,7 +33,11 @@ class _Clock:
 
 
 class _Preflight:
+    def __init__(self):
+        self.calls = 0
+
     def get_snapshot(self, coin, direction, task_type="open", position_side_mode=None):
+        self.calls += 1
         filters = {
             "lot_size": {"min_qty": "0.001", "max_qty": "1000", "step_size": "0.001"},
             "market_lot_size": {"min_qty": "0.001", "max_qty": "1000", "step_size": "0.001"},
@@ -87,6 +96,66 @@ class _Market:
         self.closed = True
 
 
+class _FailSecondSubscriptionMarket(_Market):
+    def __init__(self):
+        super().__init__()
+        self.fail_once = True
+
+    def subscribe(self, key):
+        if key == SWAP and self.fail_once:
+            self.fail_once = False
+            raise RuntimeError("swap subscribe failed")
+        super().subscribe(key)
+
+
+class _OrderedMarket(_Market):
+    def __init__(self, events):
+        super().__init__()
+        self.events = events
+
+    def subscribe(self, key):
+        self.events.append("subscribe")
+        super().subscribe(key)
+
+    def latest(self, key):
+        if "market_evaluation" not in self.events:
+            self.events.append("market_evaluation")
+        return super().latest(key)
+
+
+class _OrderedLiveExecutor:
+    def __init__(self, events, leverage_error=None):
+        self.events = events
+        self.leverage_error = leverage_error
+        self.leverage_calls = 0
+        self.dispatch_calls = 0
+
+    def set_leverage(self, coin, leverage):
+        self.events.append("set_leverage")
+        self.leverage_calls += 1
+        if self.leverage_error is not None:
+            raise self.leverage_error
+
+    def dispatch(self, ctx):
+        self.events.append("dispatch")
+        self.dispatch_calls += 1
+        spot = LegDispatch(
+            leg="spot", dispatch_state=LEG_ACCEPTED, order_id="1",
+            exchange_status=D.LEG_FILLED, executed_qty=str(ctx.q_common),
+            cumulative_quote=None, avg_price=None, raw_response={"orderId": 1},
+        )
+        perp = LegDispatch(
+            leg="perp", dispatch_state=LEG_ACCEPTED, order_id="2",
+            exchange_status=D.LEG_FILLED, executed_qty=str(ctx.q_common),
+            cumulative_quote=None, avg_price=None, raw_response={"orderId": 2},
+        )
+        return LiveAttemptDispatch(
+            attempt_id=ctx.attempt_id, spot=spot, perp=perp,
+            record_payload={"transport": "test"}, rate_limited=False,
+            retry_after_seconds=None,
+        )
+
+
 def _wait(predicate, timeout=3):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -118,6 +187,42 @@ def _service(tmp_path, *, target=1, clock=None, market=None, executor=None):
     return svc, task, clock, market, executor
 
 
+def _live_service(tmp_path, events, *, clock=None, leverage_error=None):
+    clock = clock or _Clock()
+    market = _OrderedMarket(events)
+    executor = _OrderedLiveExecutor(events, leverage_error)
+    preflight = _Preflight()
+    svc = HedgeOpenTaskService(
+        str(tmp_path / "smooth-live.sqlite3"),
+        executor=executor,
+        preflight_provider=preflight,
+        mode="live",
+        credentials_present=True,
+        mono_us=clock.mono_us,
+        wall_us=clock.wall_us,
+        market_provider=market,
+    )
+    _, task = svc.create_task({
+        "coin": "BTCUSDT", "direction": D.DIR_FORWARD, "mode": D.MODE_SMOOTH,
+        "single_amount": "1", "target_n": 1,
+        "slippage_threshold_pct": "0.05",
+    })
+    original_open = svc.store.open_smooth_gate
+    original_prepare = svc.store.prepare_attempt
+
+    def open_gate(*args, **kwargs):
+        events.append("open_gate")
+        return original_open(*args, **kwargs)
+
+    def prepare_attempt(*args, **kwargs):
+        events.append("prepare_attempt")
+        return original_prepare(*args, **kwargs)
+
+    svc.store.open_smooth_gate = open_gate
+    svc.store.prepare_attempt = prepare_attempt
+    return svc, task, clock, market, executor, preflight
+
+
 def _open_first_gate(svc, task_id):
     svc.set_start_gate(True)
     return _wait(
@@ -136,6 +241,108 @@ def _publish_bad(market):
 def _publish_good(market):
     market.publish(SPOT, bid="99.99", ask="100", ask_qty="1")
     market.publish(SWAP, bid="100.10", ask="100.11", bid_qty="1")
+
+
+def test_partial_subscription_failure_rolls_back_and_next_call_retries(tmp_path):
+    market = _FailSecondSubscriptionMarket()
+    svc, task, _, _, _ = _service(tmp_path, market=market)
+    try:
+        with pytest.raises(RuntimeError, match="swap subscribe failed"):
+            svc._ensure_smooth_subscriptions(task)
+        assert market.refs == {}
+        assert task["id"] not in svc._smooth_subscriptions
+
+        svc._ensure_smooth_subscriptions(task)
+        assert market.refs == {SPOT: 1, SWAP: 1}
+        assert svc._smooth_subscriptions[task["id"]] == (SPOT, SWAP)
+    finally:
+        svc.close()
+
+
+@pytest.mark.parametrize("pass_reason", ["market", "manual", "timeout"])
+def test_live_smooth_orders_leverage_gate_and_frozen_dispatch(
+    tmp_path, pass_reason,
+):
+    events = []
+    svc, task, clock, market, executor, preflight = _live_service(
+        tmp_path, events
+    )
+    try:
+        if pass_reason == "market":
+            _publish_good(market)
+        else:
+            _publish_bad(market)
+        svc.set_start_gate(True)
+        if pass_reason != "market":
+            gate = _wait(
+                lambda: (
+                    row if (row := svc.store.get_task(task["id"]))
+                    and row["smooth_gate_seq"] is not None else None
+                )
+            )
+            if pass_reason == "manual":
+                svc.post_fill_once(task["id"], {"gate_seq": gate["smooth_gate_seq"]})
+            else:
+                clock.t = gate["smooth_gate_started_at_us"] + D.SMOOTH_GATE_WINDOW_US
+                svc._notify_smooth_task(task["id"])
+        _wait(lambda: executor.dispatch_calls == 1)
+
+        assert preflight.calls == 1  # create-task only; no fresh read after gate pass
+        assert executor.leverage_calls == 1
+        assert events.index("set_leverage") < events.index("open_gate")
+        assert events.index("set_leverage") < events.index("subscribe")
+        assert events.index("subscribe") < events.index("market_evaluation")
+        assert events.index("market_evaluation") < events.index("prepare_attempt")
+        assert events.index("prepare_attempt") < events.index("dispatch")
+        attempt = svc.store.list_attempts_for_task(task["id"])[0]
+        assert attempt["smooth_pass_reason"] == pass_reason
+        assert attempt["q_common"] == task["q_common"]
+        assert attempt["position_side_mode"] == task["position_side_mode"]
+    finally:
+        svc.close()
+
+
+def test_live_smooth_leverage_failure_precedes_all_gate_state_and_can_retry(tmp_path):
+    events = []
+    error = RuntimeError("set leverage failed")
+    svc, task, _, market, executor, preflight = _live_service(
+        tmp_path, events, leverage_error=error
+    )
+    try:
+        _publish_bad(market)
+        svc.set_start_gate(True)
+        paused = _wait(
+            lambda: (
+                row if (row := svc.store.get_task(task["id"]))
+                and row["status"] == D.STATUS_PAUSED else None
+            )
+        )
+        assert paused["pause_reason"] == D.PAUSE_REASON_LEVERAGE_SET_FAILED
+        assert paused["smooth_gate_seq"] is None
+        assert market.refs == {}
+        assert task["id"] not in svc._smooth_subscriptions
+        assert svc.store.list_attempts_for_task(task["id"]) == []
+        assert executor.dispatch_calls == 0
+        assert preflight.calls == 1
+
+        _wait(
+            lambda: task["id"] not in svc._workers
+            or not svc._workers[task["id"]].is_alive()
+        )
+        executor.leverage_error = None
+        svc.post_start(task["id"])
+        gate = _wait(
+            lambda: (
+                row if (row := svc.store.get_task(task["id"]))
+                and row["smooth_gate_seq"] is not None else None
+            )
+        )
+        svc.post_fill_once(task["id"], {"gate_seq": gate["smooth_gate_seq"]})
+        _wait(lambda: executor.dispatch_calls == 1)
+        assert executor.leverage_calls == 2
+        assert preflight.calls == 1
+    finally:
+        svc.close()
 
 
 def test_market_pass_waits_then_reuses_existing_dispatch_chain(tmp_path):

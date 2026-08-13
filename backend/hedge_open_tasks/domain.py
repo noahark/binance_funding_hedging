@@ -1498,24 +1498,31 @@ def validate_mode(value) -> str:
     return value
 
 
-_SLIPPAGE_THRESHOLD_RE = re.compile(r"^-?(?:[0-9]+(?:\.[0-9]{1,2})?|\.[0-9]{1,2})$")
+_SLIPPAGE_THRESHOLD_RE = re.compile(
+    r"^(?P<sign>-?)(?:(?P<integer>[0-9]+)(?:\.(?P<fraction>[0-9]{1,2}))?"
+    r"|\.(?P<leading_fraction>[0-9]{1,2}))$"
+)
 
 
 def validate_slippage_threshold_pct(value) -> str:
-    if not isinstance(value, str) or not _SLIPPAGE_THRESHOLD_RE.fullmatch(value):
+    match = (
+        _SLIPPAGE_THRESHOLD_RE.fullmatch(value)
+        if isinstance(value, str)
+        else None
+    )
+    if match is None:
         raise invalid_field(
             "slippage_threshold_pct",
             "must be a signed decimal string with at most two decimal places",
         )
-    try:
-        threshold = Decimal(value)
-    except InvalidOperation as exc:  # pragma: no cover - regex already guards
-        raise invalid_field("slippage_threshold_pct", "not a finite decimal") from exc
-    if not threshold.is_finite():
-        raise invalid_field("slippage_threshold_pct", "not a finite decimal")
-    if threshold == 0:
-        threshold = Decimal("0")
-    return format(threshold.quantize(Decimal("0.01")), "f")
+    integer = (match.group("integer") or "0").lstrip("0") or "0"
+    fraction = (
+        match.group("fraction") or match.group("leading_fraction") or ""
+    ).ljust(2, "0")
+    sign = match.group("sign")
+    if integer == "0" and fraction == "00":
+        sign = ""
+    return f"{sign}{integer}.{fraction}"
 
 
 class L1Quote(NamedTuple):

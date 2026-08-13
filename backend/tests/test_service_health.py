@@ -524,3 +524,27 @@ def test_disabled_hedge_mode_warns_on_stderr(capsys, tmp_path):
     captured = capsys.readouterr()
     assert "对冲下单已禁用" in captured.err
     assert "不会真实发单" in captured.err
+
+
+def test_offline_hedge_service_never_constructs_market_provider(monkeypatch, tmp_path):
+    from backend.app import server as server_mod
+
+    monkeypatch.setattr(server_mod, "default_source_available", lambda: True)
+
+    def fail_if_constructed():
+        raise AssertionError("offline mode must not construct market provider")
+
+    monkeypatch.setattr(server_mod, "BestBidAskProvider", fail_if_constructed)
+    cfg = Config(
+        offline=True,
+        hedge_executor="disabled",
+        bind_port=0,
+        borrow_db_path=tmp_path / "borrow.sqlite3",
+    )
+    svc = server_mod._build_hedge_service(cfg)
+    try:
+        assert svc._market_provider is None
+        assert svc._workers == {}
+        assert svc._smooth_subscriptions == {}
+    finally:
+        svc.close()

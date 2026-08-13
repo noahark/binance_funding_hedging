@@ -1599,7 +1599,9 @@ def _build_hedge_service(config: Config) -> HedgeOpenTaskService:
     """
     mode = config.hedge_executor
     db_path = config.borrow_db_path.parent / "hedge-open-tasks.sqlite3"
-    if default_source_available():
+    if config.offline:
+        market_provider = None
+    elif default_source_available():
         market_provider = BestBidAskProvider()
     else:
         market_provider = None

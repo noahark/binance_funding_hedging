@@ -80,6 +80,39 @@ class _SlowCloseSource(_Source):
         await super().close()
 
 
+class _DelayedStartProvider(BestBidAskProvider):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.allow_start = threading.Event()
+        self.start_calls = 0
+        self.start_calls_lock = threading.Lock()
+
+    def start(self):
+        with self.start_calls_lock:
+            self.start_calls += 1
+        super().start()
+
+    def _run_loop(self):
+        self.allow_start.wait()
+        super()._run_loop()
+
+
+class _ImmediateLoopSource:
+    def __init__(self, mode):
+        self.mode = mode
+        self.watch_count = 0
+        self.closed = False
+
+    async def watch(self):
+        self.watch_count += 1
+        if self.mode == "error":
+            raise OSError("down")
+        return {"info": {}}, None
+
+    async def close(self):
+        self.closed = True
+
+
 def _wait(predicate, timeout=2):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -155,6 +188,43 @@ def test_same_key_is_shared_until_last_release():
         _wait(lambda: source.closed)
         assert provider.latest(SPOT) is None
     finally:
+        provider.close()
+
+
+def test_concurrent_cold_subscribers_wait_for_one_ready_watcher():
+    source = _Source((_tick(), None))
+    factory = _Factory({SPOT: [source]})
+    provider = _DelayedStartProvider(source_factory=factory)
+    barrier = threading.Barrier(3)
+    errors = []
+
+    def subscribe():
+        barrier.wait()
+        try:
+            provider.subscribe(SPOT)
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=subscribe) for _ in range(2)]
+    try:
+        for thread in threads:
+            thread.start()
+        barrier.wait()
+        _wait(lambda: provider.start_calls == 2 and provider._thread)
+        time.sleep(0.01)
+        assert all(thread.is_alive() for thread in threads)
+        assert provider._states == {}
+        provider.allow_start.set()
+        for thread in threads:
+            thread.join(2)
+        assert not errors
+        assert all(not thread.is_alive() for thread in threads)
+        assert _wait(lambda: provider.latest(SPOT)) is not None
+        assert factory.calls == [SPOT]
+        assert provider._states[SPOT].refs == 2
+        assert provider._states[SPOT].task is not None
+    finally:
+        provider.allow_start.set()
         provider.close()
 
 
@@ -236,6 +306,25 @@ def test_on_change_runs_for_updates_and_invalidation():
         assert changes == [SPOT, SPOT, SPOT]
     finally:
         provider.close()
+
+
+@pytest.mark.parametrize("mode,max_changes", [("error", 10), ("invalid", 5)])
+def test_failed_watch_retries_are_bounded_and_close_interrupts_wait(mode, max_changes):
+    source = _ImmediateLoopSource(mode)
+    changes = []
+    provider = BestBidAskProvider(
+        source_factory=_Factory({SPOT: [source]}), on_change=changes.append
+    )
+    provider.subscribe(SPOT)
+    _wait(lambda: source.watch_count >= 2)
+    time.sleep(0.12)
+    started = time.monotonic()
+    provider.close()
+    assert time.monotonic() - started < 0.2
+    assert source.watch_count <= 5
+    assert len(changes) <= max_changes
+    assert source.closed
+    assert provider._thread is not None and not provider._thread.is_alive()
 
 
 def test_close_joins_thread_closes_all_sources_and_is_idempotent():

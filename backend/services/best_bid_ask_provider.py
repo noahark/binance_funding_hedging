@@ -5,13 +5,14 @@ import asyncio
 import inspect
 import threading
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from decimal import Decimal, InvalidOperation
 from importlib.util import find_spec
 from typing import Callable, Protocol
 
 
 MarketKey = tuple[str, str, str]
+_WATCH_RETRY_DELAY_SECONDS = 0.05
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,7 @@ class _WatchState:
     snapshot: BookTickerSnapshot | None = None
     task: asyncio.Task | None = None
     source: L1Source | None = None
+    ready: threading.Event = field(default_factory=threading.Event)
 
 
 class _CcxtBookTickerSource:
@@ -117,31 +119,53 @@ class BestBidAskProvider:
         with self._lock:
             if self._closed:
                 raise RuntimeError("公共盘口 provider 已关闭")
-            if self._thread is not None and self._thread.is_alive():
-                return
-            self._ready.clear()
-            self._thread = threading.Thread(
-                target=self._run_loop, name="best-bid-ask-provider", daemon=True
-            )
-            self._thread.start()
+            if self._thread is None or not self._thread.is_alive():
+                self._ready.clear()
+                self._thread = threading.Thread(
+                    target=self._run_loop, name="best-bid-ask-provider", daemon=True
+                )
+                self._thread.start()
         if not self._ready.wait(5):
             raise RuntimeError("公共盘口 event loop 启动超时")
 
     def subscribe(self, key: MarketKey) -> None:
         self.start()
+        created = False
         with self._lock:
             state = self._states.get(key)
             if state is not None:
                 state.refs += 1
-                return
-            generation = self._generations.get(key, 0) + 1
-            self._generations[key] = generation
-            state = _WatchState(key=key, refs=1, generation=generation)
-            self._states[key] = state
-            loop = self._loop
-        if loop is None:
-            raise RuntimeError("公共盘口 event loop 不可用")
-        asyncio.run_coroutine_threadsafe(self._start_watch(state), loop)
+            else:
+                generation = self._generations.get(key, 0) + 1
+                self._generations[key] = generation
+                state = _WatchState(key=key, refs=1, generation=generation)
+                self._states[key] = state
+                loop = self._loop
+                created = True
+        if not created:
+            if not state.ready.wait(5):
+                raise RuntimeError("公共盘口 watcher 启动超时")
+            with self._lock:
+                if self._states.get(key) is not state or state.task is None:
+                    raise RuntimeError("公共盘口 watcher 启动失败")
+            return
+        future = None
+        try:
+            if loop is None:
+                raise RuntimeError("公共盘口 event loop 不可用")
+            future = asyncio.run_coroutine_threadsafe(self._start_watch(state), loop)
+            future.result(5)
+            with self._lock:
+                if self._states.get(key) is not state or state.task is None:
+                    raise RuntimeError("公共盘口 watcher 启动失败")
+        except Exception:
+            with self._lock:
+                self._states.pop(key, None)
+            if future is not None:
+                future.cancel()
+            raise
+        finally:
+            state.ready.set()
 
     def release(self, key: MarketKey) -> None:
         with self._lock:
@@ -232,6 +256,7 @@ class BestBidAskProvider:
                     )
                     if snapshot is None:
                         self._set_status(state, "disconnected", "盘口原始字段无效")
+                        await asyncio.sleep(_WATCH_RETRY_DELAY_SECONDS)
                         continue
                     self._publish(state, snapshot)
                 except asyncio.CancelledError:
@@ -246,6 +271,7 @@ class BestBidAskProvider:
                         state.generation += 1
                         self._generations[state.key] = state.generation
                     self._set_status(state, "connecting", None)
+                    await asyncio.sleep(_WATCH_RETRY_DELAY_SECONDS)
         finally:
             await self._close_source(state.source)
 

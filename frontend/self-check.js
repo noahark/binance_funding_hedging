@@ -5616,8 +5616,8 @@ setTimeout(async () => {
       helpers.getHedgeTasks()[0].status = 'paused';
       const pausedMark = fetchCallLog.length;
       await helpers.refreshExpandedRunningHedgeLogs();
-      if (fetchCallLog.slice(pausedMark).some(c => c.url.includes('hedge-open-logs?task_id='))) {
-        throw new Error('任务停止执行后须停止自动刷新日志');
+      if (!fetchCallLog.slice(pausedMark).some(c => c.url === '/api/hedge-open-logs?task_id=h-inline-1')) {
+        throw new Error('非 running 任务的已展开日志仍须自动刷新');
       }
       helpers.setActiveView('market');
       console.log('[PASS] 任务卡内嵌日志 AC1/AC2/AC3/AC4/AC6/AC7/AC9：四状态徽标 + 钱原样透传 + 未受理腿门控 + 错误回退链 + 进展列 + 真卡 toggle + fake 已清');

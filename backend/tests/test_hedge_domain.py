@@ -168,8 +168,10 @@ def test_preflight_forward_accept():
 
 @pytest.mark.parametrize(
     "raw,normalized",
-    [("-12", "-12.00"), ("0", "0.00"), ("0.05", "0.05"), (".05", "0.05"),
-     ("-0.1", "-0.10")],
+    [("-12", "-12.00"), ("0", "0.00"), ("-0", "0.00"),
+     ("0.05", "0.05"), (".05", "0.05"), ("-0.1", "-0.10"),
+     ("9" * 30, "9" * 30 + ".00"),
+     ("-" + "9" * 100, "-" + "9" * 100 + ".00")],
 )
 def test_smooth_threshold_normalizes_signed_two_places(raw, normalized):
     assert D.validate_slippage_threshold_pct(raw) == normalized

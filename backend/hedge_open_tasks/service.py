@@ -1593,17 +1593,27 @@ class HedgeOpenTaskService:
             return
         task_id = task["id"]
         keys = self._smooth_keys(task)
+        subscribe = getattr(provider, "subscribe", None)
+        if not callable(subscribe):
+            return
         with self._smooth_lock:
             if task_id in self._smooth_subscriptions:
                 return
-            self._smooth_subscriptions[task_id] = keys
-        subscribe = getattr(provider, "subscribe", None)
-        if callable(subscribe):
-            for key in keys:
-                try:
+            subscribed = []
+            try:
+                for key in keys:
                     subscribe(key)
-                except Exception:
-                    pass
+                    subscribed.append(key)
+            except Exception:
+                release = getattr(provider, "release", None)
+                if callable(release):
+                    for key in subscribed:
+                        try:
+                            release(key)
+                        except Exception:
+                            pass
+                raise
+            self._smooth_subscriptions[task_id] = keys
 
     def _release_smooth_subscriptions(self, task_id: str) -> None:
         with self._smooth_lock:
@@ -1992,6 +2002,19 @@ class HedgeOpenTaskService:
         gate_seq = None
         smooth_reason = None
         if task.get("mode") == D.MODE_SMOOTH:
+            if (
+                self._live_dispatch_capable()
+                and (task.get("task_type") or D.TASK_TYPE_OPEN) == D.TASK_TYPE_OPEN
+                and task.get("scheduled_attempt_count", 0) == 0
+            ):
+                lev_err = self._set_leverage_before_open(task, now_us)
+                if lev_err is not None:
+                    self._pause_task_local(
+                        task, D.PAUSE_REASON_LEVERAGE_SET_FAILED,
+                        D.SIGNAL_LEVERAGE_SET_FAILED, now_us,
+                        kind="leverage_set_failed", pause_zh=lev_err,
+                    )
+                    return False
             gate = self._wait_for_smooth_gate(task, now_us)
             if gate is None:
                 # Pause followed immediately by resume may happen before this
@@ -3048,11 +3071,9 @@ class HedgeOpenTaskService:
         2026-08-06 task 05 §5 aligns the docstring with the EXIT implementation);
         ``None`` is a normal dispatch.
 
-        Fresh-preflight-first + fail-closed (A-2/A-3) applies ONLY on the live
-        POST path. A fatal fact stops the task (no attempt/POST); an incomplete
-        read exits the worker without retry and pauses the task with a Chinese
-        reason naming the failed read (no attempt/POST/count). The dry-run record
-        transport reuses the stored q_common/snapshot and never POSTs.
+        Fresh-preflight-first + fail-closed (A-2/A-3) applies to live immediate
+        and close tasks. Live smooth and dry-run dispatch reuse the task's frozen
+        q_common/snapshot; dry-run never POSTs.
         """
         task_type = task.get("task_type") or D.TASK_TYPE_OPEN
         live = self._live_dispatch_capable() and self.is_start_gate_on()
@@ -3080,7 +3101,7 @@ class HedgeOpenTaskService:
                     self._store.get_task(task["id"]) or task,
                     D.SIGNAL_CLOSE_GUARD_FAILED,
                 )
-        if live:
+        if live and task.get("mode") != D.MODE_SMOOTH:
             fresh = self._resolve_fresh_preflight(task)
             if fresh is None or not fresh.ok:
                 # incomplete read -> fail-closed exit (worker exits, task pauses
@@ -3172,6 +3193,7 @@ class HedgeOpenTaskService:
         if (
             live
             and task_type == D.TASK_TYPE_OPEN
+            and task.get("mode") != D.MODE_SMOOTH
             and task.get("scheduled_attempt_count", 0) == 0
         ):
             lev_err = self._set_leverage_before_open(task, now_us)

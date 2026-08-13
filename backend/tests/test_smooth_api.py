@@ -132,6 +132,27 @@ def test_create_smooth_normalizes_threshold_and_exposes_gate_fields(tmp_path):
         assert task["smooth_gate_state"] == "none"
 
 
+def test_create_smooth_accepts_long_integers_and_rejects_bad_formats(tmp_path):
+    with _server(tmp_path) as (address, _, _, _):
+        for raw in ("9" * 30, "-" + "9" * 100, "-0", ".05"):
+            status, task = _request(
+                address, "POST", "/api/hedge-open-tasks",
+                _smooth_body(slippage_threshold_pct=raw),
+            )
+            assert status == 201
+            expected = "0.00" if raw == "-0" else (
+                "0.05" if raw == ".05" else raw + ".00"
+            )
+            assert task["slippage_threshold_pct"] == expected
+
+        for raw in ("0.055", "1e-2", "5%", "", None, 1):
+            status, error = _request(
+                address, "POST", "/api/hedge-open-tasks",
+                _smooth_body(slippage_threshold_pct=raw),
+            )
+            assert (status, error["error"]) == (400, "invalid_field")
+
+
 def test_create_rejects_missing_market_invalid_mode_pair_and_threshold_leak(tmp_path):
     with _server(tmp_path, market=False) as (address, _, _, _):
         status, error = _request(

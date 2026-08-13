@@ -5314,7 +5314,7 @@
         if (openIds.length) {
           await Promise.all(openIds.map(id => {
             const task = findHedgeTask(id);
-            return task && task.status === 'running'
+            return task
               ? loadHedgeTaskLogs(id) : Promise.resolve();
           }));
         }
@@ -6324,7 +6324,7 @@
         const ids = state.hedgeLogExpanded ? [...state.hedgeLogExpanded] : [];
         if (!ids.some(id => {
           const task = findHedgeTask(id);
-          return task && task.status === 'running';
+          return Boolean(task);
         })) return;
         // 复用既有 2 秒显示轮询：任务 GET 刷新 gate_seq/deadline，随后
         // loadHedgeTasks 内部用同源日志 GET 更新盘口；无新 timer。

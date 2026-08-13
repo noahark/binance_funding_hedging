@@ -258,3 +258,17 @@ def test_smooth_frontend_reuses_log_poll_and_has_no_new_timer():
     assert "doc.smooth_market" in text
     assert "refreshExpandedRunningHedgeLogs();" in text
     assert text.count("setInterval(() =>") == 4
+
+
+def test_expanded_log_poll_keeps_non_running_tasks_and_skips_collapsed_tasks():
+    text = INDEX_HTML.read_text(encoding="utf-8")
+    load_start = text.index("async function loadHedgeTasks()")
+    load_end = text.index("async function loadHedgePositions()", load_start)
+    load_block = text[load_start:load_end]
+    refresh_start = text.index("async function refreshExpandedRunningHedgeLogs()")
+    refresh_end = text.index("function patchHedgeTaskLogTable", refresh_start)
+    refresh_block = text[refresh_start:refresh_end]
+    assert "task && task.status === 'running'" not in load_block
+    assert "return task\n              ? loadHedgeTaskLogs(id)" in load_block
+    assert "return Boolean(task);" in refresh_block
+    assert "state.hedgeLogExpanded" in refresh_block
