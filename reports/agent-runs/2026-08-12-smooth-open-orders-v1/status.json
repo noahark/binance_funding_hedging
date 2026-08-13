@@ -1,28 +1,27 @@
 {
   "schema_version": "2",
-  "revision": 42,
+  "revision": 43,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
-  "phase": "human-validation",
-  "checkpoint": "human-page-validation-found-initial-market-display-misleading-and-gate-snapshot-audit-gap",
-  "base_sha": "e74f3d5cf20f9f980ef023ed35a9c40ff3b8b174",
-  "delivery_sha": "5d65a96b8c0435297c1511c228cec9a6d38df4b8",
-  "ledger_sha": "5fc73836526e0f5dc24032a2fae80142ac5bbb00",
+  "phase": "plan-review",
+  "checkpoint": "human-validation-d17-d19-plan-committed-kimi-plan-review-dispatched",
+  "base_sha": "bae72f6c76545424d90aae97a4f872381bc2c303",
+  "delivery_sha": "fea5e34485750372179aeff36987a5a52dbf68d3",
+  "ledger_sha": "bae72f6c76545424d90aae97a4f872381bc2c303",
   "current_task": {
-    "id": "smooth-open-v1-f1-review-1-kimi",
-    "state": "verified",
-    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/25-smooth-open-v1-f1-review-1-kimi.dispatch.md"
+    "id": "smooth-open-v1-d17-d19-plan-review-kimi",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/26-smooth-open-v1-d17-d19-plan-review-kimi.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "decide-ui-fix-and-whether-to-add-gate-snapshot-audit"
+    "action": "start-fresh-kimi-d17-d19-plan-review"
   },
   "rework_count": 4,
   "blockers": [
-    "human-validation-ui-finding: smooth 新建后自动 running，但未自动拉取动态盘口，任务卡误显示两侧数据不完整且启动按钮置灰造成误解",
-    "human-decision-gate-snapshot-audit: 首笔 market 放行任务成交 spread 与阈值相反，当前未持久化放行快照，Human 决定是否补审计证据",
-    "live-runtime-warning: 当前未合并 worktree 在 127.0.0.1:8787 以 live + Start gate=true 运行，新建 smooth 任务可能立即真实成交",
-    "review-2-pending-after-human-page-validation: 页面验收及必要修复后仍须 fresh 跨 provider Review-2",
+    "d17-d19-plan-review-pending: paused-create、running-only 盘口与同次 gate 分段延迟审计须先获跨 provider 计划 ACCEPT",
+    "live-runtime-warning: 当前未合并 worktree 在 127.0.0.1:8787 仍运行旧交付且 Start gate=true；修复未加载，新建 smooth 仍可能立即真实成交",
+    "implementation-review-pending: 计划 ACCEPT 后才可派原 Implementer；修复后须 fresh Review-1、Human 页面复验与 fresh Review-2",
     "merge-deploy-not-authorized: push、merge、部署与实盘启用仍须 Human 单独授权"
   ]
 }
