@@ -76,3 +76,16 @@
 [/TASK_RESULT]
 
 <!-- BOOKKEEPER_APPEND_ONLY: all bytes before this marker are the source payload -->
+
+## Bookkeeper Verification (Bookkeeper append-only)
+
+- verified_at: `2026-08-13 17:57:36 CST`
+- status_revision_checked: `45`
+- source_sha256: `136807c43f5fc9d75101c16501021e3f08631fdaa6263e9bea6501d650f78531`
+- identity_check: task_id、Implementer 角色、`grok-4.6` / `xai`、stage_id、base、control tip 与 revision 45 的唯一活动 28 号 dispatch 一致；27 号 gpt 包未执行。
+- delivery_check: 作者源区块的 `delivery_sha=pending` 已由 `git rev-parse` 解析为 `bba31ea519c9831b38256918d8854f4c20d58aad`；其唯一父提交为 `f19f5c0a661947a253dfb4d0705f183839ec0b69`，故 control tip 后恰一个 delivery commit。
+- range_check: 固定实现区间为 `a55a673664ee3cf6b2a177774d7ba40890a2d4b3..bba31ea519c9831b38256918d8854f4c20d58aad`；其中 `f19f5c0` 只含 28 号 dispatch 与 revision 45 status，属于既有控制上下文。实际作者区间 `f19f5c0..bba31ea` 恰含 13 个 Allowed 既有文件与本 handoff；27/28 号 dispatch 和 `status.json` byte-identical，禁止文件零 diff，`git diff --check` 无输出。
+- test_check: Bookkeeper 独立复跑专项 `144 passed`、核心 `311 passed`、`node frontend/self-check.js` 全绿；全后端 `1890 passed, 1 failed`。唯一失败为 `backend/tests/test_private_client.py::test_urlopen_only_in_designated_http_clients`，`git blame` 将触发行 `backend/services/public_ip_service.py:47` 固定到 `73f525d4c3033cd4e8d7c7afb09a975816742913`，该提交早于本实现 base，且触发文件与守卫测试在本区间均零 diff，裁定为 `pre-existing-independent`，不阻止本交付进入 Review-1。
+- receipt_check: Human Brief 的 `completed（完成）`、八项 pass、产物、无阻塞和下一关卡与 Source Report 及复跑结果一致；handoff marker 和 Required Reading 路径完整。
+- reproducible_commands: `perl -0ne '<截取 marker 前字节>' <handoff> | shasum -a 256`；`git rev-list --count f19f5c0..bba31ea`；`git diff --name-status f19f5c0..bba31ea`；dispatch §7 的四组验收命令；`git blame -L 47,47 -- backend/services/public_ip_service.py`。
+- verdict: `verified-delivery`。本记录只核验交付和证据，可进入 fresh、跨 provider Review-1；不代表代码评审 ACCEPT，也不授权重启、服务控制、真实任务、订单、push、merge、部署或实盘。
