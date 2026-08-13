@@ -1,7 +1,7 @@
 # 平滑开单 V1：设计上下文、决策记录与交付边界
 
-状态：**首轮实现已交付（`e955bdd..24074b1`）。Review-2 的 source `ACCEPT` 已被 Bookkeeper 核验为 `verified-source-but-nonaccepting`——该 verdict 不推进发布关卡，因为同一固定交付上另有可执行证据证明五项缺陷。Human 已据此定下三项接受风险、五项必修，并提出一项改变实盘准入语义的新需求（smooth 每轮不再联网 fresh preflight，见 D15/D16）。本轮为计划增量修订，须先经跨 provider 窄范围计划复核 `ACCEPT`；由于 `rework_count=3` 已达上限，复核通过后还须 Human 按 `AGENTS.md` §8 选择缩窄、重设计、接受限制或停止，才能准备返修实现。不授权实现、依赖安装、联网、服务控制、下单、push、merge、部署或实盘。**
-日期：2026-08-12（2026-08-13 增量修订：D15/D16 + §6.5 + §16）
+状态：**平滑开单代码已完成上一轮 F1 修复并通过 Review-1，Human 页面验收发现三项需在 Review-2 前更正的实际问题：新建 smooth 卡自动执行、未启动卡误展示空盘口、放行到两腿提交之间没有可解释延迟的持久化证据。本次只新增 D17–D19，须经一次跨 provider 窄范围计划复核后，才可由原 Implementer 返修。当前页面验收服务仍在运行旧交付；本计划不授权改源码、重启、创建任务、下单、push、merge、部署或实盘。**
+日期：2026-08-12（2026-08-13 增量修订：D15–D19 + §6.5/§6.6 + §16/§17）
 适用范围：现有对冲开仓任务的 `mode=smooth`。立即开单和平仓任务不是本轮改造对象。
 
 ## 1. 为什么要做
@@ -72,11 +72,14 @@ Human 要恢复旧 JS 中“每轮在固定时间内等更好盘口”的产品�
 | D9 | `成交1次` 只强制当前活动 gate，绝不创建新 attempt | 若按钮直接调用 executor，恰逢第 10 轮自然通过可能出现第 11 单 | 自然通过、5 分钟超时、Human 点击是同一 gate 的三个放行原因；只有 worker owner 能消费一次并进入原 dispatch。无活动 gate、已达 `target_n`、暂停/结束时拒绝 | Human 明确决定 + 资金安全约束 |
 | D10 | 两腿继续并发提交，worker 同步等待并处理结果 | 为平滑功能另写串行下单会改变单腿风险与现有审计语义 | 平滑只决定“何时调用”，不改变“如何调用、如何查单和结算”；单腿场景原样复用立即开单逻辑 | Human 明确决定 |
 | D11 | 任务卡显示动态正向/反向盘口，格式与费率行情页一致 | 市场页 REST 约 60 秒缓存不能代表 gate 当前值 | 任务卡展示来自平滑 WS cache；复用现有百分比 formatter/颜色规则并扩展新盘口块，正向显示合约买一/现货卖一，反向显示现货买一/合约卖一，同时显示两侧数量和覆盖率；不是直接复用只支持价格的旧 cell | Human 明确决定 |
-| D12 | 任务卡盘口刷新跟随展开日志：展开立即取，随后复用共享 2 秒 tick 取；**任务仍存在且日志展开时，无论 `running`/`paused`/`deleted`/`done`/`stopped` 都继续刷新**（2026-08-13 更正，见 §16.2 必修 5）；收起、或任务已不存在才停止 | 另开 timer 会重复请求且把“UI 刷新率”误当“成交校验率”；而只刷新 `running` 会让暂停/删除后仍在 drain/settle 的在途订单在页面上不可见 | 前端只每 2 秒看一次；后端仍在每次 WebSocket 更新时重新评估 gate。两者时钟完全分离 | Human 明确决定 + 2026-08-13 必修 5 更正 |
+| D12 | 任务卡同源读请求跟随展开日志：展开立即取，随后复用共享 2 秒 tick 取；**任务仍存在且日志展开时，无论 `running`/`paused`/`deleted`/`done`/`stopped` 都继续刷新 attempt/腿日志**（2026-08-13 更正，见 §16.2 必修 5）；收起、或任务已不存在才停止。动态盘口块是否渲染另由 D18 决定，只限 `running` | 另开 timer 会重复请求且把“UI 刷新率”误当“成交校验率”；而只刷新 `running` 会让暂停/删除后仍在 drain/settle 的在途订单在页面上不可见 | 前端只每 2 秒看一次；后端仍在每次 WebSocket 更新时重新评估 gate。两者时钟完全分离 | Human 明确决定 + 2026-08-13 必修 5/D18 更正 |
 | D13 | V1 平滑任务只保留 `成交1次`，不展示 `立即成交所有` | 现 UI 为 smooth 预留了 `立即成交所有`，但 Human 本轮只定义逐轮 5 分钟和“成交1次” | 一次放行有清晰 gate 身份；“所有”会引入永久绕过或批量新 attempt 的第二语义，且与逐轮校验目标冲突 | 本轮最小范围结论 |
 | D14 | 多个任务订阅同一交易所同一 symbol 时，共享一个 watcher 的 latest snapshot | 若每个 task 各开两条逻辑订阅，任务数会线性放大订阅和重连工作 | 以 `(exchange_id, market_type, unified_symbol)` 为 key 引用计数；task 只订阅/释放，不拥有 socket。现货与合约仍是两个独立 key 和两个 async loop | D3 的最小可维护实现 |
 | D15 | **smooth 的每轮联网 fresh preflight 取消**：gate 以 market/manual/timeout 任一原因通过后，直接复用建卡固化的 `q_common`、`position_side_mode`、`preflight_snapshot`/route 构造请求，原子 reserve 后进入既有两腿异步提交 | 首轮实现里 gate 通过后仍走 `_resolve_fresh_preflight`，一次联网读取插在“判定成交”和“真正发单”之间 | 让「WS 判定通过」到「两腿提交」之间不再有任何联网读取、交易所设置、sleep 或其他阻塞调用，否则一档价差过滤的时效性被自己抵消。**代价（Human 明确接受，不得包装成 fail-closed）**：等待期间余额/保证金、交易规则、position mode、下单限频、现货路由等事实若发生变化，不再有每轮预检拦截，可能出现两腿都被拒或单腿成交；单腿仍由现有任务卡告警、任务暂停与 Human 人工核对收口。建卡时的首次完整 preflight、固化数据、regular-spot 预划转、缺腿/乘数合约拒绝全部保留；immediate 每轮 fresh preflight 逐字不变 | Human 2026-08-13 决定 |
 | D16 | **smooth 首轮杠杆前移**：live smooth 任务在 `scheduled_attempt_count == 0` 时，必须先完成该任务唯一一次合约杠杆设置，成功后才允许订阅 WebSocket、建立或恢复 gate、执行第一次滑点计算 | 首轮实现把杠杆设置放在 gate 通过后的 `_dispatch_one_for_task` 内（`service.py:3177`），那是 D15 要求清空的那段窗口 | 杠杆是每任务一次的交易所设置，必须发生在“开始盯盘”之前而不是“决定成交”之后。设置失败沿用现有 `leverage_set_failed` 暂停与中文原因，并且此时零 gate、零订阅、零 attempt、零订单。后续轮次不重复设置；首轮尚未产生 attempt 就因失败或进程重启而重新进入执行入口时可幂等重试，但仍必须在任何订阅/gate 之前。**不得**把杠杆提前到建卡时（建卡不代表会执行）；不新增持久化列或新状态机 | Human 2026-08-13 决定 |
+| D17 | **smooth 新建后固定为 `paused`，必须由 Human 在任务卡点击“启动”才进入执行**；创建响应不得启动 worker、订阅盘口或建立 gate | 当前 `create_task` 把 smooth 直接建成 `running`，且全局 Start gate 开启时立即 `ensure_worker`，所以新卡的启动按钮置灰并可能马上真实成交 | 把“创建计划”和“开始盯盘/下单”拆开，复用现有任务卡 `post_start`、按钮状态与 worker 启动路径；点击启动后的顺序仍是 D16 杠杆 → 订阅 → gate。**边界**：建卡时既有首次完整 preflight、固化 `q_common`/route 与 regular-spot 预划转保持不变，因此创建卡片仍可能发生既有预划转，长时间暂停也会使固化事实更旧；这是 D15 已接受的取舍，不把 preflight/划转迁到 Start。本项只改 smooth，当前代码中 immediate 新建仍是 `running`，不得借“流程一致”顺手改变 immediate | Human 页面验收 2026-08-13 |
+| D18 | **未执行的 smooth 卡只显示固化滑点阈值，不显示盘口连接、正反向开单率、价格、数量、覆盖率、gate 轮次或倒计时；仅 `status=running` 显示动态盘口块** | 动态盘口只在 worker 订阅后有意义；当前前端对所有 smooth 卡无条件渲染，未拉取日志时就把空缓存解释成“现货/合约 数据不完整” | 消除“卡刚创建就像订阅坏了”的误导。Human 点击启动成功后，前端沿用现有自动展开日志与同源 GET，动态块随 running 卡出现；任务后续 paused/done/stopped/deleted 时隐藏盘口块，但已展开的 attempt/腿日志仍按 D12 继续刷新，不新增 timer | Human 页面验收 2026-08-13 |
+| D19 | **持久化每一轮 smooth 放行快照与“放行→两腿各自开始调用订单客户端”的分段耗时**；只做观测，不成为准入条件 | 首笔实盘只留下 `smooth_pass_reason=market`，没有放行瞬间 bookTicker，也没有区分本地组参、SQLite reserve、executor/线程启动与订单客户端调用的耗时，无法解释成交价偏离阈值发生在哪一段 | 同一次 gate 评估必须携带其实际操作数和结果，禁止为了审计再读一次盘口。用 monotonic 微秒记录相对耗时，用 wall clock 记录放行时刻；两腿返回后才通过既有日志表追加 `smooth_dispatch_audit`，故放行到 POST 前不新增 SQL/网络/sleep/print。审计写失败不得改变订单结果。仍不恢复任何 fresh preflight 或二次滑点复核，也不改变两腿并发、单腿处置和成交次数 | Human 页面验收 2026-08-13 |
 
 ## 4. CCXT Pro 的职责边界
 
@@ -237,6 +240,16 @@ coverage_pass = spot_coverage >= 0.80 && perp_coverage >= 0.80
 - `prepare_attempt` 的原子复核、两腿并发提交、查单、结算、单腿暂停链一律不变；不复制 executor，不新建 smooth 专用下单实现。
 - 后续轮次不重复设置杠杆；首轮尚未产生 attempt 就因失败或进程重启重新进入执行入口时，可在任何订阅/gate 之前幂等重试。
 
+## 6.6 Human 启动与放行延迟审计（D17–D19）
+
+smooth 创建仍完成既有首次 preflight、身份/数量固化与必要的 regular-spot 预划转，但 INSERT 必须直接写成 `paused + awaiting_manual_start`，并且创建请求不得调用 `ensure_worker`。Human 在任务卡点击“启动”后只复用现有 `post_start`：先把任务改为 `running`，再由同一 task worker 执行 D16 杠杆、订阅、gate 与后续轮次。未点击启动前必须是零订阅、零 gate、零 attempt、零订单；`成交1次` 不能绕过首次启动。
+
+每次 `market` / `manual` / `timeout` 放行形成一份只读审计对象，至少包含：gate seq、放行原因、方向、阈值、实际参与判定的 spot/perp 一档原始 Decimal 字符串与接收时间、当次 spread/两腿 coverage/pass 结果、放行 wall-clock 时刻。该快照必须来自**产生放行结论的同一次读取**，不得放行后再调用 `latest()` 拼一份看似对应的盘口。
+
+同一审计对象以放行 monotonic 时刻为零点，记录以下相对微秒：进入 `_dispatch_one_for_task`、请求参数组装完成、`prepare_attempt` 开始/提交完成、进入 live executor、现货/合约线程各自启动、两腿各自开始调用订单客户端、两腿订单客户端返回、两腿线程完成、executor 返回。持久化时同时给出相邻阶段耗时和 `gate→spot order client` / `gate→perp order client` 总耗时，字段名称须明确“订单客户端调用开始”而不是宣称网络包已离开机器。
+
+审计不得反过来制造延迟：放行到两腿订单客户端调用之前，不新增日志 SQL、网络请求、sleep、同步输出或锁；`prepare_attempt` 的 durable-before-send 原子写仍是资金安全硬门，必须保留并单独计时。两腿 executor 返回后，以现有 `hedge_open_log` 追加 `kind=smooth_dispatch_audit`；失败只丢审计、不得回滚或改写已经发生的订单。任务专属日志 GET 以新增的 `smooth_dispatch_audits` 字段返回这些记录，前端本轮不新增延迟面板。
+
 ## 7. `成交1次` 的并发契约
 
 平滑任务的动作可继续使用现有 `/fill-once` 路由和按钮，但 service 按 mode 分流：
@@ -267,6 +280,7 @@ slippage_threshold_pct: decimal string
 - 规范化允许 `-12`、`0`、`0.05`、`.05`（归一为 `0.05`），最多两位小数；拒绝空、NaN、Infinity、科学记数和 `%` 字符；
 - `mode=immediate` 不使用该字段，前端不发送；
 - 任务创建后把规范值固化到 task，页面输入变化不追改旧任务。
+- smooth 创建成功后状态固定为 `paused`，暂停原因使用既有 `awaiting_manual_start`（中文改为任务通用措辞）；创建响应不启动 worker。首次 preflight、固化数据及 regular-spot 预划转仍发生在建卡阶段，immediate 创建语义不变。
 
 任务确认弹框和任务卡都显示“滑点阈值：`x.xx%`”，并说明实际比较的是“当前方向开单率”。
 
@@ -293,6 +307,8 @@ slippage_threshold_pct: decimal string
 - 两腿 coverage 百分比及 pass；
 - spread pass、整体 gate pass、当前等待原因。
 
+同一路由在 task_id 模式下再增加 additive `smooth_dispatch_audits` 数组，元素是 `kind=smooth_dispatch_audit` 的结构化日志；只记录公共盘口、阶段名、相对耗时、task/attempt/gate 身份，不记录凭证、签名、完整 URL 或私有账户响应。现有 `logs=[]`、`attempts`、`smooth_market` 字段语义不改，前端可忽略该新增字段。
+
 执行判断以 backend cache 为唯一权威；前端只展示，不自行重算 gate。
 
 ### 8.4 页面位置与刷新
@@ -317,7 +333,7 @@ slippage_threshold_pct: decimal string
 -0.03%
 ```
 
-任务卡基础读模型提供 threshold、gate seq/state；动态盘口块由日志 GET 填充。展开日志立即刷新；**只要任务仍存在且日志处于展开态，就复用共享 2 秒 tick 继续刷新，不区分 `running`/`paused`/`deleted`/`done`/`stopped`**（2026-08-13 更正，与 D12、§9、§13-13、§16.2 必修 5 同一口径）；收起、或任务已不存在才停止自动刷新并保留最后值。收起态点击 `成交1次` 会额外执行一次同源 GET 只为取得当前 gate seq。`connecting/disconnected/incomplete` 显示明确状态和 `—`，不得把旧值涂成 fresh。
+任务卡始终显示固化 threshold；只有 `status=running` 才渲染由日志 GET 填充的 gate/倒计时、连接、正反向盘口和覆盖率块。非 running 卡隐藏整个动态块，不能渲染“数据不完整”的占位。展开日志立即刷新；**只要任务仍存在且日志处于展开态，就复用共享 2 秒 tick 继续刷新，不区分 `running`/`paused`/`deleted`/`done`/`stopped`**（attempt/腿 drain 可见性与盘口块可见性是两件事）；收起、或任务已不存在才停止自动刷新并保留最后值。启动成功沿用现有自动展开与立即 GET，因此 running 卡无需新增 timer 就能显示盘口。收起态点击 `成交1次` 会额外执行一次同源 GET 只为取得当前 gate seq。`connecting/disconnected/incomplete` 只可能出现在 running 动态块中，且必须显示 `—`，不得把旧值涂成 fresh。
 
 ## 9. 超时、暂停、故障与收尾
 
@@ -429,6 +445,9 @@ proof 失败时停止，不接资金 worker；改用 Binance 原生 public bookT
 16. **首轮杠杆前置（D16）**：live smooth 且 `scheduled_attempt_count == 0` 时，杠杆设置发生在任何订阅、gate 建立/恢复与第一次滑点计算之前；失败时零订阅、零 gate、零 attempt、零订单并按 `leverage_set_failed` 暂停；后续轮次不重复设置。
 17. **放行后零联网（D15）**：顺序型回归用 spy 断言调用顺序为 `set_leverage → subscribe/open gate → market evaluation → prepare_attempt → dispatch`；market pass 之后 `set_leverage` 与 `HedgePreflightProvider.get_snapshot` 的调用计数均不再增加；三种 pass reason 均适用。
 18. **固化数据复用（D15）**：smooth 发出的两腿请求数量、position side 与 route 完全来自建卡固化值；`prepare_attempt` 的原子复核（状态、target、无在途 pair、gate seq、pass reason）与 immediate 一致。
+19. **人工启动（D17）**：smooth 创建响应为 paused，零 worker/订阅/gate/attempt/订单；原始 Start 按钮可点击且 `post_start` 后才出现一次 worker。未经 Start 的 fill-once 返回 409，进程恢复也不领取这张 paused 卡。immediate 创建行为零 diff。
+20. **任务卡可见性（D18）**：paused smooth 卡保留 threshold 和立即任务卡全部基础信息，但 DOM 中没有连接/正反向盘口/覆盖率块；Start 成功后的 running 卡用原展开日志链显示该块；再次 paused/done/stopped/deleted 时隐藏动态块，展开的 attempt 日志仍继续刷新。
+21. **延迟审计（D19）**：fake monotonic clock 精确验证同一次 gate 快照、全部阶段顺序和分段耗时；错误实现若二次读盘口、在订单客户端调用前写审计日志、执行 fresh preflight/sleep，或漏记任一腿订单客户端调用边界，测试必须变红。审计写入发生在两腿 executor 返回后，写入失败不影响订单处置；immediate 不生成该审计。
 
 ## 14. 评审请求
 
@@ -478,3 +497,9 @@ proof 失败时停止，不接资金 worker；改用 Binance 原生 public bookT
 3. **超长 signed 整数 threshold 逃逸为服务异常**：合法字符（无科学记数、无 `%`、整数）但位数超出 Decimal 默认 context，`quantize` 抛 `InvalidOperation`，接口返回 500，而不是正常规范化并由创建接口接受（`201`）。这类输入是合法值，不应改判为 `400`；只有格式非法输入才返回 `400`。
 4. **provider 持续异常/无效快照零等待热循环**：`_watch` 的异常分支与“立即返回无效快照”分支在重试前没有任何等待；零网络 always-fail 假源实测 0.1 秒约 15 万次回调，会同时空转 provider 线程并风暴式唤醒等待中的 worker。
 5. **暂停/删除后仍在 drain/settle 时前端停止刷新展开日志**：`post_pause`/`post_delete` 明确不打断 worker（在途订单继续 drain/settle），而前端只刷新 `status === 'running'` 的展开卡，导致这段时间新增的 attempt/腿状态在页面上不可见。
+
+## 17. Human 页面验收后的窄修订（2026-08-13）
+
+已观察任务 `36951966-6942-43e3-833c-99606ca3fae5` 在创建后自动 running 并以 `market` 放行。任务卡最初显示两侧“数据不完整”，展开日志后才显示 provider 实为 live；成交均价折算的 forward spread 约 `-0.465%`，但现有持久化只证明放行原因为 `market`，不能还原放行盘口或定位本地延迟。由此触发 D17–D19。
+
+本轮不以成交均价倒推 gate 一定算错，也不恢复被 D15 删除的下单前二次行情校验。Market 单在放行后仍可能因行情变化和深度产生偏离；本次交付的目标是把 Human 启动边界改对、消除未启动卡的误导展示，并让下一笔的放行快照与本地分段耗时可审计。

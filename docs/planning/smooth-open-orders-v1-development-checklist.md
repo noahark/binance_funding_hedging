@@ -1,14 +1,14 @@
 # 平滑开单 V1 开发清单（单 Implementer 活动方案）
 
-状态：**第一轮实现已交付（`e955bdd..24074b1`）但未通过发布关卡；本文现为第二轮「单 Implementer 返修」的活动方案，等待跨 provider 窄范围计划复核。`rework_count=3` 已达上限，复核通过后仍须 Human 按 `AGENTS.md` §8 选择缩窄、重设计、接受限制或停止，未经该决定不得派发实现。本文不授权实现、创建 worktree/分支、安装依赖、连接网络、启动服务、下单、修改状态、提交、合并或部署。**
+状态：**上一轮 F1 修复已过 Review-1，Human 页面验收现已提出 D17–D19。本文 §15 是当前唯一活动的窄返修草案；先做跨 provider 计划复核，ACCEPT 后才准备原 Implementer 的实现 dispatch。Human 已允许继续返修且不受旧次数上限阻止，`rework_count` 当前保持 4；本次属于 Human 验收后的需求修订，不因写计划或计划复核自行递增。当前服务仍运行旧交付，本计划不授权改源码、重启、创建任务、下单、push、merge、部署或实盘。**
 
 - 产品与资金语义唯一权威：`docs/planning/smooth-open-orders-v1.md`（本文不复制 gate 契约，只在必要处引用条目号）。三项接受风险与五项必修根因的权威描述在该文件 §16；本文只写怎么修和怎么验。
 - P0 证据唯一权威：`docs/planning/ccxt-bookticker-recon-2026-08-13.md`。
 - 已冻结的实现不变量：`reports/agent-runs/2026-08-12-smooth-open-orders-v1/evidence/01-advisory-design-reviews.md` §4。
 - 第一轮正式计划评审（`REWORK`）：`.../evidence/smooth-open-formal-plan-review-deepseek-v4-pro.handoff.md`；定向复核：`.../evidence/smooth-open-targeted-plan-rereview-deepseek-v4-pro.handoff.md`。
 - 第一轮交付后的 Review-2 与 Bookkeeper 非接受核验（本轮返修的唯一事实来源）：`reports/agent-runs/2026-08-12-smooth-open-orders-v1/evidence/smooth-open-v1-review-2-sonnet5.handoff.md`（以 `Bookkeeper Verification` 的 `rejection_basis`、`reproducible_evidence`、`requirement_change` 为准）。
-- §1–§11 描述的是第一轮的规划与已交付内容，除本轮显式更正外保持有效；**第二轮的活动任务包是 §12，窄复核请求是 §13**。
-- 第一轮的行号基线为 `2e59023`；**第二轮的行号基线是 `base_sha = bfb633799ed904ba6d8364bffef7f048d77137dd`**，本文 §12 引用的行号按该基线核对，实现前仍应重新 `grep` 确认。
+- §1–§14 保留第一轮、第二轮的规划与返修历史；**Human 页面验收后的当前活动草案只看 §15，计划复核边界只看 §16**。旧任务身份、旧停止线与旧行号不得覆盖 §15。
+- 第一轮的行号基线为 `2e59023`，第二轮为 `bfb6337`；它们只服务历史证据。§15 以当前已提交计划范围为准，正式实现 dispatch 前由 Bookkeeper 重新固定 base 并要求 Implementer 按函数名核对。
 
 ## 0. 本轮修订说明
 
@@ -484,7 +484,7 @@ REWORK 必须逐条给出可执行的修复要求。ACCEPT 不授权启动服务
 - 定向计划复核：provider ≠ `anthropic`（本返修稿作者）；建议 `deepseek`（持有上一轮发现上下文）。
 - Review-1：provider 必须 ≠ 实现者 provider（`openai`）；候选 `moonshot`（kimi）、`xai`（grok）、`deepseek`、`anthropic`，与计划复核者错开更佳。
 - Review-2：必须 ≠ 交付区间内全部实现/修复作者的 provider；`sonnet5`（anthropic）符合默认规则（`agents/roles.md` Review-2，DEC-2026-08-04-001）。本细拆与返修由 anthropic 的 Opus 5 完成，属设计参与而非实现，须在评审记录中披露。
-- `rework_count`（第一轮历史事实）：当时属于实现前计划评审 `REWORK` 后的 Planner 改稿，按当时状态未递增（当时 `status.json` 为 `0`）。当前活动记账只看 §12.1 与 `status.json`，不得沿用本行。
+- `rework_count`（第一轮历史事实）：当时属于实现前计划评审 `REWORK` 后的 Planner 改稿，按当时状态未递增（当时 `status.json` 为 `0`）。当前活动记账只看 §15.1 与 `status.json`，不得沿用本行。
 - 风险等级：HIGH_RISK（订单触发时机 + 次数硬上限 + 实盘资金路径），Review-1 + Review-2 双轮不可省。
 
 ## 11. 当前停止线
@@ -686,8 +686,105 @@ Human 已明确接受的风险，不得判为阻塞。
 REWORK 必须逐条给出可执行的修复要求。ACCEPT 不授权实现、安装依赖、服务控制或实盘下单。
 ```
 
-## 14. 当前停止线（第二轮）
+## 14. 历史停止线（第二轮；已由 §15–§16 取代）
 
 在本增量通过跨 provider 窄范围计划复核 `ACCEPT`，且 Human 已针对 `rework_count=3` 上限明确选择缩窄、重设计、接受限制或停止之前：不改任何源码或测试、不创建新 worktree/分支、不安装 CCXT 到任何环境、不改 `status.json`、不准备或启动返修实现终端。只有 Human 的选择明确允许继续时，Bookkeeper 才能另备实现 dispatch。
 
 `ACCEPT` 之后仍需 Human 单独授权的动作：把 `ccxt==4.5.64` 装入生产 `.venv`、重启服务、任何真实公共 WS 连通验证、合并到 `main`、`push`、部署、任何真实平滑任务或实盘下单。
+
+## 15. Human 页面验收返修：D17–D19（当前活动草案）
+
+### 15.1 任务身份与范围
+
+| 项 | 值 |
+|---|---|
+| task_id | `smooth-open-v1-human-validation-fix-gpt56sol-xhigh`（计划复核 ACCEPT 后由 Bookkeeper 固化） |
+| target_model / reasoning / provider | `gpt-5.6-sol` / `xhigh` / `openai`（沿用原 Implementer） |
+| worktree / branch | `/Users/ark/Desktop/ai code/funding_hedging-smooth-v1` / `smooth/v1-fullstack` |
+| 输入提交 | 计划复核 ACCEPT 后，由 Bookkeeper 以当时 committed HEAD 固化 |
+| rework_count | `4`；Human 已明确允许继续修复，不受旧上限阻止；本次 Human 需求修订不自行加一 |
+| 交付 | 一个本地 fix commit；不 push、不合并、不重启 |
+| handoff | `reports/agent-runs/2026-08-12-smooth-open-orders-v1/evidence/smooth-open-v1-human-validation-fix-gpt56sol-xhigh.handoff.md`（create-only） |
+
+Allowed Files：
+
+- `backend/hedge_open_tasks/domain.py`（把 `awaiting_manual_start` 中文改为任务通用措辞）
+- `backend/hedge_open_tasks/executor.py`（AttemptContext 只新增可选的 smooth 审计载体）
+- `backend/hedge_open_tasks/store.py`（仅增加按 task+kind 读取既有 append-only 日志的窄查询；不改 schema、gate 或状态迁移）
+- `backend/hedge_open_tasks/service.py`（D17 创建状态、首次启动门、同次 gate 快照、服务层时间点、审计落库与读模型）
+- `backend/services/live_hedge_executor.py`（executor / 双腿线程 / 每腿订单客户端调用边界时间点）
+- `frontend/index.html`、`frontend/self-check.js`（D18）
+- `backend/tests/test_smooth_api.py`、`backend/tests/test_smooth_gate_worker.py`、`backend/tests/test_live_hedge_executor.py`、`backend/tests/test_hedge_service.py`、`backend/tests/test_frontend_field_binding.py`
+- `docs/api/public-market-contract.md`（新增 paused-create 与 additive audit 读字段）
+- 唯一实现 handoff
+
+明确禁止：`backend/app/server.py`、provider、scheduler、live client、preflight provider、`requirements.txt`、数据库 schema、新端点、新 timer、新 watcher、新重试/锁/状态机，以及其他产品/测试/阶段文件。实现若证明必须超出 Allowed Files，停下交回 Bookkeeper，不自行扩张。
+
+### 15.2 D17：创建后暂停，Human 首次启动
+
+现有证据锚点：`service.py::create_task` 的普通 open INSERT 未传 `initial_status`，随后 smooth + Start gate on 直接 `ensure_worker`；`post_start` 已具备 `paused → running → ensure_worker` 的目标路径；close 已有 atomic paused-create 先例。
+
+最小修复：
+
+1. 只对 `mode=smooth && task_type=open` 的现有 INSERT 传 `initial_status=paused`、`initial_pause_reason=awaiting_manual_start` 及通用中文；删除 create 末尾的 smooth auto-`ensure_worker`。不得改 immediate。
+2. 保持建卡首次 preflight、缺腿/1000x 拒绝、固化身份/数量/route、regular-spot forward 预划转的发生位置和结果不变；不得把它们迁到 Start。
+3. `_require_fillable` 对 `pause_reason=awaiting_manual_start` 的 smooth 也返回 `409 start_required`，确保未首次启动时 `成交1次` 不能绕过 Human；错误中文改为“任务首次执行必须点击启动”。
+4. `post_start`、D16 杠杆、F1 订阅、gate/worker 的既有路径保持单一，不复制启动逻辑。
+
+必须变红的回归：smooth create 返回 paused 且 Start 可用；create 后零 worker、零 provider refs、零 gate、零 attempt、零 dispatch；recovery/startup 不领取该 paused 卡；fill-once 409；post_start 后顺序仍为 `set_leverage → subscribe/open gate → evaluate → prepare → dispatch` 且只有一个 worker。immediate create/status/worker 基线逐值不变。另断言 regular-spot 预划转仍只在 create 发生一次，不在 Start 重做。
+
+### 15.3 D18：只有 running 卡显示动态盘口
+
+现有证据锚点：`renderHedgeTaskCard` 当前以 `task.mode === 'smooth'` 无条件调用 `renderSmoothTaskExtras`；启动成功已把 task 加入 `hedgeLogExpanded`、立即加载日志并重绘。
+
+最小修复：卡片基础区为所有 smooth 状态单独显示“滑点阈值”；动态 `smoothExtras` 只在 `task.mode === 'smooth' && task.status === 'running'` 生成。paused/done/stopped/deleted DOM 不得出现 `hedge-smooth-market-*`、连接状态、正/反向价格/数量/覆盖率/轮次/倒计时。启动成功仍沿用现有自动展开和日志 GET；running 卡显示原完整动态块。不得把 D12 的“非 running 且已展开时继续刷新 attempt/腿日志”改回去，也不得新增 timer。
+
+必须变红的 self-check / Python 绑定断言：paused smooth 有 threshold、启动按钮可点、动态块不存在；running smooth 动态块完整；running→paused 后动态块消失但已展开日志仍被共享 tick 拉取；immediate 卡不受影响。
+
+### 15.4 D19：同次 gate 快照与无侵入延迟审计
+
+现有证据锚点：`_wait_for_smooth_gate` 只返回 `(task, gate_seq, reason, now_us)`；`attempt` 只存 `smooth_pass_reason`；`LiveHedgeExecutor.dispatch` 在两个 thread 中进入 `_send_one_leg`，而真实订单客户端调用发生在 `_send_one_leg` 的 `post_spot_order/post_margin_order/post_um_order`；task_id 日志 GET 当前固定 `logs=[]`，未返回 task 的 append-only log。
+
+最小数据流：
+
+1. `_wait_for_smooth_gate` 的一次评估同时产出放行审计：gate/reason/direction/threshold、spot/perp raw Decimal 一档+`received_at_us`、当前 spread/coverage/pass、放行 wall/monotonic 时刻。为此可增加一个 service 内部 helper，但不得在放行后再次 `latest()`。
+2. `_worker_round → _dispatch_one_for_task → AttemptContext → LiveHedgeExecutor` 传同一个仅本轮使用的可变 audit dict；`AttemptContext` 字段必须 optional，immediate/close/既有测试构造点不传时行为不变。
+3. service 记录：dispatch 入口、参数组装完成、prepare 开始/提交完成、executor 调用前/返回后。executor 记录：入口、两线程各自启动、每腿订单客户端调用前/返回后、线程完成、join/返回。每腿用独立局部时间字典，join 后合并，禁止用两个线程同时改同一嵌套对象。
+4. 所有相对耗时只用 monotonic 微秒，wall clock 只标放行时刻；输出既保留事件 offset，也计算相邻阶段和 `gate→每腿 order_client_call_started` 总耗时。负值或时间倒序属于测试失败，不在生产静默修正。
+5. 订单客户端边界必须在凭证检查和 route 选择之后、调用 `post_*_order` 之前打点；字段名写 `order_client_call_started`，不得写“网络已发送”。client 返回后立即打点，后续 UM confirm GET/UNKNOWN query 不混入“放行到下单开始”的数值。
+6. `executor.dispatch` 返回后，service 立即 best-effort `append_log(kind='smooth_dispatch_audit', attempt_id=attempt_uuid)`，然后才继续既有 raw persistence/resolve/query/settlement。写日志异常完全吞掉且不得改变 `dispatch` 结果。放行→每腿订单客户端调用前不允许新增 SQL/网络/sleep/print/锁。
+7. store 只增加 `list_logs_for_task_kind(task_id, kind)` 的只读查询；task_id 日志 GET additive 返回 `smooth_dispatch_audits=[log_to_doc(...)]`。禁止 schema migration、把 audit 变成 gate、或把每个 WS tick 写库。
+
+必须变红的确定性回归：
+
+- fake provider 在第一次通过后改变盘口，审计仍等于产生 pass 的旧快照且 `latest()` 读取次数不增加；market/manual/timeout 三因均有一条。
+- fake monotonic 序列逐值断言事件顺序、阶段差值和两腿总耗时；人为给 prepare/store、线程启动、某腿 client 各注入可控延迟，只有相应分段增长。
+- spy store 断言第一笔额外 audit SQL 严格晚于两腿 `order_client_call_started` 和 executor return；审计 append 抛错时两腿 verdict、resolve、次数与任务状态完全相同。
+- 两腿仍并发：阻塞 spot client 不妨碍 perp 进入自己的 order client；审计不引入串行等待。
+- immediate/close 不创建 `smooth_dispatch_audit`；smooth 审计不含 API key、signature、完整 URL、私有响应。
+- task_id API 对新旧 task 均返回数组：旧 task/未放行 task 为 `[]`；已有审计按时间/ID 稳定排序并保持 Decimal 为字符串。
+
+### 15.5 回归与停止线
+
+实现至少执行：
+
+```bash
+.venv/bin/python -m pytest backend/tests/test_smooth_api.py \
+  backend/tests/test_smooth_gate_worker.py backend/tests/test_live_hedge_executor.py \
+  backend/tests/test_hedge_service.py backend/tests/test_frontend_field_binding.py -q
+.venv/bin/python -m pytest backend/tests/test_hedge_store.py backend/tests/test_hedge_api.py \
+  backend/tests/test_hedge_task_local.py backend/tests/test_hedge_review2_regressions.py \
+  backend/tests/test_hedge_leverage.py backend/tests/test_hedge_cycle_core.py \
+  backend/tests/test_hedge_cycle_close.py backend/tests/test_hedge_purity.py -q
+.venv/bin/python -m pytest backend/tests -q
+node frontend/self-check.js
+git diff --check
+```
+
+全后端仍只允许固定基线前的 `public_ip_service.py` 白名单单一既存失败。不得修改该测试或触发文件。实现不联网、不读凭证、不控制当前服务、不创建任务、不下单、不安装/卸载依赖。当前运行服务不会自动加载 worktree 新代码；修复交付后先走 fresh 跨 provider Review-1，Human 再决定何时重启继续页面验收，最后仍须 fresh Review-2。
+
+## 16. D17–D19 窄范围计划复核请求
+
+只检查四点：① paused-create 是否真正零 worker/订阅/gate/attempt/order，且没有把既有 preflight/预划转挪到 Start、没有改 immediate；② running-only 盘口是否与 non-running 展开日志继续刷新相容；③同次 gate 快照是否禁止二次读盘口，分段是否准确覆盖到两腿各自订单客户端调用开始；④审计是否在 executor 返回后才落既有 log、失败不影响订单、Allowed Files 足够且没有隐含 schema/端点/锁/二次复核。任何要求恢复 fresh preflight 或滑点二次复核、改变两腿/单腿链、修改当前运行服务，均超出本计划。
+
+计划复核必须是 fresh、只读、provider 非 openai 的 Reviewer，只能创建自己的 handoff，给出 `ACCEPT | REWORK`。ACCEPT 后由 Bookkeeper 固化实现 base 并准备 §15 的唯一 Implementer dispatch；不得由 Reviewer 改代码、状态、服务或环境。
