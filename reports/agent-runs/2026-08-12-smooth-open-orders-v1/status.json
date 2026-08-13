@@ -1,25 +1,24 @@
 {
   "schema_version": "2",
-  "revision": 23,
+  "revision": 24,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
   "phase": "review-1",
-  "checkpoint": "smooth-open-v1-review-1-session-isolation-corrected-fresh-rerun-dispatched",
+  "checkpoint": "smooth-open-v1-review-1-accept-verified-human-clear-confirmed",
   "base_sha": "e955bdd300d214c5c3ad5c1acd629c0d21080165",
   "delivery_sha": "24074b144dcdb745c511d866a75528a8930e8475",
-  "ledger_sha": "6e882bd9018437efc768d8d4ef1be94c14612d1a",
+  "ledger_sha": "bff6e87b54477a07dac38a33bfb8705e01f37434",
   "current_task": {
-    "id": "smooth-open-v1-review-1-kimi-fresh-rerun",
-    "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/13-smooth-open-v1-review-1-kimi-fresh-rerun.dispatch.md"
+    "id": "smooth-open-v1-review-1-kimi",
+    "state": "verified",
+    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/12-smooth-open-v1-review-1-kimi.dispatch.md"
   },
   "next": {
-    "actor": "human_operator",
-    "action": "start-new-kimi-session-for-review-1-rerun"
+    "actor": "codex",
+    "action": "prepare-independent-review-2"
   },
   "rework_count": 0,
   "blockers": [
-    "fresh-review-session-required: Human 必须新建或重置 Kimi CLI session 后启动本任务，旧 session 返回不接受",
     "dependency-install-not-authorized: 本实现不得安装 ccxt 或修改任何虚拟环境",
     "network-live-actions-not-authorized: 本实现不得联网、控制服务、读取凭证或执行真实行情/账户/订单动作",
     "merge-deploy-not-authorized: push、merge、部署与实盘启用仍须 Human 单独授权"
