@@ -1,26 +1,24 @@
 {
   "schema_version": "2",
-  "revision": 32,
+  "revision": 33,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
-  "phase": "human-decision",
-  "checkpoint": "repair-plan-review-accept-verified-rework-limit-decision-required",
-  "base_sha": "e4027bd7c88e489b8024b531f40cf3cd53555485",
-  "delivery_sha": "3905e45b665c6cefc5e5aee804021629f231501e",
-  "ledger_sha": "8ebaaa59416dd41747a1879c8c4c77259c5841b1",
+  "phase": "implementation-repair",
+  "checkpoint": "human-accepted-current-limitations-first-code-repair-dispatched",
+  "base_sha": "9c333cdb58f38f7d19fa8d42b36379abd07baba8",
+  "delivery_sha": null,
+  "ledger_sha": "9c333cdb58f38f7d19fa8d42b36379abd07baba8",
   "current_task": {
-    "id": "smooth-open-v1-repair-plan-review-deepseek-v4-pro-r2",
-    "state": "verified",
-    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/19-smooth-open-v1-repair-plan-review-deepseek-v4-pro-r2.dispatch.md"
+    "id": "smooth-open-v1-fix-gpt56sol-xhigh",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/20-smooth-open-v1-fix-gpt56sol-xhigh.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "choose-rework-limit-outcome-narrow-redesign-accept-limitations-or-stop"
+    "action": "start-prepared-gpt56sol-xhigh-first-code-repair"
   },
   "rework_count": 3,
   "blockers": [
-    "human-rework-limit-decision-required: 计划复核已 ACCEPT，但 rework_count=3 达上限；须 Human 选择缩窄、重设计、接受当前限制继续或停止，Bookkeeper 不得自动派发代码实现",
-    "review-2-nonaccepting: Sonnet5 source ACCEPT 已核验但被后续可执行证据推翻；Human 已定五项修复与三项接受风险",
     "dependency-install-not-authorized: 本实现不得安装 ccxt 或修改任何虚拟环境",
     "network-live-actions-not-authorized: 本实现不得联网、控制服务、读取凭证或执行真实行情/账户/订单动作",
     "merge-deploy-not-authorized: push、merge、部署与实盘启用仍须 Human 单独授权"
