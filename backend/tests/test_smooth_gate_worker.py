@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import threading
 import time
 from decimal import Decimal
@@ -78,6 +79,7 @@ class _Market:
             self.refs[key] = refs
 
     def latest(self, key):
+        self.latest_calls = getattr(self, "latest_calls", 0) + 1
         return self.snapshots.get(key)
 
     def publish(self, key, *, bid, bid_qty="1", ask=None, ask_qty="1", status="live"):
@@ -261,8 +263,15 @@ def _live_service(tmp_path, events, *, clock=None, leverage_error=None):
     return svc, task, clock, market, executor, preflight
 
 
-def _open_first_gate(svc, task_id):
+def _arm_smooth(svc, task_id):
     svc.set_start_gate(True)
+    row = svc.store.get_task(task_id)
+    if row is not None and row["status"] != D.STATUS_RUNNING:
+        svc.post_start(task_id)
+
+
+def _open_first_gate(svc, task_id):
+    _arm_smooth(svc, task_id)
     return _wait(
         lambda: (
             row if (row := svc.store.get_task(task_id))
@@ -347,11 +356,11 @@ def test_subscription_failure_pauses_without_attempt_and_can_restart(tmp_path):
     market = _FailSecondSubscriptionMarket()
     svc, task, _, _, executor = _service(tmp_path, market=market)
     try:
-        svc.set_start_gate(True)
+        _arm_smooth(svc, task["id"])
         paused = _wait(
             lambda: (
                 row if (row := svc.store.get_task(task["id"]))
-                and row["status"] == D.STATUS_PAUSED else None
+                and row["pause_reason"] == D.PAUSE_REASON_PREFLIGHT_INCOMPLETE else None
             )
         )
         assert paused["pause_reason"] == D.PAUSE_REASON_PREFLIGHT_INCOMPLETE
@@ -390,7 +399,7 @@ def test_live_smooth_orders_leverage_gate_and_frozen_dispatch(
             _publish_good(market)
         else:
             _publish_bad(market)
-        svc.set_start_gate(True)
+        _arm_smooth(svc, task["id"])
         if pass_reason != "market":
             gate = _wait(
                 lambda: (
@@ -428,11 +437,11 @@ def test_live_smooth_leverage_failure_precedes_all_gate_state_and_can_retry(tmp_
     )
     try:
         _publish_bad(market)
-        svc.set_start_gate(True)
+        _arm_smooth(svc, task["id"])
         paused = _wait(
             lambda: (
                 row if (row := svc.store.get_task(task["id"]))
-                and row["status"] == D.STATUS_PAUSED else None
+                and row["pause_reason"] == D.PAUSE_REASON_LEVERAGE_SET_FAILED else None
             )
         )
         assert paused["pause_reason"] == D.PAUSE_REASON_LEVERAGE_SET_FAILED
@@ -647,8 +656,211 @@ def test_tenth_gate_market_manual_race_never_creates_eleventh_attempt(tmp_path):
 def test_smooth_fill_all_is_rejected(tmp_path):
     svc, task, _, _, _ = _service(tmp_path)
     try:
+        svc.post_start(task["id"])
         with pytest.raises(D.HedgeError) as exc:
             svc.post_fill_all(task["id"])
         assert (exc.value.status, exc.value.code) == (409, "smooth_fill_all_unsupported")
+    finally:
+        svc.close()
+
+
+def test_smooth_create_is_paused_with_zero_execution_resources(tmp_path):
+    xfers = []
+
+    class _RegularPreflight(_Preflight):
+        def get_snapshot(self, coin, direction, task_type="open", position_side_mode=None):
+            snap = super().get_snapshot(coin, direction, task_type, position_side_mode)
+            return D.PreflightSnapshot(
+                spot_filters=snap.spot_filters,
+                perp_filters=snap.perp_filters,
+                balances=snap.balances,
+                position_mode=snap.position_mode,
+                est_price=snap.est_price,
+                spot_route=D.SPOT_ROUTE_REGULAR_SPOT,
+                spot_account_usdt=Decimal("1000000"),
+            )
+
+    class _XferExec(RecordTransportFake):
+        def universal_transfer(self, *args, **kwargs):
+            xfers.append(args or kwargs)
+
+    market = _Market()
+    clock = _Clock()
+    svc = HedgeOpenTaskService(
+        str(tmp_path / "paused-create.sqlite3"),
+        executor=_XferExec(),
+        preflight_provider=_RegularPreflight(),
+        mode="disabled",
+        mono_us=clock.mono_us,
+        wall_us=clock.wall_us,
+        market_provider=market,
+    )
+    try:
+        _, task = svc.create_task({
+            "coin": "BTCUSDT", "direction": D.DIR_FORWARD, "mode": D.MODE_SMOOTH,
+            "single_amount": "1", "target_n": 1,
+            "slippage_threshold_pct": "0.05",
+        })
+        assert task["status"] == D.STATUS_PAUSED
+        assert task["pause_reason"] == D.PAUSE_REASON_AWAITING_MANUAL_START
+        assert task["pause_reason_zh"] == "任务首次执行必须点击启动"
+        assert task["id"] not in svc._workers
+        assert task["id"] not in svc._smooth_subscriptions
+        assert market.refs == {}
+        assert svc.store.get_task(task["id"])["smooth_gate_seq"] is None
+        assert svc.store.list_attempts_for_task(task["id"]) == []
+        assert xfers  # create-time regular-spot transfer happened once
+        create_xfers = list(xfers)
+        svc._recover_workers()
+        assert task["id"] not in svc._workers
+        with pytest.raises(D.HedgeError) as exc:
+            svc.post_fill_once(task["id"], {"gate_seq": 1})
+        assert exc.value.code == "start_required"
+        svc.post_start(task["id"])
+        assert svc.store.get_task(task["id"])["status"] == D.STATUS_RUNNING
+        assert xfers == create_xfers
+    finally:
+        svc.close()
+
+
+def test_immediate_create_still_starts_running(tmp_path):
+    svc, _, _, _, _ = _service(tmp_path)
+    try:
+        _, task = svc.create_task({
+            "coin": "ETHUSDT", "direction": D.DIR_FORWARD, "mode": D.MODE_IMMEDIATE,
+            "single_amount": "1", "target_n": 1,
+        })
+        assert task["status"] == D.STATUS_RUNNING
+        assert task["pause_reason"] is None
+        assert task["id"] not in svc._workers
+    finally:
+        svc.close()
+
+
+@pytest.mark.parametrize("pass_reason", ["market", "manual", "timeout"])
+def test_smooth_audit_uses_same_gate_snapshot_and_no_second_latest(
+    tmp_path, pass_reason,
+):
+    events = []
+    svc, task, clock, market, executor, _ = _live_service(tmp_path, events)
+    try:
+        if pass_reason == "market":
+            _publish_good(market)
+        else:
+            _publish_bad(market)
+        _arm_smooth(svc, task["id"])
+        if pass_reason != "market":
+            gate = _wait(
+                lambda: (
+                    row if (row := svc.store.get_task(task["id"]))
+                    and row["smooth_gate_seq"] is not None else None
+                )
+            )
+            if pass_reason == "manual":
+                svc.post_fill_once(task["id"], {"gate_seq": gate["smooth_gate_seq"]})
+            else:
+                clock.t = gate["smooth_gate_started_at_us"] + D.SMOOTH_GATE_WINDOW_US
+                svc._notify_smooth_task(task["id"])
+        _wait(lambda: executor.dispatch_calls == 1)
+        calls_after_pass = market.latest_calls
+        market.publish(SPOT, bid="1", ask="2", ask_qty="9")
+        market.publish(SWAP, bid="9", ask="10", bid_qty="9")
+        time.sleep(0.02)
+        assert market.latest_calls == calls_after_pass
+        page = svc.get_logs(None, None, task_id=task["id"])[1]
+        audits = page["smooth_dispatch_audits"]
+        assert len(audits) == 1
+        payload = audits[0]["payload"]
+        assert payload["reason"] == pass_reason
+        assert payload["gate_seq"] == 1
+        assert payload["spot"]["ask"] == ("100" if pass_reason == "market" else "100")
+        if pass_reason == "market":
+            assert payload["perp"]["bid"] == "100.10"
+        else:
+            assert payload["perp"]["bid"] == "100"
+        assert "100.1" not in json.dumps(payload.get("spot"))
+    finally:
+        svc.close()
+
+
+def test_smooth_audit_prepare_delay_grows_only_prepare_segment(tmp_path):
+    events = []
+    clock = _Clock(8_000_000)
+    svc, task, clock, market, executor, _ = _live_service(
+        tmp_path, events, clock=clock,
+    )
+    try:
+        inner = svc.store.prepare_attempt
+
+        def delayed(*args, **kwargs):
+            clock.t += 77_000
+            return inner(*args, **kwargs)
+
+        svc.store.prepare_attempt = delayed
+        _publish_good(market)
+        _arm_smooth(svc, task["id"])
+        _wait(lambda: executor.dispatch_calls == 1)
+        payload = svc.get_logs(None, None, task_id=task["id"])[1][
+            "smooth_dispatch_audits"
+        ][0]["payload"]
+        durations = payload["durations_us"]
+        assert durations["prepare_started_to_prepare_committed"] >= 77_000
+        marks = payload["marks"]
+        assert marks["prepare_started"] < marks["prepare_committed"]
+        assert marks["prepare_committed"] >= marks["service_dispatch"] + 77_000
+    finally:
+        svc.close()
+
+
+def test_smooth_audit_append_failure_does_not_change_business(tmp_path):
+    events = []
+    svc, task, _, market, executor, _ = _live_service(tmp_path, events)
+    try:
+        inner = svc.store.append_log
+
+        def boom(task_id, ts_us, kind, payload, attempt_id=None):
+            if kind == "smooth_dispatch_audit":
+                raise RuntimeError("audit write failed")
+            return inner(task_id, ts_us, kind, payload, attempt_id)
+
+        svc.store.append_log = boom
+        _publish_good(market)
+        _arm_smooth(svc, task["id"])
+        _wait(lambda: executor.dispatch_calls == 1)
+        row = svc.store.get_task(task["id"])
+        assert row["scheduled_attempt_count"] == 1
+        assert row["status"] in (D.STATUS_RUNNING, D.STATUS_DONE)
+        assert len(svc.store.list_attempts_for_task(task["id"])) == 1
+        assert svc.get_logs(None, None, task_id=task["id"])[1][
+            "smooth_dispatch_audits"
+        ] == []
+    finally:
+        svc.close()
+
+
+def test_immediate_live_dispatch_creates_no_smooth_audit(tmp_path):
+    events = []
+    clock = _Clock()
+    executor = _OrderedLiveExecutor(events)
+    svc = HedgeOpenTaskService(
+        str(tmp_path / "imm.sqlite3"),
+        executor=executor,
+        preflight_provider=_Preflight(),
+        mode="live",
+        credentials_present=True,
+        mono_us=clock.mono_us,
+        wall_us=clock.wall_us,
+    )
+    try:
+        _, task = svc.create_task({
+            "coin": "BTCUSDT", "direction": D.DIR_FORWARD, "mode": D.MODE_IMMEDIATE,
+            "single_amount": "1", "target_n": 1,
+        })
+        svc.set_start_gate(True)
+        svc.ensure_worker(task["id"])
+        _wait(lambda: executor.dispatch_calls == 1)
+        assert svc.get_logs(None, None, task_id=task["id"])[1][
+            "smooth_dispatch_audits"
+        ] == []
     finally:
         svc.close()

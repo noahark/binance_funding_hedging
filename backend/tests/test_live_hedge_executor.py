@@ -9,6 +9,9 @@ posture.
 """
 from __future__ import annotations
 
+import threading
+import time
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
@@ -464,6 +467,73 @@ def test_dispatch_without_credentials_fails_closed_unknown():
     dispatch = _exe(client).dispatch(_ctx())
     assert dispatch.spot.dispatch_state == LEG_UNKNOWN_QUERYING
     assert dispatch.perp.dispatch_state == LEG_UNKNOWN_QUERYING
+
+
+def test_smooth_audit_marks_order_client_after_route_and_before_post():
+    order = []
+    mono = {"t": 1_000}
+
+    class _ClockClient(_FakeClient):
+        def post_margin_order(self, params, *, timestamp_ms, recv_window_ms=None):
+            order.append("spot_post")
+            return super().post_margin_order(
+                params, timestamp_ms=timestamp_ms, recv_window_ms=recv_window_ms,
+            )
+
+        def post_um_order(self, params, *, timestamp_ms, recv_window_ms=None):
+            order.append("perp_post")
+            return super().post_um_order(
+                params, timestamp_ms=timestamp_ms, recv_window_ms=recv_window_ms,
+            )
+
+    def clock():
+        mono["t"] += 10
+        return mono["t"]
+
+    audit = {"gate_pass_mono_us": 1_000, "marks": {}}
+    ctx = replace(_ctx(), smooth_audit=audit, mono_us=clock)
+    _exe(_ClockClient()).dispatch(ctx)
+    marks = audit["marks"]
+    assert marks["spot_order_client_call_started"] < marks["spot_order_client_call_returned"]
+    assert marks["perp_order_client_call_started"] < marks["perp_order_client_call_returned"]
+    assert "spot_thread_started" in marks
+    assert "perp_thread_finished" in marks
+    assert "executor_joined" in marks
+    assert "spot_post" in order and "perp_post" in order
+
+
+def test_blocked_spot_client_does_not_block_perp_order_client():
+    spot_entered = threading.Event()
+    release_spot = threading.Event()
+    perp_started = threading.Event()
+
+    class _BlockSpot(_FakeClient):
+        def post_margin_order(self, params, *, timestamp_ms, recv_window_ms=None):
+            spot_entered.set()
+            assert release_spot.wait(1)
+            return super().post_margin_order(
+                params, timestamp_ms=timestamp_ms, recv_window_ms=recv_window_ms,
+            )
+
+        def post_um_order(self, params, *, timestamp_ms, recv_window_ms=None):
+            perp_started.set()
+            return super().post_um_order(
+                params, timestamp_ms=timestamp_ms, recv_window_ms=recv_window_ms,
+            )
+
+    def clock():
+        return time.monotonic_ns() // 1000
+
+    audit = {"gate_pass_mono_us": clock(), "marks": {}}
+    ctx = replace(_ctx(), smooth_audit=audit, mono_us=clock)
+    thread = threading.Thread(target=lambda: _exe(_BlockSpot()).dispatch(ctx))
+    thread.start()
+    assert spot_entered.wait(1)
+    assert perp_started.wait(1)
+    release_spot.set()
+    thread.join(2)
+    assert not thread.is_alive()
+    assert "perp_order_client_call_started" in audit["marks"]
 
 
 # ---- regular-spot route dispatch (design §4): /api/v3/order, no sideEffectType ----

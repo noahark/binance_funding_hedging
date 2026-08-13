@@ -2110,3 +2110,32 @@ the snapshot/positions contracts, the ~60s refresh cadence, and the
 zero-upstream GET contract on market routes are unchanged. No new market field,
 schema, DB migration, gate, order/borrow/repay/transfer path, or credential read
 is introduced.
+
+## Smooth-open paused create and dispatch audit (v0.20, stage `2026-08-12-smooth-open-orders-v1`)
+
+Additive hedge-open task contract. Does not change snapshot/positions routes.
+
+### `POST /api/hedge-open-tasks` with `mode=smooth`
+
+A successful open+smooth create is `201` with `status=paused`,
+`pause_reason=awaiting_manual_start`, and Chinese reason
+「任务首次执行必须点击启动」. The create response does not start a worker,
+subscribe public bookTicker, open a gate, or send an order. First complete
+preflight, frozen identity/quantity/route, and regular-spot forward USDT
+pre-transfer (when that route is selected) still happen at create time.
+Immediate-open create remains `running`.
+
+`POST /api/hedge-open-tasks/{id}/fill-once` on a smooth card that has not yet
+been Human-started returns `409 start_required`. Human `POST .../start` is the
+only first-run path.
+
+### `GET /api/hedge-open-logs?task_id=...`
+
+The existing task-id log document adds `smooth_dispatch_audits`, an array of
+`kind=smooth_dispatch_audit` log docs (`log_to_doc` shape: id, task_id, ts,
+attempt_id, kind, payload). Missing history is `[]`. Present rows are ordered
+by `ts_us`, then `id`. Payload Decimals are decimal strings. Payload records
+the same-round gate snapshot and monotonic-microsecond stage marks; it does
+not contain API keys, signatures, full private URLs, credentials, or private
+raw responses. Immediate/close tasks do not create these rows. Existing
+`logs`, `attempts`, and `smooth_market` fields are unchanged.

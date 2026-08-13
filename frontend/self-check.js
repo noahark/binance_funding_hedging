@@ -4816,6 +4816,35 @@ setTimeout(async () => {
       console.log('[PASS] 平滑真任务卡：动态盘口 fail-closed 展示、无 fill-all、fill-once 先 GET 并绑定当前 gate_seq');
     }
 
+    // 80c. D18：未 running 的平滑卡只显示固化阈值，不渲染动态盘口块。
+    {
+      helpers.resetHedgeStateForTest();
+      const pausedSmooth = mockHedgeTask({
+        id: 'h-smooth-paused', mode: 'smooth', status: 'paused',
+        slippage_threshold_pct: '0.05',
+        pause_reason: 'awaiting_manual_start',
+        pause_reason_zh: '任务首次执行必须点击启动',
+      });
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [pausedSmooth] } };
+      await helpers.loadHedgeTasks();
+      helpers.setActiveView('hedge-tasks');
+      helpers.setHedgeTaskFilter('all');
+      const pausedCard = elements['hedge-task-list'].innerHTML;
+      if (!pausedCard.includes('滑点阈值') || !pausedCard.includes('0.05%')) {
+        throw new Error('paused 平滑卡应显示固化滑点阈值: ' + pausedCard);
+      }
+      if (pausedCard.includes('hedge-smooth-market-') || pausedCard.includes('正向开单率')
+          || pausedCard.includes('现货 连接') || pausedCard.includes('当前轮次')) {
+        throw new Error('paused 平滑卡不得显示动态盘口: ' + pausedCard);
+      }
+      const pausedStart = pausedCard.match(/<button[^>]*data-hedge-action="start"[^>]*>/);
+      if (!pausedStart || pausedStart[0].includes('disabled')) {
+        throw new Error('paused 平滑卡启动按钮应可用');
+      }
+      helpers.setActiveView('market');
+      console.log('[PASS] D18：paused 平滑卡有阈值、无动态盘口、启动可点');
+    }
+
     // 81. stopped/paused 语义返工（15 号修正案 I-4）：single_leg 只是提示且任务仍继续调度
     //     （除非后端 status 为 paused/stopped）；stopped 显示致命错误终止 stop_reason；
     //     删除旧的「累计失败 >3」推导与硬编码 /3；按钮矩阵只服从后端 status；invalid_state 409。
@@ -5930,7 +5959,7 @@ setTimeout(async () => {
       const waiting = mockHedgeTask({
         id: 'h-close-waiting', task_type: 'close', status: 'paused',
         pause_reason: 'awaiting_manual_start',
-        pause_reason_zh: '待启动：平仓任务已创建，点击启动后才会校验并发送真实订单'
+        pause_reason_zh: '任务首次执行必须点击启动'
       });
       hedgeTasksGetResponse = { status: 200, body: { tasks: [waiting] } };
       await helpers.loadHedgeTasks();
@@ -5941,7 +5970,7 @@ setTimeout(async () => {
       const fill1 = card.match(/<button[^>]*data-hedge-action="fill1"[^>]*>/);
       if (!start || start[0].includes('disabled')) throw new Error('待启动平仓卡的启动按钮应启用');
       if (!fill1 || !fill1[0].includes('disabled')) throw new Error('待启动平仓卡的成交1次按钮应禁用');
-      if (!card.includes('点击启动后才会校验并发送真实订单')) {
+      if (!card.includes('任务首次执行必须点击启动')) {
         throw new Error('待启动平仓卡应展示后端中文原因');
       }
       helpers.setActiveView('market');

@@ -6160,7 +6160,11 @@
         const pauseReasonLine = task.pause_reason
           ? `<div class="borrow-task-note">暂停原因：${escapeHtml(task.pause_reason_zh || String(task.pause_reason))}</div>`
           : '';
-        const smoothExtras = task.mode === 'smooth' ? renderSmoothTaskExtras(task) : '';
+        const smoothThreshold = task.mode === 'smooth'
+          ? `<div>滑点阈值：<strong>${escapeHtml(hedgeText(task.slippage_threshold_pct))}%</strong></div>`
+          : '';
+        const smoothExtras = task.mode === 'smooth' && task.status === 'running'
+          ? renderSmoothTaskExtras(task) : '';
         const errorText = escapeHtml(
           (state.hedgeTaskActionErrors && state.hedgeTaskActionErrors[task.id]) || ''
         );
@@ -6183,6 +6187,7 @@
               ${exposureLine}
               ${stopReasonLine}
               ${pauseReasonLine}
+              ${smoothThreshold}
               ${smoothExtras}
             </div>
             <div class="borrow-task-controls">

@@ -166,7 +166,7 @@ def test_close_create_is_atomic_paused_and_zero_external_reads(tmp_path):
     assert status == 201
     assert doc["status"] == D.STATUS_PAUSED
     assert doc["pause_reason"] == D.PAUSE_REASON_AWAITING_MANUAL_START
-    assert "点击启动后" in doc["pause_reason_zh"]
+    assert doc["pause_reason_zh"] == "任务首次执行必须点击启动"
     assert doc["q_common"] is None
     assert doc["position_side_mode"] == D.POS_MODE_BOTH
     assert svc._store.get_task(doc["id"])["preflight_snapshot"] == {
@@ -948,9 +948,10 @@ def test_get_logs_task_id_returns_all_attempts_unpaged(tmp_path):
     assert status == 200
     assert set(page.keys()) == {
         "logs", "attempts", "entries", "next_cursor", "entries_next_cursor",
-        "smooth_market",
+        "smooth_market", "smooth_dispatch_audits",
     }
     assert page["smooth_market"] is None
+    assert page["smooth_dispatch_audits"] == []
     # task_id mode empties the secondary streams and uses no cursor.
     assert page["logs"] == []
     assert page["entries"] == []

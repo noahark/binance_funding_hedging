@@ -272,3 +272,13 @@ def test_expanded_log_poll_keeps_non_running_tasks_and_skips_collapsed_tasks():
     assert "return task\n              ? loadHedgeTaskLogs(id)" in load_block
     assert "return Boolean(task);" in refresh_block
     assert "state.hedgeLogExpanded" in refresh_block
+
+
+def test_smooth_dynamic_market_only_renders_for_running_cards():
+    text = INDEX_HTML.read_text(encoding="utf-8")
+    card_start = text.index("function renderHedgeTaskCard(task)")
+    card_end = text.index("async function loadHedgeTaskLogs", card_start)
+    card_block = text[card_start:card_end]
+    assert "滑点阈值：<strong>${escapeHtml(hedgeText(task.slippage_threshold_pct))}%</strong>" in card_block
+    assert "task.mode === 'smooth' && task.status === 'running'" in card_block
+    assert "task.mode === 'smooth' ? renderSmoothTaskExtras(task)" not in card_block

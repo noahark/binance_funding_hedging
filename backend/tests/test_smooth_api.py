@@ -3,6 +3,7 @@ from __future__ import annotations
 import http.client
 import json
 import threading
+import time
 from contextlib import contextmanager
 from decimal import Decimal
 
@@ -124,6 +125,9 @@ def test_create_smooth_normalizes_threshold_and_exposes_gate_fields(tmp_path):
         status, task = _request(address, "POST", "/api/hedge-open-tasks", _smooth_body())
         assert status == 201
         assert task["mode"] == "smooth"
+        assert task["status"] == "paused"
+        assert task["pause_reason"] == "awaiting_manual_start"
+        assert task["pause_reason_zh"] == "任务首次执行必须点击启动"
         assert task["slippage_threshold_pct"] == "0.05"
         assert task["smooth_gate_seq"] is None
         assert task["smooth_gate_started_at_us"] is None
@@ -177,6 +181,22 @@ def test_smooth_fill_once_requires_current_gate_seq_and_never_fills_all(tmp_path
     with _server(tmp_path) as (address, service, _, executor):
         _, task = _request(address, "POST", "/api/hedge-open-tasks", _smooth_body())
         task_id = task["id"]
+        status, error = _request(
+            address, "POST", f"/api/hedge-open-tasks/{task_id}/fill-once",
+            {"gate_seq": 1},
+        )
+        assert (status, error["error"]) == (409, "start_required")
+        assert error["detail"] == "任务首次执行必须点击启动"
+
+        status, started = _request(address, "POST", f"/api/hedge-open-tasks/{task_id}/start")
+        assert status == 200
+        assert started["status"] == "running"
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline:
+            worker = service._workers.get(task_id)
+            if worker is None or not worker.is_alive():
+                break
+            time.sleep(0.01)
         service.store.open_smooth_gate(task_id, 1, 10)
 
         status, error = _request(
@@ -231,3 +251,4 @@ def test_task_logs_expose_real_market_values_and_disconnected_nulls(tmp_path):
             "bid": None, "bid_qty": None, "ask": None, "ask_qty": None,
         }
         assert page["smooth_market"]["gate_pass"] is False
+        assert page["smooth_dispatch_audits"] == []

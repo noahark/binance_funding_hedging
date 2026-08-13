@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Optional, Protocol
+from typing import Callable, Optional, Protocol
 
 from . import domain as D
 from .wire_constraints import validate_order_params
@@ -54,6 +54,10 @@ class AttemptContext:
     # 构造点对 bStock 静默用合约名下单买错币，且不留痕迹（方案 §1.3 的静默错答案）。
     spot_symbol: str
     task_type: str = "open"  # 功能三：'open'=开仓 / 'close'=平仓（合约腿 reduceOnly）
+    # D19: optional same-round audit carrier + monotonic clock. Immediate/close
+    # and existing constructors omit both; live smooth dispatch stamps in place.
+    smooth_audit: dict | None = None
+    mono_us: Callable[[], int] | None = None
 
 
 @dataclass(frozen=True)

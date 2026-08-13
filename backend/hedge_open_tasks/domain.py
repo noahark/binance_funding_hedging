@@ -1856,7 +1856,7 @@ _PAUSE_REASON_ZH = {
     PAUSE_REASON_ORDER_STATE_UNKNOWN: "订单状态经 10 次重试查询仍不明，无法确认是否已被交易所接受，任务已暂停。请到交易所核对订单后手动恢复（恢复后仅按既有 clientOrderId 重查，不重发下单）",
     PAUSE_REASON_CLOSE_VERIFY_FAILED: "平仓完成核实失败（查交易所合约持仓未成功），任务已暂停。请到交易所核对该币种合约仓位后手动恢复——「查不到」绝不视为「已平完」",
     PAUSE_REASON_CLOSE_SPOT_BALANCE: "平仓现货余额检查/划转失败，任务已暂停（fail-closed，未发单）。详情见任务卡日志，请人工核对后手动恢复",
-    PAUSE_REASON_AWAITING_MANUAL_START: "待启动：平仓任务已创建，点击启动后才会校验并发送真实订单",
+    PAUSE_REASON_AWAITING_MANUAL_START: "任务首次执行必须点击启动",
     PAUSE_REASON_CLOSE_UM_POSITION: "合约持仓方向或可平数量不足，任务已暂停（fail-closed，未发单）。详情见任务卡日志，请人工核对后手动恢复",
     PAUSE_REASON_MULTIPLIER_CLOSE_UNSUPPORTED: "1000 倍乘数合约的两腿数量换算尚未实现，任务已暂停（fail-closed，未发单），请人工到交易所处理",
     PAUSE_REASON_LEVERAGE_SET_FAILED: "设置合约杠杆失败，任务已暂停（fail-closed，未发单）。详情见任务卡日志，请人工核对后手动恢复",

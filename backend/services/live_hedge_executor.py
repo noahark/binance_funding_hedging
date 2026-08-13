@@ -678,7 +678,7 @@ class LiveHedgeExecutor:
 
     def _send_one_leg(
         self, leg: str, params: dict, symbol: str, client_order_id: str,
-        spot_route: str,
+        spot_route: str, marks: dict | None = None, mono_us=None,
     ) -> LegDispatch:
         """POST one leg, classify, and best-effort query once if unknown.
 
@@ -690,6 +690,10 @@ class LiveHedgeExecutor:
         if not self._client.credentials_present:
             return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING)
         product = _leg_product(leg, spot_route)
+        if marks is not None and callable(mono_us):
+            origin = marks.get("_origin")
+            if origin is not None:
+                marks[f"{leg}_order_client_call_started"] = mono_us() - origin
         if leg == "spot":
             if spot_route == D.SPOT_ROUTE_REGULAR_SPOT:
                 response = self._client.post_spot_order(params, timestamp_ms=self._now_ms())
@@ -700,6 +704,10 @@ class LiveHedgeExecutor:
         else:
             response = self._client.post_um_order(params, timestamp_ms=self._now_ms())
             querier = self._client.query_um_order
+        if marks is not None and callable(mono_us):
+            origin = marks.get("_origin")
+            if origin is not None:
+                marks[f"{leg}_order_client_call_returned"] = mono_us() - origin
         verdict = classify_leg_response(response, leg, product)
         # T1 §1(b): a UM (perp) leg whose POST proved acceptance still lacks
         # authoritative fill figures — confirm them via the order-detail GET now.
@@ -845,11 +853,21 @@ class LiveHedgeExecutor:
         }
         outcomes: dict[str, LegDispatch] = {}
         errors: dict[str, BaseException] = {}
+        audit = getattr(ctx, "smooth_audit", None)
+        mono_us = getattr(ctx, "mono_us", None)
+        origin = audit.get("gate_pass_mono_us") if isinstance(audit, dict) else None
+        spot_marks: dict = {"_origin": origin}
+        perp_marks: dict = {"_origin": origin}
 
-        def _run(leg: str, params: dict, cid: str) -> None:
+        def _run(leg: str, params: dict, cid: str, marks: dict) -> None:
+            if callable(mono_us) and origin is not None:
+                marks[f"{leg}_thread_started"] = mono_us() - origin
             try:
                 symbol = spot_symbol if leg == "spot" else ctx.coin
-                outcomes[leg] = self._send_one_leg(leg, params, symbol, cid, spot_route)
+                outcomes[leg] = self._send_one_leg(
+                    leg, params, symbol, cid, spot_route,
+                    marks=marks, mono_us=mono_us,
+                )
             except Exception as exc:  # containment: a leg send failure is queryable, not fatal
                 errors[leg] = exc
                 print(
@@ -857,15 +875,33 @@ class LiveHedgeExecutor:
                     f"{_transport_error_text('leg_send_exception', exc)}",
                     file=sys.stderr, flush=True,
                 )
+            finally:
+                if callable(mono_us) and origin is not None:
+                    marks[f"{leg}_thread_finished"] = mono_us() - origin
 
         threads = [
-            threading.Thread(target=_run, args=("spot", spot_params, spot_cid), name="hgo-leg-spot"),
-            threading.Thread(target=_run, args=("perp", perp_params, perp_cid), name="hgo-leg-perp"),
+            threading.Thread(
+                target=_run, args=("spot", spot_params, spot_cid, spot_marks),
+                name="hgo-leg-spot",
+            ),
+            threading.Thread(
+                target=_run, args=("perp", perp_params, perp_cid, perp_marks),
+                name="hgo-leg-perp",
+            ),
         ]
         for t in threads:
             t.start()
         for t in threads:
             t.join()
+        if isinstance(audit, dict):
+            merged = {}
+            for local in (spot_marks, perp_marks):
+                merged.update(
+                    (key, value) for key, value in local.items() if key != "_origin"
+                )
+            audit.setdefault("marks", {}).update(merged)
+            if callable(mono_us) and origin is not None:
+                audit["marks"]["executor_joined"] = mono_us() - origin
         spot = outcomes.get("spot") or _error_leg("spot", errors.get("spot"))
         perp = outcomes.get("perp") or _error_leg("perp", errors.get("perp"))
         rate_limited = spot.rate_limited or perp.rate_limited

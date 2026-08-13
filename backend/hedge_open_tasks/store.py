@@ -2418,6 +2418,16 @@ class HedgeOpenStore:
             ).fetchall()
             return [dict(r) for r in rows]
 
+    def list_logs_for_task_kind(self, task_id: str, kind: str) -> list[dict]:
+        """Narrow read of existing append-only logs for one task + kind."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM hedge_open_log WHERE task_id = ? AND kind = ?"
+                " ORDER BY ts_us ASC, id ASC",
+                (task_id, kind),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
     def append_log(self, task_id: str, ts_us: int, kind: str, payload: dict,
                    attempt_id=None) -> None:
         """通用任务卡日志写入（平仓现货卖出重设计的 close_transfer 等 kind）。"""

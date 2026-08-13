@@ -1003,6 +1003,15 @@ class HedgeOpenTaskService:
             f"coin={coin} direction={direction} q={D.fmt_decimal(preflight.q_common)}",
             file=sys.stderr, flush=True,
         )
+        create_kw = {}
+        if mode == D.MODE_SMOOTH and task_type == D.TASK_TYPE_OPEN:
+            create_kw = {
+                "initial_status": D.STATUS_PAUSED,
+                "initial_pause_reason": D.PAUSE_REASON_AWAITING_MANUAL_START,
+                "initial_pause_reason_zh": D.pause_reason_zh(
+                    D.PAUSE_REASON_AWAITING_MANUAL_START
+                ),
+            }
         task = self._store.create_task(
             task_id,
             coin,
@@ -1019,9 +1028,8 @@ class HedgeOpenTaskService:
             spot_base_asset=spot_base_asset,
             symbol_match_type=symbol_match_type,
             slippage_threshold_pct=threshold,
+            **create_kw,
         )
-        if mode == D.MODE_SMOOTH and self.is_start_gate_on():
-            self.ensure_worker(task_id)
         return 201, self._doc(task)
 
     def list_tasks(self, status_query: str | None) -> tuple[int, dict]:
@@ -1166,15 +1174,19 @@ class HedgeOpenTaskService:
             raise D.HedgeError(409, "invalid_state", "cannot fill a deleted task")
         if status == D.STATUS_DONE:
             raise D.HedgeError(409, "invalid_state", "task already done")
-        if (
-            task.get("task_type") == D.TASK_TYPE_CLOSE
-            and task.get("pause_reason") == D.PAUSE_REASON_AWAITING_MANUAL_START
-        ):
-            raise D.HedgeError(
-                409,
-                "start_required",
-                "平仓任务首次执行必须点击启动，不能用成交按钮绕过启动确认",
-            )
+        if task.get("pause_reason") == D.PAUSE_REASON_AWAITING_MANUAL_START:
+            if task.get("mode") == D.MODE_SMOOTH:
+                raise D.HedgeError(
+                    409,
+                    "start_required",
+                    "任务首次执行必须点击启动",
+                )
+            if task.get("task_type") == D.TASK_TYPE_CLOSE:
+                raise D.HedgeError(
+                    409,
+                    "start_required",
+                    "平仓任务首次执行必须点击启动，不能用成交按钮绕过启动确认",
+                )
         # Single-leg exposure does not block fill (advisory, §4.5).
 
     # ----------------------------------------------------------------- reads
@@ -1209,6 +1221,12 @@ class HedgeOpenTaskService:
                 "next_cursor": None,
                 "entries_next_cursor": None,
                 "smooth_market": self._smooth_market_doc(task),
+                "smooth_dispatch_audits": [
+                    log_to_doc(row)
+                    for row in self._store.list_logs_for_task_kind(
+                        task_id, "smooth_dispatch_audit",
+                    )
+                ],
             }
         limit = self._parse_limit(limit_raw)
         cursor_ts, cursor_id = self._parse_cursor(cursor_str)
@@ -1644,21 +1662,115 @@ class HedgeOpenTaskService:
             return None
         return quote if all(value.is_finite() and value > 0 for value in quote) else None
 
-    def _smooth_eval(self, task: dict, direction: str | None = None) -> D.SmoothGateEval:
+    def _read_smooth_sides(self, task: dict):
         latest = getattr(self._market_provider, "latest", None)
-        spot = perp = None
+        spot_snap = perp_snap = None
         if callable(latest):
             spot_key, perp_key = self._smooth_keys(task)
-            spot = self._snapshot_quote(latest(spot_key))
-            perp = self._snapshot_quote(latest(perp_key))
+            spot_snap, perp_snap = latest(spot_key), latest(perp_key)
+        return spot_snap, perp_snap
+
+    def _eval_smooth_from_sides(
+        self, task: dict, spot_snap, perp_snap, direction: str | None = None,
+    ) -> D.SmoothGateEval:
         try:
             threshold = Decimal(task.get("slippage_threshold_pct") or "0")
             q_common = Decimal(task.get("q_common") or "0")
         except (InvalidOperation, ValueError, TypeError):
             threshold, q_common = Decimal(0), Decimal(0)
         return D.evaluate_smooth_gate(
-            direction or task["direction"], threshold, q_common, spot, perp
+            direction or task["direction"],
+            threshold,
+            q_common,
+            self._snapshot_quote(spot_snap),
+            self._snapshot_quote(perp_snap),
         )
+
+    def _smooth_eval(self, task: dict, direction: str | None = None) -> D.SmoothGateEval:
+        spot_snap, perp_snap = self._read_smooth_sides(task)
+        return self._eval_smooth_from_sides(task, spot_snap, perp_snap, direction)
+
+    @staticmethod
+    def _smooth_audit_side(snapshot) -> dict:
+        if snapshot is None:
+            return {
+                "status": None, "received_at_us": None,
+                "bid": None, "bid_qty": None, "ask": None, "ask_qty": None,
+            }
+        live = getattr(snapshot, "status", None) == "live"
+        return {
+            "status": getattr(snapshot, "status", None),
+            "received_at_us": getattr(snapshot, "received_at_us", None),
+            "bid": format(snapshot.bid_price, "f") if live else None,
+            "bid_qty": format(snapshot.bid_qty, "f") if live else None,
+            "ask": format(snapshot.ask_price, "f") if live else None,
+            "ask_qty": format(snapshot.ask_qty, "f") if live else None,
+        }
+
+    def _build_smooth_pass_audit(
+        self, task: dict, gate_seq: int, reason: str, now_us: int,
+        result: D.SmoothGateEval, spot_snap, perp_snap,
+    ) -> dict:
+        def _dec(value):
+            return format(value, "f") if value is not None else None
+
+        return {
+            "gate_seq": gate_seq,
+            "reason": reason,
+            "direction": task["direction"],
+            "threshold": task.get("slippage_threshold_pct"),
+            "spot": self._smooth_audit_side(spot_snap),
+            "perp": self._smooth_audit_side(perp_snap),
+            "spread_pct": _dec(result.spread_pct),
+            "spot_coverage": _dec(result.spot_coverage),
+            "perp_coverage": _dec(result.perp_coverage),
+            "spread_pass": result.spread_pass,
+            "coverage_pass": result.coverage_pass,
+            "market_pass": result.market_pass,
+            "gate_pass_at_us": now_us,
+            "gate_pass_mono_us": self._mono_us(),
+            "marks": {},
+        }
+
+    @staticmethod
+    def _smooth_audit_mark(audit: dict | None, name: str, mono_us) -> None:
+        if audit is None or not callable(mono_us):
+            return
+        origin = audit.get("gate_pass_mono_us")
+        if origin is None:
+            return
+        audit.setdefault("marks", {})[name] = mono_us() - origin
+
+    @staticmethod
+    def _smooth_audit_durations(audit: dict) -> dict:
+        marks = audit.get("marks") or {}
+        serial = (
+            "service_dispatch",
+            "request_assembled",
+            "prepare_started",
+            "prepare_committed",
+            "executor_entered",
+            "executor_joined",
+            "executor_returned",
+        )
+        durations = {}
+        for left, right in zip(serial, serial[1:]):
+            if left in marks and right in marks:
+                durations[f"{left}_to_{right}"] = marks[right] - marks[left]
+        for leg in ("spot", "perp"):
+            key = f"{leg}_order_client_call_started"
+            if key in marks:
+                durations[f"gate_to_{key}"] = marks[key]
+            leg_serial = (
+                f"{leg}_thread_started",
+                f"{leg}_order_client_call_started",
+                f"{leg}_order_client_call_returned",
+                f"{leg}_thread_finished",
+            )
+            for left, right in zip(leg_serial, leg_serial[1:]):
+                if left in marks and right in marks:
+                    durations[f"{left}_to_{right}"] = marks[right] - marks[left]
+        return durations
 
     @staticmethod
     def _smooth_side_doc(snapshot) -> dict | None:
@@ -1717,7 +1829,7 @@ class HedgeOpenTaskService:
 
     def _wait_for_smooth_gate(
         self, task: dict, now_us: int,
-    ) -> tuple[dict, int, str, int] | None:
+    ) -> tuple[dict, int, str, int, dict] | None:
         gate_seq = task["scheduled_attempt_count"] + 1
         current = self._store.open_smooth_gate(task["id"], gate_seq, now_us)
         if current is None:
@@ -1751,7 +1863,8 @@ class HedgeOpenTaskService:
                 return None
             now_us = self._wall_us()
             deadline = current["smooth_gate_started_at_us"] + D.SMOOTH_GATE_WINDOW_US
-            result = self._smooth_eval(current)
+            spot_snap, perp_snap = self._read_smooth_sides(current)
+            result = self._eval_smooth_from_sides(current, spot_snap, perp_snap)
             if current.get("smooth_gate_force_requested"):
                 reason = D.PASS_REASON_MANUAL
             elif result.market_pass:
@@ -1765,7 +1878,10 @@ class HedgeOpenTaskService:
                         lambda: wake.version != version, timeout=timeout
                     )
                 continue
-            return current, gate_seq, reason, now_us
+            audit = self._build_smooth_pass_audit(
+                current, gate_seq, reason, now_us, result, spot_snap, perp_snap,
+            )
+            return current, gate_seq, reason, now_us, audit
 
     # -------------------------------------------------------- task-local workers
     #
@@ -2016,6 +2132,7 @@ class HedgeOpenTaskService:
         # Dispatch the next pair (preflight -> reserve -> two-leg submit).
         gate_seq = None
         smooth_reason = None
+        smooth_audit = None
         if task.get("mode") == D.MODE_SMOOTH:
             if (
                 self._live_dispatch_capable()
@@ -2046,12 +2163,13 @@ class HedgeOpenTaskService:
                 ):
                     return False
                 return self._worker_exit(task_id, D.WORKER_EXIT_TASK_NOT_RUNNING)
-            task, gate_seq, smooth_reason, now_us = gate
+            task, gate_seq, smooth_reason, now_us, smooth_audit = gate
         _, signal = self._dispatch_one_for_task(
             task,
             now_us,
             expected_gate_seq=gate_seq,
             smooth_pass_reason=smooth_reason,
+            smooth_audit=smooth_audit,
         )
         if signal == D.SIGNAL_RATE_LIMITED:
             self._pause_task_local(
@@ -3072,6 +3190,7 @@ class HedgeOpenTaskService:
         *,
         expected_gate_seq: int | None = None,
         smooth_pass_reason: str | None = None,
+        smooth_audit: dict | None = None,
     ) -> tuple[dict, str | None]:
         """Durable-before-send: a fresh preflight (live path only) -> persist the
         immutable attempt + both client IDs + sanitized request shapes in ONE
@@ -3090,6 +3209,7 @@ class HedgeOpenTaskService:
         and close tasks. Live smooth and dry-run dispatch reuse the task's frozen
         q_common/snapshot; dry-run never POSTs.
         """
+        self._smooth_audit_mark(smooth_audit, "service_dispatch", self._mono_us)
         task_type = task.get("task_type") or D.TASK_TYPE_OPEN
         live = self._live_dispatch_capable() and self.is_start_gate_on()
         if live and task_type == D.TASK_TYPE_CLOSE:
@@ -3267,7 +3387,9 @@ class HedgeOpenTaskService:
         perp_shape = build_perp_order_params(
             task["coin"], actions, send_qty, perp_cid, task_type=task_type,
         )
+        self._smooth_audit_mark(smooth_audit, "request_assembled", self._mono_us)
         q_common_str = D.fmt_decimal(q_common) if q_common is not None else task["single_amount"]
+        self._smooth_audit_mark(smooth_audit, "prepare_started", self._mono_us)
         attempt = self._store.prepare_attempt(
             task["id"],
             attempt_uuid,
@@ -3287,6 +3409,7 @@ class HedgeOpenTaskService:
         if attempt is None:
             # Task is no longer eligible (paused/done/deleted/out-of-budget) — no POST.
             return self._store.get_task(task["id"]) or task, None
+        self._smooth_audit_mark(smooth_audit, "prepare_committed", self._mono_us)
         ctx = AttemptContext(
             attempt_id=attempt_uuid,
             task_id=task["id"],
@@ -3301,6 +3424,8 @@ class HedgeOpenTaskService:
             ts_us=now_us,
             task_type=task_type,
             spot_symbol=spot_order_symbol,
+            smooth_audit=smooth_audit,
+            mono_us=self._mono_us if smooth_audit is not None else None,
         )
         signal: str | None = None
         if live:
@@ -3352,7 +3477,19 @@ class HedgeOpenTaskService:
         * ``None`` — a normal dispatch: legs with a definite verdict resolve the
           pair now; any UNKNOWN leg is marked for the worker's own drain.
         """
+        audit = getattr(ctx, "smooth_audit", None)
+        self._smooth_audit_mark(audit, "executor_entered", self._mono_us)
         dispatch = self._executor.dispatch(ctx)
+        self._smooth_audit_mark(audit, "executor_returned", self._mono_us)
+        if audit is not None:
+            try:
+                audit["durations_us"] = self._smooth_audit_durations(audit)
+                self._store.append_log(
+                    ctx.task_id, now_us, "smooth_dispatch_audit", audit,
+                    attempt_id=ctx.attempt_id,
+                )
+            except Exception:
+                pass
         spot = dispatch.spot
         perp = dispatch.perp
         retry_after = getattr(dispatch, "retry_after_seconds", None)
