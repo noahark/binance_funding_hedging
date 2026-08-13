@@ -1,13 +1,13 @@
 {
   "schema_version": "2",
-  "revision": 40,
+  "revision": 41,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
   "phase": "human-validation",
-  "checkpoint": "f1-review-1-accept-verified-ccxt-installed-awaiting-page-runtime-authorization",
+  "checkpoint": "f1-review-1-accept-ccxt-installed-current-worktree-runtime-started-awaiting-human-page-acceptance",
   "base_sha": "e74f3d5cf20f9f980ef023ed35a9c40ff3b8b174",
   "delivery_sha": "5d65a96b8c0435297c1511c228cec9a6d38df4b8",
-  "ledger_sha": "dd650a145eecc96aaddf84675138dfe54ed994c3",
+  "ledger_sha": "56b626e8118942184ecea8b30b725be94b0e820f",
   "current_task": {
     "id": "smooth-open-v1-f1-review-1-kimi",
     "state": "verified",
@@ -15,11 +15,11 @@
   },
   "next": {
     "actor": "human_operator",
-    "action": "authorize-page-validation-runtime-and-public-websocket-or-production-restart"
+    "action": "perform-page-validation-on-current-live-runtime-and-report-findings"
   },
   "rework_count": 4,
   "blockers": [
-    "page-validation-runtime-not-authorized: ccxt==4.5.64 已安装；启动测试实例、公共 WebSocket 联网或重启生产服务仍须 Human 明确选择并授权",
+    "human-page-validation-pending: 当前未合并 worktree 已在 127.0.0.1:8787 以 live + Start gate=true 运行，Human 页面操作可进入真实下单链",
     "review-2-pending-after-human-page-validation: 页面验收及必要修复后仍须 fresh 跨 provider Review-2",
     "merge-deploy-not-authorized: push、merge、部署与实盘启用仍须 Human 单独授权"
   ]

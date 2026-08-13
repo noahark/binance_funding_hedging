@@ -6,6 +6,17 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-12)
 
+- **[2026-08-13 Human 授权页面验收运行] 平滑开单 Review-1 已 ACCEPT，当前手动前台服务临时从未合并 worktree 运行：**
+  进程 PID `52653` 于 `2026-08-13 16:22:54 CST` 从
+  `/Users/ark/Desktop/ai code/funding_hedging-smooth-v1` 启动；启动时 worktree HEAD
+  `56b626e`，受审产品 delivery `5d65a96`，继续读取主仓 `data/` 现有数据库和主仓
+  `.env`。共享 `.venv` 已安装 `ccxt==4.5.64`，启动后 `/healthz` 正常，原有开单
+  `26` 条（`25 done + 1 stopped`）、借币 `9` 条（`8 completed + 1 paused`）均保留，
+  重启前无 running 开单/借币任务、无 smooth 任务。**当前为 live 模式且 Start gate=true；
+  Human 在页面创建平滑任务会进入真实下单链，不是模拟。**本代码尚未 Review-2、未合并或
+  push；本次运行只用于 Human 页面验收，验收后仍须 Review-2，后续合并/部署/实盘决策仍需
+  Human 单独授权。
+
 - **[2026-08-12 Human Fast Direct] 两次直接代码交付已推送：** `31d7ae6` 取消私有读取在 429/-1003 后的 0.5 秒立即重试；`0a0984c` 将空库首次利息/收入流水回补窗口改为 1 天。两项均已通过定向测试，接口/行为文档已同步。**当前手动前台服务未重启，运行进程尚未加载这两处代码。**
 
 - 当前服务仍以 Human 手动前台进程运行；统一账户手动还款已最终验收，
