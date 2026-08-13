@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 34,
+  "revision": 35,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
-  "phase": "review-1",
-  "checkpoint": "first-code-repair-verified-review-1-dispatched",
+  "phase": "review-2",
+  "checkpoint": "first-code-repair-review-1-accept-verified-review-2-dispatched",
   "base_sha": "9c333cdb58f38f7d19fa8d42b36379abd07baba8",
   "delivery_sha": "dfd38a6b71e686caf02475aa7954056d670fcead",
-  "ledger_sha": "dfd38a6b71e686caf02475aa7954056d670fcead",
+  "ledger_sha": "2eadbf4b573a788bea4c9da2e4fb456a1a16f3ff",
   "current_task": {
-    "id": "smooth-open-v1-fix-review-1-kimi",
+    "id": "smooth-open-v1-fix-review-2-sonnet5",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/21-smooth-open-v1-fix-review-1-kimi.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/22-smooth-open-v1-fix-review-2-sonnet5.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-fresh-kimi-cross-provider-review-1"
+    "action": "start-fresh-sonnet5-independent-review-2"
   },
   "rework_count": 3,
   "blockers": [
