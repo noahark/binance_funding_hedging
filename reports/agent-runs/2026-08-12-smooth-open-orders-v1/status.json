@@ -1,25 +1,25 @@
 {
   "schema_version": "2",
-  "revision": 29,
+  "revision": 30,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
-  "phase": "plan-repair",
-  "checkpoint": "smooth-open-v1-repair-plan-r2-rejected-same-root-exhaustive-r3-dispatched",
-  "base_sha": "db173ae394a3ab22782fae1f1e2cbd77ec482726",
-  "delivery_sha": "24074b144dcdb745c511d866a75528a8930e8475",
-  "ledger_sha": "db173ae394a3ab22782fae1f1e2cbd77ec482726",
+  "phase": "plan-review",
+  "checkpoint": "human-direct-plan-repair-sealed-cross-provider-review-dispatched",
+  "base_sha": "e4027bd7c88e489b8024b531f40cf3cd53555485",
+  "delivery_sha": "3905e45b665c6cefc5e5aee804021629f231501e",
+  "ledger_sha": "3905e45b665c6cefc5e5aee804021629f231501e",
   "current_task": {
-    "id": "smooth-open-v1-repair-plan-opus5-r3",
+    "id": "smooth-open-v1-repair-plan-review-deepseek-v4-pro",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/17-smooth-open-v1-repair-plan-opus5-r3.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/18-smooth-open-v1-repair-plan-review-deepseek-v4-pro.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-smooth-open-v1-repair-plan-opus5-r3"
+    "action": "start-smooth-open-v1-repair-plan-review-deepseek-v4-pro"
   },
   "rework_count": 3,
   "blockers": [
-    "plan-repair-r3-required: 合法超长 threshold 的成功/错误分类连续两轮残留，须完成同根因穷举扫描式修复并统一 rework_count 后才可进入跨 provider 计划复核",
+    "plan-review-pending: Human 已令 Codex 直接关闭残留计划矛盾，固定 e4027bd..3905e45 等待 DeepSeek V4 Pro 跨 provider 窄复核",
     "rework-limit-reached: r3 已使用最大 rework_count=3；即使计划复核 ACCEPT，也须 Human 先选择缩窄、重设计、接受限制或停止，Bookkeeper 不得自动派发代码实现",
     "review-2-nonaccepting: Sonnet5 source ACCEPT 已核验但被后续可执行证据推翻；Human 已定五项修复与三项接受风险",
     "high-risk-plan-review-required: smooth-only 删除每轮 fresh preflight 改变实盘准入语义，计划增量须跨 provider ACCEPT 后才能实现",
