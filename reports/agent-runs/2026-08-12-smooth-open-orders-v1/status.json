@@ -1,24 +1,25 @@
 {
   "schema_version": "2",
-  "revision": 21,
+  "revision": 22,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
   "phase": "review-1",
-  "checkpoint": "smooth-open-v1-review-1-accept-verified",
+  "checkpoint": "smooth-open-v1-review-1-nonaccepting-session-isolation",
   "base_sha": "e955bdd300d214c5c3ad5c1acd629c0d21080165",
   "delivery_sha": "24074b144dcdb745c511d866a75528a8930e8475",
-  "ledger_sha": "2962aefe25d4ffe68912985d05ae3cabc82f662d",
+  "ledger_sha": "f68def75cd6cb08c8084d7443a96dbb9a378cfa6",
   "current_task": {
     "id": "smooth-open-v1-review-1-kimi",
-    "state": "verified",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/12-smooth-open-v1-review-1-kimi.dispatch.md"
   },
   "next": {
     "actor": "codex",
-    "action": "prepare-independent-review-2"
+    "action": "prepare-fresh-kimi-review-1-rerun"
   },
   "rework_count": 0,
   "blockers": [
+    "review-1-nonaccepting-session-isolation: 原 Kimi session 非 fresh，须新会话重跑固定区间 Review-1",
     "dependency-install-not-authorized: 本实现不得安装 ccxt 或修改任何虚拟环境",
     "network-live-actions-not-authorized: 本实现不得联网、控制服务、读取凭证或执行真实行情/账户/订单动作",
     "merge-deploy-not-authorized: push、merge、部署与实盘启用仍须 Human 单独授权"

@@ -110,3 +110,4 @@
 ## Errata (append-only)
 
 - `2026-08-13 08:18:27 CST / Bookkeeper`：Source Report“范围外发现”第 2 项的 `pre-existing-independent` 标签撤销。原因是列出的文件属于本次 delivery 文件集，不满足该分类的“且不在本次交付文件内”条件；其实际内容只是基线已有、未被本提交触碰的 lint 观察，没有修复要求或当前行为影响。第 1 项 `public_ip_service.py` 分类、Review-1 ACCEPT、固定 SHA 与双评审关卡均不变。
+- `2026-08-13 08:20:08 CST / Bookkeeper correction`：撤回上方 `verified-accept` 的推进效力。Herdr 发送前证据显示 Kimi 使用的是此前“平滑开单设计独立只读评议”的既有 session，而非 fresh review session，违反 `AGENTS.md` §3.4 与 `agents/roles.md` Reviewer Isolation。作者的代码审查内容和 `ACCEPT` 原文保持不改，但该 verdict 在正式流程中为 non-accepting；须由新的 fresh Kimi session 对同一固定区间重跑 Review-1。此为 Bookkeeper 路由错误，不是交付缺陷，不增加 `rework_count`，不改变 `base_sha`、`delivery_sha` 或 R1 packet 勘误裁定。
