@@ -6,16 +6,17 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-12)
 
-- **[2026-08-13 Human 授权页面验收运行] 平滑开单 Review-1 已 ACCEPT，当前手动前台服务临时从未合并 worktree 运行：**
-  进程 PID `52653` 于 `2026-08-13 16:22:54 CST` 从
-  `/Users/ark/Desktop/ai code/funding_hedging-smooth-v1` 启动；启动时 worktree HEAD
-  `56b626e`，受审产品 delivery `5d65a96`，继续读取主仓 `data/` 现有数据库和主仓
-  `.env`。共享 `.venv` 已安装 `ccxt==4.5.64`，启动后 `/healthz` 正常，原有开单
-  `26` 条（`25 done + 1 stopped`）、借币 `9` 条（`8 completed + 1 paused`）均保留，
-  重启前无 running 开单/借币任务、无 smooth 任务。**当前为 live 模式且 Start gate=true；
-  Human 在页面创建平滑任务会进入真实下单链，不是模拟。**本代码尚未 Review-2、未合并或
-  push；本次运行只用于 Human 页面验收，验收后仍须 Review-2，后续合并/部署/实盘决策仍需
-  Human 单独授权。
+- **[2026-08-13 18:05 Human 手动重启；18:13 只读核验] 当前页面服务没有加载 D17–D19：**
+  当前监听 PID `81292`，启动于 `2026-08-13 18:05:59 CST`，进程 `cwd` 虽显示
+  `/Users/ark/Desktop/ai code/funding_hedging-smooth-v1`，但 HTTP 运行指纹证明实际加载/提供的
+  是主工作区旧代码：task-id 日志响应缺少 smooth worktree 已有的 `smooth_market` 与
+  `smooth_dispatch_audits` 两个字段，首页仍含仅主工作区存在的 `fakeSmooth` 分支。当前运行
+  设置为 `executor_mode=live`、`start_gate=true`。因此 PID `81292` 上的操作**不能作为
+  D17–D19 验收证据**，且任何开单仍会进入真钱链。Human 实际任务
+  `110533c2-ff34-4174-8577-0c580a5c098a` 是 `mode=immediate`，不是 smooth；它没有 WebSocket
+  滑点 gate 或 D19 audit。重开条件：要验证 D17–D19，须在另行明确授权后以隔离 import/path
+  启动固定 delivery `bba31ea`（或其后仅控制提交），先通过只读运行指纹确认新字段和前端分支，
+  再由 Human 操作；当前模型未停止或重启服务、未改 gate、未创建任务或下单。
 
 - **[2026-08-12 Human Fast Direct] 两次直接代码交付已推送：** `31d7ae6` 取消私有读取在 429/-1003 后的 0.5 秒立即重试；`0a0984c` 将空库首次利息/收入流水回补窗口改为 1 天。两项均已通过定向测试，接口/行为文档已同步。**当前手动前台服务未重启，运行进程尚未加载这两处代码。**
 
