@@ -96,7 +96,7 @@ credentials, and first use of any new live path remain explicit human actions.
 - No multi-quote support beyond USDT, PM-Pro claim, or hedge-mode dual-side
   support in the current immediate-open stage.
 - No backtesting engine, external custody operation, or withdrawal permission.
-- No smooth execution in the immediate-open stage.
+- No automatic smooth-task creation or execution before Human Start; smooth-open tasks are created paused.
 
 ## 5. Operating Assumptions
 
@@ -312,9 +312,9 @@ work and are not current capabilities.
   quote references, and raw-evidence context.
 - Private account panels when optional signed-read-only enrichment is enabled.
 - Borrow task and log views backed by SQLite.
-- Immediate hedge-open task, log, settings/status, merged-position, and
-  history-position (`history-view`) views backed by SQLite, with a live,
-  human-gated executor; smooth-open is visibly unavailable.
+- Immediate and smooth hedge-open task, log, settings/status, merged-position,
+  and history-position (`history-view`) views backed by SQLite, with a live,
+  human-gated executor; smooth tasks are created paused and require Human Start.
 - Flow-log view (`flow-log-view`): dual-column borrow-interest / UM-income
   ledger with refresh and coverage status.
 - Asset-transfer UI: unified ⇄ regular-spot transfers with idempotency key,

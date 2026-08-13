@@ -16,8 +16,9 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   `/healthz` 正常，历史开单 41 条、借币 10 条恢复，当前均无 active；首页运行指纹包含
   `new Set([...runningIds, ...expandedIds])`，确认产品交付 `ad8c631` 已加载。**当前为
   `executor_mode=live`、`start_gate=true`；Human 创建并启动任务会进入真实行情和真钱订单链。**
-  fresh Claude-GLM Review-1 已 ACCEPT；仍待 Human 页面复验，再由已指定的 fresh Opus 5 执行
-  Review-2。未授权 push、merge、部署或由模型创建真实任务/下单。
+  fresh Claude-GLM 累计 Review-1 已 ACCEPT；fresh Opus 5 最终 Review-2 技术结论为 REWORK，唯一
+  finding F-A 已由 Bookkeeper 独立复现，Human 决定按下方具名风险接受、本轮不修。当前等待 Human
+  最终合并决定；未授权 push、merge、部署、服务控制或由模型创建真实任务/下单。
 
 - **[2026-08-12 Human Fast Direct] 两次直接代码交付已推送：** `31d7ae6` 取消私有读取在 429/-1003 后的 0.5 秒立即重试；`0a0984c` 将空库首次利息/收入流水回补窗口改为 1 天。两项均已通过定向测试，接口/行为文档已同步。**当前手动前台服务未重启，运行进程尚未加载这两处代码。**
 
@@ -82,6 +83,18 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Live Risks
 
+- `[OPEN][ACCEPTED][REVIEW-2][2026-08-13]` **建卡预检从未成功的 live 平滑任务仍可能按默认值发单（F-A）。**
+  事实：缓存未命中/超龄且实时补读失败时，smooth 仍会 `201 paused` 建卡，固化
+  `q_common=NULL`、`preflight_snapshot.available=false`；Human Start 后，timeout 或「成交1次」可绕过
+  「计划下单数量无效」等待结论，以原始 `single_amount`、默认 `papi_margin` 路由和默认 `BOTH`
+  position 模式进入真实两腿链。回退零件早于 base（`d90f2f1`），D15 `dfd38a6` 首次使其在 smooth
+  实盘写路径可达；immediate 每轮 fresh preflight 不受影响。Bookkeeper 已用临时 SQLite 和假执行器
+  独立复现 `create=201 paused / q_common=None / timeout dispatch=1`。多数结果会被交易所过滤器拒绝；
+  最坏是合约成交、现货因路由/备款不匹配被拒，留下单腿裸空。Human 认为须同时发生缓存失效和实时
+  补读失败，概率低，决定本次合并接受、不再返修。临时限制：建卡后「公共网格量」为 `—` 就删除重建、
+  不要启动；运行卡出现「计划下单数量无效」立即暂停，不等 timeout；不要为纯展示验收创建平滑任务。
+  重开条件：实际出现「公共网格量为 `—`」的平滑卡、由此产生单腿敞口，或未来开放自动化/批量建卡。
+
 - `[OPEN][ACCEPTED][LIVE-OBSERVATION][2026-08-13]` **平滑卡两位开单率在“等于阈值”时容易被误读为已通过。**
   Human 验收任务 `2fb9cfef-b9b1-46f4-bc6d-03c789fa7214`（SHELLUSDT、forward、threshold
   `0.05%`）于 `20:00:42 CST` 显示现货 ask `0.01970000`、合约 bid `0.0197100`、正向开单率
@@ -96,7 +109,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   Human 于 `2026-08-13 20:03 CST` 接受当前展示限制并决定继续最终评审；本次接受不改变严格 `>`
   或两位量化契约。重开条件：Human 实际因此误操作，或后续明确要求醒目的通过/未通过比较状态。
 
-- `[OPEN][LIVE-OBSERVATION][2026-08-13]` **首笔真实平滑任务已成交；任务卡初始盘口展示误导，且放行瞬间盘口未持久化。**
+- `[RESOLVED-BY-DELIVERY][LIVE-OBSERVATION][2026-08-13]` **首笔真实平滑任务已成交；该次验收发现的任务卡刷新与放行审计缺口已修复。**
   Human 页面验收创建任务 `36951966-6942-43e3-833c-99606ca3fae5`
   （`1000CATUSDT`、forward、smooth、阈值 `+0.05%`、单次 `5000`、目标 `1`）。因全局
   Start gate 已开启，建卡后自动进入 `running` 并开启 gate，故“启动”按钮置灰是运行态按钮矩阵，
@@ -116,8 +129,9 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   内行情跳动一档”与“放行快照本身异常”。D15 明确取消发单前联网复核，所以成交价偏离本身不证明
   gate 算错，但缺少放行快照使实盘不可审计。临时边界：UI 修正前不要把初始“数据不完整”解释成
   worker 未运行；也不要再创建平滑任务做纯展示验收——Start 开启时它会自动运行并可能真实成交。
-  重开条件已满足：Human 本次已实际遇到误导展示；是否增加放行快照审计须 Human 决策，任何代码
-  修复仍走当前 stage 的独立评审。
+  后续交付已把 smooth 新卡改为 `paused + awaiting_manual_start`、running 卡纳入统一 2 秒刷新，并持久化
+  同次放行快照与 gate→两腿 client-call monotonic 分段；当前 PID `23396` 已加载这些修复。上文保留为
+  历史触发证据，不再作为当前 UI/审计限制。
 
 - `[OPEN][LIVE-RISK][2026-08-10]` **reverse 自动平仓仍可能因组合保证金口径再次单腿。**
   两腿非原子并发，合约腿不等待现货腿；close+reverse 预检仅以最长 5 分钟缓存可命中的
