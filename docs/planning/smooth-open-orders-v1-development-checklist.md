@@ -1,12 +1,14 @@
 # 平滑开单 V1 开发清单（单 Implementer 活动方案）
 
-状态：**Planner 定向返修完成，等待定向计划复核。本文不授权实现、创建 worktree/分支、安装依赖、连接网络、启动服务、下单、修改状态、提交、合并或部署。**
+状态：**第一轮实现已交付（`e955bdd..24074b1`）但未通过发布关卡；本文现为第二轮「单 Implementer 返修」的活动方案，等待跨 provider 窄范围计划复核。`rework_count=3` 已达上限，复核通过后仍须 Human 按 `AGENTS.md` §8 选择缩窄、重设计、接受限制或停止，未经该决定不得派发实现。本文不授权实现、创建 worktree/分支、安装依赖、连接网络、启动服务、下单、修改状态、提交、合并或部署。**
 
-- 产品与资金语义唯一权威：`docs/planning/smooth-open-orders-v1.md`（本文不复制 gate 契约，只在必要处引用条目号）。
+- 产品与资金语义唯一权威：`docs/planning/smooth-open-orders-v1.md`（本文不复制 gate 契约，只在必要处引用条目号）。三项接受风险与五项必修根因的权威描述在该文件 §16；本文只写怎么修和怎么验。
 - P0 证据唯一权威：`docs/planning/ccxt-bookticker-recon-2026-08-13.md`。
 - 已冻结的实现不变量：`reports/agent-runs/2026-08-12-smooth-open-orders-v1/evidence/01-advisory-design-reviews.md` §4。
-- 上一轮正式计划评审（`REWORK`）：`reports/agent-runs/2026-08-12-smooth-open-orders-v1/evidence/smooth-open-formal-plan-review-deepseek-v4-pro.handoff.md`。
-- 本文引用的行号按 `base_sha = 2e5902347c5f0ac81638c67dc7a1bf20a9141ac9` 核对；该 base 与上一轮受审树相比 `backend/`、`frontend/` 零改动。实现前仍应重新 `grep` 确认。
+- 第一轮正式计划评审（`REWORK`）：`.../evidence/smooth-open-formal-plan-review-deepseek-v4-pro.handoff.md`；定向复核：`.../evidence/smooth-open-targeted-plan-rereview-deepseek-v4-pro.handoff.md`。
+- 第一轮交付后的 Review-2 与 Bookkeeper 非接受核验（本轮返修的唯一事实来源）：`reports/agent-runs/2026-08-12-smooth-open-orders-v1/evidence/smooth-open-v1-review-2-sonnet5.handoff.md`（以 `Bookkeeper Verification` 的 `rejection_basis`、`reproducible_evidence`、`requirement_change` 为准）。
+- §1–§11 描述的是第一轮的规划与已交付内容，除本轮显式更正外保持有效；**第二轮的活动任务包是 §12，窄复核请求是 §13**。
+- 第一轮的行号基线为 `2e59023`；**第二轮的行号基线是 `base_sha = bfb633799ed904ba6d8364bffef7f048d77137dd`**，本文 §12 引用的行号按该基线核对，实现前仍应重新 `grep` 确认。
 
 ## 0. 本轮修订说明
 
@@ -388,6 +390,8 @@ GET  /api/hedge-open-logs?task_id=...（service.py:1103 的 task_id 分支）
 
 ## 8. Human 启动文稿草案（单终端，INACTIVE）
 
+> **仅适用于第一轮实现（已于 `24074b1` 交付完成）。** 第二轮返修的任务边界见 §12，其 dispatch 由 Bookkeeper 在窄复核 `ACCEPT` 后另行编写；本节保留为历史记录，不再作为启动依据。
+
 > **现在不可用。** `<<...>>` 占位符必须由 Bookkeeper 在**定向计划复核 ACCEPT 且 Human 授权实现之后**，用真实 worktree 路径、分支、`git rev-parse` 的 base SHA、status revision 与 dispatch 路径替换，并在同一轮创建对应 dispatch 文件。未替换前粘贴到终端即为无效启动。
 
 ```text
@@ -474,17 +478,216 @@ revision 与固定 base_sha..delivery_sha。
 REWORK 必须逐条给出可执行的修复要求。ACCEPT 不授权启动服务、安装依赖或实盘下单。
 ```
 
-## 10. 角色路由与记账（供 Bookkeeper 使用，不在本任务内执行）
+## 10. 角色路由与记账（第一轮历史记录，不是当前记账权威）
 
 - 实现者：`gpt-5.6-sol` / `xhigh` / provider `openai`（唯一）。
 - 定向计划复核：provider ≠ `anthropic`（本返修稿作者）；建议 `deepseek`（持有上一轮发现上下文）。
 - Review-1：provider 必须 ≠ 实现者 provider（`openai`）；候选 `moonshot`（kimi）、`xai`（grok）、`deepseek`、`anthropic`，与计划复核者错开更佳。
 - Review-2：必须 ≠ 交付区间内全部实现/修复作者的 provider；`sonnet5`（anthropic）符合默认规则（`agents/roles.md` Review-2，DEC-2026-08-04-001）。本细拆与返修由 anthropic 的 Opus 5 完成，属设计参与而非实现，须在评审记录中披露。
-- `rework_count`：本轮为实现前计划评审 `REWORK` 后的 Planner 改稿，按 `AGENTS.md` §8 **不递增**（`status.json` 当前为 `0`）。实现开始后，任何因评审发现而返工的再交付才递增。
+- `rework_count`（第一轮历史事实）：当时属于实现前计划评审 `REWORK` 后的 Planner 改稿，按当时状态未递增（当时 `status.json` 为 `0`）。当前活动记账只看 §12.1 与 `status.json`，不得沿用本行。
 - 风险等级：HIGH_RISK（订单触发时机 + 次数硬上限 + 实盘资金路径），Review-1 + Review-2 双轮不可省。
 
 ## 11. 当前停止线
 
-在定向计划复核 ACCEPT 且 Human 授权实现前：不创建 worktree/分支/stage 目录，不安装 CCXT 到任何环境（P0 已完成，无需重复），不解除 `mode=smooth` 后端拒绝或前端 disabled，不接 worker/executor，不改 `status.json`。
+（第一轮口径，已由 §14 取代；保留为历史记录。）在定向计划复核 ACCEPT 且 Human 授权实现前：不创建 worktree/分支/stage 目录，不安装 CCXT 到任何环境（P0 已完成，无需重复），不解除 `mode=smooth` 后端拒绝或前端 disabled，不接 worker/executor，不改 `status.json`。
 
 ACCEPT 之后仍需 Human 单独授权的动作：把 `ccxt==4.5.64` 装入生产 `.venv`、重启服务、任何真实公共 WS 连通验证、合并到 `main`、部署、任何实盘下单。
+
+---
+
+## 12. 第二轮：单 Implementer 返修任务包（活动方案）
+
+### 12.1 任务身份
+
+| 项 | 值 |
+|---|---|
+| task_id | `smooth-open-v1-fix-gpt56sol-xhigh`（最终名以 Bookkeeper dispatch 为准） |
+| target_model / reasoning / provider | `gpt-5.6-sol` / `xhigh` / `openai`（**与第一轮同一实现作者**，属修复而非新交付） |
+| worktree / branch | 沿用第一轮的 `/Users/ark/Desktop/ai code/funding_hedging-smooth-v1` 与 `smooth/v1-fullstack`，**不新建** |
+| 输入提交 | `<<BASE_SHA>>`（窄复核 ACCEPT 且 Human 完成返修上限选择后，由 Bookkeeper 用 `git rev-parse` 填入） |
+| `rework_count` | **3**（两轮计划修复均发生在首轮交付之后；本轮已达 `AGENTS.md` §8 上限，未经 Human 选择不得再派发实现） |
+| 交付 | 该分支上**一个**本地 fix commit，不 push、不合并 |
+| handoff（唯一） | `reports/agent-runs/2026-08-12-smooth-open-orders-v1/evidence/<fix-task-id>.handoff.md` |
+
+### 12.2 Allowed Files（只含根因所需）
+
+- `backend/services/best_bid_ask_provider.py`（必修 1、4）
+- `backend/hedge_open_tasks/domain.py`（必修 3）
+- `backend/hedge_open_tasks/service.py`（必修 1 的订阅回滚、D15/D16）
+- `backend/app/server.py`（必修 2）
+- `frontend/index.html`、`frontend/self-check.js`（必修 5）
+- 测试（逐项完整仓库相对路径，无占位式范围）：`backend/tests/test_best_bid_ask_provider.py`、`backend/tests/test_smooth_gate_worker.py`、`backend/tests/test_smooth_api.py`、`backend/tests/test_hedge_domain.py`、`backend/tests/test_frontend_field_binding.py`、`backend/tests/test_service_health.py`（必修 2 的组合根离线断言唯一落点：`_build_hedge_service` 的既有用例在该文件，见其 `test_disabled_hedge_mode_warns_on_stderr`）
+- 唯一 fix handoff
+
+**明确禁止改动**：`backend/hedge_open_tasks/store.py`、`executor.py`、`scheduler.py`、`backend/services/live_hedge_executor.py`、`hedge_open_live_client.py`、`hedge_preflight_provider.py`、`backend/domain/snapshot.py`、`requirements.txt`，以及 `status.json` / `ACTIVE.json` / `PROJECT_STATE.md` / 其他 stage 文件 / `.venv`。**本轮不动 store**：D15/D16 不需要新的持久化列或新状态机；若实现认为必须改 store，说明方案偏了，停下报告。
+
+### 12.3 五项必修：根因、修复要求与确定性验收
+
+行号基线 `bfb6337`，实现前重新 `grep` 确认。
+
+**必修 1 — provider 并发冷启动僵尸订阅**
+
+- 证据锚点：`best_bid_ask_provider.py::start`（对已 alive 线程直接 `return`，不等待 `_ready`）与 `service.py::_ensure_smooth_subscriptions`（先把 task_id 写进 `_smooth_subscriptions`，再逐个 `subscribe` 并 `except Exception: pass`）。
+- 根因：两处各自把「登记」与「就绪」解耦——并发首次订阅可以在 loop 尚未 ready 时登记出一个没有 watcher 的可见状态，且单侧订阅异常被吞掉后不会回滚已登记的另一侧。
+- 修复要求：① 所有并发 `start`/`subscribe` 调用者等待**同一个** ready 结果；loop 未 ready 或启动失败时不得登记任何可见 state（宁可抛出，让调用方按失败处理）；② 订阅两侧必须「**全部成功才记 task subscriptions**」，部分成功要 `release` 回滚，失败后允许下一轮重试。**不得**新增第二个 event loop、manager 或后台监督器。
+- 确定性验收：多线程并发 `subscribe` 同一 key，断言只创建一个 watcher、无「已登记但无 watcher」中间态；构造单侧 `subscribe` 抛错，断言另一侧被 release 回滚、`_smooth_subscriptions` 无该 task、再次调用可成功。
+
+**必修 2 — `APP_OFFLINE=true` 仍构造真实公共 WebSocket provider**
+
+- 证据锚点：`server.py::_build_hedge_service` 只按 `default_source_available()` 决定是否构造 `BestBidAskProvider()`，未读 `config.offline`（`backend/config.py:40` / `APP_OFFLINE`）。
+- 修复要求：`config.offline` 为真时组合根固定注入 `market_provider=None`，**即使已安装 ccxt** 也不得构造 provider、不得启动线程、不得 subscribe。非 offline 且 ccxt 缺失时的既有 400 行为**不变**。
+- 确定性验收：组合根测试在 `offline=True` 下断言零构造、零线程、零订阅（例如以「未安装 ccxt 也能跑」的方式断言 `market_provider is None`），并保留一条非 offline + 无 ccxt 仍 400 的既有断言。
+
+**必修 3 — 超长 signed 整数 threshold 逃逸为 500**
+
+- 证据锚点：`domain.py::validate_slippage_threshold_pct` 的 `format(threshold.quantize(Decimal("0.01")), "f")`；`validate_slippage_threshold_pct("123456789012345678901234567890")` 抛 `decimal.InvalidOperation`（未被 `HedgeError` 包裹）。
+- 修复要求：保持既有产品契约不变——**无产品最大值**、最多两位小数、拒绝科学记数/NaN/Infinity/`%`。用**最小字符串规范化**取代对任意长度输入的默认 context `quantize`（例如按正则捕获符号/整数/小数部分后补足两位并归一 `-0`），错误一律 400 而非 500。
+- 确定性验收：domain 层与 API 层各一组回归，覆盖正负超长整数（如 30 位、100 位）、`-0`、`.05`、`0.055`、`1e-2`、`5%`、空值。断言分两类，不得混淆——
+  - **合法但超长**（正负 30 位、100 位整数）：domain 正常规范化为两位小数字符串（如 `"-" + "9"*100` → `-999…9.00`，整数位逐字保留），且在注入 fake provider 的 API 创建路径上**被正常接受**（`201`），**不得**因长度返回 `400` 或 `500`；`-0` → `0.00`、`.05` → `0.05` 同属此类。
+  - **格式非法**（`0.055` 超两位小数、`1e-2` 科学记数、`5%` 含百分号、空值/非字符串）：domain 与 API 均返回 `400`。
+  - 这与 D5「不设置人为最小值或最大值」一致：本项修的是异常逃逸成 500，不是给阈值加长度上限。
+
+**必修 4 — provider 持续异常/无效快照零等待热循环**
+
+- 证据锚点：`best_bid_ask_provider.py::_watch` 的 `except` 分支与 `snapshot is None` 分支在重试前无任何 `await`；零网络 always-fail 假源实测 0.1 秒约 15 万次回调。
+- 修复要求：两条失败分支在重试前都要有一个**简单固定最小等待**。**不得**发明指数退避、重试状态机或新配置项。等待必须可被 `close()` 立即打断（不得让 close 等满一个等待周期）。
+- 确定性验收：用假源在短窗口内断言 `watch` 调用次数与 `on_change` 回调次数**有界**（例如 0.2 秒内不超过个位数），并断言等待期间调用 `close()` 能立即返回、线程 join 成功。
+
+**必修 5 — 暂停/删除后仍在 drain/settle 时前端停止刷新展开日志**
+
+- 证据锚点：`service.py::post_pause` / `post_delete` 明确不打断 worker（在途订单继续 drain/settle）；`frontend/index.html` 的展开日志刷新条件为 `task.status === 'running'`；`frontend/self-check.js:5615-5621` 目前**断言**「任务停止执行后须停止自动刷新日志」——这条把缺陷写成了预期。
+- 修复要求：只要任务仍存在且日志已展开，就继续用共享 2 秒 tick / 既有 `loadHedgeTasks` 链取日志，使 paused/deleted/done/stopped 在 drain/settle 期间新增的 attempt 与腿状态最终可见。**不得新增 timer**；「收起后停止刷新」的既有断言保留；同步把上述 self-check 断言改成正确方向（非 running 且展开时**应当**继续请求）。
+- 确定性验收：self-check 中构造 paused + 展开态，断言仍发出 `hedge-open-logs?task_id=` 请求；收起态仍断言不发。
+
+### 12.4 新需求实现规格（设计 D15 / D16 / §6.5）
+
+**D16 杠杆前移**
+
+- 现状锚点：`service.py:3170-3185` 在 `_dispatch_one_for_task` 内、`live and task_type == OPEN and scheduled_attempt_count == 0` 时调用 `_set_leverage_before_open`（定义在 `service.py:3007`）。
+- 修改：对 **live smooth** 任务，把这一次设置移到 `_worker_round` 的 smooth 分支（`service.py:1995` 调用 `_wait_for_smooth_gate` 之前），且必须早于 `_ensure_smooth_subscriptions`、`open_smooth_gate`（含已有 gate 恢复）与第一次 `_smooth_eval`。失败沿用现有 `PAUSE_REASON_LEVERAGE_SET_FAILED` 暂停与中文原因，此时零订阅、零 gate、零 attempt、零订单。
+- `_dispatch_one_for_task` 对 smooth **不得**再设置杠杆；immediate 的位置与条件逐字不变。
+- 首轮尚未产生 attempt 就因失败或进程重启重新进入执行入口时，可幂等重试，但仍必须在任何订阅/gate 之前；**不新增持久化列或新状态机**（`scheduled_attempt_count == 0` 已是判据）。
+
+**D15 smooth-only 删除每轮 fresh preflight**
+
+- 现状锚点：`_dispatch_one_for_task` 的 `if live:` 分支（`service.py:3083`）调用 `_resolve_fresh_preflight` 并据此得到 `q_common` / `position_side_mode` / `snapshot_record`；`else:` 分支（`service.py:3141`）已经在用 task 固化值。
+- 修改：让 live **smooth** 走与 `else` 分支同源的固化值路径（`task["q_common"]` / `task["position_side_mode"]` / `task["preflight_snapshot"]`，route 取固化 snapshot 里的 `spot_route`），不调用 `HedgePreflightProvider.get_snapshot`。immediate 与 close 的 live 分支逐字不变。
+- `service.py:3152-3165` 的 frozen/fresh route 一致性检查：对 smooth 两者同源、恒相等，等价于空转；实现可让它对 smooth 不参与（或保留为恒真），**但不得**改变 immediate 的该检查语义。
+- 随后仍由既有 `prepare_attempt` 原子复核（task 状态、target、无在途 pair、当前 gate seq、pass reason）→ 既有 `_dispatch_live` 两腿异步提交 → 同步等返回 → 查单 → 结算 → 单腿/429/余额拒绝按既有原因暂停。**不复制 executor，不新建 smooth 下单实现。**
+- 保留不动：create-task 的首次完整 preflight、固化数据、`regular_spot` forward 预划转、缺腿与 1000x 乘数合约拒绝。
+- **明确接受的代价（不得包装成 fail-closed）**：等待期间余额/保证金、交易规则、position mode、下单限频、现货路由的变化不再被每轮预检拦截，可能双腿被拒或单腿成交；单腿由现有任务卡告警、任务暂停与 Human 人工核对收口。
+
+**顺序型回归（必须有）**
+
+用 spy 记录调用序列，断言：
+
+```text
+set_leverage → subscribe/open gate → market evaluation → prepare_attempt → dispatch
+```
+
+并断言 **market pass 之后** `set_leverage` 与 `HedgePreflightProvider.get_snapshot` 的调用计数**均不再增加**；`market` / `manual` / `timeout` 三种放行原因各覆盖一次。另需一条断言：gate 判定通过到 `_dispatch_live` 之间没有任何联网读取、交易所设置或 sleep（以 spy 计数 + 无 fake 网络桩被触达表达）。
+
+### 12.5 三项接受风险：本轮不得修、不得重新纳入验收
+
+设计 §16.1 的 L1（Start OFF/stop 与 reserve→dispatch 竞态）、L2（新 gate 可能少于完整 5 分钟）、L3（行情表重绘复位未提交的 threshold 输入）——**本轮既不修，也不作为验收失败项**。实现不得为它们新增准入锁、`stopping` 状态、store 侧 gate 复核、时钟获取点改动或前端 capture selector 扩展；复核者不得据此判 `REWORK`。
+
+### 12.6 验收命令
+
+```bash
+.venv/bin/python -m pytest backend/tests/test_best_bid_ask_provider.py \
+    backend/tests/test_smooth_gate_store.py backend/tests/test_smooth_gate_worker.py \
+    backend/tests/test_smooth_api.py backend/tests/test_hedge_domain.py -q
+.venv/bin/python -m pytest backend/tests/test_hedge_store.py backend/tests/test_hedge_service.py \
+    backend/tests/test_hedge_api.py backend/tests/test_hedge_cycle_core.py \
+    backend/tests/test_hedge_cycle_close.py backend/tests/test_hedge_task_local.py \
+    backend/tests/test_hedge_review2_regressions.py backend/tests/test_hedge_leverage.py \
+    backend/tests/test_hedge_purity.py -q
+.venv/bin/python -m pytest backend/tests -q
+node frontend/self-check.js
+.venv/bin/python -m pytest backend/tests/test_frontend_field_binding.py -q
+git diff --check
+git diff --stat <base_sha>..<delivery_sha>
+```
+
+- 全后端仍以「不得出现相对固定 base 的**新增**失败」为准；已知唯一基线失败 `test_private_client.py::test_urlopen_only_in_designated_http_clients`（触发文件 `backend/services/public_ip_service.py`，引入提交早于 base、零 diff）保持同一测试、同一触发文件即为通过，**不得**修改这两个文件去「修绿」。
+- 全部命令必须在**未安装 ccxt** 的 `.venv` 下通过。
+- `git diff --stat` 的变更文件集必须 ⊆ §12.2 Allowed Files，且不含任何禁止文件；`backend/hedge_open_tasks/store.py`、executor、live client、preflight provider、`snapshot.py`、`requirements.txt` 必须零 diff。
+- `test_hedge_leverage.py` 与 `test_hedge_cycle_*.py` 必须**不改一行**地通过——它们是 immediate 杠杆时机与结算链未被 D15/D16 波及的直接证据。
+
+### 12.7 失败停止条件
+
+- 任何一项要求改动 §12.2 禁止文件（尤其 `store.py`）才能通过 → 停，报 blocked。
+- 顺序型回归无法在不接真实网络的前提下建立 → 停（说明 spy/fake 接缝设计错了）。
+- 发现 L1/L2/L3 之外的新缺陷 → 记录在 handoff，**不顺手修**（`agents/developer-discipline.md` §2：验收通过即停止扩张）。
+
+## 13. 窄范围计划复核请求（copy-ready）
+
+> 只查本轮增量，不重做整体设计评审。目标 reviewer provider 必须 **非 `anthropic`**（本增量作者为 Opus 5）；建议 `deepseek`（持有前两轮上下文）或 `moonshot`。结论仍为 `ACCEPT | REWORK`。
+
+```text
+你现在执行平滑开单 V1 计划增量的窄范围只读复核。这不是 Review-1/Review-2，也不是重做整体设计
+评审。不授权实现、依赖安装、联网、服务控制、下单、push、merge、部署或实盘。你必须只读：除自己的
+handoff 外不改任何文件，不改 status.json/ACTIVE.json/PROJECT_STATE.md，不装依赖，不连接任何
+行情/账户/订单接口，不启动服务。
+
+按 AGENTS.md 顺序启动，核对 stage_id=2026-08-12-smooth-open-orders-v1 与 status.json。
+必读，按此顺序：
+  1. reports/agent-runs/2026-08-12-smooth-open-orders-v1/evidence/smooth-open-v1-review-2-sonnet5.handoff.md
+     （以 Bookkeeper Verification 的 rejection_basis / reproducible_evidence / requirement_change 为准）
+  2. docs/planning/smooth-open-orders-v1.md（重点：状态行、D8 更正、D15、D16、§6.4 更正、§6.5、§9、§13、§16）
+  3. docs/planning/smooth-open-orders-v1-development-checklist.md（重点：§0 头部、§12、§13、§14）
+  4. 需要核实事实时只读：backend/services/best_bid_ask_provider.py（start/subscribe/_watch）、
+     backend/hedge_open_tasks/domain.py::validate_slippage_threshold_pct、
+     backend/hedge_open_tasks/service.py（_ensure_smooth_subscriptions / _wait_for_smooth_gate /
+     _worker_round 的 smooth 分支 / _dispatch_one_for_task 的 live 与 else 分支 / _set_leverage_before_open /
+     post_pause / post_delete）、backend/app/server.py::_build_hedge_service、
+     frontend/index.html 的展开日志刷新条件、frontend/self-check.js 现有相关断言
+
+只回答以下四组问题：
+
+ 一、三项 Human 接受风险是否被错误地重新纳入？
+     L1（Start OFF/stop 与 reserve→dispatch 竞态）、L2（新 gate 可能不足完整 5 分钟）、
+     L3（行情表重绘复位未提交 threshold）——计划是否把它们写成了具名已知限制（含实际影响、临时
+     操作方式、重开条件），而不是待修项或验收失败项？是否出现了为它们新增准入锁、stopping 状态、
+     store 侧复核、时钟改动或前端 capture selector 扩展的要求？
+
+ 二、五项必修是否覆盖真实根因？
+     provider 并发冷启动僵尸订阅、APP_OFFLINE 仍构造 provider、超长 signed 整数 threshold 逃逸、
+     provider 持续失败零等待热循环、非 running 展开日志停止刷新——每项的证据锚点是否与固定基线的
+     真实代码一致？修复要求是否解决根因而非表征？是否出现了被明确禁止的东西（第二个 event loop /
+     manager / 监督器、指数退避、重试状态机、新配置项、新 timer）？确定性验收是否真的能在实现错误
+     时变红（尤其：热循环的有界断言、离线零构造断言、合法超长整数被 API 接受为 201 / 格式非法值返回 400 的分组断言、paused
+     展开仍刷新的断言）？
+
+ 三、smooth-only 删除每轮 fresh preflight 是否准确保留了必须保留的东西？
+     create-task 首次完整 preflight、固化数据、regular_spot 预划转、缺腿/1000x 拒绝是否明确保留？
+     immediate 的每轮 fresh preflight 与杠杆时机是否逐字不变？prepare_attempt 的原子复核（状态、
+     target、无在途 pair、gate seq、pass reason）与两腿异步提交/查单/结算/单腿暂停链是否原样复用？
+     被放弃的每轮拦截（余额、交易规则、position mode、限频、路由变化）是否被如实写成 Human 接受
+     的代价，而**没有**被包装成 fail-closed？是否存在要求改 store / executor / live client /
+     preflight provider 的隐含前提？
+
+ 四、smooth 杠杆是否严格前移、放行后是否再无联网？
+     计划是否要求：live smooth 且 scheduled_attempt_count == 0 时，唯一一次杠杆设置发生在任何
+     订阅、gate 建立/恢复与第一次滑点计算之前，失败时零订阅/零 gate/零 attempt/零订单？是否明确
+     禁止把杠杆提前到建卡时、禁止在 _dispatch_one_for_task 内对 smooth 再设置？顺序型回归
+     （set_leverage → subscribe/open gate → market evaluation → prepare → dispatch，且 market
+     pass 后 leverage/preflight 调用计数不再增加）是否足以证明「gate 通过到两腿提交之间无任何
+     联网读取、交易所设置或 sleep」？
+
+评审若提出新假设场景，必须满足 AGENTS.md §1 Scenario Admission：给出当前代码路径、官方契约或
+具体并发/单位证据，说明对本增量的实际影响，以及为何必须本轮处理。偏好、未来扩展、以及上述三项
+Human 已明确接受的风险，不得判为阻塞。
+
+返回 [TASK_RESULT v2]，并给出
+  评审结论: ACCEPT（接受） | REWORK（返工）
+  问题记录: <path | none>
+  修复要求: <path | none>
+REWORK 必须逐条给出可执行的修复要求。ACCEPT 不授权实现、安装依赖、服务控制或实盘下单。
+```
+
+## 14. 当前停止线（第二轮）
+
+在本增量通过跨 provider 窄范围计划复核 `ACCEPT`，且 Human 已针对 `rework_count=3` 上限明确选择缩窄、重设计、接受限制或停止之前：不改任何源码或测试、不创建新 worktree/分支、不安装 CCXT 到任何环境、不改 `status.json`、不准备或启动返修实现终端。只有 Human 的选择明确允许继续时，Bookkeeper 才能另备实现 dispatch。
+
+`ACCEPT` 之后仍需 Human 单独授权的动作：把 `ccxt==4.5.64` 装入生产 `.venv`、重启服务、任何真实公共 WS 连通验证、合并到 `main`、`push`、部署、任何真实平滑任务或实盘下单。
