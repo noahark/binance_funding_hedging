@@ -1,13 +1,13 @@
 {
   "schema_version": "2",
-  "revision": 41,
+  "revision": 42,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
   "phase": "human-validation",
-  "checkpoint": "f1-review-1-accept-ccxt-installed-current-worktree-runtime-started-awaiting-human-page-acceptance",
+  "checkpoint": "human-page-validation-found-initial-market-display-misleading-and-gate-snapshot-audit-gap",
   "base_sha": "e74f3d5cf20f9f980ef023ed35a9c40ff3b8b174",
   "delivery_sha": "5d65a96b8c0435297c1511c228cec9a6d38df4b8",
-  "ledger_sha": "56b626e8118942184ecea8b30b725be94b0e820f",
+  "ledger_sha": "5fc73836526e0f5dc24032a2fae80142ac5bbb00",
   "current_task": {
     "id": "smooth-open-v1-f1-review-1-kimi",
     "state": "verified",
@@ -15,11 +15,13 @@
   },
   "next": {
     "actor": "human_operator",
-    "action": "perform-page-validation-on-current-live-runtime-and-report-findings"
+    "action": "decide-ui-fix-and-whether-to-add-gate-snapshot-audit"
   },
   "rework_count": 4,
   "blockers": [
-    "human-page-validation-pending: 当前未合并 worktree 已在 127.0.0.1:8787 以 live + Start gate=true 运行，Human 页面操作可进入真实下单链",
+    "human-validation-ui-finding: smooth 新建后自动 running，但未自动拉取动态盘口，任务卡误显示两侧数据不完整且启动按钮置灰造成误解",
+    "human-decision-gate-snapshot-audit: 首笔 market 放行任务成交 spread 与阈值相反，当前未持久化放行快照，Human 决定是否补审计证据",
+    "live-runtime-warning: 当前未合并 worktree 在 127.0.0.1:8787 以 live + Start gate=true 运行，新建 smooth 任务可能立即真实成交",
     "review-2-pending-after-human-page-validation: 页面验收及必要修复后仍须 fresh 跨 provider Review-2",
     "merge-deploy-not-authorized: push、merge、部署与实盘启用仍须 Human 单独授权"
   ]

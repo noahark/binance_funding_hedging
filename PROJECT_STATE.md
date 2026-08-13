@@ -80,6 +80,25 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Live Risks
 
+- `[OPEN][LIVE-OBSERVATION][2026-08-13]` **首笔真实平滑任务已成交；任务卡初始盘口展示误导，且放行瞬间盘口未持久化。**
+  Human 页面验收创建任务 `36951966-6942-43e3-833c-99606ca3fae5`
+  （`1000CATUSDT`、forward、smooth、阈值 `+0.05%`、单次 `5000`、目标 `1`）。因全局
+  Start gate 已开启，建卡后自动进入 `running` 并开启 gate，故“启动”按钮置灰是运行态按钮矩阵，
+  不是启动失败；`2026-08-13 16:27:54 CST` 以 `smooth_pass_reason=market` 放行，现货 BUY
+  `5000 @ 0.00172`、合约 SELL `5000 @ 0.0017120` 均 FILLED，任务 `done`。账户读模型随后
+  显示现货 `+5000`、UM `-5000`、`single_leg_exposure=false`、`drift=false`；该 symbol 是
+  exact `1000CAT` 资产，不是当前表内的 multiplier alias。
+  **已证实的 UI 缺陷：**动态盘口块数据只由任务日志 GET 填充；新建 smooth 任务不会自动展开/
+  拉取日志，因此卡片先显示“现货/合约 数据不完整”，即使后台 provider 已 live。手动展开日志后
+  同源 GET 显示两侧 `live`，不是行情订阅故障。
+  **审计观察：**最终成交均价折算 forward spread 约 `-0.465%`，与 `+0.05%` 阈值相反；当前
+  attempt 只记录 `market`，不持久化放行瞬间两侧 bookTicker，故不能区分“放行后约 0.3–0.4 秒
+  内行情跳动一档”与“放行快照本身异常”。D15 明确取消发单前联网复核，所以成交价偏离本身不证明
+  gate 算错，但缺少放行快照使实盘不可审计。临时边界：UI 修正前不要把初始“数据不完整”解释成
+  worker 未运行；也不要再创建平滑任务做纯展示验收——Start 开启时它会自动运行并可能真实成交。
+  重开条件已满足：Human 本次已实际遇到误导展示；是否增加放行快照审计须 Human 决策，任何代码
+  修复仍走当前 stage 的独立评审。
+
 - `[OPEN][LIVE-RISK][2026-08-10]` **reverse 自动平仓仍可能因组合保证金口径再次单腿。**
   两腿非原子并发，合约腿不等待现货腿；close+reverse 预检仅以最长 5 分钟缓存可命中的
   逐资产 `crossMarginFree >= q×估价` 放行，未校验组合保证金 `totalAvailableBalance`，
