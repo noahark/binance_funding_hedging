@@ -1,24 +1,25 @@
 {
   "schema_version": "2",
-  "revision": 27,
+  "revision": 28,
   "stage_id": "2026-08-12-smooth-open-orders-v1",
   "bookkeeper": "codex",
   "phase": "plan-repair",
-  "checkpoint": "smooth-open-v1-review-2-nonaccepting-human-repair-scope-and-pre-gate-leverage-decided",
-  "base_sha": "bfb633799ed904ba6d8364bffef7f048d77137dd",
+  "checkpoint": "smooth-open-v1-repair-plan-rejected-four-micro-conflicts-r2-dispatched",
+  "base_sha": "e4027bd7c88e489b8024b531f40cf3cd53555485",
   "delivery_sha": "24074b144dcdb745c511d866a75528a8930e8475",
-  "ledger_sha": "bfb633799ed904ba6d8364bffef7f048d77137dd",
+  "ledger_sha": "e4027bd7c88e489b8024b531f40cf3cd53555485",
   "current_task": {
-    "id": "smooth-open-v1-repair-plan-opus5",
+    "id": "smooth-open-v1-repair-plan-opus5-r2",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/15-smooth-open-v1-repair-plan-opus5.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-12-smooth-open-orders-v1/16-smooth-open-v1-repair-plan-opus5-r2.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-smooth-open-v1-repair-plan-opus5"
+    "action": "start-smooth-open-v1-repair-plan-opus5-r2"
   },
-  "rework_count": 1,
+  "rework_count": 2,
   "blockers": [
+    "plan-repair-r2-required: Opus5 增量计划含四处内部冲突，微型返修核验通过后才可进入跨 provider 计划复核",
     "review-2-nonaccepting: Sonnet5 source ACCEPT 已核验但被后续可执行证据推翻；Human 已定五项修复与三项接受风险",
     "high-risk-plan-review-required: smooth-only 删除每轮 fresh preflight 改变实盘准入语义，计划增量须跨 provider ACCEPT 后才能实现",
     "dependency-install-not-authorized: 本实现不得安装 ccxt 或修改任何虚拟环境",
