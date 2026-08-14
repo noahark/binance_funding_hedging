@@ -254,6 +254,22 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Open Follow-ups
 
+- `[OPEN][DEAD-CODE][2026-08-14]` **`hedge_open_fill` 表及其死代码待清理（须 Human 授权）。**
+  round-1（dry-run record transport）遗留的「每对 attempt 一行、inline 两腿成交」表；real-API/live
+  阶段已由 `hedge_open_attempt` + `hedge_open_leg` 两表取代（成交明细→leg、持仓源→leg），live 路径
+  不再写它。**现状核验（2026-08-14，`data/hedge-open-tasks.sqlite3`）**：`hedge_open_fill` 行数 `0`
+  （对照 attempt `99` / leg `198` / task `44`）；`insert_fill` / `list_fills_for_task` 生产代码零调用
+  （仅 `backend/tests/test_hedge_store.py` 与 `test_hedge_cycle_core.py` 调用）；前端/API 无引用。
+  `aggregate_positions` 仍 SELECT 该表（SQL-A），但 `for row in fill_rows` 因恒空从不执行，删之不改变
+  任何聚合结果。**注**：P2-1 注释（`store.py:2602`）称非零行「告警而非并入」，实际代码是告警后仍并入
+  `cycle_id=None` 桶——删时一并消除该注释/实现出入。
+  **删除清单**：① `store.py:1952 insert_fill` + `2005 list_fills_for_task` + `265 _row_to_fill`；
+  ② `aggregate_positions` 的 SQL-A 读取（`store.py:2579`）+ P2-1 告警块（`2602-2630`）+ fill_rows 循环
+  （`2684` 起）；③ `_SCHEMA` 建表（`store.py:108`）+ 索引（`150-151`）；④ 上述 legacy 测试。
+  **分两步（降低 schema 风险）**：先删方法 + fill 读取分支 + 测试、物理表暂留并跑全量测试；稳定后再
+  对生产库 `DROP TABLE hedge_open_fill`。涉及生产库 schema 变更，须 Human 明确授权后单开一轮、不夹带；
+  与 `docs/planning/dead-code-cleanup-2026-08-09.*` 的既有清理候选合并执行。
+
 - `[OPEN][PRE-EXISTING][2026-08-11]` **小额统一账户资产卡可能连同还款回显一起被过滤。**
   `frontend/index.html` 先按「持有价值与净价值均低于 10 USDT」过滤整张资产卡，之后才
   生成还款成功、失败、未决或未知回显；因此借款已读为 0 且资产价值较小时，未决锁仍在
