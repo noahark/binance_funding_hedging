@@ -62,9 +62,10 @@ close, borrow, repay, or transfer assets as a response to an order outcome.
   manually started foreground process via `scripts/run-server.sh` (see
   `PROJECT_STATE.md` Live Risks).
 
+- Smooth/WebSocket-gated execution (V1 阶段已部分交付：已实现单次尝试、实时盘口同步、固定目标数量的平滑开仓和平滑平仓机制；尚无多轮分批与WebSocket推送，由前端2秒轮询代替)。
+
 ### 2.2 Not implemented yet
 
-- Smooth/WebSocket-gated execution.
 - Automatic repayment and full holdings reconciliation.
 - User-data-stream persistence and any automatic risk response.
 - 1000x multiplier-contract leg-quantity conversion (the six multiplier

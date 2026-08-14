@@ -4,7 +4,10 @@ Cross-stage state, read at startup. Keep under 64 KB. Git history is not a runti
 check. Completed work's trace is git history and archive references (see Update
 Rule); this file records only live risks, open follow-ups, and pointers.
 
-## Current Status (2026-08-13)
+## Current Status (2026-08-14)
+
+- **[2026-08-14 待合并] 平滑平仓 V1 (P1+P2) 交付已由 Bookkeeper 收口，等待 Human 决定是否合并：**
+  P1 后端核心逻辑与 P2 前端集成均已交付且通过自测及 Human 测试，Review-1 / Review-2 (Opus 5) 均已给出 ACCEPT。交付暂存于阶段归档及提交 `f95577f`，未直接合并 `main`。未授权模型合并、部署、启动服务或实盘下单。
 
 - **[2026-08-13 Human 授权合并并停服] 平滑开单 V1 已合并本地 `main`，服务等待 Human 手动启动：**
   `smooth/v1-fullstack` 已以 `--ff-only` 合并，产品 delivery 为 `ad8c631`，完整阶段归档 tip 为
@@ -254,6 +257,11 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Open Follow-ups
 
+- `[OPEN][PRE-EXISTING][2026-08-14]` **前端平仓前置余额检查对普通现货账户会误拦。**
+  `frontend/index.html:5764-5772` 的 forward 分支只以 `posRow.unified_balance` 字段存在为条件比较总量，币若实际在普通现货账户，统一账户读数为 `0` 时会以「页面显示统一账户现货约 0.00 < 需 N」直接拦截、不发请求。引入提交 `97ecb7f`（2026-08-06），早于平滑平仓交付 base。
+  临时边界：普通现货账户余额充足却被该逻辑拦截时，已知无法通过前端 UI 发起操作。
+  后续修复：需要在前置检查中结合 `state.parsedData.pm_account` 等状态，判断实际账户模式以决定校验哪个余额。
+
 - `[OPEN][DEAD-CODE][2026-08-14]` **`hedge_open_fill` 表及其死代码待清理（须 Human 授权）。**
   round-1（dry-run record transport）遗留的「每对 attempt 一行、inline 两腿成交」表；real-API/live
   阶段已由 `hedge_open_attempt` + `hedge_open_leg` 两表取代（成交明细→leg、持仓源→leg），live 路径
@@ -406,6 +414,12 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Last Completed
 
+- stage: `2026-08-14-smooth-close-orders-v1`
+- archive_ref: `archive/2026-08-14-smooth-close-orders-v1`（tip待定）
+- delivery: `6f6c729..f95577f`；`rework_count` 1（P1修复一次）。Review-1 (gemini-3.1-pro) ACCEPT；Review-2 (opus5) ACCEPT。未授权 push/部署或合并。
+- recorded_completed_at: `2026-08-14`
+- outcome: 平滑平仓 V1。实现了以滑点阈值和计划次数自动拆分平仓，保持方向翻转诚实显示，并支持与现货、合约资产的实时盘口对照。
+- follow-ups: 前端现货余额拦截误拦问题已记录，待后续修复。
 - stage: `2026-08-12-smooth-open-orders-v1`
 - archive_ref: `archive/2026-08-12-smooth-open-orders-v1`（tip
   `d404e204f124fc2f8b11a2634f4d54b1866d1bdc`，完整 planning、dispatch、handoff、status、Review-1/
