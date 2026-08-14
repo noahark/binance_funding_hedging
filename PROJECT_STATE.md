@@ -6,8 +6,21 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-14)
 
-- **[2026-08-14 待合并] 平滑平仓 V1 (P1+P2) 交付已由 Bookkeeper 收口，等待 Human 决定是否合并：**
-  P1 后端核心逻辑与 P2 前端集成均已交付且通过自测及 Human 测试，Review-1 / Review-2 (Opus 5) 均已给出 ACCEPT。交付暂存于阶段归档及提交 `f95577f`，未直接合并 `main`。未授权模型合并、部署、启动服务或实盘下单。
+- **[2026-08-15 Human 授权合并并推送] 平滑平仓 V1 (P1+P2) 已合并 `main`：**
+  以 `--ff-only` 合并 `stage/2026-08-14-smooth-close-orders-v1`，`main` 与 stage tip 同为
+  `2cc6cde`；产品 delivery 为 `f95577f`（前端串联）与 `6f6c729`（后端 F1 修复）之上的
+  `7d3fe60..f95577f` 区间。stage 分支与 `main` 均已推送 origin。
+  **评审覆盖的真实情况（合并时具名接受）**：P2 前端串联区间 `6f6c729..f95577f` 有
+  Review-1（gemini-3.1-pro）+ Review-2（opus5）双轮 ACCEPT；**后端 P1 区间
+  `7d3fe60..c4ae93a` 只有一次 Review-1（grok-4.6，结论 REWORK/F1），F1 修复提交
+  `6f6c729` 未经独立评审，后端从未做过 Review-2**。合并前补做过一次非正式初评
+  （gemini 3.7 Flash，纯文本不落档，21 处锚点经 Opus 5 逐条复核属实，无新发现），
+  但它是按清单核对而非开放式勘探。Human 知悉后决定合并。
+  另注：P2 的 Review-1 由本 stage 的 Bookkeeper 会话自行执行并宣布 ACCEPT，与
+  `agents/roles.md` 的「Bookkeeper 不得宣布评审接受」「评审须 fresh read-only session」
+  不符；因该区间随后由 opus5 独立 Review-2 覆盖，未返工。
+  合并时服务仍在运行（PID 38254，127.0.0.1:8787）；**新后端代码要下一次重启才会生效**。
+  未授权部署、由模型启动/重启服务、创建任务或实盘下单。
 
 - **[2026-08-13 Human 授权合并并停服] 平滑开单 V1 已合并本地 `main`，服务等待 Human 手动启动：**
   `smooth/v1-fullstack` 已以 `--ff-only` 合并，产品 delivery 为 `ad8c631`，完整阶段归档 tip 为
@@ -259,8 +272,16 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 - `[OPEN][PRE-EXISTING][2026-08-14]` **前端平仓前置余额检查对普通现货账户会误拦。**
   `frontend/index.html:5764-5772` 的 forward 分支只以 `posRow.unified_balance` 字段存在为条件比较总量，币若实际在普通现货账户，统一账户读数为 `0` 时会以「页面显示统一账户现货约 0.00 < 需 N」直接拦截、不发请求。引入提交 `97ecb7f`（2026-08-06），早于平滑平仓交付 base。
-  临时边界：普通现货账户余额充足却被该逻辑拦截时，已知无法通过前端 UI 发起操作。
-  后续修复：需要在前置检查中结合 `state.parsedData.pm_account` 等状态，判断实际账户模式以决定校验哪个余额。
+  触发条件（2026-08-14 实盘遇到，STOUSDT）：币全部在普通现货账户、统一账户该资产为 0，
+  正向平仓建卡被硬拦，两种模式（立即/平滑）都会中招。
+  **绕法（可用）**：先用资产互转把该币划到统一账户，前端校验即通过；后端启动备料时会发现
+  普通现货账户不足再划回来——多两次划转，能走通。
+  后续修复（约三行）：正向平仓的可用量应为 `spot_balance + unified_balance`（两字段持仓行
+  已有：前者=普通现货 free+locked，后者=统一账户 total），两者之和仍不足才拦，文案分列两个
+  账户。注意口径方向：**平仓侧误拦的代价（有仓平不掉）远大于误放**（后端启动时会 fail-closed
+  暂停并给中文原因、零下单），所以这一侧应偏宽松。
+  另可考虑：C13 落地后点「启动」会同步备料并当场回中文原因，这个基于 60 秒旧缓存的前端预检
+  价值已大幅下降，可评估直接删除余额预检（保留合约持仓预检，它口径简单且防超平）。
 
 - `[OPEN][DEAD-CODE][2026-08-14]` **`hedge_open_fill` 表及其死代码待清理（须 Human 授权）。**
   round-1（dry-run record transport）遗留的「每对 attempt 一行、inline 两腿成交」表；real-API/live
