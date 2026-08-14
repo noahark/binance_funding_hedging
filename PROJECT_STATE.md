@@ -415,7 +415,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 ## Last Completed
 
 - stage: `2026-08-14-smooth-close-orders-v1`
-- archive_ref: `archive/2026-08-14-smooth-close-orders-v1`（tip待定）
+- archive_ref: `archive/2026-08-14-smooth-close-orders-v1`（tip `f667e6ff8f5fb010d5116563b325bf4384c52caf`）
 - delivery: `6f6c729..f95577f`；`rework_count` 1（P1修复一次）。Review-1 (gemini-3.1-pro) ACCEPT；Review-2 (opus5) ACCEPT。未授权 push/部署或合并。
 - recorded_completed_at: `2026-08-14`
 - outcome: 平滑平仓 V1。实现了以滑点阈值和计划次数自动拆分平仓，保持方向翻转诚实显示，并支持与现货、合约资产的实时盘口对照。
