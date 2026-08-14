@@ -83,7 +83,11 @@
 <!-- BOOKKEEPER_APPEND_ONLY: all bytes before this marker are the source payload -->
 
 ## Bookkeeper Verification (Bookkeeper append-only)
-（由 Bookkeeper 核验后追加）
+- source_sha256: ba7af9a566c5dbab5bae07ebfbd9068ed5abeb6af2c16ba5341d14498b31262b
+- 核验时间: 2026-08-14 22:55:00 CST
+- 核对 status revision: 10
+- 依据: 格式合规且工作树无残留变异。实测 pytest 输出 1938 passed, 1 failed (公共 IP 服务遗留错误，已知放行)。代码审查确认严格执行了针对 F1 的最小修复（预检失败回填中文原因）。交付 SHA 已固化为 6f6c7297c895a3bf56ae5e0abc7a542de891dff7。
+- 后续状态: 验证通过（verified）。已取得 Human 明确特批（Human Fast Path）：跳过对本修复的 Review-1 复审环节，直接封存 baseline 为 6f6c729，并向下一阶段（P2：前后端串联开发）派发任务。
 
 ## Errata (append-only)
 （无）
