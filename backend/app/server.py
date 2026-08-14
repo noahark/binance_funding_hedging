@@ -96,6 +96,14 @@ def _is_borrow_path(path: str) -> bool:
 # Hedge-open route table (stage 2026-07-hedge-open-live-v1, breakdown §3.1). Path
 # templates with their allowed methods; matched longest-first. These routes are
 # dispatched ONLY here and do not alter any borrow or snapshot/static behavior.
+#
+# Smooth close V1 (2026-08-14) reuses this table. Frozen create body keys:
+# coin / direction / mode / single_amount / target_n / task_type /
+# slippage_threshold_pct. mode=smooth + task_type=close is legal. Start,
+# fill-once (gate_seq), logs, positions and close-gate stay on these paths.
+# Running-task book is GET /api/hedge-open-logs?task_id=… (smooth_market);
+# there is no browser WebSocket — backend book-ticker subscriptions stay
+# inside HedgeOpenTaskService.
 _HEDGE_OPEN_ROUTES = (
     (
         re.compile(

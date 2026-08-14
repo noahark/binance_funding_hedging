@@ -1147,11 +1147,6 @@
       color: var(--muted);
       margin-bottom: var(--space-1);
     }
-    .smooth-close-style-preview {
-      display: grid;
-      gap: var(--space-3);
-      margin: 0 0 var(--space-4);
-    }
     .hedge-smooth-market-col.smooth-close-active {
       border-color: var(--success);
       background: var(--success-soft);
@@ -1643,153 +1638,6 @@
           <div id="hedge-tasks-panel">
             <div id="hedge-task-filters" style="margin-bottom: var(--space-3);"></div>
             <div class="status-banner error" id="hedge-tasks-error" style="display:none; margin-bottom: var(--space-3);"></div>
-            <div class="smooth-close-style-preview">
-              <div class="status-banner info">平滑平仓五种形态 · 样式预览、不执行 · 不建卡、不启动、不发请求</div>
-              <div class="borrow-task-card">
-                <div class="borrow-task-head">
-                  <h3>AAAUSDT</h3>
-                  <span class="badge danger">平仓</span>
-                  <span class="badge success">正向</span>
-                  <span class="badge info">平滑</span>
-                  <span class="badge muted">暂停</span>
-                  <span class="badge muted">样式预览、不执行</span>
-                  <span class="muted small">#close-style-1</span>
-                </div>
-                <div class="borrow-task-lines">
-                  <div>单次币量：<strong>500</strong> · 计划尝试次数：<strong>3</strong></div>
-                  <div>公共网格量：<strong>—</strong></div>
-                  <div>备料状态：<strong>未备料</strong></div>
-                  <div>已调度 <strong>0</strong> 组 · 已受理 <strong>0</strong> 组 · 连续提交失败 <strong>0</strong> / 暂停阈值 <strong>1</strong></div>
-                  <div>执行线程：<strong>未运行</strong> · 上次退出原因：<strong>—</strong></div>
-                  <div class="borrow-task-note">暂停原因：任务首次执行必须点击启动</div>
-                  <div>滑点阈值：<strong>0.05%</strong></div>
-                </div>
-                <div class="borrow-task-controls">
-                  <button class="btn compact action-pause" type="button" disabled>暂停</button>
-                  <button class="btn compact action-start" type="button" data-smooth-close-style-preview>启动</button>
-                  <button class="btn compact action-delete" type="button" data-smooth-close-style-preview>删除</button>
-                  <button class="btn compact primary" type="button" disabled>成交1次</button>
-                </div>
-              </div>
-              <div class="borrow-task-card">
-                <div class="borrow-task-head">
-                  <h3>AAABUSDT</h3>
-                  <span class="badge danger">平仓</span>
-                  <span class="badge success">正向</span>
-                  <span class="badge info">平滑</span>
-                  <span class="badge muted">暂停</span>
-                  <span class="badge muted">样式预览、不执行</span>
-                  <span class="muted small">#close-style-2</span>
-                </div>
-                <div class="borrow-task-lines">
-                  <div>单次币量：<strong>500</strong> · 计划尝试次数：<strong>3</strong></div>
-                  <div>公共网格量：<strong>—</strong></div>
-                  <div>备料状态：<strong>未备料</strong></div>
-                  <div>已调度 <strong>0</strong> 组 · 已受理 <strong>0</strong> 组 · 连续提交失败 <strong>0</strong> / 暂停阈值 <strong>1</strong></div>
-                  <div>执行线程：<strong>未运行</strong> · 上次退出原因：<strong>—</strong></div>
-                  <div class="borrow-task-note">启动后卡片停在已暂停，按钮显示备料中，直至备料返回</div>
-                  <div>滑点阈值：<strong>0.05%</strong></div>
-                </div>
-                <div class="borrow-task-controls">
-                  <button class="btn compact action-pause" type="button" disabled>暂停</button>
-                  <button class="btn compact action-start" type="button" disabled>备料中…</button>
-                  <button class="btn compact action-delete" type="button" disabled>删除</button>
-                  <button class="btn compact primary" type="button" disabled>成交1次</button>
-                </div>
-              </div>
-              <div class="borrow-task-card">
-                <div class="borrow-task-head">
-                  <h3>AAACUSDT</h3>
-                  <span class="badge danger">平仓</span>
-                  <span class="badge success">正向</span>
-                  <span class="badge info">平滑</span>
-                  <span class="badge muted">暂停</span>
-                  <span class="badge muted">样式预览、不执行</span>
-                  <span class="muted small">#close-style-3</span>
-                </div>
-                <div class="borrow-task-lines">
-                  <div>单次币量：<strong>500</strong> · 计划尝试次数：<strong>3</strong></div>
-                  <div>公共网格量：<strong>—</strong></div>
-                  <div>备料状态：<strong>未备料</strong></div>
-                  <div>已调度 <strong>0</strong> 组 · 已受理 <strong>0</strong> 组 · 连续提交失败 <strong>0</strong> / 暂停阈值 <strong>1</strong></div>
-                  <div>执行线程：<strong>未运行</strong> · 上次退出原因：<strong>—</strong></div>
-                  <div class="borrow-task-note">暂停原因：平仓现货余额检查/划转失败，任务已暂停（fail-closed，未发单）</div>
-                  <div>滑点阈值：<strong>0.05%</strong></div>
-                </div>
-                <div class="borrow-task-controls">
-                  <button class="btn compact action-pause" type="button" disabled>暂停</button>
-                  <button class="btn compact action-start" type="button" data-smooth-close-style-preview>启动</button>
-                  <button class="btn compact action-delete" type="button" data-smooth-close-style-preview>删除</button>
-                  <button class="btn compact primary" type="button" disabled>成交1次</button>
-                </div>
-              </div>
-              <div class="borrow-task-card">
-                <div class="borrow-task-head">
-                  <h3>AAADUSDT</h3>
-                  <span class="badge danger">平仓</span>
-                  <span class="badge success">正向</span>
-                  <span class="badge info">平滑</span>
-                  <span class="badge success">运行</span>
-                  <span class="badge muted">样式预览、不执行</span>
-                  <span class="muted small">#close-style-4</span>
-                </div>
-                <div class="borrow-task-lines">
-                  <div>单次币量：<strong>500</strong> · 计划尝试次数：<strong>3</strong></div>
-                  <div>公共网格量：<strong>500</strong></div>
-                  <div>备料状态：<strong>已备料</strong></div>
-                  <div>已调度 <strong>0</strong> 组 · 已受理 <strong>0</strong> 组 · 连续提交失败 <strong>0</strong> / 暂停阈值 <strong>1</strong></div>
-                  <div>执行线程：<strong>运行中</strong> · 上次退出原因：<strong>—</strong></div>
-                  <div>滑点阈值：<strong>0.05%</strong> · 当前轮次：<strong>1/3</strong> · 轮次剩余时间：<strong>04:32</strong></div>
-                  <div>盘口连接：<span class="badge compact success">现货 已连接</span> <span class="badge compact success">合约 已连接</span></div>
-                  <div class="hedge-smooth-market-grid">
-                    <div class="hedge-smooth-market-col smooth-close-active">
-                      <div class="hedge-smooth-market-title">正向平仓率 · 本任务判定</div>
-                      <div class="muted small">现货买一 0.01970 · 数量 8500</div>
-                      <div class="muted small">合约卖一 0.01971 · 数量 9200</div>
-                      <div class="positive">+0.04%</div>
-                    </div>
-                    <div class="hedge-smooth-market-col">
-                      <div class="hedge-smooth-market-title">反向平仓率</div>
-                      <div class="muted small">合约买一 0.01968 · 数量 7200</div>
-                      <div class="muted small">现货卖一 0.01972 · 数量 6100</div>
-                      <div class="positive">+0.20%</div>
-                    </div>
-                  </div>
-                  <div>两腿一档覆盖：现货 <strong>106.00%</strong>（≥80% 达标） · 合约 <strong>115.00%</strong>（≥80% 达标）</div>
-                  <div class="borrow-task-note">等待原因：等待当前方向平仓率严格大于阈值</div>
-                </div>
-                <div class="borrow-task-controls">
-                  <button class="btn compact action-pause" type="button" data-smooth-close-style-preview>暂停</button>
-                  <button class="btn compact action-start" type="button" disabled>启动</button>
-                  <button class="btn compact action-delete" type="button" data-smooth-close-style-preview>删除</button>
-                  <button class="btn compact primary" type="button" data-smooth-close-style-preview>成交1次</button>
-                </div>
-              </div>
-              <div class="borrow-task-card">
-                <div class="borrow-task-head">
-                  <h3>AAAEUSDT</h3>
-                  <span class="badge danger">平仓</span>
-                  <span class="badge success">正向</span>
-                  <span class="badge info">立即</span>
-                  <span class="badge success">运行</span>
-                  <span class="badge muted">样式预览、不执行</span>
-                  <span class="muted small">#close-style-5</span>
-                </div>
-                <div class="borrow-task-lines">
-                  <div>单次币量：<strong>500</strong> · 计划尝试次数：<strong>3</strong></div>
-                  <div>公共网格量：<strong>500</strong></div>
-                  <div>备料状态：<strong>每轮实时校验</strong></div>
-                  <div>已调度 <strong>0</strong> 组 · 已受理 <strong>0</strong> 组 · 连续提交失败 <strong>0</strong> / 暂停阈值 <strong>3</strong></div>
-                  <div>执行线程：<strong>运行中</strong> · 上次退出原因：<strong>—</strong></div>
-                </div>
-                <div class="borrow-task-controls">
-                  <button class="btn compact action-pause" type="button" data-smooth-close-style-preview>暂停</button>
-                  <button class="btn compact action-start" type="button" disabled>启动</button>
-                  <button class="btn compact action-delete" type="button" data-smooth-close-style-preview>删除</button>
-                  <button class="btn compact primary" type="button" data-smooth-close-style-preview>成交1次</button>
-                </div>
-              </div>
-            </div>
             <div class="borrow-task-list" id="hedge-task-list"></div>
             <div class="status-banner error" id="hedge-attempts-error" style="display:none; margin-top: var(--space-3);"></div>
             <div id="hedge-attempt-list" style="margin-top: var(--space-4);"></div>
@@ -1974,6 +1822,8 @@
         hedgeTaskFilter: 'running',
         // 任务卡「展开日志」的展开状态（task id 集合）：重渲染后据此恢复展开，避免自动刷新收起。
         hedgeLogExpanded: new Set(),
+        // C13：smooth close 启动请求进行中，该卡全部操作按钮置灰、启动显示「备料中…」。
+        hedgePreparingStartId: null,
         // 流水日志真实数据（private-ledger/v2）；页内看板 marketBoard: 'market'|'flow-log'
         marketBoard: 'market',
         flowLogOpen: false,
@@ -5785,15 +5635,11 @@
             pending.symbol, pending.direction, pending.mode, pending.slippageThresholdPct
           );
         }
-        if (pending.kind === 'hedge_close_style_preview') {
-          showHedgeModal(
-            '样式预览、不执行',
-            '平滑平仓尚未接后端。确认后不建卡、不启动、不发任何请求。'
-          );
-          return { ok: true };
-        }
         if (pending.kind === 'hedge_close') {
-          return submitHedgeClose(pending.coin, pending.direction, pending.amountStr, pending.targetN);
+          return submitHedgeClose(
+            pending.coin, pending.direction, pending.amountStr, pending.targetN,
+            pending.mode, pending.slippageThresholdPct
+          );
         }
         if (pending.kind === 'borrow_clear_logs') {
           return clearBorrowLogs();
@@ -5850,8 +5696,8 @@
         return s;
       }
 
-      // 立即平仓列（功能三 UI 预览，Human 2026-08 拍板）：仿市场表开单列——单次平仓币量 +
-      // 计划尝试次数 + 确认弹框。后端平仓任务未实现：确认后提示「后端开发中」，不发真实请求。
+      // 平仓列：仿市场表开单列——单次平仓币量 + 计划尝试次数 + 平滑阈值 + 立即平仓。
+      // 平滑/立即确认后均 POST /api/hedge-open-tasks（task_type=close）。
       // 周期已完全平仓（cycle_closed_at）或无周期记录（cycle_id null）→ 输入与按钮禁用。
       function renderHedgeCloseInputs(p) {
         const sym = escapeHtml(p.coin);
@@ -5869,40 +5715,17 @@
                 <input id="hedge-close-amount-${sym}" type="text" inputmode="decimal" placeholder="如 0.01" autocomplete="off"${disAttr}/>
                 <label for="hedge-close-count-${sym}">计划尝试次数</label>
                 <input id="hedge-close-count-${sym}" type="text" inputmode="numeric" placeholder="如 3" autocomplete="off"${disAttr}/>
-                <button class="btn compact" type="button" data-hedge-close-smooth="${sym}" data-hedge-close-smooth-dir="${dir}" aria-label="平滑平仓 ${sym} 样式预览、不执行"${btnTitle}${disAttr}>平滑平仓</button>
+                <button class="btn compact" type="button" data-hedge-close-smooth="${sym}" data-hedge-close-smooth-dir="${dir}" aria-label="平滑平仓 ${sym} ${dir}"${btnTitle}${disAttr}>平滑平仓</button>
                 <input class="hedge-threshold-input" type="text" inputmode="decimal" value="0.05" data-hedge-close-threshold="${sym}" aria-label="滑点阈值 %" title="当前方向平仓率必须严格大于该阈值；可输入负数，最多两位小数"${disAttr}/>
                 <span class="muted small">%</span>
                 <button class="btn compact" type="button" data-hedge-close="${sym}" data-hedge-close-dir="${dir}"${btnTitle}${disAttr}>立即平仓</button>
-                <span class="muted small">平滑平仓为样式预览、不执行</span>
               </div>
               <div class="borrow-op-error" id="hedge-close-error-${sym}" role="alert" aria-live="polite"></div>`;
       }
 
-      function requestFakeSmoothCloseConfirm(coin, direction) {
-        const amountEl = document.getElementById(`hedge-close-amount-${coin}`);
-        const countEl = document.getElementById(`hedge-close-count-${coin}`);
-        const amountStr = amountEl ? String(amountEl.value || '').trim() : '';
-        const countStr = countEl ? String(countEl.value || '').trim() : '';
-        let thresholdRaw = '0.05';
-        const box = amountEl && amountEl.parentElement;
-        if (box && typeof box.querySelector === 'function') {
-          const thrEl = box.querySelector('[data-hedge-close-threshold]');
-          if (thrEl && String(thrEl.value || '').trim()) thresholdRaw = String(thrEl.value).trim();
-        }
-        const thresholdShown = normalizeHedgeThreshold(thresholdRaw) || thresholdRaw;
-        const dirLabel = direction === 'forward' ? '正向' : '反向';
-        state.marketActionPending = { kind: 'hedge_close_style_preview' };
-        state.hedgeGatePending = null;
-        showHedgeConfirm(
-          `确认${dirLabel}平滑平仓？`,
-          `样式预览、不执行。币种 ${coin}，方向 ${dirLabel}，单次平仓币量 ${amountStr || '—'}，计划尝试 ${countStr || '—'} 次。滑点阈值 ${thresholdShown}%（比较当前方向平仓率，不是开单率）。确认后不发请求。`,
-          '确认（不执行）'
-        );
-        return { ok: true, pending: true };
-      }
-
-      // 立即平仓按钮：本地缓存先做数量提示，确认后创建“待启动”的平仓任务卡。
-      function requestHedgeCloseConfirm(coin, direction) {
+      // 立即/平滑平仓：本地缓存先做数量提示，确认后创建“待启动”的平仓任务卡。
+      // mode 缺省 immediate，保持既有 submitHedgeClose(coin, dir, amount, n) 调用不变。
+      function requestHedgeCloseConfirm(coin, direction, mode) {
         const errEl = document.getElementById(`hedge-close-error-${coin}`);
         const amountEl = document.getElementById(`hedge-close-amount-${coin}`);
         const countEl = document.getElementById(`hedge-close-count-${coin}`);
@@ -5916,6 +5739,21 @@
         if (n === null) {
           setErr('计划尝试次数需为 ≥1 的整数');
           return { ok: false, error: 'invalid_count' };
+        }
+        const closeMode = mode === 'smooth' ? 'smooth' : 'immediate';
+        let threshold = null;
+        if (closeMode === 'smooth') {
+          let thresholdRaw = '';
+          const box = amountEl && amountEl.parentElement;
+          if (box && typeof box.querySelector === 'function') {
+            const thrEl = box.querySelector('[data-hedge-close-threshold]');
+            thresholdRaw = thrEl ? thrEl.value : '';
+          }
+          threshold = normalizeHedgeThreshold(thresholdRaw);
+          if (threshold === null) {
+            setErr('滑点阈值需为最多两位小数的有符号数字');
+            return { ok: false, error: 'invalid_threshold' };
+          }
         }
         // Human 2026-08-05：前端提前量检测（强制拦截，不发请求）。这是约 60 秒缓存的
         // 用户体验提示；后端 create 只轻量落卡，Human 点击“启动”后 worker 才用 fresh
@@ -5946,28 +5784,47 @@
         }
         setErr('');
         const dirLabel = direction === 'forward' ? '正向' : '反向';
-        state.marketActionPending = { kind: 'hedge_close', coin, direction, amountStr, targetN: n };
+        state.marketActionPending = {
+          kind: 'hedge_close', coin, direction, amountStr, targetN: n,
+          mode: closeMode, slippageThresholdPct: threshold
+        };
         state.hedgeGatePending = null;
-        showHedgeConfirm(
-          `确认${dirLabel}立即平仓？`,
-          `币种 ${coin}，方向 ${dirLabel}，单次平仓币量 ${amountStr}，计划尝试 ${n} 次。`
-            + '确认后创建平仓任务（合约腿 reduceOnly，以合约无仓为完成判定）。',
-          '确认平仓'
-        );
+        if (closeMode === 'smooth') {
+          showHedgeConfirm(
+            `确认${dirLabel}平滑平仓？`,
+            `币种 ${coin}，方向 ${dirLabel}，单次平仓币量 ${amountStr}，计划尝试 ${n} 次。`
+              + `滑点阈值 ${threshold}%（比较当前方向平仓率，不是开单率）。`
+              + '确认后创建待启动的平滑平仓任务。',
+            '确认平仓'
+          );
+        } else {
+          showHedgeConfirm(
+            `确认${dirLabel}立即平仓？`,
+            `币种 ${coin}，方向 ${dirLabel}，单次平仓币量 ${amountStr}，计划尝试 ${n} 次。`
+              + '确认后创建平仓任务（合约腿 reduceOnly，以合约无仓为完成判定）。',
+            '确认平仓'
+          );
+        }
         return { ok: true, pending: true };
       }
 
-      // 立即平仓提交（功能三）：创建平仓任务（task_type:'close'，方向沿用持仓行）。
-      async function submitHedgeClose(coin, direction, amountStr, targetN) {
+      // 平仓提交：创建平仓任务（task_type:'close'，方向沿用持仓行）。
+      // 第 5/6 参可选；缺省 immediate，既有 self-check 调用零回归。
+      async function submitHedgeClose(coin, direction, amountStr, targetN, mode, slippageThresholdPct) {
         const errEl = document.getElementById(`hedge-close-error-${coin}`);
         const setErr = (msg) => { if (errEl) errEl.textContent = msg || ''; };
+        const closeMode = mode === 'smooth' ? 'smooth' : 'immediate';
+        const body = {
+          coin, direction, mode: closeMode, single_amount: amountStr, target_n: targetN, task_type: 'close'
+        };
+        if (closeMode === 'smooth') body.slippage_threshold_pct = slippageThresholdPct;
         // 诊断日志（2026-08：定位「平仓任务点击后未创建」问题）。
-        console.log('[HEDGE-CLOSE-SUBMIT]', { coin, direction, amountStr, targetN });
+        console.log('[HEDGE-CLOSE-SUBMIT]', { coin, direction, amountStr, targetN, mode: closeMode });
         beginHedgeTaskNavLoading();
         try {
           const task = await hedgeApi('/api/hedge-open-tasks', {
             method: 'POST',
-            body: { coin, direction, mode: 'immediate', single_amount: amountStr, target_n: targetN, task_type: 'close' }
+            body
           });
           console.log('[HEDGE-CLOSE-SUBMIT] ok', task && task.id);
           // 对齐 submitHedgeOpen：新任务立即进 state.hedgeTasks + 刷新导航徽标，
@@ -5982,6 +5839,11 @@
           if (err.errorCode === 'no_active_cycle') {
             setErr('该持仓周期已不可平仓（无活跃周期）');
             return { ok: false, error: 'no_active_cycle' };
+          }
+          if (err.errorCode === 'smooth_market_unavailable') {
+            setErr((err.message && typeof err.message === 'string') ? err.message
+              : '平滑开平仓公共盘口不可用；可继续使用立即开单/立即平仓');
+            return { ok: false, error: 'smooth_market_unavailable' };
           }
           if (err.errorCode === 'insufficient_balance') {
             const payload = err.payload || {};
@@ -6177,15 +6039,28 @@
       }
 
       async function startHedgeTask(id) {
-        const result = await mutateHedgeTask(() => hedgeApi(hedgeTaskActionPath(id, 'start'), { method: 'POST', body: {} }));
-        // Human 2026-08-11：启动后自动展开该任务的内嵌日志——记入 hedgeLogExpanded
-        // （重渲染保持）、拉取一次日志、再渲染成展开态（与手动「展开日志」同路径）。
-        if (result.ok && state.hedgeLogExpanded) {
-          state.hedgeLogExpanded.add(id);
-          await loadHedgeTaskLogs(id);
+        const current = findHedgeTask(id);
+        const preparingClose = !!(current && current.task_type === 'close' && current.mode === 'smooth');
+        if (preparingClose) {
+          state.hedgePreparingStartId = id;
           if (state.activeView === 'hedge-tasks') renderHedgeTasks();
         }
-        return result;
+        try {
+          const result = await mutateHedgeTask(() => hedgeApi(hedgeTaskActionPath(id, 'start'), { method: 'POST', body: {} }));
+          // Human 2026-08-11：启动后自动展开该任务的内嵌日志——记入 hedgeLogExpanded
+          // （重渲染保持）、拉取一次日志、再渲染成展开态（与手动「展开日志」同路径）。
+          if (result.ok && state.hedgeLogExpanded) {
+            state.hedgeLogExpanded.add(id);
+            await loadHedgeTaskLogs(id);
+            if (state.activeView === 'hedge-tasks') renderHedgeTasks();
+          }
+          return result;
+        } finally {
+          if (preparingClose) {
+            state.hedgePreparingStartId = null;
+            if (state.activeView === 'hedge-tasks') renderHedgeTasks();
+          }
+        }
       }
 
       // 软删除：后端置 status='deleted'，任务保留在 status=all 列表中，供「已删除」筛选查看。
@@ -6283,24 +6158,48 @@
           const seconds = Math.max(0, Math.ceil((Number(task.smooth_gate_deadline_at_us) / 1000 - Date.now()) / 1000));
           remaining = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
         }
+        const isClose = task.task_type === 'close';
+        const closeActive = (dir) => (isClose && task.direction === dir) ? ' smooth-close-active' : '';
+        const closeMark = (dir) => (isClose && task.direction === dir) ? ' · 本任务判定' : '';
+        const covNote = (value) => {
+          if (!isClose || value === null || value === undefined || value === '') return '';
+          const n = Number(value);
+          if (!Number.isFinite(n)) return '';
+          return n >= 80 ? '（≥80% 达标）' : '（未达 80%）';
+        };
+        // close：列标题按平仓方向命名。forward close 实际判定 reverse_spread_pct
+        //（现货买一+合约卖一）；reverse close 判定 forward_spread_pct（合约买一+现货卖一）。
+        // open 卡两列标题与价格组零 diff。
+        const leftTitle = isClose ? `正向平仓率${closeMark('forward')}` : '正向开单率';
+        const rightTitle = isClose ? `反向平仓率${closeMark('reverse')}` : '反向开单率';
+        const leftPrices = isClose
+          ? `<div class="muted small">现货买一 ${liveValue(spot, 'bid')} · 数量 ${liveValue(spot, 'bid_qty')}</div>
+              <div class="muted small">合约卖一 ${liveValue(perp, 'ask')} · 数量 ${liveValue(perp, 'ask_qty')}</div>
+              <div class="${pctClass(market && market.reverse_spread_pct)}">${pct(market && market.reverse_spread_pct)}</div>`
+          : `<div class="muted small">合约买一 ${liveValue(perp, 'bid')} · 数量 ${liveValue(perp, 'bid_qty')}</div>
+              <div class="muted small">现货卖一 ${liveValue(spot, 'ask')} · 数量 ${liveValue(spot, 'ask_qty')}</div>
+              <div class="${pctClass(market && market.forward_spread_pct)}">${pct(market && market.forward_spread_pct)}</div>`;
+        const rightPrices = isClose
+          ? `<div class="muted small">合约买一 ${liveValue(perp, 'bid')} · 数量 ${liveValue(perp, 'bid_qty')}</div>
+              <div class="muted small">现货卖一 ${liveValue(spot, 'ask')} · 数量 ${liveValue(spot, 'ask_qty')}</div>
+              <div class="${pctClass(market && market.forward_spread_pct)}">${pct(market && market.forward_spread_pct)}</div>`
+          : `<div class="muted small">现货买一 ${liveValue(spot, 'bid')} · 数量 ${liveValue(spot, 'bid_qty')}</div>
+              <div class="muted small">合约卖一 ${liveValue(perp, 'ask')} · 数量 ${liveValue(perp, 'ask_qty')}</div>
+              <div class="${pctClass(market && market.reverse_spread_pct)}">${pct(market && market.reverse_spread_pct)}</div>`;
         return `<div id="hedge-smooth-market-${escapeHtml(task.id)}">
           <div>滑点阈值：<strong>${escapeHtml(hedgeText(task.slippage_threshold_pct))}%</strong> · 当前轮次：<strong>${seq}</strong> · 轮次剩余时间：<strong>${remaining}</strong></div>
           <div>盘口连接：${connBadge('现货', spot)} ${connBadge('合约', perp)}</div>
           <div class="hedge-smooth-market-grid">
-            <div class="hedge-smooth-market-col">
-              <div class="hedge-smooth-market-title">正向开单率</div>
-              <div class="muted small">合约买一 ${liveValue(perp, 'bid')} · 数量 ${liveValue(perp, 'bid_qty')}</div>
-              <div class="muted small">现货卖一 ${liveValue(spot, 'ask')} · 数量 ${liveValue(spot, 'ask_qty')}</div>
-              <div class="${pctClass(market && market.forward_spread_pct)}">${pct(market && market.forward_spread_pct)}</div>
+            <div class="hedge-smooth-market-col${isClose ? closeActive('forward') : ''}">
+              <div class="hedge-smooth-market-title">${leftTitle}</div>
+              ${leftPrices}
             </div>
-            <div class="hedge-smooth-market-col">
-              <div class="hedge-smooth-market-title">反向开单率</div>
-              <div class="muted small">现货买一 ${liveValue(spot, 'bid')} · 数量 ${liveValue(spot, 'bid_qty')}</div>
-              <div class="muted small">合约卖一 ${liveValue(perp, 'ask')} · 数量 ${liveValue(perp, 'ask_qty')}</div>
-              <div class="${pctClass(market && market.reverse_spread_pct)}">${pct(market && market.reverse_spread_pct)}</div>
+            <div class="hedge-smooth-market-col${isClose ? closeActive('reverse') : ''}">
+              <div class="hedge-smooth-market-title">${rightTitle}</div>
+              ${rightPrices}
             </div>
           </div>
-          <div>两腿一档覆盖：现货 <strong>${coverage(market && market.spot_coverage_pct)}</strong> · 合约 <strong>${coverage(market && market.perp_coverage_pct)}</strong></div>
+          <div>两腿一档覆盖：现货 <strong>${coverage(market && market.spot_coverage_pct)}</strong>${covNote(market && market.spot_coverage_pct)} · 合约 <strong>${coverage(market && market.perp_coverage_pct)}</strong>${covNote(market && market.perp_coverage_pct)}</div>
           <div class="borrow-task-note">等待原因：${escapeHtml((market && market.wait_reason) || '等待盘口状态刷新')}</div>
         </div>`;
       }
@@ -6327,19 +6226,21 @@
           ? `<div class="borrow-task-note">任务已终止（致命错误，不再补发）：${escapeHtml(hedgeText(task.stop_reason))}；需人工修正原因后新建任务。</div>`
           : '';
         const inactive = task.status === 'done' || task.status === 'deleted' || task.status === 'stopped';
-        const pauseDisabled = task.status !== 'running' ? ' disabled' : '';
-        const startDisabled = (
+        const preparingStart = state.hedgePreparingStartId === task.id;
+        const pauseDisabled = (preparingStart || task.status !== 'running') ? ' disabled' : '';
+        const startDisabled = preparingStart || (
           task.status !== 'paused' &&
           !(task.status === 'running' && task.worker_active === false)
         ) ? ' disabled' : '';
-        const deleteDisabled = task.status === 'deleted' ? ' disabled' : '';
+        const deleteDisabled = (preparingStart || task.status === 'deleted') ? ' disabled' : '';
         const awaitingCloseStart = task.task_type === 'close'
           && task.pause_reason === 'awaiting_manual_start';
         const smoothFillUnavailable = task.mode === 'smooth' && (
           task.status !== 'running' || !Number.isInteger(task.smooth_gate_seq)
         );
-        const fillDisabled = inactive || awaitingCloseStart || smoothFillUnavailable
+        const fillDisabled = preparingStart || inactive || awaitingCloseStart || smoothFillUnavailable
           ? ' disabled' : '';
+        const startLabel = preparingStart ? '备料中…' : '启动';
         const idAttr = escapeHtml(task.id);
         const logExpanded = !!(
           state.hedgeLogExpanded && state.hedgeLogExpanded.has(task.id)
@@ -6356,6 +6257,15 @@
         const pauseReasonLine = task.pause_reason
           ? `<div class="borrow-task-note">暂停原因：${escapeHtml(task.pause_reason_zh || String(task.pause_reason))}</div>`
           : '';
+        const CLOSE_PREP_LABELS = {
+          prepared: '已备料',
+          unprepared: '未备料',
+          realtime_per_round: '每轮实时校验'
+        };
+        const prepLabel = task.task_type === 'close'
+          ? CLOSE_PREP_LABELS[task.close_preparation_state] : null;
+        const prepLine = prepLabel
+          ? `<div>备料状态：<strong>${prepLabel}</strong></div>` : '';
         const smoothThreshold = task.mode === 'smooth'
           ? `<div>滑点阈值：<strong>${escapeHtml(hedgeText(task.slippage_threshold_pct))}%</strong></div>`
           : '';
@@ -6378,6 +6288,7 @@
             <div class="borrow-task-lines">
               <div>单次币量：<strong>${formatMockPrice(hedgeNum(task.single_amount))}</strong> · 计划尝试次数：<strong>${hedgeText(task.target_n)}</strong></div>
               <div>公共网格量：<strong>${task.q_common != null ? formatMockPrice(hedgeNum(task.q_common)) : '—'}</strong></div>
+              ${prepLine}
               ${countersLine}
               ${workerLine}
               ${exposureLine}
@@ -6388,7 +6299,7 @@
             </div>
             <div class="borrow-task-controls">
               <button class="btn compact action-pause" type="button" data-hedge-action="pause" data-task-id="${idAttr}"${pauseDisabled}>暂停</button>
-              <button class="btn compact action-start" type="button" data-hedge-action="start" data-task-id="${idAttr}"${startDisabled}>启动</button>
+              <button class="btn compact action-start" type="button" data-hedge-action="start" data-task-id="${idAttr}"${startDisabled}>${startLabel}</button>
               <button class="btn compact action-delete" type="button" data-hedge-action="delete" data-task-id="${idAttr}"${deleteDisabled}>删除</button>
               <button class="btn compact primary" type="button" data-hedge-action="fill1" data-task-id="${idAttr}"${fillDisabled}>${drillMode ? '成交1次（演习）' : '成交1次'}</button>
               <button class="btn compact" type="button" data-hedge-log-toggle="${idAttr}">${logExpanded ? '收起日志' : '展开日志'}</button>
@@ -8374,9 +8285,10 @@
               if (smoothCloseBtn.disabled) return;
               e.preventDefault();
               e.stopPropagation();
-              requestFakeSmoothCloseConfirm(
+              requestHedgeCloseConfirm(
                 smoothCloseBtn.getAttribute('data-hedge-close-smooth'),
-                smoothCloseBtn.getAttribute('data-hedge-close-smooth-dir')
+                smoothCloseBtn.getAttribute('data-hedge-close-smooth-dir'),
+                'smooth'
               );
               return;
             }
@@ -8435,16 +8347,6 @@
           const btn = e.target && typeof e.target.closest === 'function' ? e.target.closest('[data-hedge-filter]') : null;
           if (btn) setHedgeTaskFilter(btn.getAttribute('data-hedge-filter'));
         });
-        if (els.hedgeTasksPanel) {
-          els.hedgeTasksPanel.addEventListener('click', (e) => {
-            const previewBtn = (e.target && typeof e.target.closest === 'function')
-              ? e.target.closest('[data-smooth-close-style-preview]') : null;
-            if (!previewBtn || previewBtn.disabled) return;
-            e.preventDefault();
-            e.stopPropagation();
-            showHedgeModal('样式预览、不执行', '平滑平仓控件仅供对照布局，不启动、不暂停、不删除、不成交。');
-          });
-        }
         els.hedgeTabTasks.addEventListener('click', () => setHedgeTab('tasks'));
         els.hedgeTabLogs.addEventListener('click', () => setHedgeTab('logs'));
         els.hedgeLogsRefresh.addEventListener('click', () => { loadHedgeLogs(true); });
@@ -8727,6 +8629,7 @@
           state.hedgeLogExpanded = new Set();
           state.hedgeTaskLogs = {};
           state.hedgeTaskActionErrors = {};
+          state.hedgePreparingStartId = null;
           updateHedgeTaskNav();
         }
       };
