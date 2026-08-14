@@ -773,6 +773,20 @@ def direction_to_leg_actions(
     )
 
 
+def evaluation_direction(task: dict) -> str:
+    """平滑门评估方向（smooth-close C1/C16）：close 任务取反，open 原样。
+
+    平仓 forward（现货 SELL 吃 spot 买一 + 合约 BUY 吃 perp 卖一）的两腿
+    实际操作数 = 开单 reverse 公式的 ``(spot.bid, perp.ask)``；reverse 平仓同
+    理对应开单 forward 公式。因此 gate 等待循环评估、任务卡盘口读模型的
+    "当前方向"、覆盖率与放行审计全部传入本函数的返回值，
+    ``evaluate_smooth_gate`` 本身一行不改。
+    """
+    if (task.get("task_type") or TASK_TYPE_OPEN) == TASK_TYPE_CLOSE:
+        return DIR_REVERSE if task["direction"] == DIR_FORWARD else DIR_FORWARD
+    return task["direction"]
+
+
 # ---------------------------------------------------------------------------
 # Common-grid quantity rounding (ADR-2 / 10-design §4, correctness-critical)
 # ---------------------------------------------------------------------------

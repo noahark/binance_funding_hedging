@@ -885,10 +885,14 @@ class HedgeOpenStore:
             task = self._conn.execute(
                 "SELECT * FROM hedge_open_task WHERE id = ?", (task_id,)
             ).fetchone()
+            # smooth-close C10/C15：不再写死 open-only（否则 close 永远建不了
+            # gate）；同时要求 q_common 有效——没有冻结数量不得建立 gate（含
+            # timeout/manual 放行路径）。q_common 的唯一写入路径是建卡/open 与
+            # arm_prepared_close_task 的 fmt_decimal 正数，真值判断即有效性判断。
             if (
                 task is None
-                or task["task_type"] != D.TASK_TYPE_OPEN
                 or task["mode"] != D.MODE_SMOOTH
+                or not task["q_common"]
                 or task["status"] != D.STATUS_RUNNING
                 or task["scheduled_attempt_count"] >= task["target_n"]
                 or gate_seq != task["scheduled_attempt_count"] + 1
@@ -923,10 +927,11 @@ class HedgeOpenStore:
             task = self._conn.execute(
                 "SELECT * FROM hedge_open_task WHERE id = ?", (task_id,)
             ).fetchone()
+            # smooth-close C10/C15：同 open_smooth_gate 的解禁 + q_common 谓词。
             if (
                 task is None
-                or task["task_type"] != D.TASK_TYPE_OPEN
                 or task["mode"] != D.MODE_SMOOTH
+                or not task["q_common"]
                 or task["status"] != D.STATUS_RUNNING
                 or task["scheduled_attempt_count"] >= task["target_n"]
                 or task["smooth_gate_seq"] != gate_seq
@@ -957,6 +962,57 @@ class HedgeOpenStore:
                 " updated_at_us = ? WHERE id = ? AND status = ?",
                 (now_us, task_id, D.STATUS_RUNNING),
             )
+
+    def arm_prepared_close_task(
+        self, task_id: str, q_common: str, position_side_mode: str | None,
+        preflight_snapshot: dict | None, now_us: int,
+    ) -> dict | None:
+        """smooth-close C14 一次条件写：语义等价
+        ``WHERE id=? AND status='paused' AND q_common IS NULL``，命中才把备料
+        冻结的 ``q_common`` / ``position_side_mode`` / ``preflight_snapshot``
+        与 ``running`` 写进同一次 UPDATE（末步写入：划转成功之后才落数量）。
+        置 running 的列语义与 :meth:`set_task_status` 的 RUNNING 分支一致
+        （清 pause 状态与 worker 退出原因，不动 smooth_gate_* 列）。
+        未命中（备料期间被删除/暂停/并发启动写入）返回 ``None``：调用方重读
+        权威状态，已删除/已完成一律不复活。"""
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "UPDATE hedge_open_task SET status = ?, q_common = ?,"
+                " position_side_mode = ?, preflight_snapshot = ?,"
+                " pause_reason = NULL, pause_reason_zh = NULL,"
+                " last_worker_exit_reason = NULL, updated_at_us = ?"
+                " WHERE id = ? AND status = ? AND q_common IS NULL",
+                (
+                    D.STATUS_RUNNING, q_common, position_side_mode,
+                    json.dumps(preflight_snapshot) if preflight_snapshot is not None else None,
+                    now_us, task_id, D.STATUS_PAUSED,
+                ),
+            )
+            if cur.rowcount == 0:
+                return None
+            row = self._conn.execute(
+                "SELECT * FROM hedge_open_task WHERE id = ?", (task_id,)
+            ).fetchone()
+            return _row_to_task(row)
+
+    def resume_paused_task(self, task_id: str, now_us: int) -> dict | None:
+        """smooth-close C4：q_common 已有的 paused 任务启动时跳过备料，仅带
+        ``paused`` 谓词置 running（防备料成功后人工暂停/竞态期间的状态覆盖）。
+        未命中返回 ``None``，由调用方按权威状态裁决。"""
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "UPDATE hedge_open_task SET status = ?,"
+                " pause_reason = NULL, pause_reason_zh = NULL,"
+                " last_worker_exit_reason = NULL, updated_at_us = ?"
+                " WHERE id = ? AND status = ?",
+                (D.STATUS_RUNNING, now_us, task_id, D.STATUS_PAUSED),
+            )
+            if cur.rowcount == 0:
+                return None
+            row = self._conn.execute(
+                "SELECT * FROM hedge_open_task WHERE id = ?", (task_id,)
+            ).fetchone()
+            return _row_to_task(row)
 
     # ---------------------------------------------------- attempt / leg lifecycle
 

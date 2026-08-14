@@ -163,13 +163,15 @@ def test_create_rejects_missing_market_invalid_mode_pair_and_threshold_leak(tmp_
             address, "POST", "/api/hedge-open-tasks", _smooth_body()
         )
         assert (status, error["error"]) == (400, "smooth_market_unavailable")
-
-    with _server(tmp_path / "next") as (address, _, _, _):
+        # smooth-close C6：open-only 限制已解除，close 建卡同样要求公共盘口
+        # provider 可用，否则同一 400 smooth_market_unavailable。
         status, error = _request(
             address, "POST", "/api/hedge-open-tasks",
             _smooth_body(task_type="close"),
         )
-        assert (status, error["error"]) == (400, "invalid_field")
+        assert (status, error["error"]) == (400, "smooth_market_unavailable")
+
+    with _server(tmp_path / "next") as (address, _, _, _):
         status, error = _request(
             address, "POST", "/api/hedge-open-tasks",
             _smooth_body(mode="immediate"),

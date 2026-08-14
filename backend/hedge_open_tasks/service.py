@@ -172,6 +172,18 @@ def task_to_doc(task: dict, *, worker_active: bool | None = None) -> dict:
     gate_started = task.get("smooth_gate_started_at_us")
     gate_seq = task.get("smooth_gate_seq")
     gate_forced = bool(task.get("smooth_gate_force_requested"))
+    # smooth-close C17：备料状态是 q_common 是否有值的**派生**展示字段（不落
+    # 库、不新增列、无第二处真相）。open 任务无此概念（None）；immediate
+    # close 每轮实时校验（行为不变）；smooth close 已备料/未备料。前端
+    # P2 据此接线：prepared=已备料 / unprepared=未备料 / realtime_per_round=
+    # 每轮实时校验。
+    task_type = task.get("task_type") or D.TASK_TYPE_OPEN
+    if task_type != D.TASK_TYPE_CLOSE:
+        close_preparation_state = None
+    elif task.get("mode") == D.MODE_SMOOTH:
+        close_preparation_state = "prepared" if q_common else "unprepared"
+    else:
+        close_preparation_state = "realtime_per_round"
     return {
         "id": task["id"],
         "coin": task["coin"],
@@ -217,6 +229,7 @@ def task_to_doc(task: dict, *, worker_active: bool | None = None) -> dict:
         "smooth_gate_state": (
             "none" if gate_seq is None else ("forced" if gate_forced else "waiting")
         ),
+        "close_preparation_state": close_preparation_state,
         "created_at": D.us_to_iso(task["created_at_us"]),
         "updated_at": D.us_to_iso(task["updated_at_us"]),
     }
@@ -797,12 +810,12 @@ class HedgeOpenTaskService:
         D.validate_task_type(task_type)
         threshold = None
         if mode == D.MODE_SMOOTH:
-            if task_type != D.TASK_TYPE_OPEN:
-                raise D.invalid_field("mode", "smooth mode supports open tasks only")
+            # smooth-close C6：解除 open-only——close 同样要求公共盘口 provider
+            # 可用（gate 评估依赖一档盘口），否则 400 smooth_market_unavailable。
             if self._market_provider is None:
                 raise D.HedgeError(
                     400, "smooth_market_unavailable",
-                    "平滑开单公共盘口不可用；可继续使用立即开单",
+                    "平滑开平仓公共盘口不可用；可继续使用立即开单/立即平仓",
                 )
             threshold = D.validate_slippage_threshold_pct(
                 body.get("slippage_threshold_pct")
@@ -887,11 +900,18 @@ class HedgeOpenTaskService:
                 spot_symbol=spot_symbol,
                 spot_base_asset=spot_base_asset,
                 symbol_match_type=symbol_match_type,
+                # smooth-close C6/§6.1：轻量建卡分支落规范后的阈值（当前分支
+                # 此前未传）；C8：仅 smooth close 的连续失败刹车阈值落 1（出现
+                # 第一次单腿成交或提交失败即暂停），immediate close 保持默认 3。
+                failure_pause_threshold=(
+                    1 if mode == D.MODE_SMOOTH else D.DEFAULT_FAILURE_PAUSE_THRESHOLD
+                ),
                 initial_status=D.STATUS_PAUSED,
                 initial_pause_reason=D.PAUSE_REASON_AWAITING_MANUAL_START,
                 initial_pause_reason_zh=D.pause_reason_zh(
                     D.PAUSE_REASON_AWAITING_MANUAL_START
                 ),
+                slippage_threshold_pct=threshold,
             )
             print(
                 f"[HEDGE-CREATE] success task_id={task_id[:8]} task_type=close "
@@ -1067,6 +1087,18 @@ class HedgeOpenTaskService:
             raise D.HedgeError(409, "invalid_state", "cannot start a deleted task")
         if status == D.STATUS_DONE:
             return 200, self._doc(task)  # idempotent: done stays done
+        # smooth-close C5/C13/C14：启动 = 闸门校验 → 同步备料 → 一次条件写，
+        # 与其余任务类型的 post_start（下方原路径，零 diff）分流。
+        if (
+            task.get("mode") == D.MODE_SMOOTH
+            and (task.get("task_type") or D.TASK_TYPE_OPEN) == D.TASK_TYPE_CLOSE
+        ):
+            if status not in (D.STATUS_PAUSED, D.STATUS_RUNNING):
+                raise D.HedgeError(
+                    409, "invalid_state",
+                    "任务已停止（fatal stop），本启动路径不自动恢复，请核对后另行处理",
+                )
+            return self._start_smooth_close(task)
         # Single-leg exposure is ADVISORY (breakdown §4.5): it does not freeze
         # scheduling and never blocks start.
         updated = self._store.set_task_status(task_id, D.STATUS_RUNNING, self._wall_us())
@@ -1079,6 +1111,92 @@ class HedgeOpenTaskService:
                 self.ensure_worker(task_id)
         self._notify_smooth_task(task_id)
         return 200, self._doc(updated)
+
+    def _start_smooth_close(self, task: dict) -> tuple[int, dict]:
+        """smooth close 启动链（C4/C5/C13/C14 §6.2），顺序硬约束：
+
+        1. 【C5】备料**之前**校验 Start gate 与平仓闸门——任一关闭即返回中文
+           原因、任务保持 ``paused``、零预检/零查仓/零划转（划转原本发生在
+           worker 的 dispatch 路径内受双闸约束，前移后必须在此恢复同等约束）；
+        2. ``q_common`` 已有值（备料成功后的人工恢复，C4）→ 跳过备料，仅带
+           ``paused`` 谓词置 running；
+        3. 否则本请求内同步执行三道门备料（C13：请求会真实等待数秒），任一步
+           失败任务保持 ``paused`` 并携带 §2.4 既有中文原因，不置 running、
+           不启 worker、零订阅、零 gate；
+        4. 【C14】成功收尾一次条件写（``arm_prepared_close_task``，语义等价
+           ``WHERE status='paused' AND q_common IS NULL``），未命中重读权威
+           状态：已删除/已完成/已停止一律冲突错误且绝不复活；已 running 幂等
+           返回；仍 paused 且已有 ``q_common`` 只置 running。
+        """
+        task_id = task["id"]
+        if not self.is_start_gate_on():
+            raise D.HedgeError(
+                409, "start_gate_closed", "开单闸门已关闭，先开闸再启动任务",
+            )
+        if not self.is_close_gate_on():
+            raise D.HedgeError(
+                409, "close_gate_closed", "平仓闸门已关闭，先开闸再启动任务",
+            )
+        now_us = self._wall_us()
+        updated: dict | None
+        if task.get("q_common"):
+            # C4：备料成功后重启/人工恢复——跳过备料，只带 paused 谓词置 running。
+            updated = self._store.resume_paused_task(task_id, now_us)
+            if updated is None:
+                updated = self._resolve_smooth_close_start_conflict(task_id)
+        else:
+            prep_q, prep_pos_mode, prep_snapshot, prep_signal = (
+                self._run_close_preparation(task, now_us)
+            )
+            if prep_signal is not None:
+                current = self._store.get_task(task_id) or task
+                raise D.HedgeError(
+                    409, "smooth_close_start_failed",
+                    current.get("pause_reason_zh")
+                    or "平滑平仓备料失败，任务已暂停（fail-closed，未发单）",
+                )
+            if prep_q is None:
+                # remaining_attempts <= 0：计划次数已用完，与抽函数前的
+                # dispatch 行为一致（不发单也不暂停），启动侧给准确文案。
+                raise D.HedgeError(
+                    409, "invalid_state",
+                    "任务计划执行次数已用完，等待收尾或人工处理，无需再启动",
+                )
+            updated = self._store.arm_prepared_close_task(
+                task_id,
+                D.fmt_decimal(prep_q),
+                prep_pos_mode,
+                prep_snapshot,
+                now_us,
+            )
+            if updated is None:
+                # C14：未命中不写、不复活，按当前权威状态裁决。
+                updated = self._resolve_smooth_close_start_conflict(task_id)
+        self.ensure_worker(task_id, relaunch_after_current=True)
+        self._notify_smooth_task(task_id)
+        return 200, self._doc(updated)
+
+    def _resolve_smooth_close_start_conflict(self, task_id: str) -> dict:
+        """C14 条件写未命中后的权威状态裁决：已删除/已完成/已停止 → 冲突错误
+        （绝不复活）；已 running → 幂等返回；仍 paused 且已有 ``q_common`` →
+        只置 running（同样带 paused 谓词）。"""
+        current = self._store.get_task(task_id)
+        if current is None or current["status"] in (
+            D.STATUS_DELETED, D.STATUS_DONE, D.STATUS_STOPPED,
+        ):
+            raise D.HedgeError(
+                409, "invalid_state",
+                "任务已被删除、已完成或已停止，不再启动",
+            )
+        if current["status"] == D.STATUS_RUNNING:
+            return current
+        if current.get("q_common"):
+            resumed = self._store.resume_paused_task(task_id, self._wall_us())
+            if resumed is not None:
+                return resumed
+        raise D.HedgeError(
+            409, "invalid_state", "任务状态已变化，请刷新后重试",
+        )
 
     def post_pause(self, task_id: str) -> tuple[int, dict]:
         task = self._get_task_or_404(task_id)
@@ -1562,6 +1680,15 @@ class HedgeOpenTaskService:
                 409, "version_conflict", "设置已被其他会话修改，请刷新后重试",
                 extra={"settings": settings_to_doc(self._store.get_settings(), self._mode)},
             )
+        # smooth-close C12①④（镜像 put_start_gate）：关闸/开闸都唤醒等待中的
+        # gate（等待循环检查 is_close_gate_on 并清门退出）；开闸后为 running
+        # 的 smooth 任务重新拉起 worker（否则关闸退出后的任务躺死，Human 以为
+        # 系统坏了），不需要人工再点一次启动。
+        self._notify_all_smooth()
+        if enabled:
+            for task in self._store.list_tasks(D.STATUS_RUNNING):
+                if task.get("mode") == D.MODE_SMOOTH:
+                    self.ensure_worker(task["id"])
         return 200, settings_to_doc(result, self._mode)
 
     # -------------------------------------------------------- smooth-open gate
@@ -1718,6 +1845,9 @@ class HedgeOpenTaskService:
             "gate_seq": gate_seq,
             "reason": reason,
             "direction": task["direction"],
+            # C16 §4.2-4（验收 21）：审计显式记录实际参与评估的方向（close 为
+            # 翻转后方向），读者无须自行换算；open 任务两字段恒等。
+            "eval_direction": D.evaluation_direction(task),
             "threshold": task.get("slippage_threshold_pct"),
             "spot": self._smooth_audit_side(spot_snap),
             "perp": self._smooth_audit_side(perp_snap),
@@ -1796,7 +1926,9 @@ class HedgeOpenTaskService:
             spot_snap, perp_snap = latest(spot_key), latest(perp_key)
         forward = self._smooth_eval(task, D.DIR_FORWARD)
         reverse = self._smooth_eval(task, D.DIR_REVERSE)
-        current = forward if task["direction"] == D.DIR_FORWARD else reverse
+        # C16 §4.2-2：任务卡读模型的"当前方向"取评估方向——close forward 任务
+        # 参与判定的是 reverse 那一组价格与数量（spot.bid + perp.ask）。
+        current = forward if D.evaluation_direction(task) == D.DIR_FORWARD else reverse
 
         def coverage_pct(value):
             if value is None:
@@ -1810,6 +1942,13 @@ class HedgeOpenTaskService:
             wait_reason = "当前无活动平滑门"
         elif task.get("smooth_gate_force_requested"):
             wait_reason = "已人工放行，等待 worker 原子消费"
+        elif (
+            (task.get("task_type") or D.TASK_TYPE_OPEN) == D.TASK_TYPE_CLOSE
+            and "开单率" in wait_reason
+        ):
+            # C16 §4.2-7：平仓卡不得出现"开单率"字样（service 层改写文案，
+            # evaluate_smooth_gate 判定逻辑不动；开单任务文案零 diff）。
+            wait_reason = wait_reason.replace("开单率", "平仓率")
         return {
             "spot": self._smooth_side_doc(spot_snap),
             "perp": self._smooth_side_doc(perp_snap),
@@ -1859,12 +1998,25 @@ class HedgeOpenTaskService:
             if not self.is_start_gate_on():
                 self._store.clear_smooth_gate(task["id"], self._wall_us())
                 return None
+            # smooth-close C12②：等待循环同时受平仓闸门约束——关闸立即唤醒并
+            # 清门（否则存在长达 5 分钟的"关闸后仍发出一笔"窗口）；open 任务
+            # 不检查（零回归）。
+            if (
+                (current.get("task_type") or D.TASK_TYPE_OPEN) == D.TASK_TYPE_CLOSE
+                and not self.is_close_gate_on()
+            ):
+                self._store.clear_smooth_gate(task["id"], self._wall_us())
+                return None
             if current.get("smooth_gate_seq") != gate_seq:
                 return None
             now_us = self._wall_us()
             deadline = current["smooth_gate_started_at_us"] + D.SMOOTH_GATE_WINDOW_US
             spot_snap, perp_snap = self._read_smooth_sides(current)
-            result = self._eval_smooth_from_sides(current, spot_snap, perp_snap)
+            # C16 §4.2-1：close 任务用翻转后的评估方向（forward close 的两腿
+            # 实际吃 spot 买一 + perp 卖一 = 开单 reverse 公式操作数）。
+            result = self._eval_smooth_from_sides(
+                current, spot_snap, perp_snap, D.evaluation_direction(current),
+            )
             if current.get("smooth_gate_force_requested"):
                 reason = D.PASS_REASON_MANUAL
             elif result.market_pass:
@@ -2095,7 +2247,11 @@ class HedgeOpenTaskService:
                 self._store.clear_smooth_gate(task_id, now_us)
             return self._worker_exit(task_id, D.WORKER_EXIT_START_GATE_OFF)
         # 功能三：close 任务受独立平仓闸门（close_gate）约束（默认开，Human 已拍板）。
+        # smooth-close C12⑤：因平仓闸门关闭退出时同样清门（现状只有 Start gate
+        # 分支会清）——否则关闸退出后 gate 残留，再开闸可能复用旧窗口。
         if task.get("task_type") == D.TASK_TYPE_CLOSE and not self.is_close_gate_on():
+            if task.get("mode") == D.MODE_SMOOTH:
+                self._store.clear_smooth_gate(task_id, now_us)
             return self._worker_exit(task_id, D.WORKER_EXIT_CLOSE_GATE_OFF)
         # 功能三（close 完成判定，以合约腿为准；Human 2026-08：close 任务从 running
         # 变为其他状态必须先走合约无仓核实）：stage 2026-08-06 task 05 §4.1
@@ -2147,6 +2303,18 @@ class HedgeOpenTaskService:
                         kind="leverage_set_failed", pause_zh=lev_err,
                     )
                     return False
+            if (
+                (task.get("task_type") or D.TASK_TYPE_OPEN) == D.TASK_TYPE_CLOSE
+                and not task.get("q_common")
+            ):
+                # smooth-close C15：无有效 q_common 的 running 任务 fail-closed
+                # 落 paused + 既有 preflight_incomplete 中文原因并退出 worker
+                # （下一轮 status!=running 即退）。不是"不建门然后返回"——那
+                # 会让 _worker_round 在无在途腿时无节流紧密循环，且 timeout/
+                # manual 放行仍可能以未取整的 single_amount 走下单链。仅拦
+                # close：open smooth 的 NULL-q_common 历史行走 F-A 既有已接受
+                # 行为，零回归。
+                return self._pause_preflight_incomplete(task, now_us)
             gate = self._wait_for_smooth_gate(task, now_us)
             if gate is None:
                 # Pause followed immediately by resume may happen before this
@@ -2222,6 +2390,63 @@ class HedgeOpenTaskService:
     # ------------------------------------------------------------------ #
     # 平仓现货卖出重设计（2026-08）：现货余额检查/划转/复检 + USDT 回流
     # ------------------------------------------------------------------ #
+    def _run_close_preparation(
+        self, task: dict, now_us: int,
+    ) -> tuple[Decimal | None, str | None, dict | None, str | None]:
+        """close 备料三道门（smooth-close C4/C5 §4.1）：fresh preflight →
+        `_close_um_position_error` → `_ensure_close_spot_balance`。
+
+        两个调用方：立即平仓（immediate close）仍在 `_dispatch_one_for_task`
+        的原调用点、**每一轮**执行；平滑平仓（smooth close）仅在 `post_start`
+        备料时执行一次（成功后 `q_common` 已写入即跳过，C4）。
+
+        成功返回 ``(q_common, position_side_mode, snapshot_record, None)``；
+        任一门失败按既有路径落库（fatal 停止 / preflight_incomplete 记录 /
+        两条 close 门 `_pause_task_local` 中文原因）并返回
+        ``(None, None, None, signal)``；剩余轮次为 0 返回 ``(None, …, None)``
+        （不发单也不暂停，与抽函数前一致）。
+        """
+        fresh = self._resolve_fresh_preflight(task)
+        if fresh is None or not fresh.ok:
+            if fresh is not None and fresh.fatal:
+                self._stop_task_fatal_preflight(task, fresh, now_us)
+                return None, None, None, D.SIGNAL_PREFLIGHT_FATAL
+            self._record_preflight_incomplete(
+                task, now_us, getattr(self._preflight, "last_failed_read", None),
+            )
+            return None, None, None, D.SIGNAL_PREFLIGHT_INCOMPLETE
+        if fresh.q_common is None:
+            self._record_preflight_incomplete(task, now_us, "q_common")
+            return None, None, None, D.SIGNAL_PREFLIGHT_INCOMPLETE
+        remaining_attempts = task["target_n"] - task["scheduled_attempt_count"]
+        if remaining_attempts <= 0:
+            return None, None, None, None
+        required_qty = fresh.q_common * D.Decimal(remaining_attempts)
+        um_err = self._close_um_position_error(task, required_qty)
+        if um_err is not None:
+            self._pause_task_local(
+                task,
+                D.PAUSE_REASON_CLOSE_UM_POSITION,
+                D.SIGNAL_CLOSE_GUARD_FAILED,
+                now_us,
+                pause_zh=um_err,
+            )
+            return None, None, None, D.SIGNAL_CLOSE_GUARD_FAILED
+        if task["direction"] == D.DIR_FORWARD:
+            balance_err = self._ensure_close_spot_balance(
+                task, now_us, required_qty,
+            )
+            if balance_err is not None:
+                self._pause_task_local(
+                    task,
+                    D.PAUSE_REASON_CLOSE_SPOT_BALANCE,
+                    D.SIGNAL_CLOSE_GUARD_FAILED,
+                    now_us,
+                    pause_zh=balance_err,
+                )
+                return None, None, None, D.SIGNAL_CLOSE_GUARD_FAILED
+        return fresh.q_common, fresh.position_side_mode, fresh.snapshot_record, None
+
     def _log_close_transfer(self, task_id: str, now_us: int, action: str,
                             coin: str, asset: str, amount: str | None,
                             reason: str | None = None) -> None:
@@ -3212,6 +3437,15 @@ class HedgeOpenTaskService:
         self._smooth_audit_mark(smooth_audit, "service_dispatch", self._mono_us)
         task_type = task.get("task_type") or D.TASK_TYPE_OPEN
         live = self._live_dispatch_capable() and self.is_start_gate_on()
+        # smooth-close C12③：发单准入同时要求平仓闸门开启——拦住"等待循环刚
+        # 通过闸门检查、放行结论刚产生、此时关闸"的竞态窗口。不发单、不消费
+        # gate（worker 下一轮按 C12⑤ 清门退出），任务状态不变。
+        if (
+            live
+            and task_type == D.TASK_TYPE_CLOSE
+            and not self.is_close_gate_on()
+        ):
+            return self._store.get_task(task["id"]) or task, None
         if live and task_type == D.TASK_TYPE_CLOSE:
             # Historical rows may have NULL symbol_match_type. The stored value
             # and today's pure mapping are both authoritative blockers until
@@ -3237,63 +3471,32 @@ class HedgeOpenTaskService:
                     D.SIGNAL_CLOSE_GUARD_FAILED,
                 )
         if live and task.get("mode") != D.MODE_SMOOTH:
-            fresh = self._resolve_fresh_preflight(task)
-            if fresh is None or not fresh.ok:
-                # incomplete read -> fail-closed exit (worker exits, task pauses
-                # with a Chinese reason — stage 2026-08-06 task 05 §5); fatal ->
-                # stop (rows 1–2).
-                if fresh is not None and fresh.fatal:
-                    self._stop_task_fatal_preflight(task, fresh, now_us)
-                    return self._store.get_task(task["id"]) or task, D.SIGNAL_PREFLIGHT_FATAL
-                self._record_preflight_incomplete(
-                    task, now_us, getattr(self._preflight, "last_failed_read", None),
-                )
-                return self._store.get_task(task["id"]) or task, D.SIGNAL_PREFLIGHT_INCOMPLETE
-            q_common = fresh.q_common
-            position_side_mode = fresh.position_side_mode
-            snapshot_record = fresh.snapshot_record
             if task_type == D.TASK_TYPE_CLOSE:
-                if q_common is None:
-                    self._record_preflight_incomplete(task, now_us, "q_common")
-                    return (
-                        self._store.get_task(task["id"]) or task,
-                        D.SIGNAL_PREFLIGHT_INCOMPLETE,
-                    )
-                remaining_attempts = (
-                    task["target_n"] - task["scheduled_attempt_count"]
+                # 三道门抽函数（smooth-close C4/C5 §4.1）：立即平仓仍在原调用
+                # 点、每一轮执行（本分支）；平滑平仓只在 post_start 备料时执行
+                # 一次。失败处置（fatal 停止 / preflight_incomplete / 两条 close
+                # 门暂停）在函数内落库，与抽函数前逐行等价。
+                q_common, position_side_mode, snapshot_record, prep_signal = (
+                    self._run_close_preparation(task, now_us)
                 )
-                if remaining_attempts <= 0:
-                    return self._store.get_task(task["id"]) or task, None
-                required_qty = q_common * D.Decimal(remaining_attempts)
-                um_err = self._close_um_position_error(task, required_qty)
-                if um_err is not None:
-                    self._pause_task_local(
-                        task,
-                        D.PAUSE_REASON_CLOSE_UM_POSITION,
-                        D.SIGNAL_CLOSE_GUARD_FAILED,
-                        now_us,
-                        pause_zh=um_err,
+                if prep_signal is not None or q_common is None:
+                    return self._store.get_task(task["id"]) or task, prep_signal
+            else:
+                fresh = self._resolve_fresh_preflight(task)
+                if fresh is None or not fresh.ok:
+                    # incomplete read -> fail-closed exit (worker exits, task pauses
+                    # with a Chinese reason — stage 2026-08-06 task 05 §5); fatal ->
+                    # stop (rows 1–2).
+                    if fresh is not None and fresh.fatal:
+                        self._stop_task_fatal_preflight(task, fresh, now_us)
+                        return self._store.get_task(task["id"]) or task, D.SIGNAL_PREFLIGHT_FATAL
+                    self._record_preflight_incomplete(
+                        task, now_us, getattr(self._preflight, "last_failed_read", None),
                     )
-                    return (
-                        self._store.get_task(task["id"]) or task,
-                        D.SIGNAL_CLOSE_GUARD_FAILED,
-                    )
-                if task["direction"] == D.DIR_FORWARD:
-                    balance_err = self._ensure_close_spot_balance(
-                        task, now_us, required_qty,
-                    )
-                    if balance_err is not None:
-                        self._pause_task_local(
-                            task,
-                            D.PAUSE_REASON_CLOSE_SPOT_BALANCE,
-                            D.SIGNAL_CLOSE_GUARD_FAILED,
-                            now_us,
-                            pause_zh=balance_err,
-                        )
-                        return (
-                            self._store.get_task(task["id"]) or task,
-                            D.SIGNAL_CLOSE_GUARD_FAILED,
-                        )
+                    return self._store.get_task(task["id"]) or task, D.SIGNAL_PREFLIGHT_INCOMPLETE
+                q_common = fresh.q_common
+                position_side_mode = fresh.position_side_mode
+                snapshot_record = fresh.snapshot_record
         else:
             q_common = D.Decimal(task["q_common"]) if task["q_common"] else None
             position_side_mode = task["position_side_mode"]

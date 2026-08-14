@@ -55,6 +55,8 @@ _TASK_KEYS = {
     "slippage_threshold_pct", "smooth_gate_seq", "smooth_gate_started_at_us",
     "smooth_gate_deadline_at_us", "smooth_gate_force_requested",
     "smooth_gate_state",
+    # 平滑平仓 V1（C17）：备料状态派生字段（open 任务恒 None，不落库）。
+    "close_preparation_state",
 }
 _SETTINGS_KEYS = {"executor_mode", "start_gate", "interval_seconds", "version",
                   "close_gate"}
