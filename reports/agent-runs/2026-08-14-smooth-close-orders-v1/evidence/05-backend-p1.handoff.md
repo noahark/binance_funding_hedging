@@ -160,7 +160,11 @@ smooth close 建卡即固化规范值且 `failure_pause_threshold=1`；immediate
 <!-- BOOKKEEPER_APPEND_ONLY: all bytes before this marker are the source payload -->
 
 ## Bookkeeper Verification (Bookkeeper append-only)
-（由 Bookkeeper 核验后追加）
+- source_sha256: 95a54c4e2af6bf037420b228a2f59fde2de8cb0842654ec2fb0bf95277eed936
+- 核验时间: 2026-08-14 22:15:00 CST
+- 核对 status revision: 7
+- 依据: handoff 格式合规。实测 pytest (backend/tests) 结果为 1936 passed, 1 failed，唯一失败项 (test_urlopen_only_in_designated_http_clients) 已确认为早于 base_sha 的既有失败。解析 delivery_sha 成功，未发现越权修改。
+- 后续状态: 验证通过（verified）。按 AGENTS.md §8 规定固定 base_sha..delivery_sha，任务状态推至 reported。关卡阻挡：进入 HIGH_RISK 跨 provider 只读评审 (Review-1)。
 
 ## Errata (append-only)
 （无）
