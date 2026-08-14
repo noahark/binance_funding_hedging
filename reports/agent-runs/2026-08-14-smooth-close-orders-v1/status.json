@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 5,
+  "revision": 6,
   "stage_id": "2026-08-14-smooth-close-orders-v1",
   "bookkeeper": "gemini-3.1-pro",
-  "phase": "plan-review",
-  "checkpoint": "177f806a589279b4a3fca0e8325dbb999a5d9157",
-  "base_sha": "177f806a589279b4a3fca0e8325dbb999a5d9157",
+  "phase": "implementation",
+  "checkpoint": "56e0dba17f863d3c2af7f9c45ae0bb81018c5196",
+  "base_sha": "56e0dba17f863d3c2af7f9c45ae0bb81018c5196",
   "delivery_sha": null,
-  "ledger_sha": "177f806a589279b4a3fca0e8325dbb999a5d9157",
+  "ledger_sha": "56e0dba17f863d3c2af7f9c45ae0bb81018c5196",
   "current_task": {
-    "id": "03-plan-review-3",
+    "id": "04-fake-frontend",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-14-smooth-close-orders-v1/03-plan-review-3.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-14-smooth-close-orders-v1/04-fake-frontend.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
