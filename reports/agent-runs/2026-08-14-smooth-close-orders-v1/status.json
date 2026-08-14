@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 11,
+  "revision": 12,
   "stage_id": "2026-08-14-smooth-close-orders-v1",
   "bookkeeper": "gemini-3.1-pro",
   "phase": "implementation",
-  "checkpoint": "6f6c7297c895a3bf56ae5e0abc7a542de891dff7",
+  "checkpoint": "f95577fc892776e5fe268399a4331d86497c97f9",
   "base_sha": "6f6c7297c895a3bf56ae5e0abc7a542de891dff7",
-  "delivery_sha": null,
+  "delivery_sha": "f95577fc892776e5fe268399a4331d86497c97f9",
   "ledger_sha": "6f6c7297c895a3bf56ae5e0abc7a542de891dff7",
   "current_task": {
-    "id": "08-integration-p2",
+    "id": "10-integration-p2-review-2",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-14-smooth-close-orders-v1/08-integration-p2.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-14-smooth-close-orders-v1/10-integration-p2-review-2.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
