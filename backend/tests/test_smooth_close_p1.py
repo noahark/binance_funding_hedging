@@ -88,14 +88,19 @@ class _Market:
 
 
 class _ClosePreflight:
-    """fake preflight provider：可编程 filters step；记录每次调用的方向。"""
+    """fake preflight provider：可编程 filters step；记录每次调用的方向。
+    ``snapshot_result=None`` 模拟预检读失败（get_snapshot → None）。"""
 
-    def __init__(self, step="0.001"):
+    def __init__(self, step="0.001", snapshot_result="default"):
         self.step = step
+        self.snapshot_result = snapshot_result
+        self.last_failed_read = None
         self.calls = []
 
     def get_snapshot(self, coin, direction, task_type="open", position_side_mode=None):
         self.calls.append((coin, direction, task_type, position_side_mode))
+        if self.snapshot_result is None:
+            return None
         filters = {
             "lot_size": {"min_qty": "0.001", "max_qty": "100000", "step_size": self.step},
             "market_lot_size": {"min_qty": "0.001", "max_qty": "100000",
@@ -415,6 +420,54 @@ def test_post_start_failure_pauses_with_chinese_reason_no_worker(tmp_path):
         assert doc["id"] not in svc._smooth_subscriptions   # 零订阅
         assert svc.store.list_attempts_for_task(doc["id"]) == []  # 零 attempt
         assert executor.dispatch_calls == 0
+    finally:
+        svc.close()
+
+
+# ---------------------------------------------------------------------------
+# Review-1 F1：预检不完整的启动原因落库与回显
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("failed_read", ["spot_filters", None])
+def test_post_start_preflight_incomplete_pauses_with_exact_reason(tmp_path, failed_read):
+    """Review-1 F1：`get_snapshot` 读失败时，post_start 必须把确切中文暂停
+    原因写入数据库（`preflight_incomplete`，含首个失败读取名）并在 409
+    detail 返回——不得回显建卡旧文案 `awaiting_manual_start`。"""
+    preflight = _ClosePreflight(snapshot_result=None)
+    preflight.last_failed_read = failed_read
+    svc, clock, market, executor, _ = _close_service(
+        tmp_path, preflight=preflight, name=f"f1-{failed_read}.sqlite3",
+    )
+    try:
+        doc = _create_close(svc)
+        _arm(svc)
+        ensure_calls = []
+        orig_ensure = svc.ensure_worker
+
+        def ensure_spy(*args, **kwargs):
+            ensure_calls.append(args)
+            return orig_ensure(*args, **kwargs)
+
+        svc.ensure_worker = ensure_spy
+        with pytest.raises(D.HedgeError) as exc:
+            svc.post_start(doc["id"])
+        assert exc.value.status == 409
+        assert exc.value.code == "smooth_close_start_failed"
+        assert "预检数据不完整" in exc.value.detail
+        assert "未发单" in exc.value.detail
+        assert "任务首次执行必须点击启动" not in exc.value.detail
+        if failed_read is not None:
+            assert failed_read in exc.value.detail
+        row = svc.store.get_task(doc["id"])
+        assert row["status"] == D.STATUS_PAUSED
+        assert row["pause_reason"] == D.PAUSE_REASON_PREFLIGHT_INCOMPLETE
+        assert "预检数据不完整" in row["pause_reason_zh"]
+        assert row["q_common"] is None
+        assert ensure_calls == []
+        assert doc["id"] not in svc._smooth_subscriptions
+        assert svc.store.list_attempts_for_task(doc["id"]) == []
+        assert executor.dispatch_calls == 0
+        assert executor.um_calls == 0
+        assert executor.transfers == []
     finally:
         svc.close()
 

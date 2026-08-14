@@ -1149,11 +1149,15 @@ class HedgeOpenTaskService:
                 self._run_close_preparation(task, now_us)
             )
             if prep_signal is not None:
+                if prep_signal == D.SIGNAL_PREFLIGHT_INCOMPLETE:
+                    # Review-1 F1：worker 路径由 `_worker_round` 收口暂停，
+                    # 启动路径此前缺这一步——只抛错不落库会让卡片与 HTTP
+                    # 回显建卡时的旧文案（awaiting_manual_start）。先落库。
+                    self._pause_preflight_incomplete(task, now_us)
                 current = self._store.get_task(task_id) or task
                 raise D.HedgeError(
                     409, "smooth_close_start_failed",
-                    current.get("pause_reason_zh")
-                    or "平滑平仓备料失败，任务已暂停（fail-closed，未发单）",
+                    self._start_failure_reason_zh(current),
                 )
             if prep_q is None:
                 # remaining_attempts <= 0：计划次数已用完，与抽函数前的
@@ -1175,6 +1179,20 @@ class HedgeOpenTaskService:
         self.ensure_worker(task_id, relaunch_after_current=True)
         self._notify_smooth_task(task_id)
         return 200, self._doc(updated)
+
+    @staticmethod
+    def _start_failure_reason_zh(current: dict) -> str:
+        """启动失败的权威中文原因（Review-1 F1）：fatal 停止读 ``stop_reason``
+        的中文文案；其余读刚由备料门/暂停写入的 ``pause_reason_zh``——绝不
+        回显建卡时的旧文案（``awaiting_manual_start``）。"""
+        if current.get("status") == D.STATUS_STOPPED:
+            zh = D.stop_reason_zh(current.get("stop_reason"))
+            if zh:
+                return zh
+        return (
+            current.get("pause_reason_zh")
+            or "平滑平仓备料失败，任务已暂停（fail-closed，未发单）"
+        )
 
     def _resolve_smooth_close_start_conflict(self, task_id: str) -> dict:
         """C14 条件写未命中后的权威状态裁决：已删除/已完成/已停止 → 冲突错误
