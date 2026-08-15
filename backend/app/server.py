@@ -102,8 +102,8 @@ def _is_borrow_path(path: str) -> bool:
 # slippage_threshold_pct. mode=smooth + task_type=close is legal. Start,
 # fill-once (gate_seq), logs, positions and close-gate stay on these paths.
 # Running-task book is GET /api/hedge-open-logs?task_id=… (smooth_market);
-# there is no browser WebSocket — backend book-ticker subscriptions stay
-# inside HedgeOpenTaskService.
+# the browser opens no live push channel — backend book-ticker subscriptions
+# stay inside HedgeOpenTaskService.
 _HEDGE_OPEN_ROUTES = (
     (
         re.compile(
