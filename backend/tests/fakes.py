@@ -149,7 +149,7 @@ class RecordTransportFake:
         # record still logs the would-send quantity using single_amount as the
         # unrounded estimate, flagged so an operator sees it was not grid-rounded.
         q_resolved = ctx.q_common is not None
-        send_qty = ctx.q_common if ctx.q_common is not None else ctx.single_amount
+        send_qty = D.resolve_send_qty(ctx.q_common, ctx.single_amount)
         spot_cid, perp_cid = _client_order_ids(ctx.attempt_id)
         spot_params = build_spot_order_params(
             ctx.spot_symbol,

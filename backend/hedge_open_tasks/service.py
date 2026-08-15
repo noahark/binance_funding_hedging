@@ -3567,7 +3567,7 @@ class HedgeOpenTaskService:
             task["direction"], position_side_mode or D.POS_MODE_BOTH,
             task_type=task_type,
         )
-        send_qty = q_common if q_common is not None else D.Decimal(task["single_amount"])
+        send_qty = D.resolve_send_qty(q_common, task["single_amount"])
         spot_route = (snapshot_record or {}).get(
             "spot_route", D.SPOT_ROUTE_PAPI_MARGIN
         )

@@ -1628,6 +1628,17 @@ def validate_single_amount(value) -> str:
     return value
 
 
+def resolve_send_qty(q_common, single_amount) -> Decimal:
+    """发单数量：优先用预检取整后的 q_common；为 None 时回退用户原始输入。
+
+    single_amount 可能是 str（任务表 TEXT 列）或 Decimal（AttemptContext）。
+    两者统一经 Decimal(...) 转换——对已是 Decimal 的输入是按位精确拷贝。
+    """
+    if q_common is not None:
+        return q_common
+    return Decimal(single_amount)
+
+
 def validate_target_n(value) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise invalid_field("target_n", "must be a positive integer")
