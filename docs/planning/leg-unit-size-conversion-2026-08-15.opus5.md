@@ -4,7 +4,7 @@
 - 日期：2026-08-15
 - 状态：**设计稿 r3，未实现。r1 双评审 REWORK → r2；r2 经 grok 评审 REWORK（claude-glm 因 provider 内容过滤 400 未能完成）→ 本稿 r3。**
 - 目标读者：Human（不读代码）+ 评审模型
-- 基线：`main` @ `f72a4d2`（行号已于该基线全量复核，32/32 命中）
+- 基线：`main` @ `3dc74f5`（含前置轮合并；行号已于该基线全量复核，37/37 命中）
 - 前置：`docs/planning/symbol-identity-unification-2026-08-07.opus5.md`（现货腿身份统一，**已交付**）
 - r1 评审：`*.review-claude-glm-result.md`、`*.review-grok-result.md`（同目录）
 
@@ -15,7 +15,7 @@
 | grok r2 项 | 级别 | r3 处置 |
 |---|---|---|
 | F1 持仓表开单价差率 `index.html:5249/6624` 仍显示 ≈ `+99900%` | **阻塞** | **采纳** → §3.5 第三行；并补记根因：「两腿价差」有三份独立实现，须按语义横扫 |
-| 观察 1 `domain.py:2122` 称「已列入 §3.2」但表中无该行 | 文档自相矛盾 | **采纳** → 已补为 §3.2 独立一行 |
+| 观察 1 `domain.py:2133` 称「已列入 §3.2」但表中无该行 | 文档自相矛盾 | **采纳** → 已补为 §3.2 独立一行 |
 | 观察 2 前端平仓预检的倍数来源未规定 | 实现歧义 | **采纳** → §3.3 规定由后端下发，禁止前端剥前缀或写死 |
 | 观察 3 `fakes.py:207-214` 模拟成交两腿共用一个数量与一个价 | 会假绿 | **采纳** → §8.2 约束 C |
 | 观察 4 `server.py:1478` 利息折 U 键名，乘数币显示「暂无」 | 展示，不算错钱 | **记录不修**，见 §6 表下注 |
@@ -167,33 +167,38 @@ B 腿 `(1/1000, 1000)` 即可，无需改公式。这是零成本的形状选择
 
 ## 3. 改造清单（按路径组织）
 
-> 行号为基线 `f72a4d2` 复核值，动手前重跑 §8.1。
+> 行号为基线 `3dc74f5` 复核值（含前置轮合并后的漂移修正），动手前重跑 §8.1。
 
-### 3.1 结构先行：三处装配点抽成一个函数 + 拒发前移
+### 3.1 装配点：✅ 收敛已完成，本轮只需扩展一个函数 + 加拒发
 
-**这一项必须最先做，§3.2–3.6 全部依赖它。**
+> **状态更新（2026-08-15，merge `3dc74f5`）：三处装配点的收敛已作为独立前置轮交付并合并。**
+> 依据 `docs/planning/duplicate-concept-consolidation-2026-08-15.opus5.md` §3（改动一），
+> 经 claude-glm 与 grok 双计划评审 + grok 交付评审 ACCEPT。
+> 因此 r1/r2 描述的「三处各写各的」问题**已不存在**。
 
-现状：计算发单数量的地方有**三处**，各写各的，且都带同一条绕过取整的退路
-（`q_common` 为空则回退用户原始输入）：
+**现状（已收敛）**：`domain.resolve_send_qty(q_common, single_amount)`
+（`backend/hedge_open_tasks/domain.py:1631`）为唯一取值实现，三处调用它：
 
-| # | 位置 | 作用 | r1 是否提及 |
-|---|---|---|---|
-| 1 | `service.py:3570` | 组装两腿 `request_shape` 写入审计记录，**发生在 `prepare_attempt`（`service.py:3614`）之前** | ✗ |
-| 2 | `live_hedge_executor.py:828` | 真实 POST 的发单量 | ✓（r1 唯一提及处） |
-| 3 | `backend/tests/fakes.py:152` | dry-run 假执行器，并用它跑合约过滤器 | ✗ |
+| # | 调用点 | 作用 |
+|---|---|---|
+| 1 | `service.py:3570` | 组装两腿 `request_shape` 写入审计记录，**发生在 `prepare_attempt`（`service.py:3614`）之前** |
+| 2 | `live_hedge_executor.py:828` | 真实 POST 的发单量 |
+| 3 | `backend/tests/fakes.py:152` | dry-run 假执行器，并用它跑合约过滤器 |
 
-三层后果：
+前置轮已消除的两个风险（**不要重新论证，也不要重复实现**）：
 
-- 只改 #2 → 库里的审计形状仍是「两腿同一个数」，事后审计读错；
-- 拒发只加在 #2 → `prepare_attempt` 已落一行 attempt，事后再拒会留脏 attempt 并白耗一次尝试；
-- #3 未改 → **假执行器与真执行器各持一份换算，两边同错则单测全绿**——正是
-  `PROJECT_STATE` 反复警告的形状。
+- 三处各持一份换算 → 已归一，本轮改一个函数即覆盖三处；
+- 假执行器与真执行器各持一份 → 已共用，「两边同错则单测全绿」的陷阱物理消失。
 
-**改法：**
+**本轮在此之上要做的两件：**
 
-1. 抽一个纯函数 `split_legs(标准量, 合约腿倍数) -> (现货量, 合约张数)`，**三处共用**；
-2. `q_common is None` 且倍数 ≠ 1 时**拒发**，落点在 `service.py:3570`、
+1. **扩展为按腿拆分**：在 `resolve_send_qty` 之上（或与之并列）提供
+   `split_legs(标准量, 合约腿倍数) -> (现货量, 合约张数)`，三处调用点改用它。
+   由于取值已归一，这是**一处改动覆盖三处**。
+2. **加拒发**：`q_common is None` 且倍数 ≠ 1 时**拒绝发单**，落点在 `service.py:3570`、
    **`prepare_attempt` 之前**，不得回退到 `single_amount`；倍数 = 1 保持现有退路行为不变。
+   注：`resolve_send_qty` 本身**有意保持旧语义**、不做该判断（grok 交付评审观察），
+   拒发逻辑应加在调用侧或新函数中，不要改动它的既有行为。
 
 ### 3.2 开仓路径
 
@@ -202,11 +207,11 @@ B 腿 `(1/1000, 1000)` 即可，无需改公式。这是零成本的形状选择
 | `domain.py:1245` | `grid = lcm(现货步长, 合约步长)` | 合约步长先 `× y` | `y` |
 | `domain.py:1062`（循环体 `1075`） | 同一个 `q_common` 比两腿各自 min/max | 合约 min/max 先 `× y` | `y` |
 | `domain.py:1342` | `base = base_asset(coin)` → `1000BONK`，账户键是 `BONK` → 余额恒 0 → **恒判不足** | 改用 `resolve_spot_identity(coin)` 的现货 base | 命名，非乘数 |
-| `domain.py:2122` | 持仓聚合单腿告警 `abs(spot_qty − perp_qty)`，`perp_qty` 为张 → 乘数币必然误报 | `perp_qty` 先 `× y` 再比 | `y` |
+| `domain.py:2133` | 持仓聚合单腿告警 `abs(spot_qty − perp_qty)`，`perp_qty` 为张 → 乘数币必然误报 | `perp_qty` 先 `× y` 再比 | `y` |
 | `frontend/index.html:5924` | 开仓 USDT 预检 `price = 现货卖一 \|\| 合约卖一`；**回退到合约卖一时**按「个数 × 每张价」高估 1000 倍 → 误拦 | 只许用现货价；缺失则跳过、交给后端 | `x`（或直接禁回退） |
 | `domain.py:1258` `snapshot_record` | 隐含「两腿同量纲」 | 加记倍数并注明「以下数量均为现货个数」 | 审计 |
 
-> r2 曾在 §4 写「`domain.py:2122` 已列入 §3.2」，但表中实际没有该行（grok r2 观察 1）。
+> r2 曾在 §4 写「`domain.py:2133` 已列入 §3.2」，但表中实际没有该行（grok r2 观察 1）。
 > **r3 已补入上表**——实现者只抄表也不会漏。
 
 `domain.py:1342` 走到的路径是 `open + reverse`（负费率开仓，借币卖现货），
@@ -261,8 +266,24 @@ B 腿 `(1/1000, 1000)` 即可，无需改公式。这是零成本的形状选择
 
 三处均 `× x` 对齐后再算。不造成错腿，但一处诱导误操作、两处干扰验收，**同批改**。
 
-⚠️ `frontend/self-check.js:5110-5117` 以硬编码百分比锁死了该公式（`+0.9868%` / `+0.3210%`），
-改动时这两条倍数 = 1 的断言必须继续通过（回归证据）。
+> ⚠️ **计数不会因前置轮而减少（grok F3，2026-08-15）。**
+> 前置轮（`duplicate-concept-consolidation-2026-08-15.opus5.md`）原设想的「改动二」——
+> 后端就地填 `open_basis_rate`、前端删 JS——**已被双评审判 REWORK 并搁置**，本轮开工时
+> 上表三行**仍全部有效**。
+>
+> 更重要的是：**即使将来做了改动二，本表也只会是「JS 那行换成 `store.py` 就地公式」，
+> 计数仍是 3，不是 2。** 前置轮方案曾声称「§3.5 从三处降为两处」，该说法错误
+> （grok F3 已指出并要求更正）——它只是让跨语言那份消失、把改动全收进 Python，
+> 并不减少需要施加 `x` 的地点数。
+>
+> **按「两处」去规划本轮，就会再次漏掉持仓表**——正是本节根因段警告的那种漏法。
+> 无论前置轮是否落地，实现时都必须按「两腿价差」语义横扫、逐一确认三个地点。
+
+⚠️ `frontend/self-check.js:5110-5117` 以硬编码百分比锁死了该公式（`+0.9868%` / `+0.3210%`）。
+**注意（前置轮评审实证）**：该 fixture 里的 `open_basis_rate` 字段值（`0.00233` / `0`）
+与同行均价现算值（`0.009868` / `0.00321`）**并不相等**——现版前端忽略该字段、用均价现算，
+故未暴露。改动时若仍走「前端现算」路径，这两条断言是有效回归证据；若改为读后端字段，
+它们**必挂**，且改 fixture 后就不再证明「后端公式等于旧 JS」。
 
 实测锚点（grok 于 2026-08-15 取公开价）：六币标记价 ÷ 现货价落在
 `997.90`–`1000.22`，相对 1000 的偏离 ≤ `0.21%`。即 `+99900%` **全部**是量纲错误，
@@ -311,7 +332,7 @@ B 腿 `(1/1000, 1000)` 即可，无需改公式。这是零成本的形状选择
 USDT 回流（`cumulative_quote`，USDT）、持仓 drift（现货记账个数 vs 账户个数，同量纲）、
 `price_pnl`（来自交易所未实现盈亏，非本地两腿均价互减）。
 
-**持仓聚合 `domain.py:2122`**：已作为独立一行列入 §3.2 改造表（r3 修正，见该表注）。
+**持仓聚合 `domain.py:2133`**：已作为独立一行列入 §3.2 改造表（r3 修正，见该表注）。
 
 ---
 
@@ -413,16 +434,17 @@ checks = [
  ("backend/hedge_open_tasks/domain.py",1588,"compute_opening_spread_pct(perp.bid, spot.ask)"),
  ("backend/hedge_open_tasks/domain.py",1596,"perp_coverage = perp_qty / q_common"),
  ("backend/hedge_open_tasks/domain.py",96,"SMOOTH_COVERAGE_MIN"),
- ("backend/hedge_open_tasks/domain.py",2122,"abs(spot_qty - perp_qty)"),
+ ("backend/hedge_open_tasks/domain.py",2133,"abs(spot_qty - perp_qty)"),
  ("backend/hedge_open_tasks/service.py",998,"snapshot.est_price"),
  ("backend/hedge_open_tasks/service.py",2442,"required_qty = fresh.q_common"),
  ("backend/hedge_open_tasks/service.py",2608,"if available < required_qty"),
- ("backend/hedge_open_tasks/service.py",3570,"send_qty = q_common if q_common is not None"),
+ ("backend/hedge_open_tasks/domain.py",1631,"def resolve_send_qty"),
+ ("backend/hedge_open_tasks/service.py",3570,"send_qty = D.resolve_send_qty(q_common"),
  ("backend/hedge_open_tasks/service.py",3614,"prepare_attempt"),
  ("backend/hedge_open_tasks/service.py",3097,"collateral_cap_pause_reason_zh"),
- ("backend/services/live_hedge_executor.py",828,"send_qty = ctx.q_common"),
+ ("backend/services/live_hedge_executor.py",828,"send_qty = D.resolve_send_qty(ctx.q_common"),
  ("backend/services/hedge_preflight_provider.py",862,"est_price = self._read_est_price"),
- ("backend/tests/fakes.py",152,"send_qty = ctx.q_common"),
+ ("backend/tests/fakes.py",152,"send_qty = D.resolve_send_qty(ctx.q_common"),
  ("backend/domain/snapshot.py",698,"compute_opening_spread_pct(fut_bid, spot_ask)"),
  ("backend/hedge_open_tasks/store.py",2563,"def cycle_slippage_pct"),
  ("backend/services/best_bid_ask_provider.py",319,"size != 1"),
@@ -533,7 +555,7 @@ EOF
 | 用真实 exchangeInfo 做金样 | grok | **采纳** → §8.2 用例 14 |
 | 旧清单「UM 保证金估算需合约价」应删 | grok | **采纳**（已核实无该路径）→ §4.1 |
 | **（r2 轮）** 持仓表开单价差率未列入 | grok | **采纳** → §3.5 |
-| **（r2 轮）** `2122` 文档自相矛盾 / 前端倍数来源 / `fakes` 模拟成交 / 开仓 USDT 预检回退 | grok | **全部采纳** → §3.2 / §3.3 / §8.2 |
+| **（r2 轮）** `2133` 文档自相矛盾 / 前端倍数来源 / `fakes` 模拟成交 / 开仓 USDT 预检回退 | grok | **全部采纳** → §3.2 / §3.3 / §8.2 |
 | §5 三条净减项成立 | 双方 | **维持**，并补第四条 §4.4 |
 | §3.1 形状选择 | glm 维持 / grok 不反对 | **维持形状，删夸大表述** |
 
@@ -548,11 +570,11 @@ EOF
 1. **§3.5 的三处是否就是「两腿价差」的全部实现？** r1 漏三处、r2 漏一处，本轮补记了
    「按语义横扫」的要求。请独立搜索是否还有第四处在比较两腿价格或均价
    （含前端、后端、自检脚本、任务卡日志）。
-2. **§3.2 新增的两行（`domain.py:2122`、`index.html:5924`）改法是否正确？**
+2. **§3.2 新增的两行（`domain.py:2133`、`index.html:5924`）改法是否正确？**
    特别是 `5924` 主张「只许用现货价，缺则跳过」是否会引入新的误放行。
 3. **§8.2 的四条反自证约束（A/B/C/D）是否仍有残余？**
 4. **本稿是否还有引用错误？** r1 有一处（`_is_close_flat` 不存在），r2 有一处
-   文档自相矛盾（`2122`）。本稿行号请实跑 §8.1 复核并报告结果。
+   文档自相矛盾（`2133`）。本稿行号请实跑 §8.1 复核并报告结果。
 
 ---
 
