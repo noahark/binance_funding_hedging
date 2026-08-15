@@ -5,36 +5,6 @@ window labels for this computer and the local procedure that resolves a label
 to the current Herdr pane. It is not a dispatch packet and never authorizes a
 message send.
 
-## When Herdr Applies
-
-A Human request to notify, prompt, or send an exact message to a named
-terminal window is a request to read this file and, if needed, resolve the
-window, even if the request does not name “Herdr”. It is not a send
-authorization. A send still requires both a Human-specified label from the
-table below and the exact content, as required by Send After Human Direction.
-A name that is absent, partial, or not an exact table label is not a target;
-stop under Resolve A Window. Do not compose, complete, or substitute message
-text.
-
-Herdr is the local `herdr` CLI, not an implicit model capability. Before any
-inspection or send, verify that the current terminal is Herdr-managed:
-
-```bash
-test "${HERDR_ENV:-}" = 1
-```
-
-If the check fails, report that this terminal cannot safely inspect or control
-Herdr and stop.
-
-If it passes, the only allowed Herdr operations are the ones in this file. Do
-not run bare `herdr` for discovery; it launches or attaches the interactive UI.
-Do not run `herdr --skill` as a usage policy, and do not treat that skill or
-`herdr --help` as permission to create layout, start or attach agents, read
-another pane, wait, poll, or use `herdr notification`. The project send path is
-`herdr agent prompt` below. If an allowed command in this file fails, run
-`herdr --help` or that command’s `--help` only to recover installed flag names
-for the same command.
-
 ## Fixed Window Labels
 
 | Window label | Intended model terminal |
