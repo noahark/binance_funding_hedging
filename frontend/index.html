@@ -602,6 +602,8 @@
     tbody tr.bstock:hover { background: #f3effc; }
 
     .mono { font-family: var(--mono); font-size: 12px; }
+    /* 对冲开单持仓表：数字列比全局 .mono 大一号（12→13px），只作用该表。 */
+    .positions-table td.mono { font-size: 13px; }
     .positive { color: var(--success); font-weight: 700; }
     .negative { color: var(--danger); font-weight: 700; }
     .muted { color: var(--muted); }
@@ -4258,6 +4260,9 @@
                 const a = String(b.asset || '');
                 // 有还款未决锁或还款回显的资产永不被小额过滤吞掉——否则用户看不到结果也解不了锁。
                 if (state.marginRepay.pending[a] || state.marginRepay.results[a]) return true;
+                // 有计息借款（cross_margin_borrowed > 0）的资产免小额过滤——借款再小
+                // 也是在计息的负债，藏卡会漏息且没有还款入口。
+                if (isPositiveBorrowedAmount(b.cross_margin_borrowed)) return true;
                 return !(
                   isNetValueBelowTenUsdt(b.value_usdt)
                   && isNetValueBelowTenUsdt(sub8(b.value_usdt, b.cross_margin_borrowed_value_usdt))
@@ -6634,6 +6639,12 @@
           const curFundingTitle = (curFundingRate === null || curFundingRate === undefined || curFundingRate === '')
             ? '' : ` title="原始费率 ${escapeHtml(curFundingRate)} · 本周期实时预估，结算前会漂移"`;
           const curFundingNum = Number(curFundingRate);
+          // 日净收益第二行：与市场表日净收益列同源同格式（snapshot rows[].net_daily_yield，
+          // 3 位小数百分比、正绿负红）。快照未覆盖该币或无值（null）→ 不渲染第二行。
+          const curNetYield = frSnapRow ? frSnapRow.net_daily_yield : null;
+          const curNetYieldLine = (curNetYield === null || curNetYield === undefined || curNetYield === '')
+            ? ''
+            : `<br/><span class="${classForFundingRate(curNetYield)}" title="日净收益（扣借币成本后）· 与市场表日净收益列同源（约 60s 快照缓存）">日净 ${formatFundingRateFixed(curNetYield, 3)}</span>`;
           const fundingDirectionMismatch = Number.isFinite(curFundingNum) && curFundingNum !== 0
             && ((curFundingNum > 0 && p.direction === 'reverse')
               || (curFundingNum < 0 && p.direction === 'forward'));
@@ -6718,7 +6729,7 @@
           return `
                       <tr>
                         <td class="mono">${coinHtml}${spotLegLine(p)}</td>
-                        <td class="${curFundingCls}"${curFundingTitle}>${curFundingText}</td>
+                        <td class="${curFundingCls}"${curFundingTitle}>实时 ${curFundingText}${curNetYieldLine}</td>
                         <td class="${dirCls}">${dirLabel}</td>
                         <td class="mono">${notionalCell(p.um_notional_usdt)}</td>
                         <td class="mono">${hasUm ? maskAmount(p.um_position_amt) : formatHedgeDecimal(p.position_qty)}</td>
@@ -6756,7 +6767,7 @@
             ${sourceCheckedAtHtml(positionsTimeLine)}
             ${accountBanner}
             <div class="table-wrap">
-              <table>
+              <table class="positions-table">
                 <thead>
                   <tr>
                     <th>币种</th>

@@ -2582,6 +2582,22 @@ setTimeout(async () => {
         throw new Error('低持有高负债（持有 5、净价值 -95）的统一账户资产卡应展示: ' + borrowUnified);
       }
     }
+    // 小额计息借款（持有价值与净价值均 <10、已借 > 0）：免小额过滤直接展示——
+    // 借款再小也在计息，藏卡会漏息且无还款入口。
+    {
+      const tinyFx = JSON.parse(JSON.stringify(designFixture));
+      const tu = tinyFx.private_account.balances_unified[0]; // BTC
+      tu.value_usdt = '8.00000000';
+      tu.cross_margin_borrowed_value_usdt = '8.00000000'; // 净 0、持有 8，双双 <10
+      tu.cross_margin_borrowed = '1.9'; // 已借 > 0（计息中）
+      helpers.ingestSnapshot(tinyFx);
+      if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
+      const tinyBody = elements['private-panel-body'].innerHTML;
+      const tUnified = tinyBody.slice(tinyBody.indexOf('统一账户余额'), tinyBody.indexOf('现货账户余额'));
+      if (!tUnified.includes('<div class="asset">BTC</div>')) {
+        throw new Error('小额计息借款（持有 8、净 0、已借 1.9）的统一账户资产卡应展示: ' + tUnified);
+      }
+    }
     // 有还款未决记录/回显的资产不得被小额过滤吞掉：借款已还、该资产价值 <10 时
     // 卡片本会被过滤，但未决锁和回显必须仍可见、可解锁。
     {
@@ -5457,6 +5473,39 @@ setTimeout(async () => {
       hedgePositionsGetResponse = { status: 200, body: { positions: [], account: { verified: true, error: null, checked_at: null } } };
       helpers.ingestSnapshot(designFixture);
       console.log('[PASS] G1/G2/G5：no_task 成本—+「无任务记录」、no_um「交易所无仓」、不完整均价「均价不完整」+title');
+    }
+
+    // 82d. 资金费率列第二行日净收益：与市场表同源（snapshot rows[].net_daily_yield，
+    // 3 位小数百分比）。快照无值（null）或未覆盖该币 → 不渲染第二行。
+    {
+      helpers.ingestSnapshot(designFixture); // verified=true → 合并表渲染
+      const posRow = (coin) => ({ coin, direction: 'forward', um_position_amt: '-1',
+        um_notional_usdt: '10', unrealized_profit: '0', price_pnl: '0',
+        spot_avg: '1', perp_avg: '1',
+        spot_avg_price_incomplete: false, perp_avg_price_incomplete: false,
+        includes_deleted_task: false });
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        posRow('AUSDT'), // fixture rows 里 net_daily_yield = 0.0004
+        posRow('DUSDT')  // fixture rows 里 net_daily_yield = null
+      ], account: { verified: true, error: null, checked_at: null } } };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      const nyBody = elements['private-panel-body'].innerHTML;
+      const nyCellA = getRowCell(nyBody, 'AUSDT', 1);
+      const nyCellD = getRowCell(nyBody, 'DUSDT', 1);
+      if (!nyCellA.includes('日净')) {
+        throw new Error('资金费率列应含日净收益第二行（AUSDT net=0.0004）: ' + nyCellA);
+      }
+      if (!nyCellA.includes('0.040')) {
+        throw new Error('日净第二行应同市场表 3 位小数百分比（0.040%）: ' + nyCellA);
+      }
+      if (nyCellD.includes('日净')) {
+        throw new Error('快照无 net_daily_yield 时不渲染日净第二行（DUSDT）: ' + nyCellD);
+      }
+      // 恢复默认 mock 与 fixture。
+      hedgePositionsGetResponse = { status: 200, body: { positions: [], account: { verified: true, error: null, checked_at: null } } };
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] 持仓表资金费率列第二行日净收益：同源渲染、无值不渲染');
     }
 
     // 83. 执行徽标（§3：GET /api/hedge-open-settings 的 executor_mode + start_gate）
