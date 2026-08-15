@@ -2582,6 +2582,33 @@ setTimeout(async () => {
         throw new Error('低持有高负债（持有 5、净价值 -95）的统一账户资产卡应展示: ' + borrowUnified);
       }
     }
+    // 有还款未决记录/回显的资产不得被小额过滤吞掉：借款已还、该资产价值 <10 时
+    // 卡片本会被过滤，但未决锁和回显必须仍可见、可解锁。
+    {
+      const repayFx = JSON.parse(JSON.stringify(designFixture));
+      const ru = repayFx.private_account.balances_unified[0]; // BTC
+      ru.value_usdt = '5.00000000';
+      ru.cross_margin_borrowed_value_usdt = '0.00000000';
+      ru.cross_margin_borrowed = '0';
+      helpers.ingestSnapshot(repayFx);
+      if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
+      let repayBodyHtml = elements['private-panel-body'].innerHTML;
+      let noRepayUnified = repayBodyHtml.slice(repayBodyHtml.indexOf('统一账户余额'), repayBodyHtml.indexOf('现货账户余额'));
+      if (noRepayUnified.includes('<div class="asset">BTC</div>')) {
+        throw new Error('无还款记录时净价值 5（<10）的 BTC 卡应被过滤: ' + noRepayUnified);
+      }
+      helpers.setMarginRepayPending('BTC', { client_request_id: 'filter-1', asset: 'BTC', amount: '0' });
+      helpers.renderPrivatePanel();
+      repayBodyHtml = elements['private-panel-body'].innerHTML;
+      const repayUnified = repayBodyHtml.slice(repayBodyHtml.indexOf('统一账户余额'), repayBodyHtml.indexOf('现货账户余额'));
+      if (!repayUnified.includes('<div class="asset">BTC</div>')) {
+        throw new Error('有还款未决记录的 BTC 卡不应被小额过滤: ' + repayUnified);
+      }
+      if (!repayUnified.includes('还款请求已登记')) {
+        throw new Error('被放行的 BTC 卡应展示还款回显: ' + repayUnified);
+      }
+      helpers.acknowledgeRepayUnknown('BTC'); // 清理未决记录（含重渲染），不污染后续用例
+    }
     helpers.ingestSnapshot(designFixture);
     console.log('[PASS] 持有价值 <10 USDT 资产卡过滤（统一/现货一致，含边界、负值与纯借入）');
 

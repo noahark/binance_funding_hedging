@@ -4254,10 +4254,15 @@
               // 只看净价值会把纯借入（持有 = 已借、净值恒为 0）刚到账未动用的资产整张卡
               // 隐藏（INJ 实盘故障）；只看持有价值又会把「借入后几乎全部划走」（持有 5、
               // 净 -95）的大额负债隐藏。两者取或，资产侧与负债侧都不漏。
-              .filter(b => !(
-                isNetValueBelowTenUsdt(b.value_usdt)
-                && isNetValueBelowTenUsdt(sub8(b.value_usdt, b.cross_margin_borrowed_value_usdt))
-              ))
+              .filter(b => {
+                const a = String(b.asset || '');
+                // 有还款未决锁或还款回显的资产永不被小额过滤吞掉——否则用户看不到结果也解不了锁。
+                if (state.marginRepay.pending[a] || state.marginRepay.results[a]) return true;
+                return !(
+                  isNetValueBelowTenUsdt(b.value_usdt)
+                  && isNetValueBelowTenUsdt(sub8(b.value_usdt, b.cross_margin_borrowed_value_usdt))
+                );
+              })
               .map(b => {
               const borrowedPositive = isPositiveBorrowedAmount(b.cross_margin_borrowed);
               const borrowedCls = borrowedPositive ? 'borrowed-debt' : 'locked';
