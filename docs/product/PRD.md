@@ -2,7 +2,16 @@
 
 Status: current product baseline, reflecting delivered live functionality
 
-Last updated: 2026-08-10
+Last updated: 2026-08-15
+
+> **本次更新的复核范围（2026-08-15）**：以 `2026-08-10` 之后触碰生产代码的提交为清单
+> 逐条对照本文，结果——平滑平仓 V1（`2026-08-14`）、资产互转、统一账户还款均已覆盖；
+> **公网出口 IP 展示（`2026-08-12` 交付）此前完全缺失，本次补入 §2.1 与 §9.1**；
+> 1000x 乘数币换算改记为 CLOSED（§2.2 / §11.3）。
+> 其余章节（§5–§8、§10、§12）本次**未逐字复核**，其内容仍为交付时的记述。
+>
+> 注：`Last updated` 此前停在 `2026-08-10`，而本文在 `08-12`/`08-13`/`08-14`/`08-15`
+> 实际被修改过四次却未同步该日期——收口时请连同此行一并更新。
 
 This document evolves with delivered stages; where it and the code disagree,
 the code and `PROJECT_STATE.md` are authoritative.
@@ -56,6 +65,13 @@ close, borrow, repay, or transfer assets as a response to an order outcome.
 - A dual-column flow log backed by local SQLite ledgers: borrow interest and
   UM income (funding fee, commission, realized PnL, transfer) are pulled from
   Binance and recorded (`data/ledger-flow.sqlite3`).
+- Read-only public-egress IP display in the header (`GET /api/system/public-ip`,
+  stage `2026-08-12-local-ip-display-v1`), so the operator can cross-check the
+  Binance API IP allowlist. Stdlib-only, 5-minute in-process cache, primary
+  `api.ipify.org` with `checkip.amazonaws.com` as backup, private/loopback
+  values rejected. It **never drives** the allowlist, trading, borrowing,
+  repayment, transfer, any live gate, or any risk action, and it cannot prove
+  the IP Binance actually sees (VPN/proxy/routing may differ).
 - A local Python standard-library HTTP server and vanilla-JS frontend.
   launchd-based service management stopped working 2026-08-03 (TCC
   authorization failure) and, by decision 2026-08-15, is not being repaired:
@@ -329,6 +345,8 @@ work and are not current capabilities.
 - Manual margin-repay UI on borrowed unified-account asset cards: explicit
   confirmation, local request-id persistence before send, four-state recovery,
   and account refresh before the asset unlocks after success.
+- Public-egress IP badge in the header, three states (loading / resolved /
+  unavailable). Informational only — see §2.1.
 
 ### 9.2 Immediate-open additions
 
