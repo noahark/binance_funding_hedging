@@ -278,6 +278,16 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Open Follow-ups
 
+- `[ACTIVE-WORK][2026-08-15]` **1000x 乘数币适配：设计 r3 待评审，实现未授权。**
+  **接手先读 `docs/planning/HANDOFF-1000x-2026-08-15.md`**（含已定口径、三条反复踩的
+  教训、文件索引、拆拦截顺序）。当前 `main` @ `11be65f`，**代码零改动**，六个币仍被三道
+  fail-closed 挡着，无风险敞口。已交付并合并的只有两项纯技术债：发单数量三处装配点
+  收敛为 `domain.resolve_send_qty`（`3dc74f5`，双评审 + 交付评审 ACCEPT）、
+  websocket 纯度扫描假阳性修复（`11be65f`）。测试基线由 `1938/2` 变为 **`1939/1`**。
+  下一步：Human 决定 r3 先派评审还是直接进实现；**实现须单独授权**（真金白银的下单
+  数量路径）。设计口径已定，勿再推翻：表内存一个倍数 → 派生每腿 `(x=1/倍数, y=倍数)`
+  → 开仓/平仓/平滑/展示全路径统一施加；表外标的 `(1,1)` 恒等、零分支。
+
 - `[OPEN][SIMPLIFICATION][2026-08-15]` **正向平仓的前端余额预检可评估整个删除。**
   误拦已修（改为 `spot_balance + unified_balance` 两账户求和，`c04a006`，STOUSDT 实盘验证）。
   但 C13 落地后点「启动」会同步备料并当场回中文原因，这个基于 60 秒旧缓存的前端预检价值
