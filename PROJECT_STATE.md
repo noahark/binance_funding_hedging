@@ -168,7 +168,12 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   review-2 不阻塞交付。临时操作边界：还款时只保留一个页面，不在多标签页/多窗口并行操作。
   重开条件：出现自动化/定时提交路径，或 Human 实际需要多标签页/多设备并行还款。
 
-- `[RESOLVED-BY-BLOCKING][2026-08-07]` **1000x 乘数合约两腿数量口径错配（资金安全）**。
+- `[RESOLVED-BY-BLOCKING][PERMANENT][2026-08-07 / 封存 2026-08-15]`
+  **1000x 乘数合约两腿数量口径错配（资金安全）**。
+  ⚠️ **2026-08-15 更新：换算需求已由 Human 决定不做，下述 fail-closed 拦截由「止血」
+  转为「长期终态」。** 相关脚手架（`PAUSE_REASON_MULTIPLIER_CLOSE_UNSUPPORTED` 常量/
+  注册/文案、测试夹具 `_allow_multiplier_open`）**全部保留，不得作为死代码清理**。
+  重启说明见 `docs/planning/leg-unit-size-conversion-2026-08-15.CLOSED-lessons.md`。
   执行链两腿发同一个 `q_common`，但 1 张 1000x 合约 = 1000 个现货币：现货买 N 个、
   合约空 N 张 → 净裸空 999N。实盘库从未开过此类仓位，无实际损失。
   **止血（已实施）**：`create_task` 对 `symbol_match_type == multiplier_strip_alias`
@@ -278,15 +283,18 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Open Follow-ups
 
-- `[ACTIVE-WORK][2026-08-15]` **1000x 乘数币适配：设计 r3 待评审，实现未授权。**
-  **接手先读 `docs/planning/HANDOFF-1000x-2026-08-15.md`**（含已定口径、三条反复踩的
-  教训、文件索引、拆拦截顺序）。当前 `main` @ `11be65f`，**代码零改动**，六个币仍被三道
-  fail-closed 挡着，无风险敞口。已交付并合并的只有两项纯技术债：发单数量三处装配点
-  收敛为 `domain.resolve_send_qty`（`3dc74f5`，双评审 + 交付评审 ACCEPT）、
-  websocket 纯度扫描假阳性修复（`11be65f`）。测试基线由 `1938/2` 变为 **`1939/1`**。
-  下一步：Human 决定 r3 先派评审还是直接进实现；**实现须单独授权**（真金白银的下单
-  数量路径）。设计口径已定，勿再推翻：表内存一个倍数 → 派生每腿 `(x=1/倍数, y=倍数)`
-  → 开仓/平仓/平滑/展示全路径统一施加；表外标的 `(1,1)` 恒等、零分支。
+- `[CLOSED-NOT-DOING][2026-08-15]` **1000x 乘数币适配：Human 决定不做，需求封存。**
+  **重启前必读 `docs/planning/leg-unit-size-conversion-2026-08-15.CLOSED-lessons.md`**
+  （封存说明 + 五轮评审经验 + 已知漏项 + 重启顺序）。
+  **代码零改动**，六个币仍被三道 fail-closed 挡着，**零风险敞口——这是终态，不是止血**。
+  停的理由是投入产出比，不是设计不成立：五轮评审后三方中两家确认「设计本身逐点核对
+  全部成立」，三个阻塞项全为清单完整性与文档自相矛盾。实测收益边际贡献 **1.72%**，
+  其中 74% 集中于 `1000XEC` 单一标的，`1000SHIB` 在 500 个结算周期内从未达阈。
+  ⛔ **`...opus5.md`（r5）与 `...column-inventory.md` 的清单已知不全**（至少漏 7 个展示格
+  + `service.py:385`/`:1505` 的 `residual` 一个**计算路径**），**不要照其开工**。
+  已交付并合并的两项纯技术债与本需求解耦、**不必回退**：发单数量三处装配点收敛为
+  `domain.resolve_send_qty`（`3dc74f5`）、websocket 纯度扫描假阳性修复（`11be65f`）。
+  测试基线 **1940 收集 / 1939 通过 / 1 已知失败**。
 
 - `[OPEN][SIMPLIFICATION][2026-08-15]` **正向平仓的前端余额预检可评估整个删除。**
   误拦已修（改为 `spot_balance + unified_balance` 两账户求和，`c04a006`，STOUSDT 实盘验证）。
@@ -321,7 +329,14 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   `total_balance` 可造成 forward 假阳性；原始评审记录由提交 `bbeb130` 引入，早于本阶段
   base `7194876`，因此不阻塞本轮交付。后续与 O-2 一并补齐文档，不改变当前弱告警口径。
 
-- `[OPEN][NEEDS-HUMAN-AUTHORIZATION][2026-08-07]` **1000x 腿量换算——未做的资金路径**。
+- `[CLOSED-NOT-DOING][2026-08-15]` **1000x 腿量换算——需求已封存，下文保留供重启参考**。
+  Human 于 2026-08-15 决定不做；三道 fail-closed 拦截转为长期状态。
+  **下文的「必须一次改齐的八处」已被五轮评审证明不全**（真实面为约 32 个展示格 +
+  多个计算路径），**重启时勿照抄**，改读
+  `docs/planning/leg-unit-size-conversion-2026-08-15.CLOSED-lessons.md` §6。
+  以下原文保留仅供追溯：
+
+- `[SUPERSEDED-BY-ABOVE][2026-08-07]` **1000x 腿量换算——未做的资金路径**。
   P0 止血只是把 6 个乘数币（BONK/FLOKI/LUNC/PEPE/SHIB/XEC）挡在门外（见 Live Risks
   同日条目），**换算本身一行未写**。恢复这 6 个币的对冲能力必须改下单数量这条真金
   白银的路径，故须 Human 明确授权后单开一轮，不得顺手夹带。
@@ -428,8 +443,9 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 ## Next Priority
 
 - **No active stage.** Current priorities (detail in the sections above):
-  1. 1000x 腿量换算 —— 恢复乘数币能力仍须 Human 授权后单开一轮；
-  2. 服务器部署（systemd unit）—— 本地已决定不修 launchd，托管需求整体推到这一轮，须 Human 授权后单开。
+  1. 服务器部署（systemd unit）—— 本地已决定不修 launchd，托管需求整体推到这一轮，须 Human 授权后单开。
+  （1000x 腿量换算已于 2026-08-15 封存，不再是优先项——见 Open Follow-ups 的
+  `[CLOSED-NOT-DOING]` 条目。）
 - Nothing open authorizes deployment, Start-gate changes, credentials, or live
   operation. Live actions follow the Live Risks gates above.
 
