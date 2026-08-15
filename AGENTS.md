@@ -78,12 +78,14 @@ When the human delivers a task packet, read in this order:
 6. the matching section of `agents/roles.md`;
 7. `agents/developer-discipline.md` for implementation or fix work;
 8. at most one skill named by the dispatch;
-9. `HERDR.md` only when the task inspects or uses Herdr;
+9. Read `HERDR.md` when the task inspects or uses Herdr, or when Human
+   explicitly asks to send a task or message to another model or terminal
+   window; use the local Herdr tool according to its procedure;
 10. only source files and evidence explicitly required for the task.
 
 The packet is the session entry; `status.json` verifies it. Stop if stage, task, target model, or revision differs.
 
-Without a packet, read `ACTIVE.json`, `PROJECT_STATE.md`, and active `status.json` when present, then wait. Do not scan `reports/agent-runs/`, completed stages, or `history/`.
+Without a packet, read `ACTIVE.json`, `PROJECT_STATE.md`, and active `status.json` when present, then wait. Do not scan `reports/agent-runs/`, completed stages, or `history/`. If Human explicitly asks to send a task or message to another model or terminal window, also read `HERDR.md`.
 
 | File | Sole responsibility |
 |---|---|

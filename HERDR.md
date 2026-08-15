@@ -26,6 +26,16 @@ These are expected labels, not a saved snapshot of live sessions. Pane IDs,
 agent names, session UUIDs, agent status, and terminal titles are transient and
 must never be copied into this file as routing targets.
 
+## Review Window Routing
+
+When Human explicitly asks a model to perform a review, use that model's
+corresponding `-review` label: for example, `grok` routes to `grok-review` and
+`claude` routes to `claude-review`. If Human already names a `-review` label,
+use that exact label. This rule applies only to review tasks; it does not route
+other tasks to a review window. If the corresponding `-review` label is absent
+from the table or cannot be resolved, stop and report it. Do not substitute a
+base-model label or guess another target.
+
 ## Resolve A Window
 
 1. Run `herdr pane list` on this local machine.
