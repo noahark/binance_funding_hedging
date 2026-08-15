@@ -129,9 +129,40 @@ if (BINANCE_MARGIN_SYMBOL[symbolInfo.symbol] == null) { continue; }
 ### 4.1 发单量：合约腿除以面值
 
 - 位置：`backend/services/live_hedge_executor.py:828`
-- 现状：`send_qty = ctx.q_common`，两腿共用
-- 改法：现货腿用 `q_common`；合约腿用 `q_common ÷ 合约腿单位面值`
+- 现状：`send_qty = ctx.q_common if ctx.q_common is not None else ctx.single_amount`
+- 改法：现货腿用 `send_qty`；合约腿用 `send_qty ÷ 合约腿单位面值`
 - 大白话：这是**唯一的出口换算点**。买 100 万个 PEPE，就给合约腿发 1000 张。
+
+#### 4.1.1 ⚠️ `single_amount` 退路对乘数币必须禁掉（Human 2026-08-15 提问暴露）
+
+上面那行有一条**退路**：`q_common` 为空时直接取用户原始输入 `single_amount` 发单，
+**绕过 §4.2 的取整**。这正是 PROJECT_STATE 记录的 F-A 风险
+（`[OPEN][ACCEPTED][REVIEW-2][2026-08-13]` 建卡预检从未成功的 live 平滑任务仍可能
+按默认值发单）在本方案下的具体后果：
+
+- 现货腿：发 `single_amount` 个 → 大概率成交
+- 合约腿：发 `single_amount ÷ 面值` 张 → **未经取整**，大概率不落在合约步长格子上
+  → 被交易所拒
+- 结果：**现货成交、合约被拒 → 单腿裸多**
+
+注意与 §1 的区别：这里两腿**意图一致**（不是 999 倍裸空），但结果仍是单腿敞口。
+
+**改法**：`面值 ≠ 1` 且 `q_common is None` 时**拒绝发单**（fail-closed，不回退到
+`single_amount`）。面值 = 1 的币保持现有退路行为不变，不扩大本轮范围。
+
+**关系澄清**（供评审与前端文案参考）：
+
+```
+用户输入 single_amount（现货个数，"想要的量"）
+        ↓ floor_to_grid(single_amount, grid)   ← 只向下取整，不向上
+q_common（现货个数，"系统实际会用的量"）
+        ↓ 现货腿 = q_common
+        ↓ 合约腿 = q_common ÷ 面值
+```
+
+二者**量纲相同、数值可能不同**。对 `1000BONKUSDT`（格子 1000 个）：输 1500 →
+`q_common = 1000`（丢掉 500）；输 999 → `q_common = 0` → 拒绝。§4.7 的前端回显
+应展示的是取整**之后**的值，避免用户以为 1500 会全额下单。
 
 ### 4.2 取整格子：合约步长先换算
 
@@ -373,6 +404,10 @@ EOF
 7. 价格比值护栏：声明 1000 而实测比值为 1 时应拒绝发单
 8. 前端（`frontend/self-check.js`）：乘数币行的标签含单位「个 BONK」，且输入 1000 后
    回显「= 1 张 1000BONKUSDT」；面值 = 1 的行标签与回显不变（§4.7 回归）
+9. 取整语义：面值 1000、输入 1500 时 `q_common` 应为 1000（不是 1500、不是 2000）；
+   输入 999 应为 0 并被拒
+10. `single_amount` 退路：面值 ≠ 1 且 `q_common is None` 时应**拒绝发单**；
+    面值 = 1 时退路行为不变（§4.1.1 回归）
 
 ### 9.3 ⚠️ 单测不足以验收
 
