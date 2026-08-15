@@ -634,6 +634,17 @@ def test_validate_direction_mode_amount_target():
             D.validate_target_n(bad)
 
 
+def test_resolve_send_qty_branches_and_type_equivalence():
+    q = D.Decimal("0.123")
+    assert D.resolve_send_qty(q, "1.5") is q
+    assert D.resolve_send_qty(None, "1.5") == D.Decimal("1.5")
+    # str（任务表 TEXT 列）与 Decimal（AttemptContext）回退值按位一致，无舍入
+    from_str = D.resolve_send_qty(None, "1.500")
+    from_dec = D.resolve_send_qty(None, D.Decimal("1.500"))
+    assert from_str == from_dec
+    assert str(from_str) == str(from_dec) == "1.500"
+
+
 def test_reject_unknown_keys_names_first_extra():
     with pytest.raises(D.HedgeError) as exc:
         D.reject_unknown_keys({"coin": "BTCUSDT", "extra": 1}, ("coin",))

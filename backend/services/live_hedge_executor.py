@@ -825,7 +825,7 @@ class LiveHedgeExecutor:
             ctx.direction, ctx.position_side_mode or D.POS_MODE_BOTH,
             task_type=ctx.task_type,
         )
-        send_qty = ctx.q_common if ctx.q_common is not None else ctx.single_amount
+        send_qty = D.resolve_send_qty(ctx.q_common, ctx.single_amount)
         spot_cid, perp_cid = _client_order_ids(ctx.attempt_id)
         spot_symbol = ctx.spot_symbol
         spot_route = (ctx.preflight_snapshot or {}).get(
