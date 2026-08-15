@@ -284,6 +284,11 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 ## Open Follow-ups
 
 - `[CLOSED-NOT-DOING][2026-08-15]` **1000x 乘数币适配：Human 决定不做，需求封存。**
+  **活文档同步已完成**（`AGENTS.md` 收口义务）：`docs/product/PRD.md` §2.2 / §11.3、
+  `docs/symbol-mismatch-analysis.md` 状态头、`docs/planning/duplicate-concept-
+  consolidation-2026-08-15.opus5.md`（其「改动二并入乘数轮」的去向已作废，须单独立项）。
+  `docs/api/public-market-contract.md` **无需改**——其 `multiplier_strip_alias` 相关
+  描述是现行行为的事实陈述，未随本决定变化。
   **重启前必读 `docs/planning/leg-unit-size-conversion-2026-08-15.CLOSED-lessons.md`**
   （封存说明 + 五轮评审经验 + 已知漏项 + 重启顺序）。
   **代码零改动**，六个币仍被三道 fail-closed 挡着，**零风险敞口——这是终态，不是止血**。

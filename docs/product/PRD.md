@@ -69,10 +69,15 @@ close, borrow, repay, or transfer assets as a response to an order outcome.
 
 - Automatic repayment and full holdings reconciliation.
 - User-data-stream persistence and any automatic risk response.
-- 1000x multiplier-contract leg-quantity conversion (the six multiplier
-  symbols are currently fail-closed at task creation; the conversion touches
-  the real order-quantity path and awaits explicit human authorization — see
-  `PROJECT_STATE.md` Open Follow-ups).
+- 1000x multiplier-contract leg-quantity conversion — **CLOSED, not doing
+  (human decision, 2026-08-15).** The six multiplier symbols stay fail-closed
+  at task creation; that block is now the **intended end state, not a
+  stop-gap**, and its scaffolding must not be cleaned up as dead code. Design
+  reached r5 and was sealed on cost/benefit grounds (measured marginal
+  contribution 1.72%, 74% of it concentrated in a single symbol), not because
+  the design was wrong. Before restarting, read
+  `docs/planning/leg-unit-size-conversion-2026-08-15.CLOSED-lessons.md` — the
+  sealed change lists are known to be incomplete.
 
 Implementing a real adapter never authorized enabling it. Live execution has
 since been explicitly human-authorized and is the standing operating premise
@@ -381,8 +386,10 @@ path remain explicit human actions.
 
 - Smooth/WebSocket basis-aware execution.
 - Automatic repayment and complete position reconciliation.
-- 1000x multiplier-contract leg-quantity conversion (awaiting explicit human
-  authorization — `PROJECT_STATE.md` Open Follow-ups).
+- ~~1000x multiplier-contract leg-quantity conversion~~ — **removed from the
+  roadmap (closed 2026-08-15, see §2.2).** May be revisited if the multiplier
+  symbols' funding opportunity changes; restart guidance is in
+  `docs/planning/leg-unit-size-conversion-2026-08-15.CLOSED-lessons.md` §6.
 - User data streams and broader accounting beyond the delivered flow-log
   ledger.
 - Additional account modes/routes only with fresh evidence and explicit scope.
