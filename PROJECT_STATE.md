@@ -270,18 +270,10 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Open Follow-ups
 
-- `[OPEN][PRE-EXISTING][2026-08-14]` **前端平仓前置余额检查对普通现货账户会误拦。**
-  `frontend/index.html:5764-5772` 的 forward 分支只以 `posRow.unified_balance` 字段存在为条件比较总量，币若实际在普通现货账户，统一账户读数为 `0` 时会以「页面显示统一账户现货约 0.00 < 需 N」直接拦截、不发请求。引入提交 `97ecb7f`（2026-08-06），早于平滑平仓交付 base。
-  触发条件（2026-08-14 实盘遇到，STOUSDT）：币全部在普通现货账户、统一账户该资产为 0，
-  正向平仓建卡被硬拦，两种模式（立即/平滑）都会中招。
-  **绕法（可用）**：先用资产互转把该币划到统一账户，前端校验即通过；后端启动备料时会发现
-  普通现货账户不足再划回来——多两次划转，能走通。
-  后续修复（约三行）：正向平仓的可用量应为 `spot_balance + unified_balance`（两字段持仓行
-  已有：前者=普通现货 free+locked，后者=统一账户 total），两者之和仍不足才拦，文案分列两个
-  账户。注意口径方向：**平仓侧误拦的代价（有仓平不掉）远大于误放**（后端启动时会 fail-closed
-  暂停并给中文原因、零下单），所以这一侧应偏宽松。
-  另可考虑：C13 落地后点「启动」会同步备料并当场回中文原因，这个基于 60 秒旧缓存的前端预检
-  价值已大幅下降，可评估直接删除余额预检（保留合约持仓预检，它口径简单且防超平）。
+- `[OPEN][SIMPLIFICATION][2026-08-15]` **正向平仓的前端余额预检可评估整个删除。**
+  误拦已修（改为 `spot_balance + unified_balance` 两账户求和，`c04a006`，STOUSDT 实盘验证）。
+  但 C13 落地后点「启动」会同步备料并当场回中文原因，这个基于 60 秒旧缓存的前端预检价值
+  已大幅下降，可评估直接删除余额预检；**保留合约持仓预检**（口径简单且防超平）。
 
 - `[OPEN][DEAD-CODE][2026-08-14]` **`hedge_open_fill` 表及其死代码待清理（须 Human 授权）。**
   round-1（dry-run record transport）遗留的「每对 attempt 一行、inline 两腿成交」表；real-API/live
@@ -298,17 +290,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   **分两步（降低 schema 风险）**：先删方法 + fill 读取分支 + 测试、物理表暂留并跑全量测试；稳定后再
   对生产库 `DROP TABLE hedge_open_fill`。涉及生产库 schema 变更，须 Human 明确授权后单开一轮、不夹带；
   与 `docs/planning/dead-code-cleanup-2026-08-09.*` 的既有清理候选合并执行。
-
-- `[OPEN][PRE-EXISTING][2026-08-11]` **小额统一账户资产卡可能连同还款回显一起被过滤。**
-  `frontend/index.html` 先按「持有价值与净价值均低于 10 USDT」过滤整张资产卡，之后才
-  生成还款成功、失败、未决或未知回显；因此借款已读为 0 且资产价值较小时，未决锁仍在
-  浏览器状态中，但「查询结果 / 我已核对 / 再次刷新」等回显和操作入口可能随卡片消失。
-  该顺序早于 2026-08-11 的资产卡/持仓表展示调整，**不是本次改动引入的回归**。
-  临时边界：若还款后资产卡消失，不要换请求号重试，先到币安核对实际负债；仍按现有
-  单标签页操作限制执行。重开条件：实际出现未决还款资产卡消失，或产品要求任何还款
-  回显都不受小额卡片过滤影响。最小修复方向是让存在还款 pending/result 的资产绕过
-  整卡过滤；证据锚点：`frontend/index.html` 的统一账户 `.filter(...)` 早于
-  `renderRepayStatus(asset)`。
 
 - `[OPEN][DOCUMENTATION][2026-08-11]` **reverse drift 的账户级归因边界（review-2 O-2）。**
   当前 `A=max(B-F-L,0)` 使用统一账户内该资产的整体验证值，不按策略周期分配负债、
