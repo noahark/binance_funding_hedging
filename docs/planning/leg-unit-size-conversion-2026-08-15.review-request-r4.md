@@ -4,7 +4,13 @@
 仓库：/Users/ark/Desktop/ai code/funding_hedging，分支 main，基线 f00df2b
 状态：设计稿，生产代码一行未改。六个乘数币目前被三道 fail-closed 拦截挡着，零风险敞口。
 
-派发对象：grok / claude-glm / agy（三方独立评审，互不参考）
+派发对象：三方独立评审，互不参考。经 Herdr 派往各自的 `-review` 窗口。
+
+| 窗口标签 | 实际评审模型（DEC-2026-08-13-002：按模型记名，不按窗口标签） |
+|---|---|
+| `grok-review` | Grok |
+| `claude-glm-review` | Claude Code using GLM |
+| `agy-review` | **`gemini-3.7-flash`**（Human 于派发时说明；`HERDR.md:23` 记的「预期 `gemini-3.1-pro`」不是本轮实际） |
 
 ---
 
