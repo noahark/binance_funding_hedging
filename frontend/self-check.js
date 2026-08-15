@@ -5257,6 +5257,9 @@ setTimeout(async () => {
           accrued_funding: null, borrow_interest: null, net_pnl: null },
         { coin: 'BTCUSDT', direction: 'forward', cycle_id: 'c2', cycle_closed_at: null, match_status: 'normal',
           spot_balance: '5000', unified_balance: '20000', um_position_amt: '-5000', position_qty: 6, spot_avg: '1', perp_avg: '1',
+          accrued_funding: null, borrow_interest: null, net_pnl: null },
+        { coin: 'STOUSDT', direction: 'forward', cycle_id: 'c3', cycle_closed_at: null, match_status: 'normal',
+          spot_balance: '5000', unified_balance: '0', um_position_amt: '-5000', position_qty: 6, spot_avg: '1', perp_avg: '1',
           accrued_funding: null, borrow_interest: null, net_pnl: null }
       ], account: { verified: true, error: null, checked_at: null } } };
       await helpers.loadHedgePositions();
@@ -5297,6 +5300,17 @@ setTimeout(async () => {
         throw new Error('合约持仓不足应拦截: ' + JSON.stringify(r3));
       }
       if (fetchCallLog.length !== mark) throw new Error('合约侧拦截不应发请求');
+      // STOUSDT：币全在普通现货账户（spot 5000 + unified 0 = 5000 ≥ 2000）→ 放行。
+      // 旧口径只看 unified（0 < 2000）会误拦，此断言在两账户求和修复前必失败。
+      const amtS = document.getElementById('hedge-close-amount-STOUSDT');
+      const cntS = document.getElementById('hedge-close-count-STOUSDT');
+      if (amtS) amtS.value = '1000';
+      if (cntS) cntS.value = '2';
+      const r4 = helpers.requestHedgeCloseConfirm('STOUSDT', 'forward');
+      if (r4.ok !== true || r4.pending !== true) {
+        throw new Error('币全在普通现货账户应按两账户之和放行: ' + JSON.stringify(r4));
+      }
+      if (fetchCallLog.length !== mark) throw new Error('STOUSDT 放行阶段不应发请求');
       console.log('[PASS] 前端提前量检测：余额不足强制拦截（零请求）+ 余额足够放行确认');
     }
 

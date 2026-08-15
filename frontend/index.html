@@ -5758,17 +5758,26 @@
         // Human 2026-08-05：前端提前量检测（强制拦截，不发请求）。这是约 60 秒缓存的
         // 用户体验提示；后端 create 只轻量落卡，Human 点击“启动”后 worker 才用 fresh
         // q_common、剩余次数和持仓/余额门做最终校验。
-        // 前端口径：总量 = 单次×次数；现货侧用 unified_balance（统一账户，total ≥ free，
-        // 宁拦勿放）；合约侧用 um_position_amt（防超平，reduceOnly 超量交易所会拒）。
+        // 前端口径：总量 = 单次×次数；现货侧可用量 = spot_balance（普通现货）+
+        // unified_balance（统一账户）之和，后端备料会在两账户间自动划转；合约侧用
+        // um_position_amt（防超平，reduceOnly 超量交易所会拒）。
         // 无数据字段 → 跳过对应侧（不误拦，启动后的后端校验兜底）。
         if (direction === 'forward') {
           const posRow = (state.hedgePositions || []).find(r => r.coin === coin);
           const total = Number(amountStr) * n;
-          const hasUnifiedData = posRow && posRow.unified_balance != null && posRow.unified_balance !== '';
-          if (hasUnifiedData && Number.isFinite(total)) {
-            const unifiedBal = Number(posRow.unified_balance);
-            if (Number.isFinite(unifiedBal) && unifiedBal < total) {
-              setErr(`页面显示统一账户现货约 ${unifiedBal.toFixed(2)} < 需 ${total}（单次 ${amountStr} × ${n} 次；缓存约 60s 旧，以后端校验为准）；已拦截`);
+          // 币可能在普通现货账户、也可能在统一账户，后端备料会自动划转，故可用量取两者之和；
+          // 单侧缺数据按 0 计入，两侧都无数据才跳过（平仓侧误拦代价 > 误放，后端启动时会 fail-closed 兜底）。
+          const readBal = (v) => {
+            if (v === null || v === undefined || v === '') return null;
+            const x = Number(v);
+            return Number.isFinite(x) ? x : null;
+          };
+          const spotBal = posRow ? readBal(posRow.spot_balance) : null;
+          const unifiedBal = posRow ? readBal(posRow.unified_balance) : null;
+          if ((spotBal !== null || unifiedBal !== null) && Number.isFinite(total)) {
+            const avail = (spotBal || 0) + (unifiedBal || 0);
+            if (avail < total) {
+              setErr(`页面显示现货合计约 ${avail.toFixed(2)}（普通现货 ${(spotBal || 0).toFixed(2)} + 统一账户 ${(unifiedBal || 0).toFixed(2)}） < 需 ${total}（单次 ${amountStr} × ${n} 次；缓存约 60s 旧，以后端校验为准）；已拦截`);
               return { ok: false, error: 'insufficient_balance_frontend' };
             }
           }
