@@ -57,10 +57,11 @@ close, borrow, repay, or transfer assets as a response to an order outcome.
   UM income (funding fee, commission, realized PnL, transfer) are pulled from
   Binance and recorded (`data/ledger-flow.sqlite3`).
 - A local Python standard-library HTTP server and vanilla-JS frontend.
-  Service management was launchd-based, but launchd has been broken since
-  2026-08-03 (TCC authorization failure); the service actually runs as a
-  manually started foreground process via `scripts/run-server.sh` (see
-  `PROJECT_STATE.md` Live Risks).
+  launchd-based service management stopped working 2026-08-03 (TCC
+  authorization failure) and, by decision 2026-08-15, is not being repaired:
+  locally the service runs as a manually started foreground process via
+  `scripts/run-server.sh`, and hosting is deferred to a systemd unit at server
+  deployment (see `PROJECT_STATE.md` Live Risks).
 
 - Smooth/WebSocket-gated execution (V1 阶段已部分交付：已实现单次尝试、实时盘口同步、固定目标数量的平滑开仓和平滑平仓机制；尚无多轮分批与WebSocket推送，由前端2秒轮询代替)。
 
@@ -342,10 +343,11 @@ or contacts Binance directly.
   self-checks and no build step.
 - Persistence: local SQLite for the borrow, hedge-open, ledger-flow,
   asset-transfer, and margin-repay domains (`data/*.sqlite3`).
-- Runtime: launchd-based service scripts exist, but launchd has been broken
-  since 2026-08-03 (TCC authorization failure); the service actually runs as
-  a manually started foreground process via `scripts/run-server.sh` (see
-  `PROJECT_STATE.md` Live Risks).
+- Runtime: launchd-based service scripts are retained but unused — launchd
+  stopped working 2026-08-03 (TCC authorization failure) and is not being
+  repaired by decision 2026-08-15; the service runs as a manually started
+  foreground process via `scripts/run-server.sh`, with hosting deferred to a
+  systemd unit at server deployment (see `PROJECT_STATE.md` Live Risks).
 
 ### 10.2 Future evolution
 

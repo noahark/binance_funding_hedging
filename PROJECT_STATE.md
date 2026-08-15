@@ -208,19 +208,27 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   touch credentials, control the service, or write the live task DB; an
   authorized read-only check must precede any live action.
 
-- `[OPEN][OPERATIONS][2026-08-03, updated 2026-08-09]` **launchd 无法托管，已 disable，
-  改用手动前台模式。** 根因是 macOS TCC：launchd 启动的进程拿不到 `~/Desktop` 访问权限。
-  2026-08-09 Human 给 `/bin/bash` 加了「完全磁盘访问」后 bash 能进 Desktop（退出码 126→1），
-  但 `run-server.sh` 调的 python（`.venv/bin/python` → `/opt/homebrew/opt/python@3.11/bin/python3.11`）
-  仍未授权，读 `.venv/pyvenv.cfg` 时 `Operation not permitted` → launchd 仍起不来。Human 决定
-  **不逐个授权可执行文件**（homebrew python 一升级路径就变、TCC 失效，太脆弱），由 Bookkeeper
-  执行 `launchctl disable + bootout gui/501/com.aoke.funding-hedging.server` 停掉 fail loop
-  并防止 `RunAtLoad` 下次开机复发。**当前服务 = 手动前台进程**（如 PID 54099，2026-08-09 19:11
-  启动，跑最新 main 代码），在 `127.0.0.1:8787`；重启必须手动 `scripts/run-server.sh`
-  （`backend/config.py` 不自行解析 `.env`）。根治（想要重启自动起）：把项目移出 `~/Desktop`
-  到非 TCC 保护目录；给 python 也授权不可取（脆弱）。诊断用 `scripts/service-control.py doctor`
-  （只读），修复子命令需 `--confirm`。要恢复 launchd：`launchctl enable + bootstrap gui/501` 该 plist。
-  **⚠️ `service-control.py status` 具有误导性**：`health 200` 来自手动进程、`commit` 字段读当前
+- `[DECIDED][OPERATIONS][2026-08-03, decided 2026-08-15]` **本地故意用手动前台模式；
+  launchd 不再投入修复。** **当前服务 = 手动前台进程**，在 `127.0.0.1:8787`；重启必须手动
+  跑 `scripts/run-server.sh`（`backend/config.py` 不自行解析 `.env`）。
+  **决定（Human 2026-08-15）**：本地手动启动够用，不修 launchd。托管需求属于未来的服务器
+  部署，那边是 systemd——plist 的 `RunAtLoad`/`KeepAlive`/`ThrottleInterval` 对应
+  `WantedBy=`/`Restart=always`/`RestartSec=`，是重写不是移植；且服务器无 TCC，Desktop
+  权限问题在那边不存在。`scripts/service-control.py` 的 launchd 子命令与 plist 渲染暂留
+  不动，服务器部署时另开一轮写 systemd unit。
+  **历史事实**：2026-08-09 的 launchd fail loop 根因是 macOS TCC——Human 给 `/bin/bash` 加
+  「完全磁盘访问」后 bash 能进 Desktop（退出码 126→1），但 `run-server.sh` 调的 python
+  （`.venv/bin/python` → homebrew `python@3.11`）未授权，读 `.venv/pyvenv.cfg` 报
+  `Operation not permitted`。Human 决定不逐个授权可执行文件（homebrew python 一升级路径就变、
+  TCC 失效，太脆弱），已 `launchctl disable + bootout gui/501/com.aoke.funding-hedging.server`。
+  2026-08-15 `doctor` 只读复核：`loaded=false`、`launchctl print` rc `113`（domain 内无此
+  service）、`server.stderr.log` 末次写入停在 2026-08-09 19:09——**权限修复从未经 launchd
+  路径验证过**，既不能称已修好，也不能称仍坏。
+  ⚠️ **TCC 不按父进程继承**：终端能进 Desktop 是终端 app 自身的授权由子进程继承；launchd
+  拉起的进程按被执行二进制自身的授权判定。「手动能起」推不出「launchd 能起」。将来若真要恢复
+  launchd（`launchctl enable + bootstrap gui/501` 该 plist），须重新实测这一点，不得引用手动
+  启动的成功作为证据。
+  **⚠️ `service-control.py status/doctor` 具有误导性**：`health 200` 来自手动进程、`commit` 字段读当前
   git HEAD 而非运行进程加载的代码版本——判断「服务最新」须以进程启动时间对比提交时间为准。
 
 - `[NOTE][2026-08-03]` The "no agent may control the service" rule was waived
@@ -378,11 +386,12 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   `1000000` 前缀（`1000000MOG`——d717595 的 `base[4:]` 正是在它上面剥成 `000MOG` 的），
   倍率应随表逐条声明，新增条目时由 `scripts/check-spot-symbol-map.py` 一起校验。
 
-- `[OPEN][FOLLOW-UP]` **Manual-restart logs land in a session scratchpad.** The
-  2026-08-03 restart wrote stdout/stderr to a Claude session scratchpad path,
-  which is temporary. Until the launchd service is repaired (see Live Risks),
-  restart from an operator terminal so logs survive, or fix the LaunchAgent so
-  they return to `~/Library/Logs/funding-hedging/`.
+- `[ACCEPTED][OPERATIONS][2026-08-03, decided 2026-08-15]` **手动前台模式下日志不落固定
+  文件——已知代价，不修。** launchd 曾把 stdout/stderr 写到
+  `~/Library/Logs/funding-hedging/`；改手动前台后日志只在启动它的那个终端里（2026-08-03 那次
+  甚至落在临时的 Claude session scratchpad）。随「本地不修 launchd」的决定一并接受（见 Live
+  Risks 同条）。**操作口径**：从 operator 终端启动以便日志留在可回看的窗口；需要留存就自己重定向
+  （`scripts/run-server.sh > 某文件 2>&1`）。服务器部署由 systemd 的 journal 接管，届时自然消解。
 - `[OPEN][RESIDUAL]` **UM drain 可在 `cumulative_quote` 未知时把 FILLED 腿判为终态。**
   该路径会保留 `avg_price` 但缺 quote，导致该周期的合约均价与开/平滑点显示 `—`；这是
   fail-closed，不影响订单或持仓且不臆造数值。重开条件：出现真实历史周期命中该形态，或 Human
@@ -410,7 +419,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 - **No active stage.** Current priorities (detail in the sections above):
   1. 1000x 腿量换算 —— 恢复乘数币能力仍须 Human 授权后单开一轮；
-  2. launchd 已 disable、改手动前台模式（TCC 部分修复但 python 未授权；根治须移项目出 ~/Desktop）。
+  2. 服务器部署（systemd unit）—— 本地已决定不修 launchd，托管需求整体推到这一轮，须 Human 授权后单开。
 - Nothing open authorizes deployment, Start-gate changes, credentials, or live
   operation. Live actions follow the Live Risks gates above.
 

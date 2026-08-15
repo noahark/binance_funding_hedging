@@ -244,9 +244,12 @@ operator on a stopped server; always take a `.bak` copy first.
   ```
 
 - macOS launchd local service, managed by `scripts/service-control.py` for the
-  agent `com.aoke.funding-hedging.server`. `render` / `status` / `doctor` are
-  read-only; `install` / `start` / `stop` / `restart` / `uninstall` require
-  `--confirm`:
+  agent `com.aoke.funding-hedging.server`. **Not in use: by decision 2026-08-15
+  the local service runs as a manual foreground process (`scripts/run-server.sh`)
+  and launchd is not being repaired; hosting moves to a systemd unit at server
+  deployment.** The script and plist rendering are retained unchanged.
+  `render` / `status` / `doctor` are read-only; `install` / `start` / `stop` /
+  `restart` / `uninstall` require `--confirm`:
 
   ```bash
   python3 scripts/service-control.py render
