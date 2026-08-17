@@ -860,11 +860,33 @@ read" (and covers an upstream field rename too); the spot side is a sum where
 `unavailable_sources` containing `spot_balances`.
 
 `unified_wallet_value_usdt` remains `Σ(unified totalWalletBalance priced)` as its
-own field and does **not** enter `total_value_usdt`. The long-standing claim that
-`totalWalletBalance` already covers the um/cm sub-accounts is **not settled** —
-the 2026-08-17 measurement above is hard to reconcile with it. Nothing in this
-contract depends on that claim any more now that the field feeds no total; see
-the open follow-up in `PROJECT_STATE.md` before relying on it for anything new.
+own field and does **not** enter `total_value_usdt`.
+
+⚠️ **`totalWalletBalance` does NOT cover the um/cm sub-accounts** — settled
+2026-08-17, overturning a long-standing claim in this document. Proof by
+contradiction from one live snapshot, no new endpoint needed:
+
+```text
+wallet gross  Σ(totalWalletBalance priced)   100.82
+unified debt  total_debt_usdt                 52.48
+gross − debt                                  48.34   ← should ≈ net worth
+actual net worth  actualEquity               187.97
+shortfall                                    139.63
+```
+
+Net worth exceeds `gross − debt` by `139.63`. Equity cannot exceed the assets it
+is computed from, so the wallet sum must be missing that value — the margin and
+unrealised PnL sitting in the futures sub-accounts (9 UM positions open at the
+time of measurement). The per-asset rows confirm it: every non-zero row was a
+plainly held asset (USDT/BNB/1000CAT/SNX/WLD/AVNT), none of it futures margin.
+
+**Consequences.** Nothing in the current contract depends on this — the field
+feeds no total since the basis change below. But it means the field is a
+*partial* wallet view, not "everything in the unified account": do not use it for
+reconciliation, position cost, or any "how much is in there" question without
+adding the futures wallets. This also quantifies why the pre-2026-08-17 fallback
+was removed: falling back to gross understated the total by a three-digit USDT
+amount, which read on screen as a loss that never happened.
 
 ⚠️ **Basis change, 2026-08-17.** Before this date the unified side used
 `accountEquity` and fell back to wallet gross when the account endpoint was

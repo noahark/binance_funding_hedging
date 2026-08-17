@@ -718,9 +718,9 @@ def test_assemble_private_account_account_equity_alone_is_not_net_worth():
 def test_assemble_private_account_anti_double_count():
     # total = unified net worth (papi actualEquity) + sum(spot free+locked priced).
     # um_positions nominal is NEVER counted (exposure view only). Wallet gross is
-    # reported on its own field and never enters the total (2026-08-17) — whether
-    # totalWalletBalance itself already covers the um/cm sub-accounts is an open
-    # question, and deliberately not asserted here.
+    # reported on its own field and never enters the total (2026-08-17). Note that
+    # gross does NOT cover the um/cm sub-accounts (settled 2026-08-17, see the
+    # contract), which is exactly why it must not stand in for net worth.
     unified = [
         {"asset": "BTC", "totalWalletBalance": "1.5"},   # 1.5 * 60000 = 90000
         {"asset": "USDT", "totalWalletBalance": "100"},  # stable -> 100

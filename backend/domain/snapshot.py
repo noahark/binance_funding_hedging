@@ -1194,10 +1194,12 @@ def assemble_private_account(
 
     - ``spot_value_usdt`` = Σ(spot free+locked priced)
     - ``unified_wallet_value_usdt`` = Σ(unified totalWalletBalance priced)
-      (wallet gross; may include borrowed assets). Whether it already covers the
-      um/cm sub-accounts is **not settled** — the 2026-08-17 measurement is hard
-      to reconcile with that long-standing claim (see the contract). It feeds no
-      total, so nothing here depends on the answer.
+      (wallet gross; may include borrowed assets). It does **NOT** cover the
+      um/cm sub-accounts — settled 2026-08-17 by contradiction: net worth
+      exceeded ``gross − debt`` by 139.63 USDT, which equity cannot do unless the
+      wallet sum is missing the futures margin (contract has the numbers). Treat
+      it as a PARTIAL wallet view, never as "everything in the unified account".
+      It feeds no total, so nothing here depends on it.
     - ``pm_account.actual_equity_usdt`` = papi ``actualEquity`` — unified net
       worth, the figure the Binance App shows. ``account_equity_usdt`` (papi
       ``accountEquity``) is the collateral-discounted risk figure, carried for

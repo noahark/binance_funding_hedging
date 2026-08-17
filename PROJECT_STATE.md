@@ -375,12 +375,20 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Open Follow-ups
 
-- `[OPEN][DOCUMENTATION][PRE-EXISTING][2026-08-17]` **`totalWalletBalance` 是否含
-  UM/CM 子钱包，存疑。** 契约长期声称它「已包含 um/cm/crossMargin 子账户，故不再重复
-  计入」，但 2026-08-17 实测毛额 `100.69` 只有 `actualEquity` `191.42` 的一半多，账户
-  当时有 UM 持仓——若毛额真含合约子钱包，不该差这么多。**本轮不影响任何数字**（毛额已
-  不进任何总额），故未追查。若将来要给毛额加新用途，先把这条查清；证据入口是
-  `GET /papi/v1/balance` 与 `GET /papi/v1/account` 同一时刻的原始响应对比。
+- `[CLOSED-SETTLED][2026-08-17]` **`totalWalletBalance` 不含 UM/CM 合约子钱包——已定论，
+  推翻契约的长期说法。** 不需要新接口，单份实盘快照反证即可：毛额 `100.82` − 负债
+  `52.48` = `48.34`，而净值 `actualEquity` 是 `187.97`，**净值比它多 `139.63`**。
+  权益不可能超过它据以计算的资产，所以毛额必然漏了这部分——即当时 9 个 UM 持仓占用的
+  保证金与浮盈。逐行核对佐证：所有非零行都是明面持有的币（USDT/BNB/1000CAT/SNX/WLD/
+  AVNT），没有一分合约保证金。
+  **影响**：当前**无**——毛额自 2026-08-17 起不进任何总额，前后端零消费者。但它是一个
+  **部分钱包视图**，不是「统一账户里的全部」：**做对账、算持仓成本、回答「里面一共多少钱」
+  都不能直接用它**，必须另加合约钱包。这也量化了删除旧回退链的必要性——退到毛额会把总额
+  少报三位数 USDT，页面上读起来像凭空亏了一笔。
+  已同步 `docs/api/public-market-contract.md`、`backend/domain/snapshot.py` docstring、
+  `test_private_account_v1.py` 注释。
+  **未做**：字段本身零消费者且语义易误导，可考虑直接删除，但那属契约破坏（schema
+  `required`）——归入既有的死代码清理轮（见 `hedge_open_fill` 条目），不单开。
 
 - `[OPEN][2026-08-16]` **未还利息已进快照并落地展示（本轮已交付），遗留一处口径提醒。**
   `crossMarginInterest` 已进 `balances_unified`（`cross_margin_interest` +
