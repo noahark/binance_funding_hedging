@@ -1139,7 +1139,9 @@ def _project_pm_account_summary(
     """Map ``GET /papi/v1/account`` + balance debt into display fields.
 
     Equity / uniMMR / margins come from the account object; total debt is the
-    priced sum of ``crossMarginBorrowed`` on unified balances (not a papi field).
+    priced sum of ``crossMarginBorrowed + crossMarginInterest`` on unified
+    balances (not a papi field) — principal plus outstanding unpaid interest,
+    which do not overlap (see ``_sum_cross_margin_debt_usdt``).
     Leverage ratio = total_value_usdt / account_equity when both > 0
     (combined spot+unified net total vs unified equity).
     """

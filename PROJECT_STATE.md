@@ -7,8 +7,22 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 ## Current Status (2026-08-16)
 
 - **[2026-08-16 Human 直接驱动，无 stage，Human 授权提交推送] 借币利息展示 + 未还利息进快照：**
-  一轮连续的 UI/契约小改，全部直接在 `main` 工作区完成，未走 stage 流程、未经独立评审
-  （Human 逐项确认后授权推送）。交付内容见本条下方与 Open Follow-ups 前两条。
+  一轮连续的 UI/契约小改，全部直接在 `main` 工作区完成，未走 stage 流程（Human 逐项确认
+  后授权推送）。交付内容见本条下方与 Open Follow-ups 前两条。
+  **事后补做 Review-1（grok-4.6，headless 只读，区间 `75a2e0a..6d5b4fb`）：`ACCEPT`，无
+  REWORK 发现**；两条 in-range 文档发现已修（`snapshot.schema.json` 的 `total_debt_usdt`
+  描述、`_project_pm_account_summary` docstring 仍写「只加本金」）。其引用的每条事实经
+  本会话逐条复核属实。**未做 Review-2**（按 §8 展示/账务口径属 HIGH_RISK，Human 知悉后
+  决定暂不做）。
+  ⚠️ **评审带出的两条检索教训（下次先查再推理）**：
+  (1) `interest_rows` 表有 **`principal` 字段**——币安在每笔计息记录里直接报了计息本金，
+  本会话此前全靠 `borrowed` 与资金流水反推。实值：SNX `2026-08-16 00:00` principal=100、
+  `01:00` principal=50.10709571（还款后），且**还款前从未变成 100.107…**，反证「小时计息
+  不会自动资本化」；XLM 有同形状的 `195.10900819`。这是比本会话原有证据更强的直接证据。
+  (2) `reports/api-samples/2026-08-borrow-interest-history-recon-v1/`（2026-08-04）**早已
+  写明** `crossMarginInterest` = "current outstanding unpaid interest (NOT historical
+  cumulative)" 及「曾还息后与 Σ history 分叉」。本会话 grep 时只扫了 `backend/`/`docs/`/
+  `schemas/`，漏了 `reports/api-samples/`，白推理数轮。
   验证：后端 `1893 passed`（`test_private_client.py::test_urlopen_only_in_designated_http_clients`
   为**本轮之前即已存在**的失败，`git stash` 验证过，与本轮无关）；`node frontend/self-check.js`
   全绿，新增断言均做过变异验证（改坏即红）。
@@ -336,6 +350,12 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   记录对账会有一个台阶（当时量级 0.06 USDT）。副标题已改为「本金 + 未还利息 折算合计」。
   **未做**：`docs/api/public-market-contract.md` 的 v0.x 修订号未递增（本轮按 additive
   amendment 追加章节处理）。
+  **[grok Review-1 带出，判为 pre-existing 不阻塞，未修]** 概览「借币负债」与资产卡净值
+  在**缺报价**时口径不一致：`total_debt_usdt` 走 `_usdt_value`（无价**按 0 计**+warning），
+  行级 `*_value_usdt` 走 `_cross_margin_borrowed_value_usdt`（无价为 `null`）。评审实跑构造：
+  某资产欠息 12.5 且价表无该 symbol → 卡片净值 `—`（诚实 fail-closed），概览负债把这笔当 0
+  丢掉（偏小且不自知）。这是 `total_value_usdt`「缺价记 0」的既有规则，本轮未触碰。若要统一
+  成 fail-closed 需单独决定——会影响 `total_value_usdt` 的既有行为。
 
 - `[CLOSED-NOT-DOING][2026-08-15]` **1000x 乘数币适配：Human 决定不做，需求封存。**
   **活文档同步已完成**（`AGENTS.md` 收口义务）：`docs/product/PRD.md` §2.2 / §11.3、

@@ -712,7 +712,7 @@
             },
             "account_status": { "type": ["string", "null"] },
             "total_debt_usdt": {
-              "description": "Priced sum of crossMarginBorrowed on unified balances.",
+              "description": "Priced sum of (crossMarginBorrowed + crossMarginInterest) on unified balances — principal plus outstanding unpaid interest. The two do not overlap: borrowed only absorbs interest that was already accrued at the moment of a past repayment (visible as a changed interest_rows.principal), while crossMarginInterest carries what accrued since.",
               "anyOf": [
                 { "$ref": "#/$defs/decimal_string" },
                 { "type": "null" }
