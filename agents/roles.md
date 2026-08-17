@@ -342,14 +342,19 @@ dispatch without becoming an implementer, reviewer, or autonomous dispatcher.
 
 - Eligible Bookkeepers are `gemini-3.1-pro` (the `agy` window), Codex/GPT, and
   Claude.
-- Human selects the Bookkeeper at each stage intake. There is no automatic
+- Human selects the Bookkeeper at each stage intake and names that
+  Bookkeeper's Herdr work-window label at the same time. There is no automatic
   default, replacement, or fallback based on quota, availability, or context
   size.
 - `status.json.bookkeeper` records the selected canonical model ID. Every
   selection must name the exact model ID (for example, `gpt-5.6-sol`, `opus5`,
   or `gemini-3.1-pro`), not a terminal label such as `codex`, `claude`, or
-  `agy`. A mid-stage handover still needs a new Human decision and status
-  revision.
+  `agy`.
+- `status.json.bookkeeper_label` records the named work-window label, or
+  `null` when unused. It is a delivery address, not identity and not a
+  provider. It must not be a `-review` label or a pane ID. A mid-stage
+  handover still needs a new Human decision and status revision, and updates
+  both `bookkeeper` and `bookkeeper_label`.
 
 ### Write Authority
 
@@ -371,6 +376,7 @@ Create current-stage `status.json` with exactly these top-level fields:
   "revision": 1,
   "stage_id": "<stage-id>",
   "bookkeeper": "<canonical-model-id>",
+  "bookkeeper_label": "<window-label-or-null>",
   "phase": "<current-phase>",
   "checkpoint": "<last-verified-checkpoint>",
   "base_sha": "<committed-base>",
@@ -435,12 +441,14 @@ Stop
 ```
 
 `status.json.bookkeeper` is the single canonical model id of the Bookkeeper for
-this stage. Human assigns it at stage intake and Bookkeeper records that
-decision. Do not store a provider beside it; provider identity comes from the
-model/provider mapping above. A mid-stage handover needs a new Human decision
-and status revision, but changes only this one value, for example:
-`"bookkeeper": "opus5"`. A task result returns to this one Bookkeeper; dispatch
-does not duplicate the identity.
+this stage. `status.json.bookkeeper_label` is that Bookkeeper's delivery
+address (a Herdr work-window label, or `null` when unused), not identity and
+not a provider. Human assigns both at stage intake and Bookkeeper records
+that decision. Do not store a provider beside them; provider identity comes
+from the model/provider mapping above. A mid-stage handover needs a new Human
+decision and status revision, and updates both values, for example
+`"bookkeeper": "opus5"` and `"bookkeeper_label": "claude"`. A task result
+returns to this one Bookkeeper; dispatch does not duplicate the identity.
 
 Prepare the dispatch first, then make the last `status.json` revision point to
 it. Do not modify that revision before Human starts the target terminal.
