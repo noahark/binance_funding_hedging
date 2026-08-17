@@ -2119,11 +2119,14 @@ setTimeout(async () => {
 
     // 31. 成本腿命中行展示借币日利率（账户档）
     const ausdtNetCell2 = getRowCell(tbody, 'AUSDT', 10);
-    if (!ausdtNetCell2.includes('日借币')) {
-      throw new Error('AUSDT 成本腿命中行未展示日借币子行');
+    if (!ausdtNetCell2.includes('日利息')) {
+      throw new Error('AUSDT 成本腿命中行未展示日利息子行');
+    }
+    if (ausdtNetCell2.includes('日借币')) {
+      throw new Error('市场表不得再使用旧名「日借币」: ' + ausdtNetCell2);
     }
     if (!ausdtNetCell2.includes('+0.01%')) {
-      throw new Error(`AUSDT 日借币利率期望 +0.01%，单元格 ${ausdtNetCell2}`);
+      throw new Error(`AUSDT 日利息利率期望 +0.01%，单元格 ${ausdtNetCell2}`);
     }
     console.log('[PASS] 成本腿命中行展示借币日利率');
 
@@ -2134,7 +2137,7 @@ setTimeout(async () => {
     helpers.ingestSnapshot(vip0Fixture2);
     const vip0Tbody2 = elements['market-table-body'].innerHTML;
     const busdtNetCell = getRowCell(vip0Tbody2, 'BUSDT', 10);
-    if (!busdtNetCell.includes('日借币') || !busdtNetCell.includes('参考')) {
+    if (!busdtNetCell.includes('日利息') || !busdtNetCell.includes('参考')) {
       throw new Error('VIP0 参考档未显示"参考"徽标: ' + busdtNetCell);
     }
     helpers.ingestSnapshot(designFixture);
@@ -2142,8 +2145,8 @@ setTimeout(async () => {
 
     // 33. 正费率/无成本腿行不展示借币成本子行
     const cusdtNetCell2 = getRowCell(tbody, 'CUSDT', 10);
-    if (cusdtNetCell2.includes('日借币')) {
-      throw new Error('CUSDT 正费率行不应展示日借币子行');
+    if (cusdtNetCell2.includes('日利息') || cusdtNetCell2.includes('日借币')) {
+      throw new Error('CUSDT 正费率行不应展示日利息子行');
     }
     console.log('[PASS] 正费率行不展示借币成本子行');
 
@@ -2406,10 +2409,10 @@ setTimeout(async () => {
         throw new Error(`${sym} 负费率状态期望 ${cls} 样式，单元格 ${cell}`);
       }
     }
-    // 第六态行：状态列「有利率·可借性未探测」AND 净收益列仍展示日借币子行
+    // 第六态行：状态列「有利率·可借性未探测」AND 净收益列仍展示日利息子行
     const fusdtNetCell = getRowCell(labelTbody, 'FUSDT', 10);
-    if (!fusdtNetCell.includes('日借币') || !fusdtNetCell.includes('+0.01%')) {
-      throw new Error(`FUSDT borrowability_not_probed 行应展示日借币子行，单元格 ${fusdtNetCell}`);
+    if (!fusdtNetCell.includes('日利息') || !fusdtNetCell.includes('+0.01%')) {
+      throw new Error(`FUSDT borrowability_not_probed 行应展示日利息子行，单元格 ${fusdtNetCell}`);
     }
     // 正资金费率 + classic 可借 → 「正费率」，不再绿标「已验证可借」
     const posRateFixture = JSON.parse(JSON.stringify(labelFixtureBase));
@@ -2506,7 +2509,8 @@ setTimeout(async () => {
     const zeroValueFixture = JSON.parse(JSON.stringify(designFixture));
     zeroValueFixture.private_account.balances_unified[0].value_usdt = '0.00000000';
     zeroValueFixture.private_account.balances_unified[0].cross_margin_borrowed_value_usdt = '0.00000000';
-    zeroValueFixture.private_account.balances_spot[0].value_usdt = '0.00000000';
+    // 现货 USDT 现已固定占第一行、小额不过滤；用非固定资产测小额过滤。
+    zeroValueFixture.private_account.balances_spot[1].value_usdt = '0.00000000';
     helpers.ingestSnapshot(zeroValueFixture);
     if (helpers.getPrivacyHidden()) helpers.togglePrivacy(); // 确保显示态
     const zeroValueBody = elements['private-panel-body'].innerHTML;
@@ -2517,15 +2521,15 @@ setTimeout(async () => {
       throw new Error('净价值 0（<10 USDT）的统一账户资产卡应被过滤: ' + zeroUnified);
     }
     const zeroSpot = zeroValueBody.slice(zeroSStart);
-    if (zeroSpot.includes('净价值 ≈ 0.00 USDT')) {
-      throw new Error('净价值 0（<10 USDT）的现货资产卡应被过滤: ' + zeroSpot);
+    if (zeroSpot.includes('<div class="asset">USDC</div>')) {
+      throw new Error('净价值 0（<10 USDT）的现货非固定资产卡应被过滤: ' + zeroSpot);
     }
     // 同区其它 ≥10 资产保留（fixture 注入 123.45 / 67.89）
     if (!zeroUnified.includes('净价值 ≈ 123.45 USDT')) {
       throw new Error('过滤后统一账户其余资产卡应保留: ' + zeroUnified);
     }
-    if (!zeroSpot.includes('净价值 ≈ 67.89 USDT')) {
-      throw new Error('过滤后现货账户其余资产卡应保留: ' + zeroSpot);
+    if (!zeroSpot.includes('净价值 ≈ 67.89 USDT') || !zeroSpot.includes('<div class="asset">USDT</div>')) {
+      throw new Error('过滤后现货账户固定 USDT 与其余 ≥10 资产卡应保留: ' + zeroSpot);
     }
     // 边界与负值：|net| < 10 过滤（9.99999999、-9.99）；|net| ≥ 10 保留
     // （10.00000001、净 -10.00、-10.01）。按 asset 卡存在性断言（9.99999999
@@ -2537,8 +2541,9 @@ setTimeout(async () => {
       eu[0].value_usdt = '9.99999999'; eu[0].cross_margin_borrowed_value_usdt = '0.00000000'; // BTC 过滤
       eu[1].value_usdt = '10.00000001'; eu[1].cross_margin_borrowed_value_usdt = '0.00000000'; // ETH 保留
       eu[2].value_usdt = '10.00000000'; eu[2].cross_margin_borrowed_value_usdt = '20.00000000'; // USDT 净 -10.00 保留
-      es[0].value_usdt = '-9.99000000';  // 现货 USDT 过滤
+      es[0].value_usdt = '-9.99000000';  // 现货 USDT：固定第一行，小额仍展示
       es[1].value_usdt = '-10.01000000'; // 现货 USDC 保留
+      es.push({ asset: 'ADA', free: '1', locked: '0', value_usdt: '9.99000000' }); // 非固定小额过滤
       helpers.ingestSnapshot(edgeFx);
       if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
       const edgeBody = elements['private-panel-body'].innerHTML;
@@ -2552,8 +2557,11 @@ setTimeout(async () => {
       if (!edgeUnified.includes('<div class="asset">ETH</div>') || !edgeUnified.includes('<div class="asset">USDT</div>')) {
         throw new Error('净价值 10.00000001 / -10.00 的卡应保留: ' + edgeUnified);
       }
-      if (edgeSpot.includes('<div class="asset">USDT</div>')) {
-        throw new Error('净价值 -9.99（|·|<10）的现货 USDT 卡应被过滤: ' + edgeSpot);
+      if (!edgeSpot.includes('<div class="asset">USDT</div>')) {
+        throw new Error('现货 USDT 即使 |净价值|<10 也须固定展示: ' + edgeSpot);
+      }
+      if (edgeSpot.includes('<div class="asset">ADA</div>')) {
+        throw new Error('净价值 9.99（|·|<10）的现货非固定资产卡应被过滤: ' + edgeSpot);
       }
       if (!edgeSpot.includes('<div class="asset">USDC</div>')) {
         throw new Error('净价值 -10.01（|·|≥10）的现货 USDC 卡应保留: ' + edgeSpot);
@@ -2594,7 +2602,7 @@ setTimeout(async () => {
       if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
       const tinyBody = elements['private-panel-body'].innerHTML;
       const tUnified = tinyBody.slice(tinyBody.indexOf('统一账户余额'), tinyBody.indexOf('现货账户余额'));
-      if (!tUnified.includes('<div class="asset">BTC</div>')) {
+      if (!tUnified.includes('<div class="asset">BTC')) {
         throw new Error('小额计息借款（持有 8、净 0、已借 1.9）的统一账户资产卡应展示: ' + tUnified);
       }
     }
@@ -5304,13 +5312,16 @@ setTimeout(async () => {
         throw new Error('统一账户卡须展示实时未还利息（cross_margin_interest）: ' + uCard);
       }
       const iBorrow = uCard.indexOf('已借:');
-      const iInterest = uCard.indexOf('利息:');
+      const iDaily = uCard.indexOf('日利息:');
+      const iLive = uCard.indexOf('实时');
+      const iInterest = uCard.search(/(?:^|[^日])利息:/);
       const iNet = uCard.indexOf('净价值');
       const iRepay = uCard.indexOf('repay-controls');
-      if (!(iBorrow >= 0 && iBorrow < iInterest && iInterest < iNet && iNet < iRepay)) {
-        throw new Error(`卡内顺序须为 已借→利息→净价值→还款控件: ${iBorrow}/${iInterest}/${iNet}/${iRepay}`);
+      if (!(iBorrow >= 0 && iBorrow < iDaily && iDaily < iLive && iLive < iInterest
+            && iInterest < iNet && iNet < iRepay)) {
+        throw new Error(`卡内顺序须为 已借→日利息→实时→利息→净价值→还款控件: ${iBorrow}/${iDaily}/${iLive}/${iInterest}/${iNet}/${iRepay}`);
       }
-      // 利息真零 → 不占行（借款仍在，卡片照常）
+      // 利息真零 → 不占行（借款仍在，卡片照常；日利息行仍在）
       const zeroInterest = JSON.parse(JSON.stringify(interestFixture));
       zeroInterest.private_account.balances_unified[0].cross_margin_interest = '0';
       zeroInterest.private_account.balances_unified[0].cross_margin_interest_value_usdt = '0.00000000';
@@ -5319,8 +5330,9 @@ setTimeout(async () => {
       const zFrom = zBody.indexOf('统一账户余额');
       const zTo = zBody.indexOf('现货账户余额');
       const zCard = zBody.slice(zFrom, zTo > zFrom ? zTo : undefined);
-      if (zCard.includes('利息:')) throw new Error('利息真零不得占行: ' + zCard);
+      if (/(?:^|[^日])利息:/.test(zCard)) throw new Error('利息真零不得占行: ' + zCard);
       if (!zCard.includes('已借:')) throw new Error('利息为零不应影响已借行');
+      if (!zCard.includes('日利息:')) throw new Error('已借>0 时未还利息为零仍须展示日利息');
       // 字段缺失（冻结旧样本）→ 同样不展示，绝不画 0
       const missingInterest = JSON.parse(JSON.stringify(interestFixture));
       delete missingInterest.private_account.balances_unified[0].cross_margin_interest;
@@ -5329,7 +5341,7 @@ setTimeout(async () => {
       const mBody = elements['private-panel-body'].innerHTML;
       const mFrom = mBody.indexOf('统一账户余额');
       const mTo = mBody.indexOf('现货账户余额');
-      if (mBody.slice(mFrom, mTo > mFrom ? mTo : undefined).includes('利息:')) {
+      if (/(?:^|[^日])利息:/.test(mBody.slice(mFrom, mTo > mFrom ? mTo : undefined))) {
         throw new Error('缺失 cross_margin_interest 时不得展示利息行');
       }
       // 净价值把未还利息也减掉（borrowed 与 interest 不重叠，实盘 SNX 已核实）
@@ -5366,6 +5378,334 @@ setTimeout(async () => {
       }
       helpers.ingestSnapshot(designFixture);
       console.log('[PASS] 统一账户卡实时未还利息行：值/顺序（已借→利息→净价值→还款）/真零与缺失不占行/净值扣息三态/只剩欠息免过滤');
+    }
+
+    // 83a3. 已借未开单资产卡提前一行 + 名称后红字「未开单」
+    {
+      if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
+      helpers.resetHedgeStateForTest();
+
+      const unifiedSec = (html) => {
+        const from = html.indexOf('统一账户余额');
+        const to = html.indexOf('现货账户余额');
+        return html.slice(from, to > from ? to : undefined);
+      };
+      const gridSlices = (sec) => {
+        const idxs = [];
+        const needle = '<div class="balance-grid">';
+        let from = 0;
+        while (true) {
+          const i = sec.indexOf(needle, from);
+          if (i < 0) break;
+          idxs.push(i);
+          from = i + needle.length;
+        }
+        return idxs.map((start, n) => sec.slice(start, n + 1 < idxs.length ? idxs[n + 1] : sec.length));
+      };
+      const umPos = (symbol, amt) => ({
+        symbol, position_side: Number(amt) < 0 ? 'SHORT' : 'LONG',
+        notional_usdt: '10.00000000', position_amt: amt,
+        entry_price: '1', mark_price: '1', unrealized_profit: '0', liquidation_price: '0'
+      });
+
+      const idleFx = JSON.parse(JSON.stringify(designFixture));
+      idleFx.private_account.unavailable_sources = [];
+      idleFx.private_account.um_positions = [];
+      const ib = idleFx.private_account.balances_unified;
+      ib[0].asset = 'SNX';
+      ib[0].cross_margin_borrowed = '50';
+      ib[0].cross_margin_borrowed_value_usdt = '80.00000000';
+      ib[0].value_usdt = '80.00000000';
+      ib[1].asset = 'ETH';
+      ib[1].cross_margin_borrowed = '0';
+      ib[1].cross_margin_borrowed_value_usdt = '0.00000000';
+      ib[1].value_usdt = '40.00000000';
+      ib[2].asset = 'USDT';
+      ib[2].cross_margin_borrowed = '0';
+      ib[2].cross_margin_borrowed_value_usdt = '0.00000000';
+      ib[2].value_usdt = '30.00000000';
+      helpers.ingestSnapshot(idleFx);
+      let body = elements['private-panel-body'].innerHTML;
+      let sec = unifiedSec(body);
+      let grids = gridSlices(sec);
+      if (grids.length !== 2) {
+        throw new Error('已借未开单与正常卡须拆成两个 balance-grid: ' + sec);
+      }
+      if (!grids[0].includes('SNX') || !grids[0].includes('未开单') || !grids[0].includes('class="negative"')) {
+        throw new Error('第一行须是已借未开单卡且名称后红字「未开单」: ' + grids[0]);
+      }
+      if (grids[0].includes('<div class="asset">ETH') || grids[0].includes('<div class="asset">USDT')) {
+        throw new Error('第一行不得混入正常资产卡: ' + grids[0]);
+      }
+      if (!grids[1].includes('<div class="asset">ETH</div>') || !grids[1].includes('<div class="asset">USDT</div>')) {
+        throw new Error('第二行须保留正常资产卡: ' + grids[1]);
+      }
+      if (grids[1].includes('<div class="asset">SNX') || grids[1].includes('未开单')) {
+        throw new Error('第二行不得再放已拆出的未开单卡: ' + grids[1]);
+      }
+      if (sec.indexOf('未开单') > sec.indexOf('<div class="asset">ETH</div>')) {
+        throw new Error('未开单卡须排在正常卡前面: ' + sec);
+      }
+
+      // 同快照有非零 UM 仓 → 不算未开单，回到正常行
+      const openedFx = JSON.parse(JSON.stringify(idleFx));
+      openedFx.private_account.um_positions = [umPos('SNXUSDT', '-50')];
+      helpers.ingestSnapshot(openedFx);
+      body = elements['private-panel-body'].innerHTML;
+      sec = unifiedSec(body);
+      grids = gridSlices(sec);
+      if (grids.length !== 1) throw new Error('已开仓后应只剩一行正常网格: ' + sec);
+      if (sec.includes('未开单')) throw new Error('有 UM 仓不得标「未开单」: ' + sec);
+      if (!sec.includes('<div class="asset">SNX</div>')) {
+        throw new Error('已开仓的已借卡仍须在正常行展示: ' + sec);
+      }
+
+      // UM 数量为 0 不算开仓
+      const zeroUmFx = JSON.parse(JSON.stringify(idleFx));
+      zeroUmFx.private_account.um_positions = [umPos('SNXUSDT', '0')];
+      helpers.ingestSnapshot(zeroUmFx);
+      sec = unifiedSec(elements['private-panel-body'].innerHTML);
+      if (!sec.includes('未开单') || gridSlices(sec).length !== 2) {
+        throw new Error('UM 仓量为 0 仍应标未开单并拆行: ' + sec);
+      }
+
+      // 1000x 符号按 asset + USDT 对齐
+      const multFx = JSON.parse(JSON.stringify(idleFx));
+      multFx.private_account.balances_unified[0].asset = '1000CAT';
+      multFx.private_account.um_positions = [umPos('1000CATUSDT', '1000')];
+      helpers.ingestSnapshot(multFx);
+      sec = unifiedSec(elements['private-panel-body'].innerHTML);
+      if (sec.includes('未开单')) {
+        throw new Error('1000CAT 对上 1000CATUSDT 仓后不得标未开单: ' + sec);
+      }
+
+      // UM 源不可读 → 不把「没读到」说成「没开」
+      const missFx = JSON.parse(JSON.stringify(idleFx));
+      missFx.private_account.unavailable_sources = ['um_positions'];
+      missFx.private_account.um_positions = [];
+      helpers.ingestSnapshot(missFx);
+      sec = unifiedSec(elements['private-panel-body'].innerHTML);
+      if (sec.includes('未开单')) throw new Error('UM 缺源时不得标未开单: ' + sec);
+      if (gridSlices(sec).length !== 1) throw new Error('UM 缺源时应保持单行网格: ' + sec);
+      if (!helpers.isIdleBorrowedUnopened(ib[0], idleFx.private_account)) {
+        throw new Error('helper：已借且 UM 可读无仓应为未开单');
+      }
+      if (helpers.isIdleBorrowedUnopened(ib[0], missFx.private_account)) {
+        throw new Error('helper：UM 缺源不得判未开单');
+      }
+
+      // 本地未平仓周期也算已开单（即使同快照还没有 UM）
+      helpers.ingestSnapshot(idleFx);
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        { coin: 'SNXUSDT', direction: 'reverse', cycle_id: 'c-idle', cycle_closed_at: null,
+          match_status: 'no_um', spot_base_asset: 'SNX', um_position_amt: null }
+      ], account: { verified: true, error: null, checked_at: null } } };
+      await helpers.loadHedgePositions();
+      sec = unifiedSec(elements['private-panel-body'].innerHTML);
+      if (sec.includes('未开单')) {
+        throw new Error('本地未平仓周期不得标未开单: ' + sec);
+      }
+
+      // 本地已完全平仓不算开单
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        { coin: 'SNXUSDT', direction: 'reverse', cycle_id: 'c-closed',
+          cycle_closed_at: '2026-08-16T00:00:00.000000Z', match_status: 'normal',
+          spot_base_asset: 'SNX', um_position_amt: null }
+      ], account: { verified: true, error: null, checked_at: null } } };
+      await helpers.loadHedgePositions();
+      sec = unifiedSec(elements['private-panel-body'].innerHTML);
+      if (!sec.includes('未开单') || gridSlices(sec).length !== 2) {
+        throw new Error('本地已平仓后仍应标未开单: ' + sec);
+      }
+
+      // 已借=0 不标；只欠息也不标
+      const zeroBorrow = JSON.parse(JSON.stringify(idleFx));
+      zeroBorrow.private_account.balances_unified[0].cross_margin_borrowed = '0';
+      zeroBorrow.private_account.balances_unified[0].cross_margin_interest = '0.1';
+      helpers.resetHedgeStateForTest();
+      helpers.ingestSnapshot(zeroBorrow);
+      sec = unifiedSec(elements['private-panel-body'].innerHTML);
+      if (sec.includes('未开单')) throw new Error('已借为 0 即使欠息也不得标未开单: ' + sec);
+
+      helpers.resetHedgeStateForTest();
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] 已借未开单资产卡提前一行并红字提醒（UM/本地周期/缺源/已平仓/只欠息）');
+    }
+
+    // 83a4. 现货账户第一行固定 BNB、USDT，第二行其他资产
+    {
+      if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
+      const spotSec = (html) => {
+        const from = html.indexOf('现货账户余额');
+        return html.slice(from);
+      };
+      const gridSlices = (sec) => {
+        const idxs = [];
+        const needle = '<div class="balance-grid">';
+        let from = 0;
+        while (true) {
+          const i = sec.indexOf(needle, from);
+          if (i < 0) break;
+          idxs.push(i);
+          from = i + needle.length;
+        }
+        return idxs.map((start, n) => sec.slice(start, n + 1 < idxs.length ? idxs[n + 1] : sec.length));
+      };
+      const card = (asset, value) => ({
+        asset, free: '1', locked: '0', value_usdt: value
+      });
+
+      const pinFx = JSON.parse(JSON.stringify(designFixture));
+      pinFx.private_account.balances_spot = [
+        card('XVG', '101.35000000'),
+        card('USDT', '3.00000000'), // 小额也必须上第一行
+        card('FF', '70.00000000'),
+        card('BNB', '12.60000000')
+      ];
+      helpers.ingestSnapshot(pinFx);
+      let sec = spotSec(elements['private-panel-body'].innerHTML);
+      let grids = gridSlices(sec);
+      if (grids.length !== 2) throw new Error('现货 BNB/USDT 与其他资产须拆成两个 balance-grid: ' + sec);
+      const iBnb = grids[0].indexOf('<div class="asset">BNB</div>');
+      const iUsdt = grids[0].indexOf('<div class="asset">USDT</div>');
+      if (iBnb < 0 || iUsdt < 0 || iBnb > iUsdt) {
+        throw new Error('第一行须按 BNB、USDT 固定顺序: ' + grids[0]);
+      }
+      if (grids[0].includes('<div class="asset">XVG') || grids[0].includes('<div class="asset">FF')) {
+        throw new Error('第一行不得混入其他现货资产: ' + grids[0]);
+      }
+      if (!grids[1].includes('<div class="asset">XVG</div>') || !grids[1].includes('<div class="asset">FF</div>')) {
+        throw new Error('第二行须保留其他现货资产: ' + grids[1]);
+      }
+      if (grids[1].includes('<div class="asset">BNB') || grids[1].includes('<div class="asset">USDT')) {
+        throw new Error('第二行不得再放已置顶的 BNB/USDT: ' + grids[1]);
+      }
+      if (!helpers.isPinnedSpotAsset('BNB') || !helpers.isPinnedSpotAsset('USDT')
+          || helpers.isPinnedSpotAsset('XVG')) {
+        throw new Error('isPinnedSpotAsset 只应命中 BNB/USDT');
+      }
+
+      // 只有固定卡、没有其他可见资产 → 单行
+      const onlyPin = JSON.parse(JSON.stringify(designFixture));
+      onlyPin.private_account.balances_spot = [card('USDT', '20.00000000'), card('BNB', '15.00000000')];
+      helpers.ingestSnapshot(onlyPin);
+      sec = spotSec(elements['private-panel-body'].innerHTML);
+      grids = gridSlices(sec);
+      if (grids.length !== 1) throw new Error('仅 BNB/USDT 时应只一行: ' + sec);
+      if (sec.indexOf('<div class="asset">BNB</div>') > sec.indexOf('<div class="asset">USDT</div>')) {
+        throw new Error('仅固定卡时仍须 BNB 在 USDT 前: ' + sec);
+      }
+
+      // 没有 BNB/USDT、只有其他资产 → 单行，不编造空卡
+      const noPin = JSON.parse(JSON.stringify(designFixture));
+      noPin.private_account.balances_spot = [card('XVG', '101.00000000')];
+      helpers.ingestSnapshot(noPin);
+      sec = spotSec(elements['private-panel-body'].innerHTML);
+      grids = gridSlices(sec);
+      if (grids.length !== 1) throw new Error('无 BNB/USDT 时应只一行其他资产: ' + sec);
+      if (sec.includes('<div class="asset">BNB') || sec.includes('<div class="asset">USDT')) {
+        throw new Error('快照没有 BNB/USDT 时不得编造资产卡: ' + sec);
+      }
+
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] 现货账户第一行固定 BNB/USDT，第二行其他资产');
+    }
+
+    // 83a5. 有借币的统一账户卡展示市场表同口径日利息；无借币不展示
+    {
+      if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
+      const uSec = (html) => {
+        const from = html.indexOf('统一账户余额');
+        const to = html.indexOf('现货账户余额');
+        return html.slice(from, to > from ? to : undefined);
+      };
+      const rateFx = JSON.parse(JSON.stringify(designFixture));
+      // AUSDT 账户档已由 fixture 注入 0.00010000 → +0.01%
+      rateFx.private_account.balances_unified = [
+        {
+          asset: 'A', total_balance: '10', value_usdt: '100.00000000',
+          cross_margin_borrowed: '5', cross_margin_borrowed_value_usdt: '50.00000000'
+        },
+        {
+          asset: 'ETH', total_balance: '2', value_usdt: '40.00000000',
+          cross_margin_borrowed: '0', cross_margin_borrowed_value_usdt: '0.00000000'
+        }
+      ];
+      helpers.ingestSnapshot(rateFx);
+      helpers.renderTable();
+      let sec = uSec(elements['private-panel-body'].innerHTML);
+      const marketCell = getRowCell(elements['market-table-body'].innerHTML, 'AUSDT', 10);
+      if (!sec.includes('日利息: +0.01%')) {
+        throw new Error('已借资产卡须展示市场表对应日利息 +0.01%: ' + sec);
+      }
+      if (!sec.includes('实时') || !sec.includes('-0.060%')) {
+        throw new Error('已借资产卡须展示持仓表同口径实时资金费率 -0.060%: ' + sec);
+      }
+      if (!sec.includes('日净 +0.040%')) {
+        throw new Error('已借资产卡须展示持仓表同口径日净 +0.040%: ' + sec);
+      }
+      if (!marketCell.includes('日利息: +0.01%')) {
+        throw new Error('市场表子行须与资产卡同一文案: ' + marketCell);
+      }
+      if (helpers.dailyInterestRateHtml(helpers.marketRowForUnifiedAsset('A')) !== '日利息: +0.01%') {
+        throw new Error('资产匹配须走 base_asset=A → AUSDT');
+      }
+      // A 是 payload 第一行：只断言 A 抓不住「永远返回第一行」。B 必须落到 BUSDT。
+      const rowB = helpers.marketRowForUnifiedAsset('B');
+      if (!rowB || rowB.symbol !== 'BUSDT' || rowB.base_asset !== 'B') {
+        throw new Error('资产匹配不得落到第一行 AUSDT，B 须对上 BUSDT: ' + (rowB && rowB.symbol));
+      }
+      if (sec.includes('日借币利率') || !sec.includes('同一份快照的日利息')) {
+        throw new Error('日利息悬停须用新名，不得残留「日借币利率」: ' + sec);
+      }
+      const snapA = helpers.marketFundingSnapshot(helpers.marketRowForUnifiedAsset('A'));
+      if (snapA.rateText !== '-0.060%' || snapA.netText !== '+0.040%') {
+        throw new Error('marketFundingSnapshot 应与持仓表资金费率列同口径: ' + JSON.stringify(snapA));
+      }
+      const ethCardStart = sec.indexOf('<div class="asset">ETH');
+      const ethCard = ethCardStart >= 0 ? sec.slice(ethCardStart, ethCardStart + 800) : '';
+      if (ethCard.includes('日利息:') || ethCard.includes('实时 <span') || ethCard.includes('日净 ')) {
+        throw new Error('无借款的资产卡不得展示日利息/实时/日净: ' + ethCard);
+      }
+
+      // VIP0 参考档同步到资产卡
+      const vipFx = JSON.parse(JSON.stringify(rateFx));
+      vipFx.rows[0].borrow_validation.classic_margin.daily_interest_account = null;
+      vipFx.rows[0].borrow_validation.classic_margin.daily_interest_vip0 = '0.00020000';
+      vipFx.rows[0].borrow_rate_source = 'vip0_reference';
+      helpers.ingestSnapshot(vipFx);
+      sec = uSec(elements['private-panel-body'].innerHTML);
+      if (!sec.includes('日利息: +0.02%') || !sec.includes('参考')) {
+        throw new Error('VIP0 档资产卡须展示日利息参考徽标: ' + sec);
+      }
+
+      // 只欠息、本金已还 → 不展示日利息
+      const interestOnly = JSON.parse(JSON.stringify(rateFx));
+      interestOnly.private_account.balances_unified[0].cross_margin_borrowed = '0';
+      interestOnly.private_account.balances_unified[0].cross_margin_interest = '0.01';
+      helpers.ingestSnapshot(interestOnly);
+      sec = uSec(elements['private-panel-body'].innerHTML);
+      if (sec.includes('日利息:')) {
+        throw new Error('本金已还清只欠息时不得展示日利息: ' + sec);
+      }
+      if (sec.includes('实时 <span') || sec.includes('日净 ')) {
+        throw new Error('本金已还清只欠息时不得展示实时/日净: ' + sec);
+      }
+
+      // 快照无 net_daily_yield → 有实时、无日净（与持仓列相同）
+      const noNet = JSON.parse(JSON.stringify(rateFx));
+      noNet.rows[0].net_daily_yield = null;
+      helpers.ingestSnapshot(noNet);
+      sec = uSec(elements['private-panel-body'].innerHTML);
+      if (!sec.includes('实时') || !sec.includes('-0.060%')) {
+        throw new Error('无日净时仍须展示实时费率: ' + sec);
+      }
+      if (sec.includes('日净')) {
+        throw new Error('快照无 net_daily_yield 时资产卡不得画日净: ' + sec);
+      }
+
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] 有借币统一账户卡展示市场表同口径日利息与持仓表实时/日净');
     }
 
     // 83b. 立即平仓列（功能三 UI 预览）：表头、输入框、按钮；已平仓/无周期行禁用；

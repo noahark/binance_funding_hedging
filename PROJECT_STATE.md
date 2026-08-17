@@ -4,7 +4,22 @@ Cross-stage state, read at startup. Keep under 64 KB. Git history is not a runti
 check. Completed work's trace is git history and archive references (see Update
 Rule); this file records only live risks, open follow-ups, and pointers.
 
-## Current Status (2026-08-17)
+## Current Status (2026-08-18)
+
+- **[2026-08-18 Human 直接驱动，无 stage] 统一账户「已借未开单」资产卡提前一行：**
+  已借本金 > 0、且当前没有对应开单（同快照 UM 仓量为 0、本地也没有未完全平仓周期）
+  的资产卡单独放在统一账户余额第一行，名称后追加红字「未开单」。提醒：借了要么
+  开单要么还掉，利息一直在计。UM 源没读到时不标（不把「没读到」说成「没开」）；
+  只欠息、本金已还清的卡仍走正常行。纯前端，服务不用重启，刷新页面即可。
+  验证：`node frontend/self-check.js` 全绿。当时实盘快照：SNX 已借 50.11 /
+  AVNT 已借 100 无 UM 仓（应上第一行）；INJ 已借 8.00 且有 UM 仓（应留在正常行）。
+  未授权提交、部署、重启或实盘操作。
+  **同日续**：现货账户余额按同一两行格式，第一行固定 BNB → USDT（快照里有才展示，
+  小额不过滤），第二行其他可见资产。快照没这两行时不编造 0 卡。
+  **同日再续**：有已借本金的统一账户卡追加市场表同口径「日利息」；市场表原「日借币」
+  子行同步改名。只欠息、本金已还的卡不展示该行。
+  **同日再续**：上述有借币卡同时展示持仓表资金费率列的「实时」与「日净」（同源
+  `last_funding_rate` / `net_daily_yield`，3 位小数；无日净则不占行）。
 
 - **[2026-08-17 Human 直接驱动，无 stage] PM 权益字段口径修正 + 缺源「部分和标红」规则：**
   「总资产估值 / 统一账户净资产 / 杠杆率」三张卡由 `accountEquity`（按抵押率折算的风控

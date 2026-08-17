@@ -729,6 +729,10 @@
       grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
       gap: var(--space-3);
     }
+    /* 已借未开单单独一行，与下方正常资产卡分开，不混排 */
+    .account-section .balance-grid + .balance-grid {
+      margin-top: var(--space-4);
+    }
     .balance-card {
       padding: var(--space-3) var(--space-4);
       border: 1px solid var(--line);
@@ -2501,6 +2505,62 @@
         return !(intPart === '0' && fracPart === '');
       }
 
+      // 持仓数量非零（多空皆可；已借未开单只问「有没有仓」，不问方向）。
+      function isNonZeroPositionAmt(amt) {
+        if (amt === undefined || amt === null || amt === '') return false;
+        const m = String(amt).trim().match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
+        if (!m) return false;
+        const intPart = m[2].replace(/^0+/, '') || '0';
+        const fracPart = (m[3] || '').replace(/0+$/, '');
+        return !(intPart === '0' && fracPart === '');
+      }
+
+      function umSymbolMatchesAsset(symbol, asset) {
+        if (typeof symbol !== 'string' || !symbol || typeof asset !== 'string' || !asset) {
+          return false;
+        }
+        return symbol === asset || symbol === asset + 'USDT';
+      }
+
+      function umPositionsReadable(pa) {
+        if (!pa || !Array.isArray(pa.um_positions)) return false;
+        return !(Array.isArray(pa.unavailable_sources)
+          && pa.unavailable_sources.includes('um_positions'));
+      }
+
+      function hedgePositionMatchesAsset(p, asset) {
+        if (!p || typeof asset !== 'string' || !asset) return false;
+        if (typeof p.spot_base_asset === 'string' && p.spot_base_asset === asset) return true;
+        return umSymbolMatchesAsset(typeof p.coin === 'string' ? p.coin : '', asset);
+      }
+
+      // 该资产是否已有对冲开单：同快照 UM 非零仓，或本地未完全平仓周期。
+      function hasOpenHedgeForAsset(asset, pa) {
+        if (umPositionsReadable(pa)) {
+          for (let i = 0; i < pa.um_positions.length; i++) {
+            const p = pa.um_positions[i];
+            if (p && umSymbolMatchesAsset(p.symbol, asset) && isNonZeroPositionAmt(p.position_amt)) {
+              return true;
+            }
+          }
+        }
+        const locals = Array.isArray(state.hedgePositions) ? state.hedgePositions : [];
+        for (let i = 0; i < locals.length; i++) {
+          const p = locals[i];
+          if (!p || p.cycle_closed_at) continue;
+          if (hedgePositionMatchesAsset(p, asset)) return true;
+        }
+        return false;
+      }
+
+      // 已借 > 0 且当前没有对应开单。UM 源不可读且本地也没有活跃周期时不标
+      // 「未开单」——不知道有没有仓，不能把「没读到」说成「没开」。
+      function isIdleBorrowedUnopened(b, pa) {
+        if (!isPositiveBorrowedAmount(b && b.cross_margin_borrowed)) return false;
+        if (hasOpenHedgeForAsset(b.asset, pa)) return false;
+        return umPositionsReadable(pa);
+      }
+
       // Human 2026-08-16：实时未还利息，直读交易所 papi balance.crossMarginInterest
       // （快照 cross_margin_interest）。它是**当前还欠着**的利息负债，与本金
       // cross_margin_borrowed 并列、不含在其中；还掉即减少。绝不可与账本利息流水
@@ -2511,6 +2571,125 @@
         return `<div class="amount borrowed-debt" title="当前未还利息（交易所实时负债，还款后清零）；与流水账本的「已计息累计」不是同一个数">`
           + `利息: ${formatBalanceAmount(b.cross_margin_interest)} `
           + `${approximateUsdtLine(b.cross_margin_interest_value_usdt)}</div>`;
+      }
+
+      // 与市场表日净收益格子行同源：账户档优先，否则 VIP0 参考档，再否则 "-"。
+      function dailyInterestRateDisplay(row) {
+        const cm = row && row.borrow_validation && row.borrow_validation.classic_margin;
+        const accountRate = cm && cm.daily_interest_account;
+        const vip0Rate = cm && cm.daily_interest_vip0;
+        if (accountRate != null && accountRate !== '') {
+          return { text: formatFundingRate(accountRate), reference: false };
+        }
+        if (vip0Rate != null && vip0Rate !== '') {
+          return { text: formatFundingRate(vip0Rate), reference: true };
+        }
+        return { text: '-', reference: false };
+      }
+
+      function dailyInterestRateHtml(row) {
+        const d = dailyInterestRateDisplay(row);
+        const ref = d.reference ? ' <span class="badge compact warn">参考</span>' : '';
+        return `日利息: ${d.text}${ref}`;
+      }
+
+      function marketRowForUnifiedAsset(asset) {
+        const rows = state.snapshot && Array.isArray(state.snapshot.rows) ? state.snapshot.rows : [];
+        if (!asset) return null;
+        const byBase = rows.find(r => r && r.base_asset === asset);
+        if (byBase) return byBase;
+        return rows.find(r => r && umSymbolMatchesAsset(r.symbol, asset)) || null;
+      }
+
+      // 持仓表资金费率列同源：实时=last_funding_rate，日净=net_daily_yield。
+      // 无快照行或无费率 → 实时为 —；日净无值则不占位。
+      function marketFundingSnapshot(row) {
+        const rate = row && row.futures ? row.futures.last_funding_rate : null;
+        const net = row ? row.net_daily_yield : null;
+        const hasNet = !(net === null || net === undefined || net === '');
+        return {
+          rate,
+          rateText: formatFundingRateFixed(rate, 3),
+          rateCls: classForFundingRate(rate),
+          net: hasNet ? net : null,
+          netText: hasNet ? formatFundingRateFixed(net, 3) : null,
+          netCls: hasNet ? classForFundingRate(net) : ''
+        };
+      }
+
+      // 已借 > 0 才展示；数值与市场表同一份快照、同一套格式。
+      function unifiedDailyInterestLine(b) {
+        if (!isPositiveBorrowedAmount(b && b.cross_margin_borrowed)) return '';
+        const row = marketRowForUnifiedAsset(String(b.asset || ''));
+        return `<div class="amount locked" title="与市场表同一份快照的日利息">${dailyInterestRateHtml(row)}</div>`;
+      }
+
+      function unifiedFundingRateLine(b) {
+        if (!isPositiveBorrowedAmount(b && b.cross_margin_borrowed)) return '';
+        const d = marketFundingSnapshot(marketRowForUnifiedAsset(String(b.asset || '')));
+        const net = d.netText
+          ? ` <span class="${d.netCls}" title="日净收益（扣借币成本后）· 与持仓表资金费率列同源">日净 ${d.netText}</span>`
+          : '';
+        return `<div class="amount locked" title="本周期实时预估，结算前会漂移 · 与持仓表资金费率列同源">`
+          + `实时 <span class="${d.rateCls}">${d.rateText}</span>${net}</div>`;
+      }
+
+      function isPinnedSpotAsset(asset) {
+        return asset === 'BNB' || asset === 'USDT';
+      }
+
+      function renderSpotBalanceCard(b) {
+        return `
+              <div class="balance-card">
+                <div class="asset">${escapeHtml(b.asset || '—')}</div>
+                <div class="amount">${formatBalanceAmount(b.free)} ${approximateUsdtLine(b.value_usdt)}</div>
+                ${renderLockedBalanceLine(b.locked)}
+                <div class="amount locked value-usdt">净价值 ${approximateUsdtLine(b.value_usdt)}</div>
+              </div>`;
+      }
+
+      function renderUnifiedBalanceCard(b, pm, unopened) {
+        const borrowedPositive = isPositiveBorrowedAmount(b.cross_margin_borrowed);
+        const borrowedCls = borrowedPositive ? 'borrowed-debt' : 'locked';
+        const netValue = unifiedNetValue8(
+          b.value_usdt, b.cross_margin_borrowed_value_usdt, b.cross_margin_interest_value_usdt
+        );
+        const netValueCls = netValue && netValue.startsWith('-') ? 'borrowed-debt' : 'locked';
+        const asset = String(b.asset || '');
+        const transferableLine = b.asset === 'USDT'
+          ? `<div class="amount locked">可转余额: ${formatBalanceAmount(pm.total_available_balance_usdt)}</div>`
+          : '';
+        const repayBusy = state.marginRepay.submitting || !!state.marginRepay.pending[asset];
+        const repayStatusHtml = renderRepayStatus(asset);
+        const repayControls = borrowedPositive
+          ? `<span class="repay-controls">
+              <input class="repay-amount" type="text" inputmode="decimal" autocomplete="off"
+                     aria-label="${escapeHtml(asset)} 还款数量" placeholder="0 自动还所有"
+                     data-repay-amount="${escapeHtml(asset)}" value="${escapeHtml(state.repayAmounts[asset] || '')}"/>
+              <button class="btn compact primary" type="button"
+                      data-repay-preview="${escapeHtml(asset)}"${repayBusy ? ' disabled' : ''}>还款</button>
+            </span>${repayStatusHtml}`
+          : repayStatusHtml;
+        const lockedLine = renderLockedBalanceLine(b.cross_margin_locked);
+        const borrowedLine = (borrowedPositive || repayStatusHtml)
+          ? `<div class="amount ${borrowedCls}">已借: ${formatBalanceAmount(b.cross_margin_borrowed)} ${approximateUsdtLine(b.cross_margin_borrowed_value_usdt)}</div>`
+          : '';
+        const assetLabel = unopened
+          ? `${escapeHtml(b.asset || '—')}<span class="negative"> 未开单</span>`
+          : escapeHtml(b.asset || '—');
+        return `
+              <div class="balance-card">
+                <div class="asset">${assetLabel}</div>
+                <div class="amount">${formatBalanceAmount(b.total_balance)} ${approximateUsdtLine(b.value_usdt)}</div>
+                ${transferableLine}
+                ${lockedLine}
+                ${borrowedLine}
+                ${unifiedDailyInterestLine(b)}
+                ${unifiedFundingRateLine(b)}
+                ${unifiedInterestLine(b)}
+                <div class="amount ${netValueCls} value-usdt">净价值 ${unifiedNetValueLine(b.value_usdt, b.cross_margin_borrowed_value_usdt, b.cross_margin_interest_value_usdt)}</div>
+                ${repayControls}
+              </div>`;
       }
 
       function renderLockedBalanceLine(value) {
@@ -3195,16 +3374,7 @@
         const ann30Title = `原始值 ${escapeHtml(row.annualized_funding_30d || 'null')} · 已结算 30 日年化（日历窗口求和）`;
         let borrowSubline = '';
         if (row.borrow_rate_source != null) {
-          const cm = row.borrow_validation && row.borrow_validation.classic_margin;
-          const accountRate = cm && cm.daily_interest_account;
-          const vip0Rate = cm && cm.daily_interest_vip0;
-          if (accountRate != null && accountRate !== '') {
-            borrowSubline = `<br/><span class="muted small">日借币: ${formatFundingRate(accountRate)}</span>`;
-          } else if (vip0Rate != null && vip0Rate !== '') {
-            borrowSubline = `<br/><span class="muted small">日借币: ${formatFundingRate(vip0Rate)} <span class="badge compact warn">参考</span></span>`;
-          } else {
-            borrowSubline = `<br/><span class="muted small">日借币: -</span>`;
-          }
+          borrowSubline = `<br/><span class="muted small">${dailyInterestRateHtml(row)}</span>`;
         }
         const maxBorrowLine = maxBorrowableSubline(row);
         const dirBadge = directionBadgeForSymbol(row.symbol, umPositions);
@@ -4323,7 +4493,7 @@
         const initMarginText = maskAmount(pm.account_initial_margin_usdt);
         const maintMarginText = maskAmount(pm.account_maint_margin_usdt);
 
-        const unifiedBalances = Array.isArray(pa.balances_unified) && pa.balances_unified.length > 0
+        const unifiedVisible = Array.isArray(pa.balances_unified) && pa.balances_unified.length > 0
           ? pa.balances_unified
               // 持有价值与净价值两者 abs 均 < 10 USDT 才过滤；任一未知（估值缺失）时保留。
               // 只看净价值会把纯借入（持有 = 已借、净值恒为 0）刚到账未动用的资产整张卡
@@ -4345,65 +4515,52 @@
                   && isNetValueBelowTenUsdt(sub8(b.value_usdt, b.cross_margin_borrowed_value_usdt))
                 );
               })
-              .map(b => {
-              const borrowedPositive = isPositiveBorrowedAmount(b.cross_margin_borrowed);
-              const borrowedCls = borrowedPositive ? 'borrowed-debt' : 'locked';
-              const netValue = unifiedNetValue8(
-                b.value_usdt, b.cross_margin_borrowed_value_usdt, b.cross_margin_interest_value_usdt
-              );
-              const netValueCls = netValue && netValue.startsWith('-') ? 'borrowed-debt' : 'locked';
-              const asset = String(b.asset || '');
-              const transferableLine = b.asset === 'USDT'
-                ? `<div class="amount locked">可转余额: ${formatBalanceAmount(pm.total_available_balance_usdt)}</div>`
-                : '';
-              // 提交期间全局禁用 + 有未决记录的资产锁定（未决记录本身就是锁，
-              // 杜绝「换个新编号再还一次」）；四态回显存活于 state，60s 重渲染不清。
-              // 控件仍只在已借 > 0 时出现；回显在已借读 0 时保留（成功/锁定可见性）。
-              const repayBusy = state.marginRepay.submitting || !!state.marginRepay.pending[asset];
-              const repayStatusHtml = renderRepayStatus(asset);
-              const repayControls = borrowedPositive
-                ? `<span class="repay-controls">
-                    <input class="repay-amount" type="text" inputmode="decimal" autocomplete="off"
-                           aria-label="${escapeHtml(asset)} 还款数量" placeholder="0 自动还所有"
-                           data-repay-amount="${escapeHtml(asset)}" value="${escapeHtml(state.repayAmounts[asset] || '')}"/>
-                    <button class="btn compact primary" type="button"
-                            data-repay-preview="${escapeHtml(asset)}"${repayBusy ? ' disabled' : ''}>还款</button>
-                  </span>${repayStatusHtml}`
-                : repayStatusHtml;
-              // 冻结/已借为 0 且无还款回显时不展示该行（回显保留见上，防重复还款）。
-              const lockedLine = renderLockedBalanceLine(b.cross_margin_locked);
-              const borrowedLine = (borrowedPositive || repayStatusHtml)
-                ? `<div class="amount ${borrowedCls}">已借: ${formatBalanceAmount(b.cross_margin_borrowed)} ${approximateUsdtLine(b.cross_margin_borrowed_value_usdt)}</div>`
-                : '';
-              // Hold + borrowed values on their amount rows; net value replaces
-              // the old bottom-only value_usdt line (spot cards unchanged).
-              return `
-              <div class="balance-card">
-                <div class="asset">${escapeHtml(b.asset || '—')}</div>
-                <div class="amount">${formatBalanceAmount(b.total_balance)} ${approximateUsdtLine(b.value_usdt)}</div>
-                ${transferableLine}
-                ${lockedLine}
-                ${borrowedLine}
-                ${unifiedInterestLine(b)}
-                <div class="amount ${netValueCls} value-usdt">净价值 ${unifiedNetValueLine(b.value_usdt, b.cross_margin_borrowed_value_usdt, b.cross_margin_interest_value_usdt)}</div>
-                ${repayControls}
-              </div>`;
-            }).join('')
-          : '<span class="muted small">无数据</span>';
+          : null;
+        const unifiedIdle = [];
+        const unifiedRest = [];
+        if (unifiedVisible) {
+          unifiedVisible.forEach(b => {
+            if (isIdleBorrowedUnopened(b, pa)) unifiedIdle.push(b);
+            else unifiedRest.push(b);
+          });
+        }
+        const wrapBalanceGrid = (cards) => `<div class="balance-grid">${cards}</div>`;
+        const unifiedBalances = !unifiedVisible
+          ? '<span class="muted small">无数据</span>'
+          : (unifiedIdle.length && unifiedRest.length
+            ? wrapBalanceGrid(unifiedIdle.map(b => renderUnifiedBalanceCard(b, pm, true)).join(''))
+              + wrapBalanceGrid(unifiedRest.map(b => renderUnifiedBalanceCard(b, pm, false)).join(''))
+            : wrapBalanceGrid(
+              (unifiedIdle.length ? unifiedIdle : unifiedRest)
+                .map(b => renderUnifiedBalanceCard(b, pm, unifiedIdle.length > 0)).join('')
+            ));
 
-        const spotBalances = Array.isArray(pa.balances_spot) && pa.balances_spot.length > 0
-          ? pa.balances_spot
-              // 过滤 abs(净价值 USDT) < 10 的资产；净价值未知（value_usdt 缺失）时保留。
-              .filter(b => !isNetValueBelowTenUsdt(b.value_usdt))
-              .map(b => `
-              <div class="balance-card">
-                <div class="asset">${escapeHtml(b.asset || '—')}</div>
-                <div class="amount">${formatBalanceAmount(b.free)} ${approximateUsdtLine(b.value_usdt)}</div>
-                ${renderLockedBalanceLine(b.locked)}
-                <div class="amount locked value-usdt">净价值 ${approximateUsdtLine(b.value_usdt)}</div>
-              </div>
-            `).join('')
-          : '<span class="muted small">无数据</span>';
+        const spotVisible = Array.isArray(pa.balances_spot) && pa.balances_spot.length > 0
+          ? pa.balances_spot.filter(b => {
+              // BNB / USDT 固定占现货第一行，小额不过滤。
+              if (isPinnedSpotAsset(b && b.asset)) return true;
+              // 其余资产：abs(净价值 USDT) < 10 不展示；净价值未知时保留。
+              return !isNetValueBelowTenUsdt(b.value_usdt);
+            })
+          : null;
+        const spotPinned = [];
+        if (spotVisible) {
+          const bnb = spotVisible.find(b => b && b.asset === 'BNB');
+          const usdt = spotVisible.find(b => b && b.asset === 'USDT');
+          if (bnb) spotPinned.push(bnb);
+          if (usdt) spotPinned.push(usdt);
+        }
+        const spotRest = spotVisible
+          ? spotVisible.filter(b => !isPinnedSpotAsset(b && b.asset))
+          : [];
+        const spotBalances = !spotVisible
+          ? '<span class="muted small">无数据</span>'
+          : (spotPinned.length && spotRest.length
+            ? wrapBalanceGrid(spotPinned.map(renderSpotBalanceCard).join(''))
+              + wrapBalanceGrid(spotRest.map(renderSpotBalanceCard).join(''))
+            : wrapBalanceGrid(
+              (spotPinned.length ? spotPinned : spotRest).map(renderSpotBalanceCard).join('')
+            ));
 
         // Per-source clocks on account sections; PM clock is under the panel
         // title (renderPrivatePmSourceTime). price_map is not a panel title.
@@ -4459,7 +4616,7 @@
           <div class="account-section">
             <h3>统一账户余额</h3>
             ${sourceCheckedAtHtml(unifiedTimeLine)}
-            <div class="balance-grid">${unifiedBalances}</div>
+            ${unifiedBalances}
           </div>
 
           ${renderAssetTransfer(pa)}
@@ -4467,7 +4624,7 @@
           <div class="account-section">
             <h3>现货账户余额</h3>
             ${sourceCheckedAtHtml(spotTimeLine)}
-            <div class="balance-grid">${spotBalances}</div>
+            ${spotBalances}
           </div>
 
           ${renderHedgeMergedPositions()}
@@ -6717,9 +6874,10 @@
           // 快照未覆盖该币（如 bStock 映射腿）→ —。
           const frSnapRow = ((state.snapshot && Array.isArray(state.snapshot.rows)) ? state.snapshot.rows : [])
             .find(r => r && r.symbol === p.coin);
-          const curFundingRate = frSnapRow && frSnapRow.futures ? frSnapRow.futures.last_funding_rate : null;
-          const curFundingCls = classForFundingRate(curFundingRate);
-          const curFundingText = formatFundingRateFixed(curFundingRate, 3);
+          const fundingSnap = marketFundingSnapshot(frSnapRow);
+          const curFundingRate = fundingSnap.rate;
+          const curFundingCls = fundingSnap.rateCls;
+          const curFundingText = fundingSnap.rateText;
           // Human 2026-08-16：本格可点开市场表同一个历史抽屉（openDrawer 经事件委托）。
           // 抽屉内容全部读 state.snapshot.rows[symbol]，快照未覆盖该币时抽屉只会显示空态，
           // 故这类行不做成可点（frSnapRow 已在上面按 coin 查过，复用即可）。
@@ -6735,10 +6893,9 @@
           const curFundingNum = Number(curFundingRate);
           // 日净收益第二行：与市场表日净收益列同源同格式（snapshot rows[].net_daily_yield，
           // 3 位小数百分比、正绿负红）。快照未覆盖该币或无值（null）→ 不渲染第二行。
-          const curNetYield = frSnapRow ? frSnapRow.net_daily_yield : null;
-          const curNetYieldLine = (curNetYield === null || curNetYield === undefined || curNetYield === '')
-            ? ''
-            : `<br/><span class="${classForFundingRate(curNetYield)}" title="日净收益（扣借币成本后）· 与市场表日净收益列同源（约 60s 快照缓存）">日净 ${formatFundingRateFixed(curNetYield, 3)}</span>`;
+          const curNetYieldLine = fundingSnap.netText
+            ? `<br/><span class="${fundingSnap.netCls}" title="日净收益（扣借币成本后）· 与市场表日净收益列同源（约 60s 快照缓存）">日净 ${fundingSnap.netText}</span>`
+            : '';
           const fundingDirectionMismatch = Number.isFinite(curFundingNum) && curFundingNum !== 0
             && ((curFundingNum > 0 && p.direction === 'reverse')
               || (curFundingNum < 0 && p.direction === 'forward'));
@@ -8567,6 +8724,13 @@
         classForOpeningSpread,
         absDailyRateAtOrBelowThreshold,
         netYieldAtOrBelowThreshold,
+        isIdleBorrowedUnopened,
+        hasOpenHedgeForAsset,
+        isPinnedSpotAsset,
+        dailyInterestRateDisplay,
+        marketRowForUnifiedAsset,
+        marketFundingSnapshot,
+        dailyInterestRateHtml,
         isPositiveFundingRate,
         isNegativeFundingRate,
         isOpenablePreferredRow,
