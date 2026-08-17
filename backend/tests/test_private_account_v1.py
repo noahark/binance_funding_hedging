@@ -444,7 +444,9 @@ def test_assemble_private_account_maps_cross_margin_borrowed():
     assert block["spot_value_usdt"] == "0.00000000"
     assert block["total_value_usdt"] == "10.05000000"
     # Debt sum is priced separately under pm_account.total_debt_usdt.
-    assert block["pm_account"]["total_debt_usdt"] == "0.05000000"
+    # 2026-08-16: outstanding interest counts as debt alongside the principal —
+    # CETUS 1 @ 0.05 = 0.05 principal + 0.0001 @ 0.05 = 0.000005 interest.
+    assert block["pm_account"]["total_debt_usdt"] == "0.05000500"
 
 
 # ---------------------------------------------------------------------------
@@ -548,7 +550,13 @@ def test_assemble_private_account_maps_cross_margin_locked_and_schema(v03_schema
     by_asset = {b["asset"]: b for b in block["balances_unified"]}
     assert by_asset["BTC"]["cross_margin_locked"] == "0.75"
     assert by_asset["ETH"]["cross_margin_locked"] is None
-    assert "cross_margin_interest" not in by_asset["BTC"]
+    # 2026-08-16: crossMarginInterest is now projected (outstanding interest is a
+    # live liability with no other source). Absent upstream key -> null, never 0.
+    assert by_asset["BTC"]["cross_margin_interest"] == "999"
+    assert by_asset["BTC"]["cross_margin_interest_value_usdt"] == "59940000.00000000"
+    assert by_asset["ETH"]["cross_margin_interest"] is None
+    # null amount values at 0 (same branch as the principal), never null-by-price
+    assert by_asset["ETH"]["cross_margin_interest_value_usdt"] == "0.00000000"
 
     snap = _assemble_with_private(
         _two_rows(), block,
@@ -652,6 +660,8 @@ def test_assemble_private_account_anti_double_count():
             "cross_margin_borrowed": None,
             "value_usdt": "90000.00000000",
             "cross_margin_borrowed_value_usdt": "0.00000000",
+            "cross_margin_interest": None,
+            "cross_margin_interest_value_usdt": "0.00000000",
         },
         {
             "asset": "USDT",
@@ -661,6 +671,8 @@ def test_assemble_private_account_anti_double_count():
             "cross_margin_borrowed": None,
             "value_usdt": "100.00000000",
             "cross_margin_borrowed_value_usdt": "0.00000000",
+            "cross_margin_interest": None,
+            "cross_margin_interest_value_usdt": "0.00000000",
         },
     ]
     assert block["balances_spot"][0] == {"asset": "ETH", "free": "2", "locked": "0.5", "value_usdt": "7500.00000000"}

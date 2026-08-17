@@ -4739,8 +4739,26 @@ setTimeout(async () => {
       const tRunning = mockHedgeTask({ id: 'h-life-1', status: 'running' });
       hedgeActionResponses['h-life-1:start'] = { status: 200, body: tRunning };
       hedgeTasksGetResponse = { status: 200, body: { tasks: [tRunning] } };
+      // 2026-08-16：在「已暂停」页启动成功 → 自动切到「执行中」（免手点）
+      helpers.setHedgeTaskFilter('paused');
       const rStart = await helpers.startHedgeTask('h-life-1');
       if (!rStart.ok) throw new Error('启动失败: ' + rStart.error);
+      if (helpers.getHedgeTaskFilter() !== 'running') {
+        throw new Error('已暂停页启动成功后应自动切到执行中，实际: ' + helpers.getHedgeTaskFilter());
+      }
+      // 反例：启动回执 200 但刷新后仍非 running（启动即转停）→ 留在已暂停，不跳空列表
+      const tStillPaused = mockHedgeTask({ id: 'h-life-1', status: 'paused' });
+      hedgeActionResponses['h-life-1:start'] = { status: 200, body: tStillPaused };
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [tStillPaused] } };
+      helpers.setHedgeTaskFilter('paused');
+      await helpers.startHedgeTask('h-life-1');
+      if (helpers.getHedgeTaskFilter() !== 'paused') {
+        throw new Error('未真正转 running 时不得切走筛选，实际: ' + helpers.getHedgeTaskFilter());
+      }
+      // 复位为 running 供后续动作断言
+      hedgeActionResponses['h-life-1:start'] = { status: 200, body: tRunning };
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [tRunning] } };
+      await helpers.startHedgeTask('h-life-1');
       // fill-once → success_count 推进由后端文档决定
       const tFill1 = mockHedgeTask({ id: 'h-life-1', status: 'running', success_count: 1 });
       hedgeActionResponses['h-life-1:fill-once'] = { status: 200, body: tFill1 };
@@ -5106,7 +5124,7 @@ setTimeout(async () => {
       helpers.renderPrivatePanel();
       const privHtml = elements['private-panel-body'].innerHTML;
       for (const piece of ['对冲开单持仓', '币种', '方向', '持仓数量', '现货均价', '合约均价', '开单价差率',
-        '价格未实现盈亏', '累计资金费', '借币利息', '净盈亏', 'AUSDT', '正向', '101.3333', '0.06']) {
+        '价格未实现盈亏', '累计资金费', '净盈亏', 'AUSDT', '正向', '101.3333', '0.06']) {
         if (!privHtml.includes(piece)) throw new Error(`私有面板持仓表缺少「${piece}」`);
       }
       // 原生小数 + 去尾零：0.00125000 → 0.00125；0.00124600 → 0.001246（非 0.0012）
@@ -5217,10 +5235,45 @@ setTimeout(async () => {
       if (!ausdtFundCell.includes('positive') || !ausdtFundCell.includes('0.06')) {
         throw new Error('资金费列正值应 positive 着色: ' + ausdtFundCell);
       }
-      const ausdtNetCell = getRowCell(posStatsHtml, 'AUSDT', 15);
+      const ausdtNetCell = getRowCell(posStatsHtml, 'AUSDT', 14);
       if (!ausdtNetCell.includes('negative') || !ausdtNetCell.includes('-2.29')) {
         throw new Error('net_pnl 列负值应 negative 着色: ' + ausdtNetCell);
       }
+      // 2026-08-16：借币利息由独立列并入现货余额列末行（非零标红）。
+      const ausdtBalCell = getRowCell(posStatsHtml, 'AUSDT', 9);
+      if (!ausdtBalCell.includes('借币利息: 0.02') || !ausdtBalCell.includes('≈ 2.35 U')
+          || !ausdtBalCell.includes('negative')) {
+        throw new Error('借币利息应并入余额列末行且非零标红: ' + ausdtBalCell);
+      }
+      if (getRowCell(posStatsHtml, 'RSRUSDT', 9).includes('借币利息')) {
+        throw new Error('利息为 null（暂无）不得占行');
+      }
+      // 2026-08-16：持仓表资金费率格点开市场表同一个历史抽屉。快照覆盖该币才可点
+      // （抽屉内容全读 snapshot.rows[symbol]，未覆盖时只会是空态）。
+      const ausdtRateCell = getRowCell(posStatsHtml, 'AUSDT', 1);
+      if (!ausdtRateCell.includes('data-position-symbol="AUSDT"')
+          || !ausdtRateCell.includes('symbol-link')
+          || !ausdtRateCell.includes('点击查看 AUSDT 的年化与已结算历史')) {
+        throw new Error('快照覆盖的资金费率格须可点开抽屉: ' + ausdtRateCell);
+      }
+      if (getRowCell(posStatsHtml, 'AUSDT', 0).includes('data-position-symbol')) {
+        throw new Error('币种格不再承载抽屉点击（已移到资金费率列）');
+      }
+      if (getRowCell(posStatsHtml, 'RSRUSDT', 1).includes('data-position-symbol')) {
+        throw new Error('快照未覆盖的费率格不得可点（抽屉只会是空态）');
+      }
+      // 走真实事件委托（privatePanelBody click），不直接调 openDrawer
+      helpers.closeDrawer();
+      const posCellStub = { getAttribute: (n) => (n === 'data-position-symbol' ? 'AUSDT' : null) };
+      const posClickEvent = {
+        target: { closest: (sel) => (sel === '[data-position-symbol]' ? posCellStub : null) },
+        stopPropagation() {}, preventDefault() {}
+      };
+      (elements['private-panel-body'].listeners.click || []).forEach(h => h(posClickEvent));
+      if (!helpers.isDrawerOpen() || helpers.getSelectedSymbol() !== 'AUSDT') {
+        throw new Error('点击持仓币种格须打开该币抽屉');
+      }
+      helpers.closeDrawer();
       if (!statsHtml.includes('统计区间不全') || !statsHtml.includes('已完全平仓')) {
         throw new Error('统计区间不全 / 已完全平仓 标记缺失: ' + statsHtml);
       }
@@ -5229,6 +5282,90 @@ setTimeout(async () => {
         throw new Error('RSR 行应为「暂无」: ' + statsHtml);
       }
       console.log('[PASS] 功能二：三列真值（资金费着色 + 利息≈U换算 + net_pnl 单位一致）+ 统计区间不全 + 已完全平仓标记');
+    }
+
+    // 83a2. 统一账户余额卡的实时未还利息行（快照 cross_margin_interest，
+    //       直读交易所 papi balance.crossMarginInterest）：位置在「已借」之下、
+    //       「净价值」之上；还款控件在净价值之下。真零/缺失不占行。
+    {
+      const interestFixture = JSON.parse(JSON.stringify(designFixture));
+      interestFixture.private_account.balances_unified = [{
+        asset: 'BTC', total_balance: '10', value_usdt: '1000.00000000',
+        cross_margin_borrowed: '2', cross_margin_borrowed_value_usdt: '200.00000000',
+        cross_margin_interest: '0.0123', cross_margin_interest_value_usdt: '1.23000000'
+      }];
+      if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
+      helpers.ingestSnapshot(interestFixture);
+      const balBody = elements['private-panel-body'].innerHTML;
+      const uFrom = balBody.indexOf('统一账户余额');
+      const uTo = balBody.indexOf('现货账户余额');
+      const uCard = balBody.slice(uFrom, uTo > uFrom ? uTo : undefined);
+      if (!uCard.includes('利息: 0.0123') || !uCard.includes('≈ 1.23 USDT')) {
+        throw new Error('统一账户卡须展示实时未还利息（cross_margin_interest）: ' + uCard);
+      }
+      const iBorrow = uCard.indexOf('已借:');
+      const iInterest = uCard.indexOf('利息:');
+      const iNet = uCard.indexOf('净价值');
+      const iRepay = uCard.indexOf('repay-controls');
+      if (!(iBorrow >= 0 && iBorrow < iInterest && iInterest < iNet && iNet < iRepay)) {
+        throw new Error(`卡内顺序须为 已借→利息→净价值→还款控件: ${iBorrow}/${iInterest}/${iNet}/${iRepay}`);
+      }
+      // 利息真零 → 不占行（借款仍在，卡片照常）
+      const zeroInterest = JSON.parse(JSON.stringify(interestFixture));
+      zeroInterest.private_account.balances_unified[0].cross_margin_interest = '0';
+      zeroInterest.private_account.balances_unified[0].cross_margin_interest_value_usdt = '0.00000000';
+      helpers.ingestSnapshot(zeroInterest);
+      const zBody = elements['private-panel-body'].innerHTML;
+      const zFrom = zBody.indexOf('统一账户余额');
+      const zTo = zBody.indexOf('现货账户余额');
+      const zCard = zBody.slice(zFrom, zTo > zFrom ? zTo : undefined);
+      if (zCard.includes('利息:')) throw new Error('利息真零不得占行: ' + zCard);
+      if (!zCard.includes('已借:')) throw new Error('利息为零不应影响已借行');
+      // 字段缺失（冻结旧样本）→ 同样不展示，绝不画 0
+      const missingInterest = JSON.parse(JSON.stringify(interestFixture));
+      delete missingInterest.private_account.balances_unified[0].cross_margin_interest;
+      delete missingInterest.private_account.balances_unified[0].cross_margin_interest_value_usdt;
+      helpers.ingestSnapshot(missingInterest);
+      const mBody = elements['private-panel-body'].innerHTML;
+      const mFrom = mBody.indexOf('统一账户余额');
+      const mTo = mBody.indexOf('现货账户余额');
+      if (mBody.slice(mFrom, mTo > mFrom ? mTo : undefined).includes('利息:')) {
+        throw new Error('缺失 cross_margin_interest 时不得展示利息行');
+      }
+      // 净价值把未还利息也减掉（borrowed 与 interest 不重叠，实盘 SNX 已核实）
+      helpers.ingestSnapshot(interestFixture);
+      const netBody = elements['private-panel-body'].innerHTML;
+      const netFrom = netBody.indexOf('统一账户余额');
+      const netTo = netBody.indexOf('现货账户余额');
+      const netCard = netBody.slice(netFrom, netTo > netFrom ? netTo : undefined);
+      // 1000.00 − 200.00 本金 − 1.23 利息 = 798.77
+      if (!netCard.includes('净价值 ≈ 798.77 USDT')) {
+        throw new Error('净价值须减去未还利息（1000−200−1.23=798.77）: ' + netCard);
+      }
+      // 直测三态：键不存在（旧样本）→ 按旧口径；显式 null（算不出）→ 整体未知
+      if (helpers.unifiedNetValueLine('1000.00000000', '200.00000000', undefined) !== '≈ 800.00 USDT') {
+        throw new Error('缺失 interest 键须退回旧口径 800.00');
+      }
+      if (helpers.unifiedNetValueLine('1000.00000000', '200.00000000', null) !== '≈ — USDT') {
+        throw new Error('interest 估值 null（非零但无价格）须使净值未知，不得当 0 少算负债');
+      }
+      // 本金已还清、只剩欠息的资产不得被小额过滤吞掉（连还款入口一起藏）
+      const interestOnly = JSON.parse(JSON.stringify(designFixture));
+      interestOnly.private_account.balances_unified = [{
+        asset: 'BTC', total_balance: '0', value_usdt: '0.00000000',
+        cross_margin_borrowed: '0', cross_margin_borrowed_value_usdt: '0.00000000',
+        cross_margin_interest: '0.00001', cross_margin_interest_value_usdt: '0.60000000'
+      }];
+      helpers.ingestSnapshot(interestOnly);
+      const ioBody = elements['private-panel-body'].innerHTML;
+      const ioFrom = ioBody.indexOf('统一账户余额');
+      const ioTo = ioBody.indexOf('现货账户余额');
+      const ioCard = ioBody.slice(ioFrom, ioTo > ioFrom ? ioTo : undefined);
+      if (!ioCard.includes('利息: 0.00001')) {
+        throw new Error('本金为 0 但欠息 > 0 的资产卡不得被小额过滤: ' + ioCard);
+      }
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] 统一账户卡实时未还利息行：值/顺序（已借→利息→净价值→还款）/真零与缺失不占行/净值扣息三态/只剩欠息免过滤');
     }
 
     // 83b. 立即平仓列（功能三 UI 预览）：表头、输入框、按钮；已平仓/无周期行禁用；
@@ -5423,7 +5560,7 @@ setTimeout(async () => {
       let body = elements['private-panel-body'].innerHTML;
       const noTaskSpot = getRowCell(body, 'MUUSDT', 10);
       const noTaskPerp = getRowCell(body, 'MUUSDT', 11);
-      const noTaskMark = getRowCell(body, 'MUUSDT', 17);
+      const noTaskMark = getRowCell(body, 'MUUSDT', 16);
       if (!noTaskSpot.includes('—') || noTaskSpot.includes('0')) {
         throw new Error('G2: no_task 现货均价应显示 — 而非 0: ' + noTaskSpot);
       }
@@ -5444,7 +5581,7 @@ setTimeout(async () => {
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
       body = elements['private-panel-body'].innerHTML;
-      const noUmMark = getRowCell(body, 'XYZUSDT', 17);
+      const noUmMark = getRowCell(body, 'XYZUSDT', 16);
       if (!noUmMark.includes('交易所无仓')) {
         throw new Error('G1: no_um 行应标记「交易所无仓」: ' + noUmMark);
       }
@@ -5460,7 +5597,7 @@ setTimeout(async () => {
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
       body = elements['private-panel-body'].innerHTML;
-      const g5Mark = getRowCell(body, 'RSRUSDT', 17);
+      const g5Mark = getRowCell(body, 'RSRUSDT', 16);
       if (!g5Mark.includes('均价不完整')) {
         throw new Error('G5: 不完整均价应显示「均价不完整」标记: ' + g5Mark);
       }
@@ -7768,8 +7905,8 @@ setTimeout(async () => {
         positionSection.indexOf('<thead>'), positionSection.indexOf('</thead>') + 8
       );
       const positionThCount = (positionThead.match(/<th[\s>]/g) || []).length;
-      if (positionThCount !== 18) {
-        throw new Error(`持仓表 th 数量期望 18，实际 ${positionThCount}`);
+      if (positionThCount !== 17) {
+        throw new Error(`持仓表 th 数量期望 17，实际 ${positionThCount}`);
       }
       for (const symbol of ['SNXXUSDT', '1000BONKUSDT']) {
         const symbolAt = positionSection.indexOf(symbol);
@@ -7777,8 +7914,8 @@ setTimeout(async () => {
         const rowEnd = positionSection.indexOf('</tr>', symbolAt);
         const rowHtml = positionSection.slice(rowStart, rowEnd + 5);
         const tdCount = (rowHtml.match(/<td[\s>]/g) || []).length;
-        if (tdCount !== 18) {
-          throw new Error(`${symbol} 持仓行 td 数量期望 18，实际 ${tdCount}`);
+        if (tdCount !== 17) {
+          throw new Error(`${symbol} 持仓行 td 数量期望 17，实际 ${tdCount}`);
         }
       }
 
@@ -7798,8 +7935,9 @@ setTimeout(async () => {
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
       let sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'ETHUSDT', 9);
-      if (!sideCell.includes('现货: —') || !sideCell.includes('杠杆: 2')) {
-        throw new Error('现货缺失时该侧 — 且杠杆独立: ' + sideCell);
+      // 2026-08-16：缺失侧整行不渲染（不再画 现货: —），另一侧照常独立展示。
+      if (sideCell.includes('现货') || !sideCell.includes('杠杆: 2')) {
+        throw new Error('现货缺失时该行须整行省略且杠杆独立: ' + sideCell);
       }
 
       // amount 有 value 无
@@ -7838,11 +7976,12 @@ setTimeout(async () => {
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
       sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'ZEROUSDT', 9);
-      if (!sideCell.includes('现货: 0') || !sideCell.includes('杠杆: 0')) {
-        throw new Error('真零须显示 0 而非 —: ' + sideCell);
+      // 2026-08-16：真零同样不占行；四行皆空 → 整格 —。
+      if (sideCell.includes('现货') || sideCell.includes('杠杆')) {
+        throw new Error('真零余额不得占行: ' + sideCell);
       }
-      if (sideCell.includes('现货: —') || sideCell.includes('杠杆: —')) {
-        throw new Error('真零不得退化成 —: ' + sideCell);
+      if (!sideCell.includes('—')) {
+        throw new Error('全部为空须整格 —: ' + sideCell);
       }
 
       // 账户未就绪：四字段 null
@@ -7862,8 +8001,8 @@ setTimeout(async () => {
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
       sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'NRUSDT', 9);
-      if (!sideCell.includes('现货: —') || !sideCell.includes('杠杆: —')) {
-        throw new Error('未就绪两侧均 —: ' + sideCell);
+      if (sideCell.includes('现货') || sideCell.includes('杠杆') || !sideCell.includes('—')) {
+        throw new Error('未就绪须整格 —（不逐行画 —）: ' + sideCell);
       }
 
       // 隐私遮蔽 amount 与估值
@@ -7911,12 +8050,12 @@ setTimeout(async () => {
       helpers.renderPrivatePanel();
       const emptyPositionBody = elements['private-panel-body'].innerHTML;
       const emptyPositionSection = emptyPositionBody.slice(emptyPositionBody.indexOf('对冲开单持仓'));
-      if (!emptyPositionSection.includes('colspan="18"')
+      if (!emptyPositionSection.includes('colspan="17"')
           || (emptyPositionSection.match(/<td[\s>]/g) || []).length !== 1) {
-        throw new Error('持仓空态须只有一个 td 且 colspan=18: ' + emptyPositionSection);
+        throw new Error('持仓空态须只有一个 td 且 colspan=17: ' + emptyPositionSection);
       }
       helpers.ingestSnapshot(designFixture);
-      console.log('[PASS] frontend-position-balance-display-v1：双行现货/杠杆、借款同代估值、18 列结构、缺失/真零/隐私、徽标列、标题区时间与 PM 位置');
+      console.log('[PASS] frontend-position-balance-display-v1：双行现货/杠杆、借款同代估值、17 列结构、缺失/真零/隐私、徽标列、标题区时间与 PM 位置');
     }
 
     // 75y2. 幂等键生成器（2026-08-07 实盘首笔划转故障的回归防线）

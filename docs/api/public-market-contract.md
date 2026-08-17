@@ -767,11 +767,61 @@ server-side, never from this cached display value alone.
 Each item also carries additive **`cross_margin_locked`** (raw decimal string |
 null), projected from `GET /papi/v1/balance` field `crossMarginLocked`. It is the
 full-cross quantity currently locked (for example, by a pending sell), distinct
-from `cross_margin_free`, `cross_margin_borrowed`, and the separately reported
-upstream `crossMarginInterest` field. The field is optional for compatibility with frozen
+from `cross_margin_free`, `cross_margin_borrowed`, and `cross_margin_interest`.
+The field is optional for compatibility with frozen
 older samples; current snapshots emit it on every unified row and use null when
 the upstream key is absent. It is display/validation-only and never changes
 valuation, ordering, totals, warnings, refresh, or transport behavior.
+
+### Outstanding interest amendment (2026-08-16)
+
+Each `balances_unified[]` item carries additive **`cross_margin_interest`** (raw
+decimal string | null), projected from `GET /papi/v1/balance` field
+`crossMarginInterest`, plus backend-computed
+**`cross_margin_interest_value_usdt`** (8dp string | null) using the same
+amount→USDT routing as `cross_margin_borrowed_value_usdt` (stable assets at 1,
+price map otherwise; null/blank/zero amount → `"0.00000000"`; invalid amount or
+non-zero amount without a usable price → null).
+
+`cross_margin_interest` is **interest accrued and not yet repaid** — a live
+liability that sits *beside* the `cross_margin_borrowed` principal, not inside
+it. It is the only field in the system that answers "how much interest is owed
+right now": it decreases on repayment and reaches zero when the debt is settled.
+
+**Never cross-validate it against the interest-history ledger.** The flow-log
+ledger (`/sapi/v1/margin/interestHistory` → `interest_rows`) answers a different
+question — how much interest was ever *charged* over a window — and keeps
+already-repaid interest in the sum. After any interest repayment
+`Σ history > cross_margin_interest` necessarily holds; treating a divergence as
+a defect is a category error (dual-ledger flow-log design, §108).
+
+Both keys are additive/optional: frozen pre-2026-08-16 samples omit them (absent
+≠ zero) and still validate. Neither enters `total_value_usdt`, and this
+amendment changes no classification, ordering, refresh, or transport behavior.
+The unified card renders `利息: <amount> ≈ <value> USDT` under the `已借` line
+when the amount is strictly greater than zero; zero and absent render nothing
+(a zero interest row carries no information and must not be drawn as `0`).
+
+**Debt now includes outstanding interest.** `pm_account.total_debt_usdt` is
+`Σ((crossMarginBorrowed + crossMarginInterest) priced)`, the unified card's
+net-value line subtracts both, and the small-balance filter keeps a card whose
+`cross_margin_interest > 0` even when the principal has been fully repaid (an
+interest-only debt must never be hidden together with its repay entry).
+
+The two amounts do **not** overlap, verified against live account data on
+2026-08-16: `crossMarginBorrowed` absorbs only the interest that had already
+accrued at the moment of a *past* repayment, while `crossMarginInterest` carries
+what accrued since. Evidence — SNX borrowed 100, repaid 50 at
+`2026-08-16T00:55:31Z`; interest accrued strictly before that instant summed to
+`0.10709571`, which equals `crossMarginBorrowed (50.10709571) − principal (50)`
+to all 8 decimal places, and the 11 hourly accruals after it
+(`0.01026885`) were reported separately under `crossMarginInterest`. Summing
+both therefore counts each debt exactly once.
+
+Net-value three-state (frontend `unifiedNetValueLine`): key absent (frozen
+pre-2026-08-16 samples) → net stays on the old principal-only formula; explicit
+null (non-zero interest with no usable price) → net renders `≈ — USDT`, never
+silently dropping an unpriceable liability to zero.
 
 **Anti-double-count hard rule (test-asserted):** `total_value_usdt = Σ(unified
 totalWalletBalance priced) + Σ(spot free+locked priced)`, priced via the P5 price

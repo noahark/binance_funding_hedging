@@ -584,6 +584,20 @@
                   { "$ref": "#/$defs/decimal_string" },
                   { "type": "null" }
                 ]
+              },
+              "cross_margin_interest": {
+                "description": "PM full-cross OUTSTANDING interest from papi balance.crossMarginInterest (raw decimal string | null) — interest accrued and not yet repaid, a live liability separate from the cross_margin_borrowed principal. Additive/optional for frozen older samples. NOT comparable to the interest-history ledger sum: after any interest repayment the history sum can exceed this field.",
+                "anyOf": [
+                  { "$ref": "#/$defs/decimal_string" },
+                  { "type": "null" }
+                ]
+              },
+              "cross_margin_interest_value_usdt": {
+                "description": "Backend-computed ≈USDT value of cross_margin_interest (8dp string | null). Same valuation path as cross_margin_borrowed_value_usdt; display-only and not included in total_value_usdt.",
+                "anyOf": [
+                  { "$ref": "#/$defs/decimal_string" },
+                  { "type": "null" }
+                ]
               }
             }
           }

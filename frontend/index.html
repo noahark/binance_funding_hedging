@@ -759,12 +759,12 @@
       font-weight: 600;
       line-height: 1.5;
     }
+    /* 2026-08-16：还款控件由「已借」行内移到卡片底部（净价值之下），改为独立一行 */
     .balance-card .repay-controls {
-      display: inline-flex;
+      display: flex;
       align-items: center;
       gap: 6px;
-      margin-left: var(--space-2);
-      vertical-align: middle;
+      margin-top: var(--space-2);
     }
     .balance-card .repay-amount {
       width: 112px;
@@ -993,6 +993,18 @@
     tbody tr.selected {
       background: #e4f4f1 !important;
       box-shadow: inset 3px 0 0 var(--brand);
+    }
+    /* 持仓表资金费率格：点开与市场表同一个历史抽屉（快照覆盖该币时才可点） */
+    td.symbol-link {
+      cursor: pointer;
+      text-decoration: underline dotted;
+      text-underline-offset: 3px;
+    }
+    /* 下划线只提示首行（实时费率）；日净第二行在 span 里，不跟着画线 */
+    td.symbol-link > span { text-decoration: none; }
+    td.symbol-link:hover, td.symbol-link:focus-visible {
+      background: #eef7f5;
+      outline: none;
     }
 
     /* 借币任务视图与市场视图容器 */
@@ -2074,9 +2086,28 @@
         return (neg ? '-' : '') + intPart + '.' + fracPart;
       }
 
-      function unifiedNetValueLine(valueUsdt, borrowedValueUsdt) {
-        // Net = hold − borrowed (display-only). Privacy short-circuits before
-        // sub8 / formatUsdt2. B=null or V=null -> ≈ — (unknown, not zero).
+      // Net = hold − borrowed − outstanding interest (display-only). Privacy
+      // short-circuits before sub8 / formatUsdt2. B=null or V=null -> ≈ — .
+      //
+      // Human 2026-08-16：利息进入负债。实盘核实（SNX 还款前累计息 0.10709571 =
+      // 当前 borrowed 超出本金的部分，到 8 位一致）：borrowed 只含**历次还款时刻
+      // 结转进去的**息，此后新计提的息挂在 crossMarginInterest 上，两者不重叠，
+      // 所以减两次不会重复扣。
+      //
+      // interestValueUsdt 的三态必须分开：键不存在（冻结的 2026-08-16 前样本，
+      // 根本没有这个概念）→ 跳过，净值仍按旧口径算；显式 null（非零利息但没有
+      // 可用价格）→ 净值整体未知 ≈ —，绝不当 0 少算负债（P7：未知不渲染成 0）。
+      // 后端对「金额缺失/真零」返回的是 "0.00000000" 而非 null，所以 null 到这里
+      // 一定意味着真的算不出来。
+      function unifiedNetValue8(valueUsdt, borrowedValueUsdt, interestValueUsdt) {
+        let net = sub8(valueUsdt, borrowedValueUsdt);
+        if (net !== null && interestValueUsdt !== undefined) {
+          net = sub8(net, interestValueUsdt); // null 操作数 → null（未知）
+        }
+        return net;
+      }
+
+      function unifiedNetValueLine(valueUsdt, borrowedValueUsdt, interestValueUsdt) {
         if (state.privacyHidden) return '≈ **** USDT';
         if (valueUsdt === undefined || valueUsdt === null || valueUsdt === '') {
           return '≈ — USDT';
@@ -2084,7 +2115,7 @@
         if (borrowedValueUsdt === undefined || borrowedValueUsdt === null || borrowedValueUsdt === '') {
           return '≈ — USDT';
         }
-        const net = sub8(valueUsdt, borrowedValueUsdt);
+        const net = unifiedNetValue8(valueUsdt, borrowedValueUsdt, interestValueUsdt);
         if (net === null) return '≈ — USDT';
         const formatted = formatUsdt2(net);
         return formatted === null ? '≈ — USDT' : `≈ ${formatted} USDT`;
@@ -2274,14 +2305,25 @@
         return `${label}: ${amtPart} ${valPart}`;
       }
 
+      // Human 2026-08-16：本列只展示「有量」的行——amount 缺失或为真零的一侧整行不渲染
+      // （0 余额 / 0 借款 / 0 利息占一行没有信息量）。全部为空时整格 —。
+      function positionSideLineHtml(label, amount, valueUsdt, cls) {
+        if (amount === null || amount === undefined || amount === '' || Number(amount) === 0) return '';
+        return `<span class="side-line${cls ? ' ' + cls : ''}">${escapeHtml(
+          formatPositionAccountSideLine(label, amount, valueUsdt)
+        )}</span>`;
+      }
+
       function renderPositionDualBalanceCell(p, borrowLineHtml) {
-        const spotLine = formatPositionAccountSideLine(
-          '现货', p && p.spot_balance, p && p.spot_balance_value_usdt
-        );
-        const uniLine = formatPositionAccountSideLine(
-          '杠杆', p && p.unified_balance, p && p.unified_balance_value_usdt
-        );
-        return `<td class="mono dual-balance-cell"><span class="side-line">${escapeHtml(spotLine)}</span><span class="side-line">${escapeHtml(uniLine)}</span>${borrowLineHtml || ''}</td>`;
+        const lines = [
+          positionSideLineHtml('现货', p && p.spot_balance, p && p.spot_balance_value_usdt),
+          positionSideLineHtml('杠杆', p && p.unified_balance, p && p.unified_balance_value_usdt),
+          borrowLineHtml || '',
+          // Human 2026-08-16：借币利息由独立列并入本列末行（成本，非零标红）。
+          // borrow_interest 的 wire 语义 null='暂无'、'0'=真零，两者都不占行。
+          positionSideLineHtml('借币利息', p && p.borrow_interest, p && p.borrow_interest_usdt, 'negative')
+        ].filter(Boolean);
+        return `<td class="mono dual-balance-cell">${lines.join('') || '<span class="muted">—</span>'}</td>`;
       }
 
       let cacheRefreshLoading = false;
@@ -2457,6 +2499,18 @@
         const intPart = m[2].replace(/^0+/, '') || '0';
         const fracPart = (m[3] || '').replace(/0+$/, '');
         return !(intPart === '0' && fracPart === '');
+      }
+
+      // Human 2026-08-16：实时未还利息，直读交易所 papi balance.crossMarginInterest
+      // （快照 cross_margin_interest）。它是**当前还欠着**的利息负债，与本金
+      // cross_margin_borrowed 并列、不含在其中；还掉即减少。绝不可与账本利息流水
+      // 累加互相校验——还过息之后流水累加必然大于它（dual-ledger 设计 §108）。
+      // 真零/缺失 → 不展示该行（与卡内其余行同规则）。
+      function unifiedInterestLine(b) {
+        if (!isPositiveBorrowedAmount(b && b.cross_margin_interest)) return '';
+        return `<div class="amount borrowed-debt" title="当前未还利息（交易所实时负债，还款后清零）；与流水账本的「已计息累计」不是同一个数">`
+          + `利息: ${formatBalanceAmount(b.cross_margin_interest)} `
+          + `${approximateUsdtLine(b.cross_margin_interest_value_usdt)}</div>`;
       }
 
       function renderLockedBalanceLine(value) {
@@ -4263,6 +4317,10 @@
                 // 有计息借款（cross_margin_borrowed > 0）的资产免小额过滤——借款再小
                 // 也是在计息的负债，藏卡会漏息且没有还款入口。
                 if (isPositiveBorrowedAmount(b.cross_margin_borrowed)) return true;
+                // Human 2026-08-16：欠息同样是负债，且和本金是两个字段——本金还到 0
+                // 而利息还挂着时，只看本金会把整张卡藏掉（连还款入口一起藏），正是
+                // 上一行那条规则要防的漏息，只是当时判据只覆盖了本金一侧。
+                if (isPositiveBorrowedAmount(b.cross_margin_interest)) return true;
                 return !(
                   isNetValueBelowTenUsdt(b.value_usdt)
                   && isNetValueBelowTenUsdt(sub8(b.value_usdt, b.cross_margin_borrowed_value_usdt))
@@ -4271,7 +4329,9 @@
               .map(b => {
               const borrowedPositive = isPositiveBorrowedAmount(b.cross_margin_borrowed);
               const borrowedCls = borrowedPositive ? 'borrowed-debt' : 'locked';
-              const netValue = sub8(b.value_usdt, b.cross_margin_borrowed_value_usdt);
+              const netValue = unifiedNetValue8(
+                b.value_usdt, b.cross_margin_borrowed_value_usdt, b.cross_margin_interest_value_usdt
+              );
               const netValueCls = netValue && netValue.startsWith('-') ? 'borrowed-debt' : 'locked';
               const asset = String(b.asset || '');
               const transferableLine = b.asset === 'USDT'
@@ -4294,7 +4354,7 @@
               // 冻结/已借为 0 且无还款回显时不展示该行（回显保留见上，防重复还款）。
               const lockedLine = renderLockedBalanceLine(b.cross_margin_locked);
               const borrowedLine = (borrowedPositive || repayStatusHtml)
-                ? `<div class="amount ${borrowedCls}">已借: ${formatBalanceAmount(b.cross_margin_borrowed)} ${approximateUsdtLine(b.cross_margin_borrowed_value_usdt)}${repayControls}</div>`
+                ? `<div class="amount ${borrowedCls}">已借: ${formatBalanceAmount(b.cross_margin_borrowed)} ${approximateUsdtLine(b.cross_margin_borrowed_value_usdt)}</div>`
                 : '';
               // Hold + borrowed values on their amount rows; net value replaces
               // the old bottom-only value_usdt line (spot cards unchanged).
@@ -4305,7 +4365,9 @@
                 ${transferableLine}
                 ${lockedLine}
                 ${borrowedLine}
-                <div class="amount ${netValueCls} value-usdt">净价值 ${unifiedNetValueLine(b.value_usdt, b.cross_margin_borrowed_value_usdt)}</div>
+                ${unifiedInterestLine(b)}
+                <div class="amount ${netValueCls} value-usdt">净价值 ${unifiedNetValueLine(b.value_usdt, b.cross_margin_borrowed_value_usdt, b.cross_margin_interest_value_usdt)}</div>
+                ${repayControls}
               </div>`;
             }).join('')
           : '<span class="muted small">无数据</span>';
@@ -4349,7 +4411,7 @@
             <div class="overview-card">
               <div class="label">借币负债 (USDT)</div>
               <div class="value">${debtText}</div>
-              <div class="hint">统一账户 crossMarginBorrowed 折算合计</div>
+              <div class="hint" title="crossMarginBorrowed 已含历次还款时刻结转进去的利息，crossMarginInterest 是此后新计提、尚未结转的部分；两者不重叠，相加即全部负债">统一账户 本金 + 未还利息 折算合计</div>
             </div>
             <div class="overview-card">
               <div class="label">杠杆率</div>
@@ -6073,6 +6135,14 @@
             await loadHedgeTaskLogs(id);
             if (state.activeView === 'hedge-tasks') renderHedgeTasks();
           }
+          // Human 2026-08-16：在「已暂停」页启动成功后自动切到「执行中」，省掉每次
+          // 启动后手点过去看任务卡。判据是刷新后的真实状态（mutateHedgeTask 末尾已
+          // loadHedgeTasks），不是 POST 的即时回执——启动后立刻转停/仍暂停时留在原地，
+          // 否则会跳进一个根本看不到该任务的列表。
+          if (result.ok && state.hedgeTaskFilter === 'paused') {
+            const after = findHedgeTask(id);
+            if (after && after.status === 'running') setHedgeTaskFilter('running');
+          }
           return result;
         } finally {
           if (preparingClose) {
@@ -6584,13 +6654,6 @@
           if (blank) return '<span class="muted small">暂无</span>';
           return `<span class="mono">${formatter(v)}</span>`;
         };
-        // 功能二：持仓周期统计三列真值渲染。wire 语义：null/'' = 无统计（「暂无」，
-        // 含无周期数据行与覆盖率不足行）；字符串（含 "0"）= 真值——真零显示 0，
-        // 与「未知」可区分（P7 规则，绝不把未知渲染成 0）。
-        const statsCell = (v, formatter) => {
-          if (v === null || v === undefined || v === '') return '<span class="muted small">暂无</span>';
-          return `<span class="mono">${formatter(v)}</span>`;
-        };
         // Human 2026-08-05：累计资金费 / 净盈亏保留两位小数（与利息 ≈U 一致）。
         // signed=true 时带 +/- 符号（净盈亏）；wire 语义不变（null → 暂无）。
         const stats2Cell = (v, signed) => {
@@ -6636,8 +6699,18 @@
           const curFundingRate = frSnapRow && frSnapRow.futures ? frSnapRow.futures.last_funding_rate : null;
           const curFundingCls = classForFundingRate(curFundingRate);
           const curFundingText = formatFundingRateFixed(curFundingRate, 3);
-          const curFundingTitle = (curFundingRate === null || curFundingRate === undefined || curFundingRate === '')
-            ? '' : ` title="原始费率 ${escapeHtml(curFundingRate)} · 本周期实时预估，结算前会漂移"`;
+          // Human 2026-08-16：本格可点开市场表同一个历史抽屉（openDrawer 经事件委托）。
+          // 抽屉内容全部读 state.snapshot.rows[symbol]，快照未覆盖该币时抽屉只会显示空态，
+          // 故这类行不做成可点（frSnapRow 已在上面按 coin 查过，复用即可）。
+          const rateCellCls = frSnapRow ? `${curFundingCls} symbol-link` : curFundingCls;
+          const rateCellAttrs = frSnapRow
+            ? ` data-position-symbol="${escapeHtml(p.coin)}" role="button" tabindex="0"` : '';
+          const rateTitleParts = [];
+          if (!(curFundingRate === null || curFundingRate === undefined || curFundingRate === '')) {
+            rateTitleParts.push(`原始费率 ${escapeHtml(curFundingRate)} · 本周期实时预估，结算前会漂移`);
+          }
+          if (frSnapRow) rateTitleParts.push(`点击查看 ${escapeHtml(p.coin)} 的年化与已结算历史`);
+          const curFundingTitle = rateTitleParts.length ? ` title="${rateTitleParts.join(' · ')}"` : '';
           const curFundingNum = Number(curFundingRate);
           // 日净收益第二行：与市场表日净收益列同源同格式（snapshot rows[].net_daily_yield，
           // 3 位小数百分比、正绿负红）。快照未覆盖该币或无值（null）→ 不渲染第二行。
@@ -6666,11 +6739,6 @@
           const fundingNum = (p.accrued_funding === null || p.accrued_funding === undefined || p.accrued_funding === '')
             ? NaN : hedgeNum(p.accrued_funding);
           const fundingCls = Number.isFinite(fundingNum) ? classForSignedNumber(fundingNum) : '';
-          // Human 2026-08-05：借币利息第二行 ≈U（保留两位小数）。borrow_interest_usdt
-          // 为后端按 price_map 换算的 U 值（null=无法换算，不显示第二行）。
-          const interestUsdtHtml = (p.borrow_interest_usdt === null || p.borrow_interest_usdt === undefined
-            || p.borrow_interest_usdt === '')
-            ? '' : `<span class="muted small" style="display:block;">≈ ${Number(p.borrow_interest_usdt).toFixed(2)} U</span>`;
           // 行标记（只展示、不动作）。
           const markers = [];
           // G1: explicit match status — the backend knows both sides, so the UI
@@ -6701,7 +6769,8 @@
             || ((typeof p.coin === 'string' && p.coin.endsWith('USDT'))
               ? p.coin.slice(0, -4) : p.coin);
           const hasBorrow = !(p.cross_margin_borrowed === null
-            || p.cross_margin_borrowed === undefined || p.cross_margin_borrowed === '');
+            || p.cross_margin_borrowed === undefined || p.cross_margin_borrowed === ''
+            || Number(p.cross_margin_borrowed) === 0);
           const borrowSeen = hasBorrow && seenBorrowAsset.has(borrowAsset);
           if (hasBorrow && !borrowSeen) seenBorrowAsset.add(borrowAsset);
           // 全仓借款集成进现货余额列第三行；无值不展示。价值沿用统一账户同币的
@@ -6729,7 +6798,7 @@
           return `
                       <tr>
                         <td class="mono">${coinHtml}${spotLegLine(p)}</td>
-                        <td class="${curFundingCls}"${curFundingTitle}>实时 ${curFundingText}${curNetYieldLine}</td>
+                        <td class="${rateCellCls}"${curFundingTitle}${rateCellAttrs}>实时 ${curFundingText}${curNetYieldLine}</td>
                         <td class="${dirCls}">${dirLabel}</td>
                         <td class="mono">${notionalCell(p.um_notional_usdt)}</td>
                         <td class="mono">${hasUm ? maskAmount(p.um_position_amt) : formatHedgeDecimal(p.position_qty)}</td>
@@ -6742,13 +6811,12 @@
                         <td class="mono"${perpAvgTitle}>${formatHedgeAvgPrice(p.perp_avg)}</td>
                         <td class="mono ${basisCls}">${formatHedgeBasisPct(basisRate)}</td>
                         <td class="mono ${fundingCls}">${stats2Cell(p.accrued_funding, false)}</td>
-                        <td class="mono">${statsCell(p.borrow_interest, formatHedgeDecimal)}${interestUsdtHtml}</td>
                         <td class="mono ${netPnlCls}">${stats2Cell(p.net_pnl, true)}</td>
                         <td class="hedge-op-cell">${renderHedgeCloseInputs(p)}</td>
                         <td class="small">${markerText}</td>
                       </tr>
                     `;
-        }).join('') : `<tr><td colspan="18"><span class="muted small">暂无开单持仓；任务成交后按币种聚合展示</span></td></tr>`;
+        }).join('') : `<tr><td colspan="17"><span class="muted small">暂无开单持仓；任务成交后按币种聚合展示</span></td></tr>`;
         // Multi-source freshness: earliest of UM + unified + spot; any null → not-ready
         // (never invents a complete time from remaining sources). Prefer snapshot
         // private_account.source_checked_at; fall back to positions account meta.
@@ -6779,12 +6847,11 @@
                     <th>标记价</th>
                     <th>强平价</th>
                     <th>价格未实现盈亏</th>
-                    <th>现货余额</th>
+                    <th title="现货 / 杠杆 / 全仓借款 / 借币利息，逐行展示；为 0 或无值的行不展示">现货余额</th>
                     <th>现货均价</th>
                     <th>合约均价</th>
                     <th>开单价差率</th>
                     <th>累计资金费</th>
-                    <th>借币利息</th>
                     <th>净盈亏</th>
                     <th title="立即平仓：仿开单交互——单次平仓币量 + 计划尝试次数，确认后创建平仓任务（功能三，当前为界面预览）">立即平仓</th>
                     <th>标记</th>
@@ -8256,6 +8323,13 @@
           els.privatePanelBody.addEventListener('click', (e) => {
             const closest = (sel) =>
               (e.target && typeof e.target.closest === 'function') ? e.target.closest(sel) : null;
+            // 持仓表币种格 → 市场表同一个历史抽屉（同一 openDrawer，含 1s 防连点与在途忽略）。
+            const posSymbolCell = closest('[data-position-symbol]');
+            if (posSymbolCell) {
+              e.stopPropagation();
+              openDrawer(posSymbolCell.getAttribute('data-position-symbol'));
+              return;
+            }
             const transferBtn = closest('[data-transfer-submit]');
             if (transferBtn) {
               if (transferBtn.disabled) return;
@@ -8351,9 +8425,19 @@
             updateTransferValidity();
           });
           els.privatePanelBody.addEventListener('keydown', (e) => {
-            if (e.key !== 'Enter') return;
             const t = e.target;
             if (!t || typeof t.closest !== 'function') return;
+            // 币种格键盘等价（与市场表行一致：Enter / Space 打开抽屉）。
+            if (e.key === 'Enter' || e.key === ' ') {
+              const posSymbolCell = t.closest('[data-position-symbol]');
+              if (posSymbolCell) {
+                e.preventDefault();
+                e.stopPropagation();
+                openDrawer(posSymbolCell.getAttribute('data-position-symbol'));
+                return;
+              }
+            }
+            if (e.key !== 'Enter') return;
             if (t.closest('[data-hedge-close-threshold]') || t.closest('[data-hedge-close-smooth]')) {
               e.preventDefault();
             }

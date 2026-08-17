@@ -4,7 +4,22 @@ Cross-stage state, read at startup. Keep under 64 KB. Git history is not a runti
 check. Completed work's trace is git history and archive references (see Update
 Rule); this file records only live risks, open follow-ups, and pointers.
 
-## Current Status (2026-08-14)
+## Current Status (2026-08-16)
+
+- **[2026-08-16 Human 直接驱动，无 stage，Human 授权提交推送] 借币利息展示 + 未还利息进快照：**
+  一轮连续的 UI/契约小改，全部直接在 `main` 工作区完成，未走 stage 流程、未经独立评审
+  （Human 逐项确认后授权推送）。交付内容见本条下方与 Open Follow-ups 前两条。
+  验证：后端 `1893 passed`（`test_private_client.py::test_urlopen_only_in_designated_http_clients`
+  为**本轮之前即已存在**的失败，`git stash` 验证过，与本轮无关）；`node frontend/self-check.js`
+  全绿，新增断言均做过变异验证（改坏即红）。
+  **服务由模型按 Human 明确授权重启过两次**（Human 出门期间授权「停旧服务起新服务」）：
+  旧 PID 27940 → 32279 → **当前 36213**，`127.0.0.1:8787`，`readyz` 200，跑的是本轮后端代码。
+  重启前只读确认过无 running 任务（37 done / 11 deleted / 1 paused / 1 stopped）、无在途下单。
+  启动方式改为 `nohup bash scripts/run-server.sh` + `disown`（脱离终端，Human 关终端不受影响），
+  日志在 `~/Library/Logs/funding-hedging/server.{stdout,stderr}.log`。**仍非 launchd 托管。**
+  未授权部署、创建任务或实盘下单。
+  ⚠️ 期间观察到一笔**非本会话发起**的 INJ 还款（`borrowed` 10.0 → 8.00109129），模型未碰任何
+  下单/还款接口，来源未确认（Human 手机操作或自动任务），如非预期需查。
 
 - **[2026-08-15 Human 授权合并并推送] 平滑平仓 V1 (P1+P2) 已合并 `main`：**
   以 `--ff-only` 合并 `stage/2026-08-14-smooth-close-orders-v1`，`main` 与 stage tip 同为
@@ -282,6 +297,45 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   path to `ensure_worker` appears.** Five elements: archive `32-` §7.3.
 
 ## Open Follow-ups
+
+- `[OPEN][2026-08-16]` **资金展示口径出入：总资产/统一账户净资产用错了权益字段（未改，Human 暂停）。**
+  **现象**：PM 账户面板「总资产估值」与 App 对不上——实测 571.13 vs App 现货 385.7 +
+  统一账户 194.2 = 579.9。
+  **根因已定位（实测三点交叉验证，非推断）**：`GET /papi/v1/account` 同时返回
+  `accountEquity` 与 `actualEquity`；`total_value_usdt` 与「统一账户净资产」卡都取了
+  `accountEquity`（`backend/domain/snapshot.py:1379-1394`），而 **App 展示的是
+  `actualEquity`**。同一时刻：`actual_equity` 194.41521541 vs App 194.2252（偏差
+  0.098%，纯价差/取数时刻）；`account_equity` 185.91（差 4.4%，抵押率折扣，不是价差
+  量级）；`uni_mmr` 11.09568257 对 App 11.09 一致。
+  推断（无项目内证据）：`accountEquity` 是按抵押率折算后的风控口径，`actualEquity`
+  是不打折的真实市值。
+  **改法（已设计未执行）**：三张卡统一换到 `actualEquity`——总资产 571.13 → ≈580.16、
+  统一账户净资产 185.91 → ≈194.42、**杠杆率分母必须一起换**（3.07 → ≈2.98，否则
+  「总资产 ÷ 统一账户净资产」这句说明与界面上两张卡的数自相矛盾）。回退链改两级：
+  `actualEquity` → `accountEquity` → 钱包毛额（防币安改字段名，`cumQuote` 有先例）。
+  `accountEquity` 字段保留在快照里不删。
+  **影响面**：仅这四张展示卡；`total_value_usdt` 后端无第二消费者、前端只有
+  `index.html:4273` 一处，**不进入开单/平仓/借币/还款/风控闸门任何决策路径**。
+  成本：后端约 8 行 + 前端 2 行 + 契约文档一段 + 测试若干断言。
+  **已排除的两个误判，勿重走**：(1) 曾以为「借币负债」也对不上，实为把 0.056 的价差
+  当成利息——三个数的偏差率一致（0.098%/0.107%），且「App 只算本金」需要价差方向
+  相反，不成立；Human 查 App 成分确认为「有息负债+免息负债+未付利息总额」，**含息，
+  与本仓改后的 `total_debt_usdt` 口径一致**。(2) 曾担心本金与利息相加会重复扣，已由
+  实盘证伪，见下条。
+
+- `[OPEN][2026-08-16]` **未还利息已进快照并落地展示（本轮已交付），遗留一处口径提醒。**
+  `crossMarginInterest` 已进 `balances_unified`（`cross_margin_interest` +
+  `cross_margin_interest_value_usdt`），统一账户卡展示实时未还利息、净价值扣息、
+  小额过滤对「只剩欠息」的资产免过滤、`total_debt_usdt` 改为 Σ(本金+利息)。
+  **口径事实（实盘两次验证，写进契约文档）**：`crossMarginBorrowed` 只吸收**历次还款
+  那一刻**已计提的利息，此后新计提的挂在 `crossMarginInterest`，两者不重叠、相加恰好
+  一次。证据一：SNX 借 100 还 50，还款前累计息 `0.10709571` 与 `borrowed(50.10709571)
+  − 本金(50)` 8 位全等；证据二：2026-08-16 一笔 INJ 还款实时观测到 `borrowed` 从 `10.0`
+  变为 `8.00109129`，多出的 `0.00109129` 正是还款前那一刻的 `crossMarginInterest`。
+  ⚠️ **`total_debt_usdt` 语义已从「本金」变为「本金+未还利息」**——若与本轮之前的历史
+  记录对账会有一个台阶（当时量级 0.06 USDT）。副标题已改为「本金 + 未还利息 折算合计」。
+  **未做**：`docs/api/public-market-contract.md` 的 v0.x 修订号未递增（本轮按 additive
+  amendment 追加章节处理）。
 
 - `[CLOSED-NOT-DOING][2026-08-15]` **1000x 乘数币适配：Human 决定不做，需求封存。**
   **活文档同步已完成**（`AGENTS.md` 收口义务）：`docs/product/PRD.md` §2.2 / §11.3、

@@ -1089,27 +1089,38 @@ def _sum_cross_margin_debt_usdt(
     price_map: Dict[str, str],
     warnings: List[str],
 ) -> Optional[Decimal]:
-    """Σ(crossMarginBorrowed priced) for unified rows. None when no usable debt."""
+    """Σ((crossMarginBorrowed + crossMarginInterest) priced) for unified rows.
+
+    None when no usable debt.
+
+    2026-08-16: outstanding interest joins the principal here. Verified live that
+    the two do not overlap — ``crossMarginBorrowed`` only absorbs interest that
+    was already accrued at the moment of a *past* repayment (SNX: interest
+    accrued before its repayment, 0.10709571, equals borrowed-minus-principal to
+    8dp), while ``crossMarginInterest`` carries what accrued since. Summing both
+    counts each debt exactly once.
+    """
     total = Decimal(0)
     any_debt = False
     for x in unified_list:
         if not isinstance(x, dict):
             continue
-        borrowed = x.get("crossMarginBorrowed")
-        if borrowed is None or borrowed == "" or borrowed == "0" or borrowed == "0.0":
-            # Still price zeros as 0 without flagging; skip empty.
-            if borrowed in ("0", "0.0", "0.00000000"):
+        for key in ("crossMarginBorrowed", "crossMarginInterest"):
+            amount = x.get(key)
+            if amount is None or amount == "" or amount == "0" or amount == "0.0":
+                # Still price zeros as 0 without flagging; skip empty.
+                if amount in ("0", "0.0", "0.00000000"):
+                    any_debt = True
+                continue
+            try:
+                amt = Decimal(str(amount))
+            except (InvalidOperation, ValueError, TypeError):
+                continue
+            if amt == 0:
                 any_debt = True
-            continue
-        try:
-            amt = Decimal(str(borrowed))
-        except (InvalidOperation, ValueError, TypeError):
-            continue
-        if amt == 0:
+                continue
             any_debt = True
-            continue
-        any_debt = True
-        total += _usdt_value(x.get("asset"), borrowed, price_map, warnings)
+            total += _usdt_value(x.get("asset"), amount, price_map, warnings)
     if not any_debt:
         # No borrowed fields present at all -> treat as 0 debt when we have rows.
         if not unified_list:
@@ -1277,6 +1288,15 @@ def assemble_private_account(
         # crossMarginBorrowed = PM full-cross (全仓) margin liability for this asset
         # (from GET /papi/v1/balance). Raw string | null; not added into total_value_usdt.
         borrowed_raw = x.get("crossMarginBorrowed")
+        # crossMarginInterest = accrued-but-unpaid interest on that principal — a
+        # SEPARATE live liability, not folded into crossMarginBorrowed. It is the
+        # only field in the whole system that answers "how much interest is still
+        # owed right now"; the interest-history ledger answers a different
+        # question ("how much interest was ever charged") and after any interest
+        # repayment the ledger sum can exceed this field — the two must never be
+        # cross-validated (dual-ledger design §108). Display-only: never added
+        # into total_value_usdt (totalWalletBalance already covers the asset).
+        interest_raw = x.get("crossMarginInterest")
         # crossMarginFree = unencumbered full-cross balance for this asset — the
         # same field every "how much can the unified account actually move" gate
         # already reads (hedge_preflight_provider / live_hedge_executor). Raw
@@ -1294,6 +1314,13 @@ def assemble_private_account(
                 "value_usdt": _quantize_rate(value) if value is not None else None,
                 "cross_margin_borrowed_value_usdt": _cross_margin_borrowed_value_usdt(
                     asset, borrowed_raw, price_map
+                ),
+                "cross_margin_interest": interest_raw,
+                # Same amount→USDT routing as the principal (stable assets at 1,
+                # price_map otherwise, 8dp, null when a non-zero amount has no
+                # usable price). The helper is amount-generic despite its name.
+                "cross_margin_interest_value_usdt": _cross_margin_borrowed_value_usdt(
+                    asset, interest_raw, price_map
                 ),
             }
         )
