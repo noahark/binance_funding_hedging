@@ -4271,10 +4271,29 @@
 
         const sca = readSourceCheckedAt(pa) || {};
         const total = maskAmount(pa.total_value_usdt);
-        const spotValueText = maskAmount(pa.spot_value_usdt);
+        const unavailableSources = Array.isArray(pa.unavailable_sources) ? pa.unavailable_sources : [];
+        const spotUnavailable = unavailableSources.includes('spot_balances');
+        // 现货没读到时后端求和得 0，与「真的空仓 0」不可区分——按源判据显示 —，
+        // 不让一个 0 冒充「查过了，确实没有」。
+        const spotValueText = spotUnavailable ? '—' : maskAmount(pa.spot_value_usdt);
         const pm = (pa.pm_account && typeof pa.pm_account === 'object') ? pa.pm_account : {};
-        // 统一净资产优先 accountEquity；缺失时后端 total 回退钱包毛额，此处仍展示权益字段。
-        const unifiedNetText = maskAmount(pm.account_equity_usdt);
+        // 统一账户净资产 = papi actualEquity，与币安 App 同口径。**不要**退回
+        // accountEquity（那是按抵押率打折的风控口径，实测低约 4%），也不要退回钱包毛额
+        // （另一个口径的量，差距既不小方向也不固定：2026-08-17 实测毛额 100.69 对净值
+        // 191.42，退过去反而少报约 90 U）——缺了就显示 —，2026-08-07「假声明」的同一条教训。
+        const unifiedNetText = maskAmount(pm.actual_equity_usdt);
+        // 总资产是分源求和：现货侧 Σ(free+locked)，统一账户侧取 actualEquity。任一侧本轮
+        // 没读到就不计入，数字照常展示（部分和）但标红并点名缺了谁。
+        //
+        // 两侧判据不同，因为数据形状不同：统一账户是单值，null 本身就能区分「没读到」
+        // （同时覆盖端点失败与币安改字段名两种情况）；现货是求和，0 既可能是没读到也
+        // 可能是真的空仓，只能靠 unavailable_sources 分辨。
+        const missingTotalParts = [];
+        if (spotUnavailable) missingTotalParts.push('现货账户');
+        if (pm.actual_equity_usdt === null || pm.actual_equity_usdt === undefined) {
+          missingTotalParts.push('统一账户净资产');
+        }
+        const totalIncomplete = missingTotalParts.length > 0;
         // uniMMR = equity / maint margin；越高越安全。展示为倍数与约百分比。
         const uniMmrText = (() => {
           const raw = pm.uni_mmr;
@@ -4395,8 +4414,10 @@
           <div class="private-overview">
             <div class="overview-card">
               <div class="label">总资产估值 (USDT)</div>
-              <div class="value">${total}</div>
-              <div class="hint">现货账户估值 + 统一账户净资产</div>
+              <div class="value${totalIncomplete ? ' negative' : ''}">${total}</div>
+              <div class="hint">${totalIncomplete
+                ? `<span class="negative">数据源不完整：缺 ${escapeHtml(missingTotalParts.join(' / '))}，此处仅为已读取部分的合计</span>`
+                : '现货账户估值 + 统一账户净资产'}</div>
             </div>
             <div class="overview-card">
               <div class="label">现货账户估值 (USDT)</div>
@@ -4406,7 +4427,7 @@
             <div class="overview-card">
               <div class="label">统一账户净资产 (USDT)</div>
               <div class="value">${unifiedNetText}</div>
-              <div class="hint">papi accountEquity（接近 App 统一账户净资产）</div>
+              <div class="hint">papi actualEquity（与 App 统一账户净资产同口径）</div>
             </div>
             <div class="overview-card">
               <div class="label">借币负债 (USDT)</div>

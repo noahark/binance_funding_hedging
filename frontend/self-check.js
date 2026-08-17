@@ -9080,6 +9080,124 @@ setTimeout(async () => {
       console.log('[PASS] 「交易所无仓」只对活跃周期警示（已平仓周期不误报）+ 文案不把「强平」当结论');
     }
 
+    // 76. pm-equity-field-fix-2026-08-17：统一账户净资产 = actualEquity（不是 accountEquity），
+    // 缺源时总资产走「部分和 + 标红点名」，不回退到别的口径。
+    {
+      const mkEquityFx = (over) => {
+        const fx = JSON.parse(JSON.stringify(designFixture));
+        fx.private_account = Object.assign({
+          verified: true,
+          balances_unified: [],
+          balances_spot: [],
+          um_positions: [],
+          total_value_usdt: '580.11521541',
+          spot_value_usdt: '385.70000000',
+          unified_wallet_value_usdt: '200.00000000',
+          pm_account: Object.assign({
+            source: 'papi_v1_account',
+            account_equity_usdt: '185.91000000',
+            actual_equity_usdt: '194.41521541',
+            total_available_balance_usdt: null,
+            account_initial_margin_usdt: null,
+            account_maint_margin_usdt: null,
+            uni_mmr: null,
+            account_status: null,
+            total_debt_usdt: null,
+            leverage_ratio: '2.98389822'
+          }, (over && over.pm) || {}),
+          valuation: { price_source: 'binance_spot_ticker', priced_at: '2026-08-17T00:00:00Z' },
+          checked_at: '2026-08-17T00:00:00Z',
+          unavailable_sources: (over && over.unavailable) || [],
+          error: null
+        }, (over && over.pa) || {});
+        return fx;
+      };
+      const renderEquity = (over) => {
+        helpers.ingestSnapshot(mkEquityFx(over));
+        if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
+        helpers.ingestSnapshot(mkEquityFx(over));
+        return elements['private-panel-body'].innerHTML;
+      };
+
+      // 两侧都在：净资产卡取 actualEquity，accountEquity 绝不上屏，总资产不标红。
+      const okHtml = renderEquity(null);
+      if (!okHtml.includes('194.41521541')) {
+        throw new Error('统一账户净资产须展示 actualEquity: ' + okHtml.slice(0, 400));
+      }
+      if (okHtml.includes('185.91')) {
+        throw new Error('accountEquity 是抵押率折算口径，不得出现在净资产/总资产卡');
+      }
+      if (!okHtml.includes('papi actualEquity')) {
+        throw new Error('净资产卡 hint 须点名 actualEquity');
+      }
+      if (okHtml.includes('数据源不完整')) {
+        throw new Error('两侧齐全时不得标记数据源不完整');
+      }
+      if (!okHtml.includes('现货账户估值 + 统一账户净资产')) {
+        throw new Error('两侧齐全时须显示常规 hint');
+      }
+
+      // 统一账户侧缺（端点失败或币安改字段名，两种都表现为 actual_equity_usdt 为 null）：
+      // 部分和 + 标红点名，且绝不用 accountEquity/钱包毛额顶替。
+      const pmMissing = renderEquity({
+        pm: { actual_equity_usdt: null, leverage_ratio: null },
+        unavailable: ['pm_account']
+      });
+      if (!pmMissing.includes('数据源不完整')) {
+        throw new Error('统一账户净资产缺失须标记数据源不完整: ' + pmMissing.slice(0, 400));
+      }
+      if (!pmMissing.includes('缺 统一账户净资产')) {
+        throw new Error('须点名缺的是统一账户净资产: ' + pmMissing.slice(0, 400));
+      }
+      if (pmMissing.includes('185.91') || pmMissing.includes('200.00000000')) {
+        throw new Error('净资产缺失时不得回退 accountEquity 或钱包毛额');
+      }
+
+      // 现货侧缺：后端求和得 0 与真空仓不可区分，只能靠 unavailable_sources → 现货卡 —。
+      // 夹具的 leverage_ratio 置 null 以贴合真后端形状：总额只是部分和时不再给出比值
+      // （分子退化成净值本身，比值恒 1.00，看着完整实则无信息）。
+      const spotMissing = renderEquity({
+        unavailable: ['spot_balances'],
+        pm: { leverage_ratio: null }
+      });
+      if (!spotMissing.includes('缺 现货账户')) {
+        throw new Error('现货缺源须点名: ' + spotMissing.slice(0, 400));
+      }
+      if (spotMissing.includes('385.70000000')) {
+        throw new Error('现货缺源时不得展示求和值（0 或残值），须 —');
+      }
+
+      // 两侧同时缺：两个来源都要列出来。
+      const bothMissing = renderEquity({
+        pm: { actual_equity_usdt: null, leverage_ratio: null },
+        unavailable: ['spot_balances', 'pm_account']
+      });
+      if (!bothMissing.includes('缺 现货账户 / 统一账户净资产')) {
+        throw new Error('两侧同缺须一并列出: ' + bothMissing.slice(0, 400));
+      }
+
+      // 杠杆率卡：总额完整才给数字；任一侧缺源后端给 null，卡面必须是 —，
+      // 不能在标红的「部分和」旁边杵一个看着完整的比值。
+      // ⚠️ 分层边界（勿误解）：下面 4 条守的是「后端给 null 时卡面渲染成 —」。夹具里的
+      // leverage_ratio 是写死的 null，所以**后端若改回在缺源时算出 1.0，这里照样全绿**——
+      // 守住那一侧的是 pytest 的 test_assemble_private_account_no_leverage_when_total_is_partial。
+      // 别把 self-check 通过当成「1.00× 不会回来」的证据。
+      const leverageCell = (html) => {
+        const m = html.match(/杠杆率<\/div>\s*<div class="value">([^<]*)</);
+        if (!m) throw new Error('未能定位杠杆率卡');
+        return m[1].trim();
+      };
+      if (leverageCell(okHtml) === '—') {
+        throw new Error('两侧齐全时杠杆率不该是 —: ' + leverageCell(okHtml));
+      }
+      for (const [name, html] of [['现货缺', spotMissing], ['统一账户缺', pmMissing], ['两侧缺', bothMissing]]) {
+        if (leverageCell(html) !== '—') {
+          throw new Error(`${name}源时杠杆率须为 —，实际: ${leverageCell(html)}`);
+        }
+      }
+      console.log('[PASS] pm-equity-field-fix：净资产取 actualEquity / accountEquity 不上屏 / 缺源部分和标红点名 / 不回退毛额');
+    }
+
     console.log('\n全部自检通过');
     process.exit(0);
   } catch (err) {

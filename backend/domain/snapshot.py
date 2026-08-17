@@ -1133,7 +1133,6 @@ def _project_pm_account_summary(
     pm_account: Optional[dict],
     unified_list: List[dict],
     price_map: Dict[str, str],
-    total_value: Optional[Decimal],
     warnings: List[str],
 ) -> dict:
     """Map ``GET /papi/v1/account`` + balance debt into display fields.
@@ -1142,8 +1141,8 @@ def _project_pm_account_summary(
     priced sum of ``crossMarginBorrowed + crossMarginInterest`` on unified
     balances (not a papi field) — principal plus outstanding unpaid interest,
     which do not overlap (see ``_sum_cross_margin_debt_usdt``).
-    Leverage ratio = total_value_usdt / account_equity when both > 0
-    (combined spot+unified net total vs unified equity).
+    ``leverage_ratio`` is NOT computed here — it needs the combined total, so
+    ``assemble_private_account`` fills it after equity resolution.
     """
     out = _empty_pm_account_summary()
     debt = _sum_cross_margin_debt_usdt(unified_list, price_map, warnings)
@@ -1168,15 +1167,6 @@ def _project_pm_account_summary(
     out["uni_mmr"] = _raw_dec_field(pm_account.get("uniMMR"))
     status = pm_account.get("accountStatus")
     out["account_status"] = str(status) if status is not None and status != "" else None
-
-    equity_raw = out["account_equity_usdt"]
-    if equity_raw is not None and total_value is not None:
-        try:
-            equity = Decimal(equity_raw)
-            if equity > 0 and total_value.is_finite():
-                out["leverage_ratio"] = _quantize_rate(total_value / equity)
-        except (InvalidOperation, ValueError, TypeError, ZeroDivisionError):
-            pass
     return out
 
 
@@ -1204,11 +1194,17 @@ def assemble_private_account(
 
     - ``spot_value_usdt`` = Σ(spot free+locked priced)
     - ``unified_wallet_value_usdt`` = Σ(unified totalWalletBalance priced)
-      (wallet gross; may include borrowed assets; um/cm never re-added)
-    - ``pm_account.account_equity_usdt`` = papi ``accountEquity`` (unified net)
-    - ``total_value_usdt`` = ``spot_value_usdt`` + unified net, where unified net
-      prefers ``accountEquity`` and falls back to ``unified_wallet_value_usdt``
-      when the account endpoint is unavailable
+      (wallet gross; may include borrowed assets). Whether it already covers the
+      um/cm sub-accounts is **not settled** — the 2026-08-17 measurement is hard
+      to reconcile with that long-standing claim (see the contract). It feeds no
+      total, so nothing here depends on the answer.
+    - ``pm_account.actual_equity_usdt`` = papi ``actualEquity`` — unified net
+      worth, the figure the Binance App shows. ``account_equity_usdt`` (papi
+      ``accountEquity``) is the collateral-discounted risk figure, carried for
+      its own sake and never used as a net-worth substitute
+    - ``total_value_usdt`` = ``spot_value_usdt`` + unified net worth. A source
+      that did not read contributes NOTHING — the total is a partial sum the
+      frontend renders red, never a fallback to wallet gross
 
     ``um_positions`` nominal is NEVER counted. Returns ``(block, warnings)``.
 
@@ -1297,15 +1293,17 @@ def assemble_private_account(
         # question ("how much interest was ever charged") and after any interest
         # repayment the ledger sum can exceed this field — the two must never be
         # cross-validated (dual-ledger design §108). Display-only: never added
-        # into total_value_usdt (totalWalletBalance already covers the asset).
+        # into total_value_usdt (whose unified side is actualEquity since
+        # 2026-08-17 — no per-asset row reaches the headline total).
         interest_raw = x.get("crossMarginInterest")
         # crossMarginFree = unencumbered full-cross balance for this asset — the
         # same field every "how much can the unified account actually move" gate
         # already reads (hedge_preflight_provider / live_hedge_executor). Raw
         # string | null, display-only: it is NOT a max-transferable quote (a
         # transfer out also has to clear the account's uniMMR / collateral
-        # constraints), and it is NOT added into total_value_usdt —
-        # totalWalletBalance already covers this asset (§1.4 anti-double-count).
+        # constraints), and it is NOT added into total_value_usdt — since
+        # 2026-08-17 the unified side of that total is actualEquity, so no
+        # per-asset row can reach it at all.
         unified_out.append(
             {
                 "asset": asset,
@@ -1373,29 +1371,35 @@ def assemble_private_account(
         price_map,
         warnings,
     )
-    # Project PM summary first so we can prefer accountEquity for unified net.
-    # Temporary total for leverage is recomputed after equity resolution.
+    # Unified net worth = papi ``actualEquity`` — the figure the Binance App
+    # shows. ``accountEquity`` is the collateral-discounted risk figure (~4%
+    # lower in practice, 2026-08-16 measurement) and is NOT a substitute: it
+    # stays in the payload for its own sake but never backs a card labelled
+    # "net worth".
+    #
+    # Missing equity -> the unified side contributes NOTHING to the total (a
+    # partial sum the frontend flags red) instead of falling back to wallet
+    # gross. Gross and net worth are different quantities and the gap is neither
+    # small nor of a fixed sign: measured 2026-08-17, gross ``100.69`` against
+    # net worth ``191.42`` — the old fallback would have understated the total by
+    # ~90 USDT, reading as a loss that never happened. Substituting either for
+    # the other is the "false claim" shape fixed on 2026-08-07.
     pm_summary = _project_pm_account_summary(
-        pm_account, unified_list, price_map, None, warnings,
+        pm_account, unified_list, price_map, warnings,
     )
-    equity_raw = pm_summary.get("account_equity_usdt")
-    if equity_raw is not None:
-        try:
-            unified_net = Decimal(equity_raw)
-        except (InvalidOperation, ValueError, TypeError):
-            unified_net = unified_wallet
-    else:
-        # Account endpoint missing: fall back to wallet gross (legacy path).
-        unified_net = unified_wallet
-    total = spot_value + unified_net
-    # Leverage = combined total / unified equity when equity present.
-    if equity_raw is not None:
-        try:
-            equity = Decimal(equity_raw)
-            if equity > 0 and total.is_finite():
-                pm_summary["leverage_ratio"] = _quantize_rate(total / equity)
-        except (InvalidOperation, ValueError, TypeError, ZeroDivisionError):
-            pass
+    equity_raw = pm_summary.get("actual_equity_usdt")
+    # ``_raw_dec_field`` already guarantees a parseable finite decimal or None.
+    unified_net = Decimal(equity_raw) if equity_raw is not None else None
+    total = spot_value + (unified_net if unified_net is not None else Decimal(0))
+    # Leverage = combined total / unified net worth, same equity source as the
+    # net-worth card so the on-screen division stays self-consistent. It needs a
+    # COMPLETE total: with the spot source missing the numerator degenerates to
+    # the net worth itself and the ratio reads a tidy ``1.00`` — a number that
+    # looks whole and carries nothing, sitting next to a total already flagged
+    # red as incomplete. A partial total gets no ratio.
+    total_complete = spot is not None and unified_net is not None
+    if total_complete and unified_net > 0 and total.is_finite():
+        pm_summary["leverage_ratio"] = _quantize_rate(total / unified_net)
     return (
         {
             "verified": True,

@@ -4,7 +4,70 @@ Cross-stage state, read at startup. Keep under 64 KB. Git history is not a runti
 check. Completed work's trace is git history and archive references (see Update
 Rule); this file records only live risks, open follow-ups, and pointers.
 
-## Current Status (2026-08-16)
+## Current Status (2026-08-17)
+
+- **[2026-08-17 Human 直接驱动，无 stage] PM 权益字段口径修正 + 缺源「部分和标红」规则：**
+  「总资产估值 / 统一账户净资产 / 杠杆率」三张卡由 `accountEquity`（按抵押率折算的风控
+  口径）改取 `actualEquity`（与币安 App 同口径）。`accountEquity` 字段保留在快照里不删。
+  **同轮按 Human 提出的规则统一缺源展示**：能算部分和的卡（总资产）缺源时展示已读到的
+  部分并**标红点名缺了谁**，单值卡（统一账户净资产 / 杠杆率）缺则 `—`；现货卡改为按
+  `unavailable_sources` 判缺（后端求和得 0 与「真的空仓」不可区分）。
+  ⚠️ **两处口径断裂，与本轮之前的历史记录对账会有台阶**：`total_value_usdt`
+  `571.13 → 579.64`（+`8.51`）、`leverage_ratio` `3.07207789 → 2.98142928`。
+  契约已标注日期、方向与量级。
+  ⚠️ **一条既有 test-asserted 契约硬规则被废**：`total_value_usdt = Σ(unified
+  totalWalletBalance priced) + Σ(spot free+locked priced)`（anti-double-count 公式）
+  不再成立——unified 侧改取净值，毛额不再进总额。毛额仍在 `unified_wallet_value_usdt`
+  字段上单独报，原测试的本意（um/cm 不重复计入、`crossMarginFree`/负债不移动毛额）已
+  移到该字段上继续守。
+  **删掉了钱包毛额回退链**：此前统一账户读不到时总额退到毛额。**重启后实测揭穿了一个
+  此前想当然的方向判断**——毛额 `100.68845086` 对净值 `191.41755452`，毛额只有净值的
+  一半多，旧回退会把总资产**少报约 90 USDT**，在页面上读起来像凭空亏了一笔（此前文档
+  一度写成「毛额含借币会报大」，方向是反的，已改）。两者是不同口径的量、差距既不小
+  方向也不固定，互相顶替就是「假声明」（2026-08-07 修过三次的同一形状）。同轮删掉
+  `_project_pm_account_summary` 内那段死的 leverage 计算（唯一调用方传 `total_value=None`，
+  条件恒假，真正生效的是 assemble 里那处）。
+  **评审**：实施前设计评审两家（`grok-4.6` / `claude-glm`，均 headless 只读）结论同为
+  `ACCEPT-WITH-CHANGES`，其引用经本会话逐条复核（grok 有一处函数名指认偏差、一处
+  百分比口径争议，均不影响结论）。两家在「缺失时要不要退回 `accountEquity`」上冲突，
+  按 grok 判不退，Human 随后提出更彻底的部分和规则并据此实施。
+  **这是设计评审，不是正式 Review-1/Review-2——两者本轮都未做。**
+  材料：`docs/planning/pm-equity-field-fix-2026-08-17.review-request.md`。
+  **改动三（交付后评审补入）：现货源缺失时不再给出杠杆率。** 此前那种情况下分子退化成
+  净值本身、比值恒为 `1.00000000`——一个看着完整实则无信息的数字，还紧挨着一张已标红说
+  「缺现货账户」的总资产卡。现在总额只要是部分和就不给比值（前端本就把 null 显示为 `—`，
+  故只改后端一处）。该缺陷由 grok 评审发现并经本会话独立复现。
+  验证：`test_private_account_v1.py` `113 passed`（含新增 4 条）；`node frontend/self-check.js`
+  全绿。新增后端 4 条测试 + 前端 1 个测试块（4 个场景、14 个 throw 点），
+  **9 次变异验证全部改坏即红**。
+  ⚠️ **测试分层边界（勿误读）**：self-check 的杠杆率断言守的是「后端给 null 时卡面渲染成
+  `—`」，其夹具写死 `leverage_ratio: null`——**后端若改回在缺源时算出 `1.0`，self-check
+  照样全绿**。守住那一侧的只有 pytest 的 `test_..._no_leverage_when_total_is_partial`。
+  **服务重启两次**：`36213` → `24679`（口径改动）→ **当前 `45346`**（`22:23:47` 启动，
+  含杠杆率修复；`127.0.0.1:8787`，`readyz` 200，live + `start_gate=true`）。两次重启前
+  均只读确认无 running 任务（40 done / 12 deleted / 1 stopped）、订单腿全
+  `TERMINAL_RECORDED`。
+  **实盘验证只覆盖「源齐全」一条路径**：`45346` 实测
+  `spot 385.95344935 + actual 193.47983513 = total 579.43328448`、`leverage 2.99479935`，
+  两家评审各自独立取数同构。**缺源行为无实盘证据，仅由单测覆盖。**
+  ✅ **Human 已完成「面板 vs 币安 App」人工复对（2026-08-17）：与 App 大致一致，改动达成
+  目标。** 残余细微差异归因于 **USDT/USD 计价波动**（App 侧按 USD 口径，本仓一律折 USDT），
+  属预期噪声，不再追。这同时终结了 claude-glm 提的替代解释——曾担心 App 显示的是钱包毛额，
+  而实测毛额 `100.68845086` 与 `actualEquity` 差近一倍，不可能混淆。
+  ⚠️ 早先记录的 `total 579.45913371` 那组数出自 `24679`，即**修复前**的进程。
+  **注**：`SIGINT` 杀不掉 nohup 脱离终端的服务进程，须用 `SIGTERM`；第二次重启 `readyz`
+  从 503 到 200 等了约 75 秒（首次仅几秒），属正常初始化。
+  **交付后代码评审两轮**（`grok-4.6` + `claude-glm`，均 headless 只读，四份结论全为
+  `ACCEPT-WITH-CHANGES`，引用经本会话逐条复核属实）：
+  round 1 — 两家共同指出两处文档失准（前端注释仍写「毛额会报大」、本条曾写「未重启」），
+  grok 独有发现杠杆率缺陷（已修，见改动三）+ 三处过时注释（已同步）。
+  round 2 — 两家共同指出**契约/schema 的 `leverage_ratio` 描述与实现打架**：原文写
+  「两个操作数为正就相除」，而现货缺源时两者恰恰都为正、代码却故意不出比值；grok 的话是
+  「以后若有人按契约『修』代码，会把 `1.00×` 请回来」。已改两处并加显式禁令。
+  grok 另建议补一条「无关源丢失不该影响杠杆率」的回归测试（防止有人把 `unified_balances`
+  写进完整性判据），已补并变异验证。
+  材料 `docs/planning/pm-equity-field-fix-2026-08-17.review-packet.md`（第 6 节含两轮处置）。
+  **仍未做正式 Review-1/Review-2**（本轮无 stage）。
 
 - **[2026-08-16 Human 直接驱动，无 stage，Human 授权提交推送] 借币利息展示 + 未还利息进快照：**
   一轮连续的 UI/契约小改，全部直接在 `main` 工作区完成，未走 stage 流程（Human 逐项确认
@@ -312,30 +375,12 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Open Follow-ups
 
-- `[OPEN][2026-08-16]` **资金展示口径出入：总资产/统一账户净资产用错了权益字段（未改，Human 暂停）。**
-  **现象**：PM 账户面板「总资产估值」与 App 对不上——实测 571.13 vs App 现货 385.7 +
-  统一账户 194.2 = 579.9。
-  **根因已定位（实测三点交叉验证，非推断）**：`GET /papi/v1/account` 同时返回
-  `accountEquity` 与 `actualEquity`；`total_value_usdt` 与「统一账户净资产」卡都取了
-  `accountEquity`（`backend/domain/snapshot.py:1379-1394`），而 **App 展示的是
-  `actualEquity`**。同一时刻：`actual_equity` 194.41521541 vs App 194.2252（偏差
-  0.098%，纯价差/取数时刻）；`account_equity` 185.91（差 4.4%，抵押率折扣，不是价差
-  量级）；`uni_mmr` 11.09568257 对 App 11.09 一致。
-  推断（无项目内证据）：`accountEquity` 是按抵押率折算后的风控口径，`actualEquity`
-  是不打折的真实市值。
-  **改法（已设计未执行）**：三张卡统一换到 `actualEquity`——总资产 571.13 → ≈580.16、
-  统一账户净资产 185.91 → ≈194.42、**杠杆率分母必须一起换**（3.07 → ≈2.98，否则
-  「总资产 ÷ 统一账户净资产」这句说明与界面上两张卡的数自相矛盾）。回退链改两级：
-  `actualEquity` → `accountEquity` → 钱包毛额（防币安改字段名，`cumQuote` 有先例）。
-  `accountEquity` 字段保留在快照里不删。
-  **影响面**：仅这四张展示卡；`total_value_usdt` 后端无第二消费者、前端只有
-  `index.html:4273` 一处，**不进入开单/平仓/借币/还款/风控闸门任何决策路径**。
-  成本：后端约 8 行 + 前端 2 行 + 契约文档一段 + 测试若干断言。
-  **已排除的两个误判，勿重走**：(1) 曾以为「借币负债」也对不上，实为把 0.056 的价差
-  当成利息——三个数的偏差率一致（0.098%/0.107%），且「App 只算本金」需要价差方向
-  相反，不成立；Human 查 App 成分确认为「有息负债+免息负债+未付利息总额」，**含息，
-  与本仓改后的 `total_debt_usdt` 口径一致**。(2) 曾担心本金与利息相加会重复扣，已由
-  实盘证伪，见下条。
+- `[OPEN][DOCUMENTATION][PRE-EXISTING][2026-08-17]` **`totalWalletBalance` 是否含
+  UM/CM 子钱包，存疑。** 契约长期声称它「已包含 um/cm/crossMargin 子账户，故不再重复
+  计入」，但 2026-08-17 实测毛额 `100.69` 只有 `actualEquity` `191.42` 的一半多，账户
+  当时有 UM 持仓——若毛额真含合约子钱包，不该差这么多。**本轮不影响任何数字**（毛额已
+  不进任何总额），故未追查。若将来要给毛额加新用途，先把这条查清；证据入口是
+  `GET /papi/v1/balance` 与 `GET /papi/v1/account` 同一时刻的原始响应对比。
 
 - `[OPEN][2026-08-16]` **未还利息已进快照并落地展示（本轮已交付），遗留一处口径提醒。**
   `crossMarginInterest` 已进 `balances_unified`（`cross_margin_interest` +

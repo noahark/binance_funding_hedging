@@ -439,10 +439,11 @@ def test_assemble_private_account_maps_cross_margin_borrowed():
     # crossMarginFree absent in this sample -> null (absent is NOT zero).
     assert by_asset["CETUS"]["cross_margin_free"] is None
     assert by_asset["USDT"]["cross_margin_free"] is None
-    # No equity: total falls back to unified wallet + spot.
+    # Wallet gross is still reported on its own field; with no pm_account the
+    # unified side contributes nothing to the total (2026-08-17: no fallback).
     assert block["unified_wallet_value_usdt"] == "10.05000000"
     assert block["spot_value_usdt"] == "0.00000000"
-    assert block["total_value_usdt"] == "10.05000000"
+    assert block["total_value_usdt"] == "0.00000000"
     # Debt sum is priced separately under pm_account.total_debt_usdt.
     # 2026-08-16: outstanding interest counts as debt alongside the principal —
     # CETUS 1 @ 0.05 = 0.05 principal + 0.0001 @ 0.05 = 0.000005 interest.
@@ -508,8 +509,10 @@ def test_unavailable_sources_lists_every_source_when_block_degrades():
 
 def test_assemble_private_account_maps_cross_margin_free():
     """``crossMarginFree`` -> ``cross_margin_free``: raw passthrough, absent is
-    null (not zero), and it never moves ``total_value_usdt`` (totalWalletBalance
-    already covers the asset — §1.4 anti-double-count)."""
+    null (not zero), and it never moves ``unified_wallet_value_usdt`` (the wallet
+    sum already covers the asset). Since 2026-08-17 the unified side of
+    ``total_value_usdt`` is ``actualEquity``, so no per-asset row can reach the
+    headline total at all."""
     unified = [
         # free < total: the rest is encumbered (borrowed against / locked).
         {"asset": "BTC", "totalWalletBalance": "1.5", "crossMarginFree": "0.40000000"},
@@ -526,9 +529,9 @@ def test_assemble_private_account_maps_cross_margin_free():
     assert by_asset["BTC"]["cross_margin_free"] == "0.40000000"  # raw string, no requantize
     assert by_asset["USDT"]["cross_margin_free"] == "0"
     assert by_asset["ETH"]["cross_margin_free"] is None
-    # Anti-double-count: total = Σ(totalWalletBalance priced) only.
-    # 1.5*60000 + 100*1 + 2*3000 = 96100
-    assert block["total_value_usdt"] == "96100.00000000"
+    # Anti-double-count: wallet gross = Σ(totalWalletBalance priced) only —
+    # crossMarginFree never moves it. 1.5*60000 + 100*1 + 2*3000 = 96100
+    assert block["unified_wallet_value_usdt"] == "96100.00000000"
 
 
 def test_assemble_private_account_maps_cross_margin_locked_and_schema(v03_schema):
@@ -605,12 +608,14 @@ def test_assemble_private_account_pm_account_equity_and_leverage():
     assert pa["uni_mmr"] == "5.167"
     assert pa["account_status"] == "NORMAL"
     assert pa["total_debt_usdt"] == "100.00000000"
-    # Spot 50 + unified equity 397.8 = 447.8 (not wallet gross 500).
+    # Spot 50 + unified net worth 397.5 (actualEquity) = 447.5. NOT wallet gross
+    # 500, and NOT accountEquity 397.8 — the App-facing figure is actualEquity.
     assert block["spot_value_usdt"] == "50.00000000"
     assert block["unified_wallet_value_usdt"] == "500.00000000"
-    assert block["total_value_usdt"] == "447.80000000"
-    # leverage = total (447.8) / equity (397.8)
-    assert pa["leverage_ratio"] == "1.12569130"
+    assert block["total_value_usdt"] == "447.50000000"
+    # leverage = total (447.5) / net worth (397.5) — same equity source as the
+    # net-worth card, so the on-screen division stays self-consistent.
+    assert pa["leverage_ratio"] == "1.12578616"
 
 
 def test_assemble_private_account_pm_account_null_when_fetch_missing():
@@ -623,15 +628,99 @@ def test_assemble_private_account_pm_account_null_when_fetch_missing():
     assert pa["account_equity_usdt"] is None
     assert pa["uni_mmr"] is None
     assert pa["total_debt_usdt"] == "0.00000000"
-    # Fallback: total uses unified wallet when equity missing.
-    assert block["total_value_usdt"] == "1.00000000"
+    # 2026-08-17: no equity -> the unified side contributes NOTHING to the total
+    # (partial sum, frontend renders it red). It must NOT fall back to wallet
+    # gross — a different quantity whose gap to net worth is neither small nor
+    # of a fixed sign (live 2026-08-17: gross 100.69 vs net worth 191.42).
+    # Gross stays on its own field.
+    assert block["total_value_usdt"] == "0.00000000"
     assert block["unified_wallet_value_usdt"] == "1.00000000"
+    # Only pm_account is None here ([] means "read it, genuinely empty").
+    assert block["unavailable_sources"] == ["pm_account"]
+
+
+def test_assemble_private_account_no_leverage_when_total_is_partial():
+    """Spot source missing -> the total is a partial sum, so leverage is unknown.
+
+    With spot gone the numerator degenerates to the net worth itself and the
+    ratio would read a tidy ``1.00`` — a number that looks whole and carries
+    nothing, sitting right next to a total already flagged red as incomplete.
+    """
+    block, _ = assemble_private_account(
+        [{"asset": "USDT", "totalWalletBalance": "50"}],
+        None,  # spot fetch failed/disabled
+        [], {}, checked_at="t", error=None,
+        pm_account={"accountEquity": "80", "actualEquity": "90"},
+    )
+    assert block["unavailable_sources"] == ["spot_balances"]
+    assert block["total_value_usdt"] == "90.00000000"  # unified side only
+    assert block["pm_account"]["leverage_ratio"] is None
+
+
+def test_assemble_private_account_empty_spot_yields_a_real_leverage():
+    """A spot fetch that returned a genuinely empty array is NOT a missing source.
+
+    ``[]`` means "asked, and there really is nothing there", so the total is
+    complete and the resulting ``1.00`` is a true ratio — the mirror case of
+    ``test_..._no_leverage_when_total_is_partial``, where ``None`` means the fetch
+    failed. Contract and schema both spell this out. Without this assertion,
+    narrowing the completeness check to a truthiness test on ``spot`` would blank
+    a perfectly valid ratio, and nothing would go red.
+    """
+    block, _ = assemble_private_account(
+        [{"asset": "USDT", "totalWalletBalance": "50"}],
+        [],  # read it; genuinely empty
+        [], {}, checked_at="t", error=None,
+        pm_account={"actualEquity": "90"},
+    )
+    assert "spot_balances" not in block["unavailable_sources"]
+    assert block["spot_value_usdt"] == "0.00000000"
+    assert block["total_value_usdt"] == "90.00000000"
+    assert block["pm_account"]["leverage_ratio"] == "1.00000000"
+
+
+def test_assemble_private_account_leverage_survives_unrelated_source_loss():
+    """Only the two sources that FORM the total may gate the ratio.
+
+    ``unified_balances`` feeds the per-asset rows and the debt sum; ``um_positions``
+    is an exposure view. Neither enters ``total_value_usdt``, so losing either must
+    NOT blank the leverage — widening the completeness check to them would hide a
+    ratio that is still perfectly well defined.
+    """
+    for label, unified, um in (("unified lost", None, []), ("um lost", [], None)):
+        block, _ = assemble_private_account(
+            unified,
+            [{"asset": "USDT", "free": "100", "locked": "0"}],
+            um, {}, checked_at="t", error=None,
+            pm_account={"actualEquity": "90"},
+        )
+        assert block["total_value_usdt"] == "190.00000000", label
+        assert block["pm_account"]["leverage_ratio"] == "2.11111111", label
+
+
+def test_assemble_private_account_account_equity_alone_is_not_net_worth():
+    """actualEquity absent (endpoint kept, field renamed/removed upstream): the
+    accountEquity number must not stand in for it under any label."""
+    block, _ = assemble_private_account(
+        [{"asset": "USDT", "totalWalletBalance": "50"}],
+        [{"asset": "USDT", "free": "100", "locked": "0"}],
+        [], {}, checked_at="t", error=None,
+        pm_account={"accountEquity": "80"},
+    )
+    pa = block["pm_account"]
+    assert pa["account_equity_usdt"] == "80"
+    assert pa["actual_equity_usdt"] is None
+    # Spot only. The 80 must not surface in the total, and no ratio is derived.
+    assert block["total_value_usdt"] == "100.00000000"
+    assert pa["leverage_ratio"] is None
 
 
 def test_assemble_private_account_anti_double_count():
-    # total = sum(unified totalWalletBalance priced) + sum(spot free+locked priced).
-    # um/cm sub-fields inside totalWalletBalance are NOT re-added; um_positions
-    # nominal is NEVER counted (exposure view only).
+    # total = unified net worth (papi actualEquity) + sum(spot free+locked priced).
+    # um_positions nominal is NEVER counted (exposure view only). Wallet gross is
+    # reported on its own field and never enters the total (2026-08-17) — whether
+    # totalWalletBalance itself already covers the um/cm sub-accounts is an open
+    # question, and deliberately not asserted here.
     unified = [
         {"asset": "BTC", "totalWalletBalance": "1.5"},   # 1.5 * 60000 = 90000
         {"asset": "USDT", "totalWalletBalance": "100"},  # stable -> 100
@@ -642,15 +731,19 @@ def test_assemble_private_account_anti_double_count():
     ]
     um = [{"symbol": "BTCUSDT", "positionAmt": "10", "entryPrice": "60000"}]  # nominal NOT counted
     price_map = {"BTCUSDT": "60000", "ETHUSDT": "3000"}
+    # Net worth below wallet gross is the live shape: gross counts borrowed
+    # assets, net worth does not.
+    pm = {"accountEquity": "85000", "actualEquity": "88000"}
     block, warnings = assemble_private_account(
-        unified, spot, um, price_map, checked_at="2026-07-06T00:00:00Z", error=None
+        unified, spot, um, price_map, checked_at="2026-07-06T00:00:00Z", error=None,
+        pm_account=pm,
     )
     assert block["verified"] is True
-    # No equity: total = unified wallet (90100) + spot (7550) = 97650.
-    # um nominal (10*60000=600000) excluded.
+    # total = net worth (88000) + spot (7550) = 95550. NOT gross 90100, NOT
+    # accountEquity 85000. um nominal (10*60000=600000) excluded.
     assert block["unified_wallet_value_usdt"] == "90100.00000000"
     assert block["spot_value_usdt"] == "7550.00000000"
-    assert block["total_value_usdt"] == "97650.00000000"
+    assert block["total_value_usdt"] == "95550.00000000"
     assert block["balances_unified"] == [
         {
             "asset": "BTC",
@@ -1709,8 +1802,8 @@ def test_assemble_private_account_emits_borrowed_value_key_on_every_unified_row(
     assert by_asset["USDT"]["cross_margin_borrowed_value_usdt"] == "0.00000000"
     # non-zero borrow, no price -> null; key still present
     assert by_asset["NOPE"]["cross_margin_borrowed_value_usdt"] is None
-    # total_value_usdt path unchanged: wallet only, debt not subtracted
-    assert block["total_value_usdt"] == "110.00000000"
+    # Wallet gross unchanged: debt is reported, never subtracted from it.
+    assert block["unified_wallet_value_usdt"] == "110.00000000"
 
 
 # =========================================================================

@@ -622,9 +622,13 @@ class PrivateClient:
     def fetch_pm_account(self, *, force: bool = False) -> Optional[dict]:
         """E3b ``/papi/v1/account`` (60s TTL) — PM account equity / risk summary.
 
-        Returns the raw account object or ``None`` (disabled/failed). Used for
-        ``accountEquity`` / ``uniMMR`` / margin fields; independent of the
-        per-asset ``/papi/v1/balance`` list. Failures do not disable balances.
+        Returns the raw account object or ``None`` (disabled/failed). Both
+        ``actualEquity`` (unified net worth — what the assembly layer uses for
+        the headline total since 2026-08-17) and ``accountEquity`` (the
+        collateral-discounted risk figure) pass through untouched, alongside
+        ``uniMMR`` / margin fields; field selection happens in ``snapshot.py``,
+        not here. Independent of the per-asset ``/papi/v1/balance`` list;
+        failures do not disable balances.
 
         ``force=True`` evicts ONLY this endpoint's single transport-cache key
         (design §3.3); ``_cache.clear()`` is never used.

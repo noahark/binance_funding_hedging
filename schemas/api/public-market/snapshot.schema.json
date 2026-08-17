@@ -636,7 +636,7 @@
           "items": { "$ref": "#/$defs/um_position" }
         },
         "total_value_usdt": {
-          "description": "spot_value_usdt + unified net (accountEquity, else unified wallet gross).",
+          "description": "Partial sum of the account sources that read this round: spot_value_usdt + unified net worth (pm_account.actual_equity_usdt). A source that did not read contributes NOTHING and the frontend renders the total red — there is NO fallback to accountEquity or to unified wallet gross (2026-08-17; before that date the unified side fell back to wallet gross, so values recorded earlier are not comparable).",
           "anyOf": [
             { "$ref": "#/$defs/decimal_string" },
             { "type": "null" }
@@ -674,12 +674,14 @@
           ],
           "properties": {
             "account_equity_usdt": {
+              "description": "papi accountEquity — the collateral-discounted risk figure (measured ~4% below actual_equity_usdt on 2026-08-16). Carried for its own sake; it is NOT a net-worth substitute and must never back a card labelled net worth, nor enter total_value_usdt.",
               "anyOf": [
                 { "$ref": "#/$defs/decimal_string" },
                 { "type": "null" }
               ]
             },
             "actual_equity_usdt": {
+              "description": "papi actualEquity — unified account net worth, the figure the Binance App shows. This is the unified side of total_value_usdt and the divisor of leverage_ratio. Null means the source did not read (endpoint failure, or the upstream field disappeared); consumers must degrade to an explicit unknown, never to another equity basis.",
               "anyOf": [
                 { "$ref": "#/$defs/decimal_string" },
                 { "type": "null" }
@@ -719,7 +721,7 @@
               ]
             },
             "leverage_ratio": {
-              "description": "total_value_usdt / account_equity when both positive (wallet valuation vs equity).",
+              "description": "total_value_usdt / actual_equity_usdt, but ONLY when the total is complete. Null whenever the spot source did not read or actual_equity_usdt is absent — even though both operands are positive in the first case, because the numerator then degenerates to the net worth itself and the ratio reads a false 1.00. A spot fetch returning a genuinely empty array is not missing and yields a real 1.00. Same equity source as the net-worth figure so the on-screen division stays self-consistent (2026-08-17: divisor changed from accountEquity, ratio steps down about 3%).",
               "anyOf": [
                 { "$ref": "#/$defs/decimal_string" },
                 { "type": "null" }

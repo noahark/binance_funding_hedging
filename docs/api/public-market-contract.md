@@ -757,8 +757,9 @@ null): the unencumbered full-cross balance from `GET /papi/v1/balance` field
 `crossMarginFree` — the same field the hedge preflight and the live executor
 already read to size what the unified account can actually move. Additive and
 optional: frozen pre-2026-08 samples omit the key (absent ≠ zero). Display-only,
-never counted into `total_value_usdt` (`totalWalletBalance` already covers this
-asset). **It is an availability figure, not a max-transferable quote:** a
+never counted into `total_value_usdt` (which takes the unified side from
+`actual_equity_usdt`, not from per-asset balance rows). **It is an availability
+figure, not a max-transferable quote:** a
 transfer out of the unified account must additionally clear the account's
 uniMMR / collateral constraints, so the exchange may reject an amount that fits
 within `cross_margin_free`. Sizing a real transfer must be validated
@@ -823,12 +824,76 @@ pre-2026-08-16 samples) → net stays on the old principal-only formula; explici
 null (non-zero interest with no usable price) → net renders `≈ — USDT`, never
 silently dropping an unpriceable liability to zero.
 
-**Anti-double-count hard rule (test-asserted):** `total_value_usdt = Σ(unified
-totalWalletBalance priced) + Σ(spot free+locked priced)`, priced via the P5 price
-map (full, fetched once; `futures.*/spot.*` HTTP never fires in the row loop).
-`totalWalletBalance` already includes um/cm/crossMargin sub-accounts (never
-re-added); `um_positions` nominal value is NEVER counted (exposure view only).
-USDT/USDC price at 1; missing price → counted at 0 + warning.
+### Total composition (v0.x additive amendment, 2026-08-17)
+
+**Hard rule (test-asserted):** `total_value_usdt` is a **partial sum over the
+account sources that read this round**:
+
+```text
+total_value_usdt = spot_value_usdt + pm_account.actual_equity_usdt
+```
+
+Priced via the P5 price map (full, fetched once; `futures.*/spot.*` HTTP never
+fires in the row loop). `um_positions` nominal value is NEVER counted (exposure
+view only). USDT/USDC price at 1; missing price → counted at 0 + warning.
+
+**A source that did not read contributes nothing, and there is NO fallback to
+another basis.** Substituting either neighbour would report a number on a
+different accounting basis while the label claims otherwise — the false-claim
+shape fixed on 2026-08-07:
+
+- `accountEquity` is collateral-discounted — measured ~4% below `actualEquity`
+  on 2026-08-16.
+- `unified_wallet_value_usdt` is a per-asset wallet sum, **not** net worth, and
+  the gap is neither small nor of a fixed sign: measured 2026-08-17, gross
+  `100.68845086` against net worth `191.41755452`. The pre-2026-08-17 fallback
+  would therefore have *understated* the total by ~90 USDT — reading on screen
+  as a loss that never happened.
+
+The frontend renders the incomplete total red and names the missing side; the
+unified net-worth card renders `—`.
+
+Detection differs per side because the data shapes differ: the unified side is a
+single value, so `actual_equity_usdt === null` alone distinguishes "did not
+read" (and covers an upstream field rename too); the spot side is a sum where
+`0` is indistinguishable from a genuinely empty account, so it is detected via
+`unavailable_sources` containing `spot_balances`.
+
+`unified_wallet_value_usdt` remains `Σ(unified totalWalletBalance priced)` as its
+own field and does **not** enter `total_value_usdt`. The long-standing claim that
+`totalWalletBalance` already covers the um/cm sub-accounts is **not settled** —
+the 2026-08-17 measurement above is hard to reconcile with it. Nothing in this
+contract depends on that claim any more now that the field feeds no total; see
+the open follow-up in `PROJECT_STATE.md` before relying on it for anything new.
+
+⚠️ **Basis change, 2026-08-17.** Before this date the unified side used
+`accountEquity` and fell back to wallet gross when the account endpoint was
+unavailable. Totals recorded earlier are not comparable across this date. On the
+measurement that triggered the change: `total_value_usdt` `571.13` → `579.64`
+(+`8.51`), `pm_account` unified net worth `185.91` → `194.42`, `leverage_ratio`
+`3.07207789` → `2.98142928`.
+
+### PM account equity fields
+
+- `pm_account.actual_equity_usdt` — papi `actualEquity`, unified account **net
+  worth**, the figure the Binance App shows. It is the unified side of
+  `total_value_usdt` and the divisor of `leverage_ratio`. Null = the source did
+  not read; consumers degrade to an explicit unknown, never to another basis.
+- `pm_account.account_equity_usdt` — papi `accountEquity`, the
+  collateral-discounted risk figure. Carried for its own sake; never a net-worth
+  substitute, never inside `total_value_usdt`. Do not assume a fixed ordering
+  between the two: live data has `accountEquity` lower, but that is a property of
+  the current collateral mix, not a contract.
+- `pm_account.leverage_ratio` — `total_value_usdt / actual_equity_usdt`, but only
+  when the total is **complete**. Null whenever the spot source did not read or
+  `actual_equity_usdt` is absent, **even though both operands are then positive**:
+  with spot gone the numerator degenerates to the net worth itself and the ratio
+  reads a tidy `1.00`, which is indistinguishable from a genuinely unleveraged
+  account. A `spot_balances` fetch that returned a genuinely empty array is NOT
+  missing — that yields a real `1.00`. Numerator and divisor share one equity
+  source so the on-screen division stays self-consistent.
+  ⚠️ Do not "fix" this back to a plain both-positive check: that reinstates the
+  false `1.00×` removed on 2026-08-17.
 
 ### Decimal discipline + E4 open item (unchanged approach)
 
