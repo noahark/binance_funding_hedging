@@ -1126,6 +1126,16 @@
       align-items: center;
       gap: var(--space-2);
     }
+    button.hedge-task-id-copy {
+      border: 0;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+    }
+    button.hedge-task-id-copy:hover,
+    button.hedge-task-id-copy:focus-visible {
+      text-decoration: underline;
+    }
     .borrow-task-lines {
       display: grid;
       gap: 2px;
@@ -1786,6 +1796,7 @@
         // GET /api/borrow-tasks 的渲染缓存。activeView: 'market' | 'borrow-tasks' | 'hedge-tasks' | 'history'
         borrowTasks: [],
         borrowTasksError: null,
+        borrowExecutionStatus: null,
         borrowSchedulerSettings: null,
         borrowTab: 'tasks',
         borrowLogs: { entries: [], nextCursor: null, loaded: false },
@@ -1842,6 +1853,7 @@
         hedgeLogExpanded: new Set(),
         // C13：smooth close 启动请求进行中，该卡全部操作按钮置灰、启动显示「备料中…」。
         hedgePreparingStartId: null,
+        hedgeLiveCardIds: [],
         // 流水日志真实数据（private-ledger/v2）；页内看板 marketBoard: 'market'|'flow-log'
         marketBoard: 'market',
         flowLogOpen: false,
@@ -4748,6 +4760,27 @@
       function updateBorrowTaskNav() {
         // Title badge: 借币中 count only (not 全部 / deleted / paused / completed).
         els.borrowTaskCount.textContent = String(countBorrowingTasks());
+        applyBorrowAbnormalHighlight();
+      }
+
+      // 正常借币中：实盘 + 已启动 + 无拦住原因。其余（停止/缺凭证/418 速率受限/加载失败等）
+      // 标红顶上执行徽标；若此时还有借币中任务，侧栏数字一并标红。
+      function borrowExecutionIsAbnormal() {
+        const d = state.borrowExecutionStatus;
+        if (!d) return false;
+        if (d.loadFailed) return true;
+        return !(d.mode === 'live' && d.execution_enabled && !d.block_reason);
+      }
+
+      function applyBorrowAbnormalHighlight() {
+        const abnormal = borrowExecutionIsAbnormal();
+        if (els.borrowExecutionBadge) {
+          els.borrowExecutionBadge.classList.toggle('danger', abnormal);
+          els.borrowExecutionBadge.classList.toggle('muted', !abnormal);
+        }
+        if (els.borrowTaskCount) {
+          els.borrowTaskCount.classList.toggle('danger', abnormal && countBorrowingTasks() > 0);
+        }
       }
 
       // 任务列表是唯一任务真相来源；加载失败保留旧缓存渲染并显示错误横幅。
@@ -4805,6 +4838,7 @@
           if (d.block_reason) parts.push(EXECUTION_BLOCK_LABEL[d.block_reason] || d.block_reason);
           els.borrowExecutionBadge.textContent = `执行：${parts.join(' · ')}`;
         }
+        applyBorrowAbnormalHighlight();
         if (els.borrowExecutionStart) els.borrowExecutionStart.disabled = !!d.can_execute;
         if (els.borrowExecutionStop) els.borrowExecutionStop.disabled = !d.execution_enabled;
         if (els.borrowExecutionDetail) {
@@ -4820,9 +4854,11 @@
         try {
           renderExecutionStatus(await borrowApi('/api/borrow-execution/status'));
         } catch (err) {
+          state.borrowExecutionStatus = { loadFailed: true };
           if (els.borrowExecutionBadge) {
             els.borrowExecutionBadge.textContent = `执行状态：加载失败 (${err.message})`;
           }
+          applyBorrowAbnormalHighlight();
         }
       }
 
@@ -5559,7 +5595,7 @@
 
       // 任务列表：固定拉 status=all（契约：deleted 仅 all/deleted 返回），状态筛选与计数在
       // 前端做，与 stage-1 筛选栏计数 UI 对齐。
-      async function loadHedgeTasks() {
+      async function loadHedgeTasks(opts) {
         try {
           const doc = await hedgeApi('/api/hedge-open-tasks?status=all');
           state.hedgeTasks = Array.isArray(doc && doc.tasks) ? doc.tasks : [];
@@ -5567,13 +5603,13 @@
         } catch (err) {
           state.hedgeTasksError = err.message || '开单任务加载失败';
         }
-        // 统一 2 秒刷新资格（Human 2026-08-13 页面验收修订）：
-        // 最新任务快照中所有 status === 'running' 的任务，与仍存在且日志已展开的任务 ID 去重并集，
-        // 均请求 task-id 日志。不区分 mode、task_type、方向或日志展开状态；非 running 且收起后不请求。
+        // 两秒 live 只拉 running。进页 / 点按钮 / 60s 快照仍按 running ∪ 已展开。
+        // 点「展开日志」另走一次即时 GET，不经过两秒 tick。
+        const liveOnly = !!(opts && opts.liveOnly);
         const runningIds = state.hedgeTasks
           .filter(task => task && task.status === 'running')
           .map(task => task.id);
-        const expandedIds = state.hedgeLogExpanded
+        const expandedIds = (!liveOnly && state.hedgeLogExpanded)
           ? [...state.hedgeLogExpanded].filter(id => findHedgeTask(id))
           : [];
         const idsToRefresh = [...new Set([...runningIds, ...expandedIds])];
@@ -5581,7 +5617,14 @@
           await Promise.all(idsToRefresh.map(id => loadHedgeTaskLogs(id)));
         }
         updateHedgeTaskNav();
-        if (state.activeView === 'hedge-tasks') renderHedgeTasks();
+        if (state.activeView === 'hedge-tasks') {
+          if (liveOnly && state.hedgeTaskFilter === 'all') {
+            renderLiveHedgeTaskCards(runningIds);
+          } else {
+            renderHedgeTasks();
+          }
+        }
+        state.hedgeLiveCardIds = runningIds;
       }
 
       // 持仓表：GET /api/hedge-open-positions 为唯一数据源（§3.4 Position JSON 逐字渲染）。
@@ -6377,6 +6420,60 @@
         }).join('');
       }
 
+      function liveHedgeIdsToPatch(runningIds) {
+        const ids = [];
+        const seen = new Set();
+        (runningIds || []).forEach(id => {
+          if (id == null || seen.has(id)) return;
+          seen.add(id);
+          ids.push(id);
+        });
+        (state.hedgeLiveCardIds || []).forEach(id => {
+          if (id == null || seen.has(id) || !findHedgeTask(id)) return;
+          seen.add(id);
+          ids.push(id);
+        });
+        return ids;
+      }
+
+      function hedgeCardSelector(id) {
+        const raw = String(id);
+        const esc = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(raw) : raw.replace(/"/g, '\\"');
+        return `[data-hedge-task-id="${esc}"]`;
+      }
+
+      function replaceHedgeTaskCard(task) {
+        const list = els.hedgeTaskList;
+        if (!list || typeof list.querySelector !== 'function') return false;
+        if (typeof document === 'undefined' || typeof document.createElement !== 'function') return false;
+        const el = list.querySelector(hedgeCardSelector(task.id));
+        if (!el || typeof el.replaceWith !== 'function') return false;
+        const wrap = document.createElement('div');
+        wrap.innerHTML = renderHedgeTaskCard(task).trim();
+        const next = wrap.firstElementChild;
+        if (!next) return false;
+        el.replaceWith(next);
+        return true;
+      }
+
+      function renderLiveHedgeTaskCards(runningIds) {
+        if (els.hedgeTasksError) {
+          els.hedgeTasksError.style.display = state.hedgeTasksError ? '' : 'none';
+          els.hedgeTasksError.textContent = state.hedgeTasksError || '';
+        }
+        renderHedgeTaskFilters();
+        const ids = liveHedgeIdsToPatch(runningIds);
+        for (let i = 0; i < ids.length; i++) {
+          const task = findHedgeTask(ids[i]);
+          if (!task || !replaceHedgeTaskCard(task)) {
+            renderHedgeTasks();
+            return;
+          }
+        }
+        bindHedgeTaskControls();
+        bindHedgeTaskLogToggles();
+      }
+
       function renderHedgeTasks() {
         renderHedgeTaskFilters();
         if (els.hedgeTasksError) {
@@ -6550,7 +6647,7 @@
               <span class="badge ${dirCls}">${dirLabel}</span>
               <span class="badge info">${modeLabel}</span>
               <span class="badge ${statusBadge}">${statusLabel}</span>
-              <span class="muted small" title="任务唯一标识，交流问题时用于定位">#${idAttr}</span>
+              <button type="button" class="hedge-task-id-copy muted small" data-hedge-copy-id="${idAttr}" title="点击复制任务编号">#${idAttr}</button>
             </div>
             <div class="borrow-task-lines">
               <div>单次币量：<strong>${formatMockPrice(hedgeNum(task.single_amount))}</strong> · 计划尝试次数：<strong>${hedgeText(task.target_n)}</strong></div>
@@ -6698,11 +6795,39 @@
         patchHedgeTaskSmoothMarket(taskId);
       }
 
+      async function copyHedgeTaskId(id, el) {
+        const text = id == null ? '' : String(id);
+        if (!text) return false;
+        const clip = typeof navigator !== 'undefined' ? navigator.clipboard : null;
+        if (!clip || typeof clip.writeText !== 'function') return false;
+        try {
+          await clip.writeText(text);
+        } catch (err) {
+          return false;
+        }
+        if (el) {
+          el.textContent = '已复制';
+          if (el._hedgeCopyTimer) clearTimeout(el._hedgeCopyTimer);
+          el._hedgeCopyTimer = setTimeout(() => {
+            el.textContent = '#' + text;
+            el._hedgeCopyTimer = null;
+          }, 1200);
+        }
+        return true;
+      }
+
       async function refreshExpandedRunningHedgeLogs() {
         if (state.activeView !== 'hedge-tasks' || state.hedgeTab !== 'tasks') return;
-        // 复用既有 2 秒显示轮询：先刷新任务列表，再由 loadHedgeTasks 按最新状态选择
-        // running 与 expanded 的并集去重刷新；无新 timer。
-        await loadHedgeTasks();
+        if (state.hedgeTaskFilter === 'paused'
+            || state.hedgeTaskFilter === 'deleted'
+            || state.hedgeTaskFilter === 'done') {
+          return;
+        }
+        if (state.hedgeTaskFilter === 'all'
+            && !state.hedgeTasks.some(task => task && task.status === 'running')) {
+          return;
+        }
+        await loadHedgeTasks({ liveOnly: true });
       }
 
       // 把缓存中的 tbody 补丁进当前 DOM 的该任务日志表（重渲染或拉取后调用）。
@@ -6724,7 +6849,8 @@
       }
 
       // 展开日志 toggle：真实 DOM 事件委托（与 bindHedgeTaskControls 同模式），真卡始终绑定。
-      // 展开状态记入 state.hedgeLogExpanded，使自动刷新重渲染后仍保持展开/收起；展开即拉取。
+      // 展开状态记入 state.hedgeLogExpanded，使自动刷新重渲染后仍保持展开/收起。
+      // 展开即拉一次日志，不看任务状态；两秒 tick 仍只刷 running，不因展开而恢复。
       function bindHedgeTaskLogToggles() {
         if (typeof els.hedgeTaskList.querySelectorAll !== 'function') return;
         els.hedgeTaskList.querySelectorAll('[data-hedge-log-toggle]').forEach(btn => {
@@ -8634,6 +8760,11 @@
           const btn = e.target && typeof e.target.closest === 'function' ? e.target.closest('[data-hedge-filter]') : null;
           if (btn) setHedgeTaskFilter(btn.getAttribute('data-hedge-filter'));
         });
+        els.hedgeTaskList.addEventListener('click', (e) => {
+          const btn = e.target && typeof e.target.closest === 'function'
+            ? e.target.closest('[data-hedge-copy-id]') : null;
+          if (btn) copyHedgeTaskId(btn.getAttribute('data-hedge-copy-id'), btn);
+        });
         els.hedgeTabTasks.addEventListener('click', () => setHedgeTab('tasks'));
         els.hedgeTabLogs.addEventListener('click', () => setHedgeTab('logs'));
         els.hedgeLogsRefresh.addEventListener('click', () => { loadHedgeLogs(true); });
@@ -8804,6 +8935,7 @@
         setBorrowTaskFilter,
         getBorrowTaskFilter: () => state.borrowTaskFilter,
         loadBorrowTasks,
+        renderExecutionStatus,
         loadSchedulerSettings,
         submitSchedulerInterval,
         getBorrowSchedulerSettings: () => state.borrowSchedulerSettings,
@@ -8880,7 +9012,10 @@
         getHedgeAttempts: () => state.hedgeAttempts,
         // 任务卡内嵌日志（2026-07-31-hedge-task-inline-log-v1）。
         loadHedgeTaskLogs,
+        copyHedgeTaskId,
         refreshExpandedRunningHedgeLogs,
+        liveHedgeIdsToPatch,
+        getHedgeLiveCardIds: () => state.hedgeLiveCardIds,
         getHedgeLogExpanded: () => state.hedgeLogExpanded,
         getHedgeTaskLogs: () => state.hedgeTaskLogs,
         renderPrivatePanel,
@@ -8924,6 +9059,7 @@
           state.hedgeTaskLogs = {};
           state.hedgeTaskActionErrors = {};
           state.hedgePreparingStartId = null;
+          state.hedgeLiveCardIds = [];
           updateHedgeTaskNav();
         }
       };

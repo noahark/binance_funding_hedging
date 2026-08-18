@@ -4914,8 +4914,8 @@ setTimeout(async () => {
       console.log('[PASS] D18：paused 平滑卡有阈值、无动态盘口、启动可点');
     }
 
-    // 80d. 统一 2 秒刷新资格：running 任务无论日志展开/收起均刷新；非 running 仅展开时刷新；
-    //      不区分 mode/task_type/方向；删除 running 并集逻辑时本测试必须变红。
+    // 80d. 统一刷新资格：整表 load 仍是 running ∪ 已展开；两秒 tick 只刷 running，
+    //      已暂停/已删除/已完成与「全部且无 running」跳过。不区分 mode/task_type/方向。
     {
       helpers.resetHedgeStateForTest();
       const runningSmooth = mockHedgeTask({
@@ -4998,7 +4998,176 @@ setTimeout(async () => {
         throw new Error('hedge 日志 tab 下共享 tick 不应刷新任务卡或内嵌日志');
       }
       helpers.setHedgeTab('tasks');
-      console.log('[PASS] 统一 2 秒刷新资格：running 全刷新、非 running 仅展开刷新、不区分模式方向、无重复');
+      console.log('[PASS] 统一刷新资格：整表并集保留、切出任务页/日志 tab 不刷');
+    }
+
+    // 80e. 两秒 tick 只刷执行中：静态筛选项与「全部且无 running」零请求；
+    //      执行中页只拉 running 的 task-id 日志。
+    {
+      helpers.resetHedgeStateForTest();
+      const liveA = mockHedgeTask({ id: 'h-live-a', status: 'running' });
+      const liveB = mockHedgeTask({ id: 'h-live-b', status: 'running' });
+      const pausedOpen = mockHedgeTask({ id: 'h-static-pause', status: 'paused' });
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [liveA, liveB, pausedOpen] } };
+      hedgeTaskLogsGetResponse = { status: 200, body: { attempts: [] } };
+      helpers.setActiveView('hedge-tasks');
+      helpers.setHedgeTab('tasks');
+      await helpers.loadHedgeTasks();
+      helpers.getHedgeLogExpanded().add('h-static-pause');
+      for (const filter of ['paused', 'deleted', 'done']) {
+        helpers.setHedgeTaskFilter(filter);
+        const mark = fetchCallLog.length;
+        await helpers.refreshExpandedRunningHedgeLogs();
+        if (fetchCallLog.slice(mark).some(c => c.url.startsWith('/api/hedge-open-tasks') || c.url.startsWith('/api/hedge-open-logs'))) {
+          throw new Error(`${filter} 筛选项下共享 tick 不应刷新任务卡或日志`);
+        }
+      }
+      helpers.setHedgeTaskFilter('running');
+      const runningMark = fetchCallLog.length;
+      await helpers.refreshExpandedRunningHedgeLogs();
+      if (!fetchCallLog.slice(runningMark).some(c => c.url === '/api/hedge-open-tasks?status=all')) {
+        throw new Error('执行中筛选项下共享 tick 应刷新任务列表');
+      }
+      const runningLogIds = fetchCallLog.slice(runningMark)
+        .filter(c => c.url.startsWith('/api/hedge-open-logs?task_id='))
+        .map(c => {
+          const m = c.url.match(/task_id=([^&]+)/);
+          return m ? decodeURIComponent(m[1]) : null;
+        })
+        .filter(Boolean);
+      if (runningLogIds.includes('h-static-pause')) {
+        throw new Error('两秒 tick 即使非 running 日志已展开也不应再拉');
+      }
+      for (const id of ['h-live-a', 'h-live-b']) {
+        if (!runningLogIds.includes(id)) {
+          throw new Error(`执行中筛选项下两秒 tick 应刷新 ${id} 日志`);
+        }
+      }
+      helpers.setHedgeTaskFilter('all');
+      const touch = helpers.liveHedgeIdsToPatch(['h-live-a', 'h-live-b']);
+      if (JSON.stringify(touch.slice().sort()) !== JSON.stringify(['h-live-a', 'h-live-b'])) {
+        throw new Error('全部页 live 补丁集合应只有执行中卡: ' + JSON.stringify(touch));
+      }
+      if (touch.includes('h-static-pause')) {
+        throw new Error('全部页 live 补丁不得包含未动过的暂停卡');
+      }
+      liveA.status = 'paused';
+      liveB.status = 'paused';
+      const leftover = helpers.liveHedgeIdsToPatch([]);
+      if (!leftover.includes('h-live-a') || !leftover.includes('h-live-b')) {
+        throw new Error('刚离开执行中的卡本轮仍应补丁一次: ' + JSON.stringify(leftover));
+      }
+      if (leftover.includes('h-static-pause')) {
+        throw new Error('刚离开执行中的补丁集合不得带上无关暂停卡');
+      }
+      const allStaticMark = fetchCallLog.length;
+      await helpers.refreshExpandedRunningHedgeLogs();
+      if (fetchCallLog.slice(allStaticMark).some(c => c.url.startsWith('/api/hedge-open-tasks') || c.url.startsWith('/api/hedge-open-logs'))) {
+        throw new Error('全部筛选项且无 running 时共享 tick 不应刷新');
+      }
+      helpers.setActiveView('market');
+      console.log('[PASS] 两秒 tick 只刷执行中：静态筛选项跳过、展开的暂停卡不拉、无 running 的全部页跳过');
+    }
+
+    // 80f. 开单任务卡编号点击复制：卡面可点、写入剪贴板的是裸 id（不含 #）。
+    {
+      helpers.resetHedgeStateForTest();
+      const copyTask = mockHedgeTask({ id: 'h-copy-1', coin: 'AUSDT', status: 'paused' });
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [copyTask] } };
+      await helpers.loadHedgeTasks();
+      helpers.setActiveView('hedge-tasks');
+      helpers.setHedgeTaskFilter('all');
+      const copyHtml = elements['hedge-task-list'].innerHTML;
+      if (!copyHtml.includes('data-hedge-copy-id="h-copy-1"')) {
+        throw new Error('任务编号应可点击复制: ' + copyHtml);
+      }
+      if (!copyHtml.includes('>#h-copy-1<')) {
+        throw new Error('任务编号展示仍应带 #: ' + copyHtml);
+      }
+      if (!copyHtml.includes('点击复制任务编号')) {
+        throw new Error('任务编号应提示点击复制');
+      }
+      const copyCss = html.match(/button\.hedge-task-id-copy\s*\{[^}]*\}/);
+      if (!copyCss) throw new Error('缺少 hedge-task-id-copy 样式');
+      if (/font\s*:/.test(copyCss[0])) {
+        throw new Error('hedge-task-id-copy 不得写 font，以免压过 .small 的 12px: ' + copyCss[0]);
+      }
+      let written = null;
+      const prevClip = navigator.clipboard;
+      navigator.clipboard = { writeText: async (s) => { written = s; } };
+      try {
+        const ok = await helpers.copyHedgeTaskId('h-copy-1');
+        if (!ok) throw new Error('copyHedgeTaskId 应成功');
+        if (written !== 'h-copy-1') throw new Error('剪贴板应写入裸 id，实际: ' + written);
+      } finally {
+        navigator.clipboard = prevClip;
+      }
+      helpers.setActiveView('market');
+      console.log('[PASS] 开单任务卡编号点击复制：可点、写入裸 id');
+    }
+
+    // 80g. 非正常借币中：执行徽标标红；有借币中任务时侧栏数字一并标红。
+    //      muted/danger 互斥（与开单徽标 F-1 同一条 CSS 后声明覆盖问题）。
+    {
+      const healthy = {
+        schema_version: 'borrow-execution/v1',
+        mode: 'live', execution_enabled: true, can_execute: true,
+        block_reason: null, in_flight_attempt_id: null, global_cooldown_until: null,
+        live_authorized_task_count: 1,
+      };
+      const limited = Object.assign({}, healthy, { block_reason: 'rate_limited' });
+      const stopped = Object.assign({}, healthy, {
+        execution_enabled: false, can_execute: false, block_reason: 'globally_stopped',
+      });
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc([MOCK_TASK_HOME]) };
+      await helpers.loadBorrowTasks();
+      helpers.renderExecutionStatus(healthy);
+      if (!elements['borrow-execution-badge'].textContent.includes('已启动')
+          || elements['borrow-execution-badge'].textContent.includes('速率受限')) {
+        throw new Error('正常态徽标应是已启动且无拦住: ' + elements['borrow-execution-badge'].textContent);
+      }
+      if (!elements['borrow-execution-badge'].classList.contains('muted')
+          || elements['borrow-execution-badge'].classList.contains('danger')) {
+        throw new Error('正常态执行徽标应 muted 不含 danger');
+      }
+      if (elements['borrow-task-count'].classList.contains('danger')) {
+        throw new Error('正常态侧栏数字不应标红');
+      }
+      helpers.renderExecutionStatus(limited);
+      if (!elements['borrow-execution-badge'].textContent.includes('速率受限')) {
+        throw new Error('速率受限徽标文案缺失');
+      }
+      if (!elements['borrow-execution-badge'].classList.contains('danger')
+          || elements['borrow-execution-badge'].classList.contains('muted')) {
+        throw new Error('速率受限执行徽标应 danger 不含 muted');
+      }
+      if (elements['borrow-task-count'].textContent !== '1'
+          || !elements['borrow-task-count'].classList.contains('danger')) {
+        throw new Error('有借币中任务且速率受限时侧栏数字应标红');
+      }
+      helpers.renderExecutionStatus(stopped);
+      if (!elements['borrow-execution-badge'].classList.contains('danger')
+          || !elements['borrow-task-count'].classList.contains('danger')) {
+        throw new Error('已停止且仍有借币中任务时应双标红');
+      }
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc([]) };
+      await helpers.loadBorrowTasks();
+      if (elements['borrow-task-count'].classList.contains('danger')) {
+        throw new Error('没有借币中任务时侧栏数字不应标红');
+      }
+      if (!elements['borrow-execution-badge'].classList.contains('danger')) {
+        throw new Error('已停止时执行徽标仍应标红');
+      }
+      helpers.renderExecutionStatus({
+        mode: 'disabled', execution_enabled: false, can_execute: false,
+        block_reason: 'executor_disabled',
+      });
+      if (!elements['borrow-execution-badge'].classList.contains('danger')
+          || elements['borrow-execution-badge'].classList.contains('muted')) {
+        throw new Error('非 live 模式执行徽标应标红');
+      }
+      helpers.renderExecutionStatus(healthy);
+      console.log('[PASS] 非正常借币中：执行徽标与侧栏数字标红，正常态恢复');
     }
 
     // 81. stopped/paused 语义返工（15 号修正案 I-4）：single_leg 只是提示且任务仍继续调度
@@ -6303,12 +6472,12 @@ setTimeout(async () => {
       if (fetchCallLog.slice(pausedCollapsedMark).some(c => c.url.includes('hedge-open-logs?task_id='))) {
         throw new Error('非 running 任务收起后须停止自动刷新');
       }
-      // 非 running 且展开后仍须刷新 attempt/腿日志。
+      // 非 running 即使展开，两秒 tick 也不再拉日志（进页/点按钮/60s 快照仍会拉）。
       helpers.getHedgeLogExpanded().add('h-inline-1');
       const pausedExpandedMark = fetchCallLog.length;
       await helpers.refreshExpandedRunningHedgeLogs();
-      if (!fetchCallLog.slice(pausedExpandedMark).some(c => c.url === '/api/hedge-open-logs?task_id=h-inline-1')) {
-        throw new Error('非 running 任务的已展开日志仍须自动刷新');
+      if (fetchCallLog.slice(pausedExpandedMark).some(c => c.url.includes('hedge-open-logs?task_id='))) {
+        throw new Error('非 running 任务的已展开日志不应再被两秒 tick 刷新');
       }
       helpers.setActiveView('market');
       console.log('[PASS] 任务卡内嵌日志 AC1/AC2/AC3/AC4/AC6/AC7/AC9：四状态徽标 + 钱原样透传 + 未受理腿门控 + 错误回退链 + 进展列 + 真卡 toggle + fake 已清');
