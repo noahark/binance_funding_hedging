@@ -50,6 +50,7 @@ def _create(store, task_id: str, coin: str = "BTCUSDT", direction: str = D.DIR_F
     return store.create_task(
         task_id, coin, direction, D.MODE_IMMEDIATE, "0.5", 3, "0.5",
         D.POS_MODE_BOTH, {"est_price": "50000"}, created_us, task_type=task_type,
+        initial_status=D.STATUS_RUNNING,
     )
 
 

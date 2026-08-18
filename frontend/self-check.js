@@ -4595,6 +4595,13 @@ setTimeout(async () => {
       const markBeforeCreate = fetchCallLog.length;
       const rCreate = await helpers.submitHedgeOpen('AUSDT', 'forward', 'immediate');
       if (!rCreate.ok) throw new Error('立即开单创建失败: ' + rCreate.error);
+      // 2026-08-18 方案 B：三种建卡一律 paused，创建成功自动跳「开单任务→已暂停」。
+      if (helpers.getActiveView() !== 'hedge-tasks') {
+        throw new Error('开单创建成功应跳到开单任务页，实际: ' + helpers.getActiveView());
+      }
+      if (helpers.getHedgeTaskFilter() !== 'paused') {
+        throw new Error('开单创建成功应落在已暂停筛选，实际: ' + helpers.getHedgeTaskFilter());
+      }
       const createCalls = fetchCallLog.slice(markBeforeCreate);
       const postCall = createCalls.find(c => c.method === 'POST');
       if (!postCall || postCall.url !== '/api/hedge-open-tasks') {
@@ -4629,14 +4636,22 @@ setTimeout(async () => {
       if (!listCall || listCall.url !== '/api/hedge-open-tasks?status=all') {
         throw new Error(`创建后应重拉 ?status=all 列表: ${JSON.stringify(createCalls.map(c => c.url))}`);
       }
+      // 2026-08-18 起重拉改由 setActiveView 内 fire-and-forget 发起（原显式
+      // await 已删），排空微任务后再断言以后端列表为准的覆盖。
+      await new Promise(r => setTimeout(r, 0));
+      await new Promise(r => setTimeout(r, 0));
       if (helpers.getHedgeTasks().length !== 0) {
         throw new Error('mock 列表为空时应以后端列表为准（创建返回文档被列表重拉覆盖）');
       }
       // 非法输入 → 行内报错、零 POST
       const markBad = fetchCallLog.length;
+      helpers.setActiveView('market'); // 恢复市场页后再验「失败不跳转」
       document.getElementById('hedge-amount-forward-AUSDT').value = 'abc';
       const rBad = await helpers.submitHedgeOpen('AUSDT', 'forward', 'immediate');
       if (rBad.ok) throw new Error('非法币量不应创建任务');
+      if (helpers.getActiveView() !== 'market') {
+        throw new Error('创建失败不得跳转，实际: ' + helpers.getActiveView());
+      }
       if (!document.getElementById('hedge-error-forward-AUSDT').textContent.includes('正数')) {
         throw new Error('非法币量应行内报错');
       }
@@ -5934,7 +5949,15 @@ setTimeout(async () => {
       if (elements['hedge-close-error-AUSDT'].textContent !== '') {
         throw new Error('平仓 POST 成功后错误提示应清空: ' + elements['hedge-close-error-AUSDT'].textContent);
       }
-      console.log('[PASS] 立即平仓列：表头+输入框+禁用逻辑+确认弹框+真实 POST（task_type:close）');
+      // 2026-08-18 方案 B：平仓建卡一律 paused，创建成功与开单同轨自动跳
+      // 「开单任务→已暂停」直接给启动按钮。
+      if (helpers.getActiveView() !== 'hedge-tasks') {
+        throw new Error('平仓创建成功应跳到开单任务页，实际: ' + helpers.getActiveView());
+      }
+      if (helpers.getHedgeTaskFilter() !== 'paused') {
+        throw new Error('平仓创建成功应落在已暂停筛选，实际: ' + helpers.getHedgeTaskFilter());
+      }
+      console.log('[PASS] 立即平仓列：表头+输入框+禁用逻辑+确认弹框+真实 POST（task_type:close）+ 跳已暂停');
     }
 
     // 83c. 前端提前量检测（Human 2026-08）：forward close 的缓存提前提示——
@@ -7071,6 +7094,9 @@ setTimeout(async () => {
       const rLoad = await helpers.submitHedgeOpen('AUSDT', 'forward', 'immediate');
       if (!rLoad.ok) throw new Error('loading 路径创建应成功');
       if (helpers.getHedgeTaskNavLoading() !== 0) throw new Error('结束后 loading 应为 0');
+      // 重拉由 setActiveView 异步发起，排空后徽标按后端列表计。
+      await new Promise(r => setTimeout(r, 0));
+      await new Promise(r => setTimeout(r, 0));
       if (elements['hedge-task-count'].textContent !== '1') {
         throw new Error('结束后徽标应为 1: ' + elements['hedge-task-count'].textContent);
       }

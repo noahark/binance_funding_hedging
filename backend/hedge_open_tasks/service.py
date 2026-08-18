@@ -1023,15 +1023,11 @@ class HedgeOpenTaskService:
             f"coin={coin} direction={direction} q={D.fmt_decimal(preflight.q_common)}",
             file=sys.stderr, flush=True,
         )
-        create_kw = {}
-        if mode == D.MODE_SMOOTH and task_type == D.TASK_TYPE_OPEN:
-            create_kw = {
-                "initial_status": D.STATUS_PAUSED,
-                "initial_pause_reason": D.PAUSE_REASON_AWAITING_MANUAL_START,
-                "initial_pause_reason_zh": D.pause_reason_zh(
-                    D.PAUSE_REASON_AWAITING_MANUAL_START
-                ),
-            }
+        # Human 2026-08-18 方案 B：开仓一律以 paused 落卡（立即开单不再默认
+        # running；建卡后零自动执行，tick/重启恢复不再拾取未启动卡）。close 已
+        # 在上方两段式分支 return，此处只剩 open，恒真条件直接内联。立即开单的
+        # 成交按钮保持可用（Human 指令：成交1次对执行中/已暂停卡都可点，等价
+        # 武装+推进的人工动作），故 zh 文案与平滑的「必须点击启动」区分。
         task = self._store.create_task(
             task_id,
             coin,
@@ -1048,7 +1044,15 @@ class HedgeOpenTaskService:
             spot_base_asset=spot_base_asset,
             symbol_match_type=symbol_match_type,
             slippage_threshold_pct=threshold,
-            **create_kw,
+            initial_status=D.STATUS_PAUSED,
+            initial_pause_reason=D.PAUSE_REASON_AWAITING_MANUAL_START,
+            initial_pause_reason_zh=(
+                D.pause_reason_zh(D.PAUSE_REASON_AWAITING_MANUAL_START)
+                if mode == D.MODE_SMOOTH
+                else D.pause_reason_zh(
+                    D.PAUSE_REASON_AWAITING_MANUAL_START_FILLABLE
+                )
+            ),
         )
         return 201, self._doc(task)
 
@@ -1273,6 +1277,12 @@ class HedgeOpenTaskService:
                 task = self._store.set_task_status(task_id, D.STATUS_RUNNING, self._wall_us())
             self.ensure_worker(task_id)
             return 200, self._doc(task)
+        # Human 2026-08-18：与 fill-all 同理——paused 卡（等待人工启动/刹车）先置
+        # running 再推进，否则 prepare 被状态门拒绝、返回 200 零推进。
+        if task["status"] != D.STATUS_RUNNING:
+            task = self._store.set_task_status(
+                task_id, D.STATUS_RUNNING, self._wall_us()
+            )
         task, _ = self._dispatch_one_for_task(task, self._wall_us())
         return 200, self._doc(task)
 
@@ -1292,6 +1302,14 @@ class HedgeOpenTaskService:
                 self.ensure_worker(task_id)
             return 200, self._doc(task)
         now_us = self._wall_us()
+        # Human 2026-08-18：对齐上方 live 分支——paused 卡（等待人工启动/失败
+        # 刹车）先置 running 再进循环，否则 while 条件不进、返回 200 却零推进
+        # （「点了没反应」）。smooth/close 的 awaiting 卡已被 _require_fillable
+        # 拦下，能到这里的只剩允许成交推进的 immediate 卡。
+        if task["status"] != D.STATUS_RUNNING:
+            task = self._store.set_task_status(
+                task_id, D.STATUS_RUNNING, self._wall_us()
+            )
         # Record/disabled path only: a bounded synchronous loop that never POSTs.
         # It continues only while the task is still ``running`` and below its
         # target; reaching ``done`` or a >threshold pause stops dispatch.
@@ -1310,6 +1328,12 @@ class HedgeOpenTaskService:
             raise D.HedgeError(409, "invalid_state", "cannot fill a deleted task")
         if status == D.STATUS_DONE:
             raise D.HedgeError(409, "invalid_state", "task already done")
+        # Human 2026-08-18：已终止（致命错误，需人工修正后新建任务）的卡也一律
+        # 拒绝成交——与前端 inactive 按钮矩阵对齐；此前 live 分支可把 stopped
+        # 卡置 running 复活（既有），fill 先置 running 后 dry-run 也染上，此门
+        # 补拦两端。Human 裁决的「执行中/已暂停可成交」不含已终止。
+        if status == D.STATUS_STOPPED:
+            raise D.HedgeError(409, "invalid_state", "cannot fill a stopped task")
         if task.get("pause_reason") == D.PAUSE_REASON_AWAITING_MANUAL_START:
             if task.get("mode") == D.MODE_SMOOTH:
                 raise D.HedgeError(

@@ -2260,11 +2260,24 @@ A successful open+smooth create is `201` with `status=paused`,
 subscribe public bookTicker, open a gate, or send an order. First complete
 preflight, frozen identity/quantity/route, and regular-spot forward USDT
 pre-transfer (when that route is selected) still happen at create time.
-Immediate-open create remains `running`.
+
+2026-08-18 (plan B): immediate-open create also lands `paused` with
+`pause_reason=awaiting_manual_start` (Chinese reason「任务不会自动执行；可点
+启动或成交1次推进」; note the stored `pause_reason` enum is the same for
+smooth-open and immediate-open — only the Chinese display text differs).
+No create path auto-dispatches any more: dry-run tick and
+live restart recovery only pick up `running` cards, and a card becomes
+`running` only through Human action. For immediate cards that Human action may
+be `POST .../start` OR `fill-once`/`fill-all` (both arm the card: set
+`running` + launch the worker (live); in dry-run they dispatch synchronously
+without a worker) — a deliberate Human decision that the fill
+buttons stay usable on running and paused cards alike. Stopped (fatally
+terminated) cards are rejected by all fill endpoints with
+`409 invalid_state`, matching the frontend's disabled buttons.
 
 `POST /api/hedge-open-tasks/{id}/fill-once` on a smooth card that has not yet
 been Human-started returns `409 start_required`. Human `POST .../start` is the
-only first-run path.
+only first-run path for smooth-open and close cards.
 
 ### `GET /api/hedge-open-logs?task_id=...`
 

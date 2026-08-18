@@ -96,6 +96,13 @@ def _create_body(direction=D.DIR_FORWARD, single_amount="0.5", target_n=3):
     }
 
 
+def _create_running(svc, **kw):
+    """2026-08-18 方案 B：建卡一律 paused；执行链用例显式置 running（不起 worker）。"""
+    status, doc = svc.create_task(_create_body(**kw))
+    svc._store.set_task_status(doc["id"], D.STATUS_RUNNING, svc._wall_us())
+    return status, doc
+
+
 # ---------------------------------------------------------------------------
 # create_task + preflight
 # ---------------------------------------------------------------------------
@@ -106,7 +113,14 @@ def test_create_with_preflight_resolves_q_common(tmp_path):
     assert status == 201
     assert doc["q_common"] == "0.5"
     assert doc["position_side_mode"] == "BOTH"
-    assert doc["status"] == D.STATUS_RUNNING
+    # 2026-08-18 方案 B：立即开单建卡一律 paused + awaiting_manual_start；
+    # 成交按钮保持可用，故 zh 文案是「可点启动或成交1次推进」而非平滑的
+    # 「必须点击启动」。
+    assert doc["status"] == D.STATUS_PAUSED
+    assert doc["pause_reason"] == D.PAUSE_REASON_AWAITING_MANUAL_START
+    assert doc["pause_reason_zh"] == D.pause_reason_zh(
+        D.PAUSE_REASON_AWAITING_MANUAL_START_FILLABLE
+    )
     assert doc["success_count"] == 0
 
 
@@ -366,7 +380,7 @@ def test_fill_once_advances_success(tmp_path):
     # B-1: the production default executor is disabled (zero fills); the
     # simulated-fill scenario injects the test-only fake explicitly.
     svc = _svc(tmp_path, executor=RecordTransportFake())
-    _, doc = svc.create_task(_create_body(target_n=2))
+    _, doc = _create_running(svc, target_n=2)
     assert svc.post_fill_once(doc["id"])[1]["success_count"] == 1
 
 
@@ -390,7 +404,7 @@ def test_fill_all_runs_to_done(tmp_path):
 def test_injected_single_leg_exposure_is_advisory(tmp_path):
     exe = RecordTransportFake([OutcomeSpec.spot_only_filled()])
     svc = _svc(tmp_path, executor=exe)
-    _, doc = svc.create_task(_create_body(target_n=3))
+    _, doc = _create_running(svc, target_n=3)
     out = svc.post_fill_once(doc["id"])[1]
     # Single-leg exposure is ADVISORY (breakdown §4.5): the task is NOT frozen.
     assert out["status"] == D.STATUS_RUNNING
@@ -431,7 +445,7 @@ def test_tick_respects_start_gate(tmp_path):
     # B-1: the tick-to-done scenario needs the injected record fake (the
     # production default executor is disabled / zero fills).
     svc = _svc(tmp_path, clock=clock, executor=RecordTransportFake())
-    svc.create_task(_create_body(target_n=1))
+    _create_running(svc, target_n=1)
     assert svc.tick() is False  # start gate off -> no dispatch
     svc.set_start_gate(True)
     clock.t = 1_000_000  # advance past the 1s interval
@@ -528,7 +542,7 @@ def test_disabled_executor_is_injectable_and_records_no_fill(tmp_path):
     clock = _Clock(0)
     svc = _svc(tmp_path, executor=DisabledHedgeExecutor(), clock=clock)
     svc.set_start_gate(True)
-    _, doc = svc.create_task(_create_body(target_n=1))
+    _, doc = _create_running(svc, target_n=1)
     svc.tick()
     _, listing = svc.list_tasks(None)
     task = [t for t in listing["tasks"] if t["id"] == doc["id"]][0]
@@ -547,7 +561,7 @@ def test_get_logs_includes_attempts_projection_for_record_fill(tmp_path):
     # the unchanged legacy logs/cursor.
     exe = RecordTransportFake()
     svc = _svc(tmp_path, executor=exe)
-    _, doc = svc.create_task(_create_body(target_n=1))
+    _, doc = _create_running(svc, target_n=1)
     svc.post_fill_once(doc["id"])
     status, page = svc.get_logs(None, None)
     assert status == 200
@@ -584,7 +598,7 @@ def test_get_logs_attempts_includes_prepared_querying_attempt(tmp_path):
     # durable-before-send transaction, before any resolve), but it must still
     # project so the UI shows in-flight pairs mid-query.
     svc = _svc(tmp_path)
-    _, doc = svc.create_task(_create_body(target_n=1))
+    _, doc = _create_running(svc, target_n=1)
     svc.store.prepare_attempt(
         doc["id"], "uuid-q", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
         {"est_price": "1"}, "hgo-uuid-q-s", {"side": "BUY"},
@@ -612,7 +626,7 @@ def test_get_logs_attempts_residual_is_signed_decimal_no_float(tmp_path):
     # string, never a float, and the pair_outcome is the advisory single_leg.
     exe = RecordTransportFake([OutcomeSpec.spot_only_filled()])
     svc = _svc(tmp_path, executor=exe)
-    _, doc = svc.create_task(_create_body(target_n=2))
+    _, doc = _create_running(svc, target_n=2)
     svc.post_fill_once(doc["id"])
     _, page = svc.get_logs(None, None)
     a = page["attempts"][0]
@@ -699,7 +713,7 @@ def test_null_notional_projects_null_on_attempts_and_entries(tmp_path):
     # 的 cumulative_quote_amt 与 avg_price 都必须为 null：不得用未知成交额做除法造出
     # 价格（review-1 r6 原意）。有交易所 avg_price 时的相反语义见下一用例。
     svc = _svc(tmp_path, executor=_NullQuoteExecutor())
-    _, doc = svc.create_task(_create_body(target_n=1))
+    _, doc = _create_running(svc, target_n=1)
     svc.post_fill_once(doc["id"])
     _, page = svc.get_logs(None, None)
     a = page["attempts"][0]
@@ -721,7 +735,7 @@ def test_null_quote_with_exchange_avg_projects_on_both_streams(tmp_path):
     # quote 仍为 NULL（不得用 avg_price 反推成交额）。本地算在此为 None，故展示库存值
     # 即证明走了优先级 ①。
     svc = _svc(tmp_path, executor=_NullQuoteWithAvgExecutor())
-    _, doc = svc.create_task(_create_body(target_n=1))
+    _, doc = _create_running(svc, target_n=1)
     svc.post_fill_once(doc["id"])
     _, page = svc.get_logs(None, None)
     a = page["attempts"][0]
@@ -743,7 +757,7 @@ def test_real_zero_notional_still_projects_string_zero(tmp_path):
     # (0 / 0.5 == "0"), distinct from an absent/NULL notional. This is what stops
     # a future "simplification" from collapsing every zero into null.
     svc = _svc(tmp_path, executor=_RealZeroQuoteExecutor())
-    _, doc = svc.create_task(_create_body(target_n=1))
+    _, doc = _create_running(svc, target_n=1)
     svc.post_fill_once(doc["id"])
     _, page = svc.get_logs(None, None)
     a = page["attempts"][0]
@@ -803,8 +817,8 @@ def test_tick_dispatches_eligible_tasks_concurrently(tmp_path):
     clock = _Clock(0)
     svc = _svc(tmp_path, executor=exe, clock=clock)
     svc.set_start_gate(True)
-    _, d1 = svc.create_task(_create_body(target_n=2))
-    _, d2 = svc.create_task(_create_body(target_n=2))
+    _, d1 = _create_running(svc, target_n=2)
+    _, d2 = _create_running(svc, target_n=2)
     clock.t = 1_000_000  # advance past the 1s interval -> due
     # tick() joins its workers, so run it on a background thread.
     tick_done = threading.Event()
@@ -874,8 +888,8 @@ def test_tick_slow_card_does_not_block_other_card_submission(tmp_path):
     clock = _Clock(0)
     svc = _svc(tmp_path, clock=clock)
     svc.set_start_gate(True)
-    _, d1 = svc.create_task(_create_body(target_n=2))
-    _, d2 = svc.create_task(_create_body(target_n=2))
+    _, d1 = _create_running(svc, target_n=2)
+    _, d2 = _create_running(svc, target_n=2)
     svc._executor = _RoutingExecutor(d1["id"], d2["id"])  # inject after build
     clock.t = 1_000_000
     tick_done = threading.Event()
@@ -939,8 +953,8 @@ def test_get_logs_task_id_returns_all_attempts_unpaged(tmp_path):
     # unchanged (newest LIMIT_DEFAULT page). Read path only — no state machine.
     exe = RecordTransportFake()  # balanced accepted_pair fills
     svc = _svc(tmp_path, executor=exe)
-    _, t1 = svc.create_task(_create_body(target_n=60))
-    _, t2 = svc.create_task(_create_body(target_n=60))
+    _, t1 = _create_running(svc, target_n=60)
+    _, t2 = _create_running(svc, target_n=60)
     for _ in range(51):
         svc.post_fill_once(t1["id"])
     svc.post_fill_once(t2["id"])  # one attempt on another task

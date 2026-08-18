@@ -681,7 +681,7 @@ def _store(tmp_path):
 
 
 def _create_running(store, tid="t1"):
-    return store.create_task(tid, "BTCUSDT", "forward", "immediate", "10", 1, None, None, None, 1)
+    return store.create_task(tid, "BTCUSDT", "forward", "immediate", "10", 1, None, None, None, 1, initial_status=HD.STATUS_RUNNING)
 
 
 def test_store_set_task_status_records_transition(tmp_path):
@@ -757,21 +757,21 @@ def _service_with_hook(tmp_path):
 
 def test_hook_fires_on_post_pause_running_to_paused(tmp_path):
     svc, calls = _service_with_hook(tmp_path)
-    svc._store.create_task("t1", "BTCUSDT", "forward", "immediate", "10", 1, None, None, None, 1)
+    svc._store.create_task("t1", "BTCUSDT", "forward", "immediate", "10", 1, None, None, None, 1, initial_status=HD.STATUS_RUNNING)
     svc.post_pause("t1")
     assert len(calls) == 1
 
 
 def test_hook_fires_on_post_delete_running_to_deleted(tmp_path):
     svc, calls = _service_with_hook(tmp_path)
-    svc._store.create_task("t1", "BTCUSDT", "forward", "immediate", "10", 1, None, None, None, 1)
+    svc._store.create_task("t1", "BTCUSDT", "forward", "immediate", "10", 1, None, None, None, 1, initial_status=HD.STATUS_RUNNING)
     svc.post_delete("t1")
     assert len(calls) == 1
 
 
 def test_hook_no_fire_on_restore_to_running(tmp_path):
     svc, calls = _service_with_hook(tmp_path)
-    svc._store.create_task("t1", "BTCUSDT", "forward", "immediate", "10", 1, None, None, None, 1)
+    svc._store.create_task("t1", "BTCUSDT", "forward", "immediate", "10", 1, None, None, None, 1, initial_status=HD.STATUS_RUNNING)
     svc._store.set_task_status("t1", HD.STATUS_PAUSED, 2)
     svc.post_start("t1")  # paused -> running: NOT a trigger
     assert calls == []
@@ -783,7 +783,7 @@ def test_hook_swallows_submitter_exception_no_rollback(tmp_path):
     svc = HedgeOpenTaskService(
         str(tmp_path / "h.sqlite3"), mode="disabled", cache_refresh_submitter=boom,
     )
-    svc._store.create_task("t1", "BTCUSDT", "forward", "immediate", "10", 1, None, None, None, 1)
+    svc._store.create_task("t1", "BTCUSDT", "forward", "immediate", "10", 1, None, None, None, 1, initial_status=HD.STATUS_RUNNING)
     svc.post_pause("t1")  # must not raise
     # the task status still committed (rolled back nowhere)
     assert svc._store.get_task("t1")["status"] == HD.STATUS_PAUSED
@@ -791,7 +791,7 @@ def test_hook_swallows_submitter_exception_no_rollback(tmp_path):
 
 def test_hook_no_fire_when_submitter_not_configured(tmp_path):
     svc = HedgeOpenTaskService(str(tmp_path / "h.sqlite3"), mode="disabled")
-    svc._store.create_task("t1", "BTCUSDT", "forward", "immediate", "10", 1, None, None, None, 1)
+    svc._store.create_task("t1", "BTCUSDT", "forward", "immediate", "10", 1, None, None, None, 1, initial_status=HD.STATUS_RUNNING)
     svc.post_pause("t1")  # no submitter wired -> no-op, no error
     assert svc._store.get_task("t1")["status"] == HD.STATUS_PAUSED
 

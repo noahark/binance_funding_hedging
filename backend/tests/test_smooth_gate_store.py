@@ -14,6 +14,7 @@ def _create(store, task_id="smooth", *, mode=D.MODE_SMOOTH, target=2):
         task_id, "BTCUSDT", D.DIR_FORWARD, mode, "1", target, "1",
         D.POS_MODE_BOTH, {"est_price": "100"}, 1_000,
         slippage_threshold_pct="0.05" if mode == D.MODE_SMOOTH else None,
+        initial_status=D.STATUS_RUNNING,
     )
 
 

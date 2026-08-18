@@ -177,6 +177,8 @@ PAUSE_REASON_CLOSE_VERIFY_FAILED = "close_verify_failed"
 PAUSE_REASON_CLOSE_SPOT_BALANCE = "close_spot_balance"
 # 两段式平仓：建卡先落 paused，只有 Human 点击“启动”后才进入交易所预检。
 PAUSE_REASON_AWAITING_MANUAL_START = "awaiting_manual_start"
+# 同 reason 枚举、立即开单（成交按钮可用）专用显示文案的 key，见 _PAUSE_REASON_ZH。
+PAUSE_REASON_AWAITING_MANUAL_START_FILLABLE = "awaiting_manual_start_open_fillable"
 # 平仓每轮发单前，合约持仓方向/剩余数量门失败（缓存超龄时实时兜底）。
 PAUSE_REASON_CLOSE_UM_POSITION = "close_um_position"
 # 1000x 乘数合约尚未实现两腿数量换算；历史 NULL 行也在 dispatch 再拦一次。
@@ -1882,6 +1884,10 @@ _PAUSE_REASON_ZH = {
     PAUSE_REASON_CLOSE_VERIFY_FAILED: "平仓完成核实失败（查交易所合约持仓未成功），任务已暂停。请到交易所核对该币种合约仓位后手动恢复——「查不到」绝不视为「已平完」",
     PAUSE_REASON_CLOSE_SPOT_BALANCE: "平仓现货余额检查/划转失败，任务已暂停（fail-closed，未发单）。详情见任务卡日志，请人工核对后手动恢复",
     PAUSE_REASON_AWAITING_MANUAL_START: "任务首次执行必须点击启动",
+    # Human 2026-08-18 方案 B：开仓一律 paused 后，立即开单的成交按钮保持可用
+    # （Human 指令：成交1次对执行中/已暂停卡都可点），同 reason 下文案与平滑
+    # 区分——不得声称「必须点击启动」。
+    PAUSE_REASON_AWAITING_MANUAL_START_FILLABLE: "任务不会自动执行；可点启动或成交1次推进",
     PAUSE_REASON_CLOSE_UM_POSITION: "合约持仓方向或可平数量不足，任务已暂停（fail-closed，未发单）。详情见任务卡日志，请人工核对后手动恢复",
     PAUSE_REASON_MULTIPLIER_CLOSE_UNSUPPORTED: "1000 倍乘数合约的两腿数量换算尚未实现，任务已暂停（fail-closed，未发单），请人工到交易所处理",
     PAUSE_REASON_LEVERAGE_SET_FAILED: "设置合约杠杆失败，任务已暂停（fail-closed，未发单）。详情见任务卡日志，请人工核对后手动恢复",

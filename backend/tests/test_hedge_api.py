@@ -215,7 +215,8 @@ def test_create_returns_201_exact_task_field_set_dry_run(tmp_path):
         assert doc["coin"] == "BTCUSDT"
         assert doc["direction"] == "forward"
         assert doc["mode"] == "immediate"
-        assert doc["status"] == "running"             # created runnable
+        assert doc["status"] == "paused"              # 2026-08-18 方案 B：建卡一律 paused
+        assert doc["pause_reason"] == "awaiting_manual_start"
         assert doc["success_count"] == 0
         assert doc["fail_count"] == 0
         # No preflight provider wired -> dry-run: q_common / position_side_mode

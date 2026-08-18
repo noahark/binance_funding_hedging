@@ -93,6 +93,7 @@ def _create(store, task_id="t1", direction=D.DIR_FORWARD, target=3, q_common="0.
     return store.create_task(
         task_id, "BTCUSDT", direction, D.MODE_IMMEDIATE, "0.5", target,
         q_common, D.POS_MODE_BOTH, {"est_price": "50000"}, 1_000,
+        initial_status=D.STATUS_RUNNING,
     )
 
 
@@ -459,6 +460,7 @@ def test_pause_task_conditional_write_hits_only_running_or_paused(tmp_path):
     task = store.create_task(
         "t1", "BTCUSDT", D.DIR_FORWARD, "immediate", "0.5", 1,
         None, None, None, 1_000,
+        initial_status=D.STATUS_RUNNING,
     )
     # running -> hit.
     updated, applied = store.pause_task("t1", "insufficient_balance", "zh", 2_000)
@@ -492,6 +494,7 @@ def test_stop_task_fatal_conditional_write_misses_on_non_running(tmp_path):
     store.create_task(
         "t2", "BTCUSDT", D.DIR_FORWARD, "immediate", "0.5", 1,
         None, None, None, 1_000,
+        initial_status=D.STATUS_RUNNING,
     )
     # deleted -> MISS (None), status untouched.
     store.set_task_status("t2", D.STATUS_DELETED, 2_000)
@@ -716,6 +719,7 @@ def test_cycle_slippage_uses_directional_sell_and_buy_legs(
         "t1", "BTCUSDT", direction, D.MODE_IMMEDIATE, "1", 1,
         "1", D.POS_MODE_BOTH, {"est_price": "7"}, 1_000,
         task_type=task_type,
+        initial_status=D.STATUS_RUNNING,
     )
     _apply(
         store, "t1",
@@ -734,6 +738,7 @@ def test_cycle_slippage_weights_both_legs_across_attempts(tmp_path):
     store.create_task(
         "t1", "BTCUSDT", D.DIR_REVERSE, D.MODE_IMMEDIATE, "1", 2,
         "1", D.POS_MODE_BOTH, {"est_price": "1"}, 1_000,
+        initial_status=D.STATUS_RUNNING,
     )
     _apply(
         store, "t1",
@@ -762,6 +767,7 @@ def test_cycle_slippage_missing_invalid_and_zero_cases(tmp_path):
     store.create_task(
         "t1", "BTCUSDT", D.DIR_FORWARD, D.MODE_IMMEDIATE, "1", 1,
         "1", D.POS_MODE_BOTH, None, 1_000,
+        initial_status=D.STATUS_RUNNING,
     )
     _apply(
         store, "t1",
@@ -799,6 +805,7 @@ def test_cycle_slippage_matches_jst_reverse_open_and_close(tmp_path):
     store.create_task(
         "open", "JSTUSDT", D.DIR_REVERSE, D.MODE_IMMEDIATE, "3000", 1,
         "3000", D.POS_MODE_BOTH, {"est_price": "999"}, 1_000,
+        initial_status=D.STATUS_RUNNING,
     )
     _apply(
         store, "open",
@@ -813,6 +820,7 @@ def test_cycle_slippage_matches_jst_reverse_open_and_close(tmp_path):
     store.create_task(
         "close", "JSTUSDT", D.DIR_REVERSE, D.MODE_IMMEDIATE, "3000", 1,
         "3000", D.POS_MODE_BOTH, None, 3_000, task_type=D.TASK_TYPE_CLOSE,
+        initial_status=D.STATUS_RUNNING,
     )
     _apply(
         store, "close",
@@ -1648,6 +1656,7 @@ def test_aggregate_positions_carries_spot_identity(tmp_path):
     store.create_task(
         "bs", "SNXXUSDT", D.DIR_FORWARD, D.MODE_IMMEDIATE, "1", 1,
         "1", D.POS_MODE_BOTH, {"est_price": "10"}, 1_000,
+        initial_status=D.STATUS_RUNNING,
         spot_symbol="SNXXBUSDT", spot_base_asset="SNXXB",
         symbol_match_type="bstock_b_suffix_alias",
     )
@@ -1669,6 +1678,7 @@ def test_aggregate_positions_flags_identity_conflict_within_bucket(tmp_path):
         store.create_task(
             tid, "SNXXUSDT", D.DIR_FORWARD, D.MODE_IMMEDIATE, "1", 1,
             "1", D.POS_MODE_BOTH, {"est_price": "10"}, 1_000,
+            initial_status=D.STATUS_RUNNING,
             spot_symbol=sym, spot_base_asset=base,
             symbol_match_type="bstock_b_suffix_alias",
         )

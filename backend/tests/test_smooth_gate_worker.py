@@ -723,15 +723,20 @@ def test_smooth_create_is_paused_with_zero_execution_resources(tmp_path):
         svc.close()
 
 
-def test_immediate_create_still_starts_running(tmp_path):
+def test_immediate_create_lands_paused_awaiting_manual_start(tmp_path):
+    # 2026-08-18 方案 B：立即开单建卡一律 paused + awaiting_manual_start（差异化
+    # 文案），不起 worker；与 smooth open 建卡同形，仅 zh 文案不同。
     svc, _, _, _, _ = _service(tmp_path)
     try:
         _, task = svc.create_task({
             "coin": "ETHUSDT", "direction": D.DIR_FORWARD, "mode": D.MODE_IMMEDIATE,
             "single_amount": "1", "target_n": 1,
         })
-        assert task["status"] == D.STATUS_RUNNING
-        assert task["pause_reason"] is None
+        assert task["status"] == D.STATUS_PAUSED
+        assert task["pause_reason"] == D.PAUSE_REASON_AWAITING_MANUAL_START
+        assert task["pause_reason_zh"] == D.pause_reason_zh(
+            D.PAUSE_REASON_AWAITING_MANUAL_START_FILLABLE
+        )
         assert task["id"] not in svc._workers
     finally:
         svc.close()
@@ -857,7 +862,9 @@ def test_immediate_live_dispatch_creates_no_smooth_audit(tmp_path):
             "single_amount": "1", "target_n": 1,
         })
         svc.set_start_gate(True)
-        svc.ensure_worker(task["id"])
+        # 2026-08-18 方案 B：建卡 paused，先人工启动（post_start 置 running 并拉
+        # worker）再验证 immediate 路径不产 smooth 审计。
+        svc.post_start(task["id"])
         _wait(lambda: executor.dispatch_calls == 1)
         assert svc.get_logs(None, None, task_id=task["id"])[1][
             "smooth_dispatch_audits"

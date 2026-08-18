@@ -195,6 +195,9 @@ def _create(svc, *, direction=D.DIR_FORWARD, single_amount="0.5", target_n=2):
         "coin": "BTCUSDT", "direction": direction, "mode": "immediate",
         "single_amount": single_amount, "target_n": target_n,
     })
+    # 2026-08-18 方案 B：建卡一律 paused，测试执行链先置 running。不走
+    # post_start——那会 ensure_worker 起真线程，跨用例串扰（合跑挂、单跑过）。
+    svc._store.set_task_status(doc["id"], D.STATUS_RUNNING, svc._wall_us())
     return doc
 
 

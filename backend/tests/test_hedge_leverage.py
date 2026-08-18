@@ -265,6 +265,7 @@ def _make_open_task(svc, coin="BTCUSDT", target_n=1):
     task = svc._store.create_task(
         "fx-lev", coin, D.DIR_FORWARD, D.MODE_IMMEDIATE, "100", target_n, "100",
         D.POS_MODE_BOTH, None, 1_000, task_type=D.TASK_TYPE_OPEN,
+        initial_status=D.STATUS_RUNNING,
     )
     return svc._store.get_task(task["id"])
 
@@ -350,6 +351,7 @@ def test_close_task_never_sets_leverage(tmp_path):
     task = svc._store.create_task(
         "fx-close", "BTCUSDT", D.DIR_REVERSE, D.MODE_IMMEDIATE, "100", 1, "100",
         D.POS_MODE_BOTH, None, 1_000, task_type=D.TASK_TYPE_CLOSE,
+        initial_status=D.STATUS_RUNNING,
     )
     task = svc._store.get_task(task["id"])
     updated, signal = svc._dispatch_one_for_task(task, 2_000)
@@ -367,6 +369,7 @@ def test_close_task_with_leverage_capable_executor_skips(tmp_path):
     task = svc._store.create_task(
         "fx-close", "BTCUSDT", D.DIR_FORWARD, D.MODE_IMMEDIATE, "100", 1, "100",
         D.POS_MODE_BOTH, None, 1_000, task_type=D.TASK_TYPE_CLOSE,
+        initial_status=D.STATUS_RUNNING,
     )
     task = svc._store.get_task(task["id"])
     svc._dispatch_one_for_task(task, 2_000)

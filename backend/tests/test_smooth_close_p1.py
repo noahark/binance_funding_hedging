@@ -213,6 +213,7 @@ def _seed_cycle(svc, coin="BTCUSDT", direction="forward"):
     store.create_task(
         seed_id, coin, direction, D.MODE_IMMEDIATE, "1", 1, "1",
         D.POS_MODE_BOTH, {"est_price": "100"}, 1_000,
+        initial_status=D.STATUS_RUNNING,
     )
     store.prepare_attempt(
         seed_id, f"att-{uuid.uuid4().hex[:8]}", direction, "1", D.POS_MODE_BOTH,
@@ -643,6 +644,7 @@ def test_gate_store_methods_accept_close_with_q_common_and_reject_empty(tmp_path
     store.create_task(
         "qc", "BTCUSDT", D.DIR_FORWARD, D.MODE_SMOOTH, "1", 1, "1",
         D.POS_MODE_BOTH, {}, 1_000, task_type=D.TASK_TYPE_CLOSE,
+        initial_status=D.STATUS_RUNNING,
         slippage_threshold_pct="0.05",
     )
     store.create_task(
@@ -651,7 +653,7 @@ def test_gate_store_methods_accept_close_with_q_common_and_reject_empty(tmp_path
         initial_status=D.STATUS_RUNNING,
         slippage_threshold_pct="0.05",
     )
-    assert store.get_task("qc")["status"] == D.STATUS_RUNNING  # 默认 running
+    assert store.get_task("qc")["status"] == D.STATUS_RUNNING  # 显式 running（2026-08-18 起默认 paused）
     assert store.open_smooth_gate("qc", 1, 10_000) is not None
     assert store.force_smooth_gate("qc", 1, 10_001) is not None
     assert store.open_smooth_gate("noqc", 1, 10_000) is None

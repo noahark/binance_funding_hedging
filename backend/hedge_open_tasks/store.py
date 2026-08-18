@@ -676,7 +676,7 @@ class HedgeOpenStore:
         spot_symbol: str | None = None,
         spot_base_asset: str | None = None,
         symbol_match_type: str | None = None,
-        initial_status: str = D.STATUS_RUNNING,
+        initial_status: str = D.STATUS_PAUSED,
         initial_pause_reason: str | None = None,
         initial_pause_reason_zh: str | None = None,
         slippage_threshold_pct: str | None = None,
@@ -685,9 +685,10 @@ class HedgeOpenStore:
             creation_seq = self._conn.execute(
                 "SELECT COALESCE(MAX(creation_seq), 0) + 1 FROM hedge_open_task"
             ).fetchone()[0]
-            # Open tasks keep the historical runnable default. Close creation may
-            # atomically opt into ``paused`` + its display reason so there is
-            # never an intermediate runnable row for tick/restart recovery to see.
+            # Human 2026-08-18 方案 B：默认 paused（fail-safe）。三种建卡入口
+            # （立即/平滑开单、平仓）全部显式传 initial_status；默认值只是防
+            # 未来新增调用点忘传参时静默建出会被 tick/重启恢复自动执行的卡。
+            # 历史：2026-08-18 前开单默认 running，close 曾显式 paused 落卡。
             self._conn.execute(
                 "INSERT INTO hedge_open_task"
                 " (id, coin, direction, mode, single_amount, target_n,"

@@ -6165,7 +6165,12 @@
           endHedgeTaskNavLoading();
         }
         setErr('');
-        await loadHedgeTasks();
+        // 与 submitHedgeOpen 同轨（方案 B 三种建卡一律 paused）：跳「已暂停」直接
+        // 给启动按钮；setHedgeTab 前置 / paused 后置两条顺序约束同前，显式
+        // loadHedgeTasks 已删（setActiveView 进页自拉）。
+        setHedgeTab('tasks');
+        setActiveView('hedge-tasks');
+        setHedgeTaskFilter('paused');
         return { ok: true };
       }
 
@@ -6326,7 +6331,14 @@
             if (idx !== -1) state.hedgeTasks[idx] = task; else state.hedgeTasks.push(task);
           }
           updateHedgeTaskNav();
-          await loadHedgeTasks();
+          // Human 2026-08-18（方案 B）：后端三种建卡一律 paused，创建成功固定跳
+          // 「开单任务→已暂停」直接给启动按钮。顺序两条硬约束：setHedgeTab 须在
+          // setActiveView 之前（否则进页按旧 logs tab 再拉一次日志）；paused 筛选
+          // 须在 setActiveView 之后（进页会重置为「执行中」）。显式 loadHedgeTasks
+          // 已删——新任务已在上面 push 进缓存、渲染即可见，setActiveView 进页自拉。
+          setHedgeTab('tasks');
+          setActiveView('hedge-tasks');
+          setHedgeTaskFilter('paused');
           return { ok: true, task };
         } finally {
           endHedgeTaskNavLoading();
