@@ -1,10 +1,10 @@
 # 10-design：成交手续费冻价成本 V1
 
-状态：**Planner r2（计划评审 REWORK + Human 2026-08-20 回补决定）。等待再一次跨 provider 只读计划评审与 Human 批准实现。未授权改源码、重启服务、创建任务、下单、push、merge 或部署。**
-日期：2026-08-19；r2：2026-08-20
+状态：**Planner r3（第二轮计划评审 B1a/B1b）。等待 Human 决定是否再评一次；未授权改源码、重启服务、创建任务、下单、push、merge 或部署。**
+日期：2026-08-19；r2：2026-08-20；r3：2026-08-20
 作者：Grok 4.6（xAI），Human 对话拍板
 stage：`2026-08-19-hedge-order-fee-cost-v1`
-修订依据：`evidence/20-plan-review.handoff.md` 勘误 1 / 勘误 2（R1–R5，O2–O5）
+修订依据：`evidence/20-plan-review.handoff.md` 勘误 1/2；`evidence/21-plan-review-r2.handoff.md` B1a/B1b（同根因「部分和冒充完整」站点 3、6）
 
 ## 1. 为什么要做
 
@@ -26,9 +26,14 @@ stage：`2026-08-19-hedge-order-fee-cost-v1`
 |---|---|---|---|---|
 | 普通现货 `/api/v3/order` | `GET /api/v3/myTrades` | 带 `orderId`：**5**；不带：20 | `symbol` + `orderId` 是官方支持组合，**不必**带 `startTime`/`endTime` | `startTime`+`endTime` 同时传时跨度 **≤ 24h**。只按 `orderId` 查**没有**这条 24h 限制 |
 | 统一账户杠杆 `/papi/v1/margin/order` | `GET /papi/v1/margin/myTrades` | **5** | 参数含 `orderId` | 若传 `startTime`+`endTime`，间隔 **< 24h**。回补时用腿上时间把窗口收在 24h 内，并带 `orderId` |
-| 合约 `/papi/v1/um/order` | `GET /papi/v1/um/userTrades` | **5** | **官方 PAPI SDK 无 `orderId` 参数**（与独立 `fapi` 不同） | 都不传时间 → 默认最近 **7 天**；`startTime`/`endTime` 跨度 **不能超过 7 天**；`fromId` 不能与时间窗同传 |
+| 合约 `/papi/v1/um/order` | `GET /papi/v1/um/userTrades` | **5** | **官方 PAPI SDK 无 `orderId` 参数**（与独立 `fapi` 不同） | 都不传时间 → 默认最近 **7 天**；`startTime`/`endTime` 跨度 **不能超过 7 天**（接口硬上限，**不是查询默认跨度**）；`fromId` 不能与时间窗同传 |
 
-合约必须：用腿的 `dispatched_at_us`（缺则 `last_query_at_us`）构造 ≤7 天窗口，拉回后**在本地**按 `orderId` 过滤。窗口外或过滤后为空 → 该腿手续费未知（D10），不当 0。
+合约查询口径（B1a，写死）：
+
+- **窗口按成交时刻收敛，不用 7 天。** `startTime` = `dispatched_at_us`（缺则 `last_query_at_us − 10 分钟`）；`endTime` = `last_query_at_us`（缺则 `startTime + 10 分钟`）。若算出的跨度仍超过 7 天：截到 7 天并视该腿为不全，不得改用「默认最近 7 天」去捞该 symbol 全部成交。
+- **请求 `limit=1000`。** 这是本仓对该列表接口采用的上限。返回条数 `== limit` → **截断**，该腿判定不全：四列不写入完整值（保持空或标不全），**禁止**对可能被截断的列表按 `orderId` 过滤后再求和当完整手续费。
+- 未截断时，在本地按 `orderId` 过滤。滤完为空 → 未知（D10），不当 0。
+- 实现前应用一次只读调用或现行文档确认「UM 是否其实支持 `orderId`」。若支持，改为与现货相同的 `symbol+orderId`，本条时间窗分支作废。确认之前按「无 orderId」实现。
 
 因此：**回补不能保证全覆盖**。早于合约 7 天窗、窗口构造不出、或成交历史已丢的腿会失败。R2 的不全载体仍然必需。
 
@@ -55,7 +60,7 @@ stage：`2026-08-19-hedge-order-fee-cost-v1`
 | D8 | 净盈亏公式本轮不动（仍是资金费 − 利息折 U） | 手续费独立列；改公式另授 |
 | D9 | **上线后回溯全部本地已成交腿的手续费**（见 §4.3）。仍不做 `hedge_open_fill`；不改开单价差率口径 | Human 2026-08-20 取代原「不回补」 |
 | D10 | 缺任何构成折 U 的数 → 该格「—」/不全，**不得写部分和，不当 0** | DEC-2026-07-30-001 |
-| D11 | `close_log` **新增** `trading_fee_incomplete`（INTEGER，0/1）。任一参与腿缺构成量 → `incomplete=1` 且 `trading_fee_usdt=NULL`。选显式标记列，不用「只靠 NULL」一种载体 | 回补后半截数更隐蔽；`insert_close_log` 无更新路径 |
+| D11 | `close_log` / 持仓 **新增** `trading_fee_incomplete`（INTEGER，0/1）。任一参与腿缺构成量 → `incomplete=1`，且 **`trading_fee_usdt` 与 `fee_bnb_qty` 一并 NULL**（B1b：不全时不展示半截 BNB 数量）。选显式标记列。既有 `close_log` 行 `ALTER` 时 **`DEFAULT 1`（不全）**，禁止 `DEFAULT 0` | 回补后半截数更隐蔽；`fee_bnb_qty` 与金额是同一笔合计的两个格子；旧行金额本就是空的，标成「完整」会撒谎 |
 
 ## 4. 写入
 
@@ -74,9 +79,12 @@ stage：`2026-08-19-hedge-order-fee-cost-v1`
 
 查询形状：
 
+- **symbol 来源（两腿不同名）：** 现货/杠杆腿用 `task.spot_symbol`，合约腿用 `task.coin`。`hedge_open_leg` 无 symbol 列，经 `attempt → task` 取。用错会空结果、该标的手续费永久缺失。
 - 现货：`symbol` + `orderId`，`limit=1000`
-- 杠杆：`symbol` + `orderId`，并用 `dispatched_at_us` 收 24h 窗（若带时间）
-- 合约：`symbol` + `startTime`/`endTime`（以 `dispatched_at_us` 为中心，跨度 ≤7 天），本地滤 `orderId`
+- 杠杆：`symbol` + `orderId`，并用 §2.2 的分钟级时间把 24h 窗收在成交附近（若带时间）
+- 合约：按 §2.2 分钟级窗 + `limit=1000`，本地滤 `orderId`；**禁止默认捞 7 天**
+
+现货/杠杆/合约：**返回条数达到所用 `limit` → 该腿不全，不对列表求和。** 市价单几乎不会有 1000 笔成交，这条是截断安全阀，不是分页方案（`fromId` 与时间窗互斥，本轮不做分页）。
 
 分组：`BNB` → `fee_bnb_qty`；其余一种且 ∈ {USDT, base} → `fee_other_*`；其余多种或第三种资产 → BNB 能定则写，其他两列空，该腿折 U 不全。
 
@@ -88,7 +96,9 @@ stage：`2026-08-19-hedge-order-fee-cost-v1`
 
 把 `fee_bnb_price`、`fee_bnb_qty`、`fee_other_qty`、`trading_fee_usdt` 加入 `test_hedge_purity.py` 的 `_MONEY_NAMES`（不要放进 `_QUANTITY_NAMES`）。缺值不得被 `_num(` / `_decimal_str(` / `or "0"` / `.get(…,"0")` 变成 0。合法真零须 `# money-zero-ok:`。
 
-白名单：`hedge_open_live_client.ALLOWLIST` 加三条只读 GET。
+`_MONEY_ZERO_SCOPE` 须包含回补脚本路径（现范围只有 `hedge_open_tasks` 与 `live_hedge_executor`，扫不到 `scripts/`）。
+
+签名白名单：`hedge_open_live_client.ALLOWLIST` 只加三条成交历史 GET。回补用的公开 `BNBUSDT` 1 分钟 K 线挂在 `binance_public`（无签名），**不**进该 ALLOWLIST，也不得塞进签名客户端。
 
 ### 4.3 历史回补（R1/R5）——独立一次性任务
 
@@ -98,7 +108,7 @@ stage：`2026-08-19-hedge-order-fee-cost-v1`
 
 **控速。** 与交易路径隔离：独立节流（建议签名 GET **≤ 1 次/秒**），不用 hedge worker 的 round。遇到 429/418：**立刻停**，把断点落盘，不得重试顶配额。公开 K 线取历史 BNB 价走无签名接口，与签名配额分开。本机 2026-08-18 已有借币 IP 418、解封时间未知——回补不得在有 running 对冲任务时加速；有 running 任务则拒绝启动或自动降到更慢。
 
-**断点。** 按 `hedge_open_leg.id` 升序。每条腿尝试至多 1 次 GET。成功写入或判定失败后推进游标。中断后从游标接着跑，已写入的腿跳过。进度写本地文件或表（一条游标即可，不新状态机）。
+**断点。** 按 `hedge_open_leg.id` 升序。每条腿尝试至多 1 次 GET。成功写入**或判定失败**后都推进游标。「四列全空」只用来找出**从未尝试**的腿；游标（及已失败 id）是重跑的唯一推进权威——**已尝试失败的腿重跑不再打**，避免注定取不到的老单每次重跑再消耗签名配额。进度写本地文件或表（游标 + 失败集合即可，不新状态机）。
 
 **冻价（回补）。** 实时路径用 D4（写入时价）。回补时「现在的 BNB 价」会改写历史成本，禁止。回补的 `fee_bnb_price` 取成交时刻附近公开 `BNBUSDT` **1 分钟 K 线收盘价**（`startTime`≈腿 `dispatched_at_us`）。取不到：数量仍写、价格空，该腿折 U 不全。两条路径都不是撮合瞬时价，文档必须写明。
 
@@ -113,9 +123,10 @@ stage：`2026-08-19-hedge-order-fee-cost-v1`
 - 只汇总该周期 `task_type=open` 且有成交的腿
 - 该腿成交均价（仅用于本币折 U）= `cumulative_quote_amt ÷ cumulative_base_qty`；**不用 `avg_price` 列**
 - 折 U = `Σ(fee_bnb_qty × fee_bnb_price)` + `Σ(USDT 的 fee_other_qty)` + `Σ(本币且可定价的 fee_other_qty × 上式均价)`
-- 任一开仓参与腿缺必需构成量 → `trading_fee_incomplete=true`，`trading_fee_usdt=null`，页面「—」或「不全」，禁止输出半截数字
-- 主数字两位小数 U，成本着色；有 BNB 时第二行数量
+- 任一开仓参与腿缺必需构成量 → `trading_fee_incomplete=true`，**`trading_fee_usdt` 与 `fee_bnb_qty` 均为 null**，页面「—」或「不全」，禁止输出半截金额或半截 BNB 数量
+- 主数字两位小数 U，成本着色；仅 `incomplete=false` 且有 BNB 时第二行写数量
 - 键冻死：`trading_fee_usdt`、`fee_bnb_qty`、`trading_fee_incomplete`。同步 `_POSITION_KEYS` 与 self-check
+- 持仓表空态 `colspan` **17 → 18**（现 `index.html` 空行与 `self-check.js` 硬断言均为 17，漏改即红）
 
 ### 5.2 历史仓位 `GET /api/hedge-open-close-logs`
 
@@ -126,10 +137,10 @@ stage：`2026-08-19-hedge-order-fee-cost-v1`
 | 列 | 类型 | 含义 |
 |---|---|---|
 | `trading_fee_usdt` | TEXT NULL | 开+平完整折 U；不全时必须 NULL |
-| `trading_fee_incomplete` | INTEGER NOT NULL | 0=完整，1=不全 |
-| `fee_bnb_qty` | TEXT NULL | 开+平 BNB 数量合计，供第二行 |
+| `trading_fee_incomplete` | INTEGER NOT NULL DEFAULT **1** | 0=完整，1=不全。旧行默认 1 |
+| `fee_bnb_qty` | TEXT NULL | 开+平 BNB 数量合计；**不全时必须 NULL**（与金额同命运） |
 
-表头加一列「手续费成本」放在「总借币利息 / 总资金费率收益」旁。空表 `colspan` **16 → 17**。本轮不新造周期净额列。已关闭且回补仍缺数的行：`incomplete=1`、金额 NULL →「—」/「不全」。`close_log` 无更新路径，回补若发生在某周期已写入 close_log **之后**，本轮**不改写**旧结算行（避免给一次性表加 UPDATE）；该限制写进验收，后续若 Human 要刷新历史行另开任务。
+表头加一列「手续费成本」放在「总借币利息 / 总资金费率收益」旁。历史空表 `colspan` **16 → 17**；持仓空表 **17 → 18**。本轮不新造周期净额列。已关闭且回补仍缺数的行：`incomplete=1`、金额 NULL →「—」/「不全」。`close_log` 无更新路径，回补若发生在某周期已写入 close_log **之后**，本轮**不改写**旧结算行（避免给一次性表加 UPDATE）；该限制写进验收，后续若 Human 要刷新历史行另开任务。
 
 ## 6. 非目标
 
@@ -148,7 +159,7 @@ HIGH_RISK：账务含义、成交确认路径上新的签名 GET、历史回补�
 拆包顺序（契约先冻）：
 
 1. **后端**（`claude_glm`）：建列（腿 4 列 + close_log 3 列）、白名单、终态后一次 GET、两站点回写、持仓聚合、close_log 快照、money-zero 名单、回补脚本与断点、pytest（含两站点夹具、平滑调用上界、回补跳过已写腿）。
-2. **前端**（`kimi`）：持仓列 + 历史列 + 空表 colspan=17 + `self-check.js`。排在后端之后。键名以前端 dispatch 抄后端冻名，不得推断。
+2. **前端**（`kimi`）：持仓列 + 历史列 + 历史空表 colspan=17 + 持仓空表 colspan=18（含 self-check 原 17 断言）+ `self-check.js`。排在后端之后。键名以前端 dispatch 抄后端冻名，不得推断。
 
 计划评审再一次：跨 provider、只读；作者 xAI，评审者不能是 Grok。
 
@@ -160,10 +171,12 @@ HIGH_RISK：账务含义、成交确认路径上新的签名 GET、历史回补�
 - 终态两个站点都有夹具：手续费 GET 在 commit 之后；失败不改 `terminal`/`exchange_status`。
 - 每腿至多 1 次 GET；平滑 `target_n=20` 断言 ≤40 次。
 - 新费用字段误写成 0 时 money-zero 检查变红。
-- 持仓只加 open 腿；close_log 加 open+close；不全时金额 NULL 且 `trading_fee_incomplete=1`。
-- 回补：已写腿跳过、断点续跑、running 任务时拒绝或降速、不碰 close_log 旧行。
+- 持仓只加 open 腿；close_log 加 open+close；不全时 `trading_fee_usdt` 与 `fee_bnb_qty` 均为 NULL 且 `trading_fee_incomplete=1`。
+- 合约：窗口为成交时刻分钟级；返回条数 == `limit`（1000）的夹具必须标不全、不得对截断列表求和。
+- 回补：已写腿跳过；已失败腿重跑不再打；running 任务时拒绝或降速；不碰 close_log 旧行。
+- `trading_fee_incomplete` 加列 `DEFAULT 1`。
 - 旧 `fee_amount` 新写入保持空。
-- `node frontend/self-check.js`：两列展示、「—」/不全、历史空表 colspan=17。
+- `node frontend/self-check.js`：两列展示、「—」/不全、历史空表 colspan=17、持仓空表 colspan=18。
 - 不跑实盘下单，除非 Human 另授。回补打 live 库须单独授权。
 
 ## 9. 活文档
