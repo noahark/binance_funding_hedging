@@ -1049,6 +1049,9 @@
 
     /* 开单操作列：复用借币输入控件布局 */
     .hedge-op-cell { white-space: normal; }
+    /* 持仓表「立即平仓」列：列宽在当前内容宽度（输入框 110px）基础上增加 50%，
+       只作用持仓表，市场表开单列不受影响。 */
+    .positions-table .hedge-op-cell { min-width: 165px; }
     .hedge-op-cell .borrow-op-inputs input { width: 110px; }
     .hedge-op-cell .borrow-op-inputs input.hedge-threshold-input {
       width: 56px;
@@ -1059,6 +1062,12 @@
     .hedge-op-cell .borrow-op-inputs input.hedge-threshold-input[readonly] {
       background: var(--surface-2);
       color: var(--muted);
+    }
+    /* 立即平仓列：平滑平仓按钮 + 滑点阈值输入 + % 同行展示 */
+    .hedge-close-inline {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
     }
     /* 推荐方向高亮：仅视觉推荐，另一方向保持可点（ADR-3） */
     .btn.hedge-reco {
@@ -6008,9 +6017,11 @@
                 <input id="hedge-close-amount-${sym}" type="text" inputmode="decimal" placeholder="如 0.01" autocomplete="off"${disAttr}/>
                 <label for="hedge-close-count-${sym}">计划尝试次数</label>
                 <input id="hedge-close-count-${sym}" type="text" inputmode="numeric" placeholder="如 3" autocomplete="off"${disAttr}/>
-                <button class="btn compact" type="button" data-hedge-close-smooth="${sym}" data-hedge-close-smooth-dir="${dir}" aria-label="平滑平仓 ${sym} ${dir}"${btnTitle}${disAttr}>平滑平仓</button>
-                <input class="hedge-threshold-input" type="text" inputmode="decimal" value="0.05" data-hedge-close-threshold="${sym}" aria-label="滑点阈值 %" title="当前方向平仓率必须严格大于该阈值；可输入负数，最多两位小数"${disAttr}/>
-                <span class="muted small">%</span>
+                <div class="hedge-close-inline">
+                  <button class="btn compact" type="button" data-hedge-close-smooth="${sym}" data-hedge-close-smooth-dir="${dir}" aria-label="平滑平仓 ${sym} ${dir}"${btnTitle}${disAttr}>平滑平仓</button>
+                  <input class="hedge-threshold-input" type="text" inputmode="decimal" value="0.05" data-hedge-close-threshold="${sym}" aria-label="滑点阈值 %" title="当前方向平仓率必须严格大于该阈值；可输入负数，最多两位小数"${disAttr}/>
+                  <span class="muted small">%</span>
+                </div>
                 <button class="btn compact" type="button" data-hedge-close="${sym}" data-hedge-close-dir="${dir}"${btnTitle}${disAttr}>立即平仓</button>
               </div>
               <div class="borrow-op-error" id="hedge-close-error-${sym}" role="alert" aria-live="polite"></div>`;
