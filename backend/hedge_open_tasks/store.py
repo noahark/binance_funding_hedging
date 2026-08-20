@@ -99,6 +99,10 @@ CREATE TABLE IF NOT EXISTS hedge_open_leg (
     cumulative_quote_amt TEXT,
     fee_amount           TEXT,
     fee_asset            TEXT,
+    fee_bnb_qty          TEXT,
+    fee_bnb_price        TEXT,
+    fee_other_qty        TEXT,
+    fee_other_asset      TEXT,
     error_code           TEXT,
     error_category       TEXT,
     dispatched_at_us     INTEGER,
@@ -200,6 +204,9 @@ CREATE TABLE IF NOT EXISTS hedge_open_cycle_close_log (
     spot_close_qty  TEXT,               -- 现货卖出累计数量
     open_slippage   TEXT,               -- 开单两腿真实成交价差百分比（卖价高于买价为正）
     close_slippage  TEXT,               -- 平单两腿真实成交价差百分比（卖价高于买价为正）
+    trading_fee_usdt TEXT,              -- 手续费成本 V1（D11）：开+平全部腿折 U 合计；不全时必须 NULL
+    fee_bnb_qty     TEXT,               -- 手续费成本 V1（D11）：开+平 BNB 数量合计；不全时必须 NULL
+    trading_fee_incomplete INTEGER NOT NULL DEFAULT 1,  -- 0=完整 1=不全；旧行加列默认 1
     settled_at_us   INTEGER NOT NULL    -- 结算写入时间
 );
 CREATE INDEX IF NOT EXISTS idx_close_log_cycle ON hedge_open_cycle_close_log (cycle_id);
@@ -324,6 +331,10 @@ def _row_to_leg(row: sqlite3.Row) -> dict:
         "avg_price": row["avg_price"],
         "fee_amount": row["fee_amount"],
         "fee_asset": row["fee_asset"],
+        "fee_bnb_qty": row["fee_bnb_qty"],
+        "fee_bnb_price": row["fee_bnb_price"],
+        "fee_other_qty": row["fee_other_qty"],
+        "fee_other_asset": row["fee_other_asset"],
         "error_code": row["error_code"],
         "error_category": row["error_category"],
         "dispatched_at_us": row["dispatched_at_us"],
@@ -482,6 +493,13 @@ class HedgeOpenStore:
             # Part B（Human 2026-07-31）：交易所返回的权威 avgPrice 原话落库——只记观测值，
             # 不推导、不替 cumulative_quote_amt 的 NULL 契约。既有行该列为 NULL。
             ("avg_price", "TEXT"),
+            # 手续费成本 V1（2026-08-19 stage 10-design D1）：腿上冻结的四列——
+            # BNB 数量 / 写入时冻价 / 其他币数量与资产。空=未知/没有；写入路径
+            # （实时 GET / 历史回补）由后续任务接入，本任务只建列与映射。
+            ("fee_bnb_qty", "TEXT"),
+            ("fee_bnb_price", "TEXT"),
+            ("fee_other_qty", "TEXT"),
+            ("fee_other_asset", "TEXT"),
         )
         for col, decl in leg_additions:
             if col not in leg_cols:
@@ -569,6 +587,11 @@ class HedgeOpenStore:
             ("spot_close_qty", "TEXT"),
             ("open_slippage", "TEXT"),
             ("close_slippage", "TEXT"),
+            # 手续费成本 V1（10-design D11）：close_log 三列。trading_fee_incomplete
+            # 默认 1（不全）——既有结算行金额本就为空，标成「完整」会撒谎；禁止 DEFAULT 0。
+            ("trading_fee_usdt", "TEXT"),
+            ("fee_bnb_qty", "TEXT"),
+            ("trading_fee_incomplete", "INTEGER NOT NULL DEFAULT 1"),
         ):
             if col not in clog_cols:
                 self._conn.execute(
@@ -2449,8 +2472,9 @@ class HedgeOpenStore:
                 "  close_reason, open_avg_price, open_qty, close_avg_price,"
                 "  funding_fee, borrow_interest, spot_open_avg, spot_open_qty,"
                 "  spot_close_avg, spot_close_qty, open_slippage, close_slippage,"
+                "  trading_fee_usdt, fee_bnb_qty, trading_fee_incomplete,"
                 "  settled_at_us)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     row["cycle_id"], row["symbol"], row["direction"],
                     row["opened_at_us"], row["closed_at_us"], row["close_reason"],
@@ -2460,6 +2484,10 @@ class HedgeOpenStore:
                     row.get("spot_open_avg"), row.get("spot_open_qty"),
                     row.get("spot_close_avg"), row.get("spot_close_qty"),
                     row.get("open_slippage"), row.get("close_slippage"),
+                    # 手续费成本 V1（D11）：未传入时默认「不全」（1）且金额/数量为
+                    # NULL——绝不把「还没算」写成 0。真实聚合由后续任务接入。
+                    row.get("trading_fee_usdt"), row.get("fee_bnb_qty"),
+                    row.get("trading_fee_incomplete", 1),
                     row["settled_at_us"],
                 ),
             )
@@ -2863,6 +2891,12 @@ class HedgeOpenStore:
                     "accrued_funding": "0",
                     "borrow_interest": "0",
                     "net_pnl": "0",
+                    # 手续费成本 V1 阶段一占位（10-design §5.1 / D11）：键名先冻死，
+                    # 值恒为 None/None/True——真实聚合（只汇总 open 腿折 U）由后续
+                    # 任务接入。incomplete=True 是诚实默认：还没查过成交明细 ≠ 0。
+                    "trading_fee_usdt": None,
+                    "fee_bnb_qty": None,
+                    "trading_fee_incomplete": True,
                 }
             )
         positions.sort(

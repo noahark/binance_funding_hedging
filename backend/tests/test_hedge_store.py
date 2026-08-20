@@ -702,6 +702,95 @@ def test_migrate_creates_cycle_schema_idempotent(tmp_path):
     store2.close()
 
 
+# ---------------------------------------------------------------------------
+# 手续费成本 V1 阶段一（10-design D1/D11）：加列迁移、_row_to_leg 映射、
+# insert_close_log 默认值（不全=1，金额/数量 NULL——「还没算」不是 0）。
+# ---------------------------------------------------------------------------
+
+_LEG_FEE_COLUMNS = {"fee_bnb_qty", "fee_bnb_price", "fee_other_qty", "fee_other_asset"}
+_CLOG_FEE_COLUMNS = {"trading_fee_usdt", "fee_bnb_qty", "trading_fee_incomplete"}
+
+
+def test_fee_columns_added_and_idempotent(tmp_path):
+    db = str(tmp_path / "ho.sqlite3")
+    store = HedgeOpenStore(db)
+    store.close()
+    # 模拟旧库：抹掉新列后重开，_migrate 必须按 ALTER 守卫补列且不报错。
+    raw = sqlite3.connect(db)
+    for col in sorted(_LEG_FEE_COLUMNS):
+        raw.execute(f"ALTER TABLE hedge_open_leg DROP COLUMN {col}")
+    for col in sorted(_CLOG_FEE_COLUMNS):
+        raw.execute(f"ALTER TABLE hedge_open_cycle_close_log DROP COLUMN {col}")
+    raw.commit()
+    raw.close()
+
+    store2 = HedgeOpenStore(db)
+    leg_cols = {r[1] for r in store2._conn.execute("PRAGMA table_info(hedge_open_leg)")}
+    assert _LEG_FEE_COLUMNS <= leg_cols
+    clog_info = {r[1]: (r[3], r[4]) for r in store2._conn.execute(
+        "PRAGMA table_info(hedge_open_cycle_close_log)")}
+    assert _CLOG_FEE_COLUMNS <= set(clog_info)
+    # D11：NOT NULL + DEFAULT 1（不全），禁止 DEFAULT 0。
+    assert clog_info["trading_fee_incomplete"] == (1, "1")
+
+    # 再次重开（列已存在）：守卫跳过，幂等。
+    store2.close()
+    store3 = HedgeOpenStore(db)
+    leg_cols3 = {r[1] for r in store3._conn.execute("PRAGMA table_info(hedge_open_leg)")}
+    assert leg_cols3 == leg_cols
+    store3.close()
+
+
+def test_row_to_leg_maps_fee_columns(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store)
+    _apply(store, "t1", _outcome(), 1_100)
+    row = store._conn.execute(
+        "SELECT id, attempt_id FROM hedge_open_leg ORDER BY id LIMIT 1"
+    ).fetchone()
+    store._conn.execute(
+        "UPDATE hedge_open_leg SET fee_bnb_qty = '0.001', fee_bnb_price = '600',"
+        " fee_other_qty = '0.01', fee_other_asset = 'USDT' WHERE id = ?",
+        (row["id"],),
+    )
+    store._conn.commit()
+    leg = next(
+        l for l in store.list_legs_for_attempt(row["attempt_id"])
+        if l["id"] == row["id"]
+    )
+    assert leg["fee_bnb_qty"] == "0.001"
+    assert leg["fee_bnb_price"] == "600"
+    assert leg["fee_other_qty"] == "0.01"
+    assert leg["fee_other_asset"] == "USDT"
+    store.close()
+
+
+def test_insert_close_log_fee_defaults_and_round_trip(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    base = {
+        "cycle_id": "c1", "symbol": "BTCUSDT", "direction": D.DIR_FORWARD,
+        "opened_at_us": 1_000, "closed_at_us": 2_000,
+        "close_reason": D.CLOSE_REASON_AUTO_CLOSE, "settled_at_us": 2_100,
+    }
+    store.insert_close_log(dict(base))
+    # 未传入：默认「不全」且金额/数量 NULL——绝不把「还没算」写成 0。
+    log = store.list_close_logs()[0]
+    assert log["trading_fee_usdt"] is None
+    assert log["fee_bnb_qty"] is None
+    assert log["trading_fee_incomplete"] == 1
+
+    store.insert_close_log({
+        **base, "cycle_id": "c2",
+        "trading_fee_usdt": "1.23", "fee_bnb_qty": "0.5",
+        "trading_fee_incomplete": 0,
+    })
+    done = next(l for l in store.list_close_logs() if l["cycle_id"] == "c2")
+    assert done["trading_fee_usdt"] == "1.23"
+    assert done["fee_bnb_qty"] == "0.5"
+    assert done["trading_fee_incomplete"] == 0
+    store.close()
+
+
 @pytest.mark.parametrize(
     ("direction", "task_type", "spot_price", "perp_price"),
     [

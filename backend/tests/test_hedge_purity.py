@@ -222,6 +222,8 @@ _MONEY_ZERO_SCOPE = [HEDGE_PKG, _LIVE_EXECUTOR]
 _MONEY_NAMES = {
     "price", "avg_price", "notional", "quote",
     "cumulative_quote_amt", "cumulative_quote",
+    # 手续费成本 V1（10-design §4.2）：四个费用字段是钱，缺失不得被 coerce 成 0。
+    "fee_bnb_price", "fee_bnb_qty", "fee_other_qty", "trading_fee_usdt",
 }
 _MONEY_SUFFIXES = ("_notional", "_avg_price", "_quote")
 # Explicitly NOT money: quantity figures (a not-yet-filled leg genuinely fills 0).
