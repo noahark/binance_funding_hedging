@@ -5589,9 +5589,18 @@ setTimeout(async () => {
     {
       helpers.resetHedgeStateForTest();
       // 纯函数辅助验证
-      if (typeof helpers.computeHedgeOpenBasisPnl !== 'function' || typeof helpers.formatHedgeBasisPnl !== 'function') {
-        throw new Error('computeHedgeOpenBasisPnl 或 formatHedgeBasisPnl 未暴露');
+      if (typeof helpers.computeHedgeOpenBasisRate !== 'function' || typeof helpers.formatHedgeBasisPct !== 'function'
+          || typeof helpers.computeHedgeOpenBasisPnl !== 'function' || typeof helpers.formatHedgeBasisPnl !== 'function') {
+        throw new Error('computeHedgeOpenBasisRate / Pnl 或 formatHedgeBasisPct / Pnl 未暴露');
       }
+      // computeHedgeOpenBasisRate & formatHedgeBasisPct 纯函数验证
+      const rFwd = helpers.computeHedgeOpenBasisRate('100.0', '101.0', 'forward');
+      if (Math.abs(rFwd - 0.01) > 1e-6) throw new Error('computeHedgeOpenBasisRate forward 错误: ' + rFwd);
+      const rRev = helpers.computeHedgeOpenBasisRate('101.0', '100.0', 'reverse');
+      if (Math.abs(rRev - 0.01) > 1e-6) throw new Error('computeHedgeOpenBasisRate reverse 错误: ' + rRev);
+      if (helpers.formatHedgeBasisPct(0.009868) !== '+0.9868%') throw new Error('formatHedgeBasisPct 格式化错误');
+      if (helpers.formatHedgeBasisPct(-0.000042) !== '-0.0042%') throw new Error('formatHedgeBasisPct 负数格式化错误');
+
       // forward: (perp - spot) * qty
       const fwdP = helpers.computeHedgeOpenBasisPnl('100.0', '101.5', 'forward', 10);
       if (Math.abs(fwdP - 15.0) > 1e-6) throw new Error('forward 盈利计算错误: ' + fwdP);
@@ -5630,6 +5639,8 @@ setTimeout(async () => {
             { coin: 'REVNUSDT', direction: 'reverse', position_qty: 10, spot_avg: '99.50', perp_avg: '100.00' },
             // 零价差：spot 100, perp 100, qty 10 -> 0.0000%, 0.00 U (muted)
             { coin: 'ZEROPUSDT', direction: 'forward', position_qty: -10, spot_avg: '100.00', perp_avg: '100.00' },
+            // 亚分位金额（四舍五入 0.00 U）：spot 100, perp 100.0004, qty 10 -> 0.004 U -> 0.00 U (muted，不带彩)
+            { coin: 'SUBCENTUSDT', direction: 'forward', position_qty: -10, spot_avg: '100.00', perp_avg: '100.0004' },
             // 缺均价（no_task 行）：spot null -> —（单行无副行）
             { coin: 'NOTASKUSDT', direction: 'forward', position_qty: -10, spot_avg: null, perp_avg: '100.00' }
           ],
@@ -5641,25 +5652,31 @@ setTimeout(async () => {
       const posHtml = elements['private-panel-body'].innerHTML;
 
       // 验证单元格渲染（列序号 12 为开单价差率）
+      // B1: 严格断言副行自身的 class（side-line small positive/negative/muted），避免被 td 上的 class 假阳性满足
       const cellFwdP = getRowCell(posHtml, 'FWDPUSDT', 12);
-      if (!cellFwdP.includes('+1.0000%') || !cellFwdP.includes('+10.00 U') || !cellFwdP.includes('positive')) {
+      if (!cellFwdP.includes('+1.0000%') || !cellFwdP.includes('+10.00 U') || !cellFwdP.includes('side-line small positive')) {
         throw new Error('正向盈利价差率单元格渲染错误: ' + cellFwdP);
       }
       const cellFwdN = getRowCell(posHtml, 'FWDNUSDT', 12);
-      if (!cellFwdN.includes('-0.5025%') || !cellFwdN.includes('-5.00 U') || !cellFwdN.includes('negative')) {
+      if (!cellFwdN.includes('-0.5025%') || !cellFwdN.includes('-5.00 U') || !cellFwdN.includes('side-line small negative')) {
         throw new Error('正向亏损价差率单元格渲染错误: ' + cellFwdN);
       }
       const cellRevP = getRowCell(posHtml, 'REVPUSDT', 12);
-      if (!cellRevP.includes('+1.0000%') || !cellRevP.includes('+10.00 U') || !cellRevP.includes('positive')) {
+      if (!cellRevP.includes('+1.0000%') || !cellRevP.includes('+10.00 U') || !cellRevP.includes('side-line small positive')) {
         throw new Error('反向盈利价差率单元格渲染错误: ' + cellRevP);
       }
       const cellRevN = getRowCell(posHtml, 'REVNUSDT', 12);
-      if (!cellRevN.includes('-0.5025%') || !cellRevN.includes('-5.00 U') || !cellRevN.includes('negative')) {
+      if (!cellRevN.includes('-0.5025%') || !cellRevN.includes('-5.00 U') || !cellRevN.includes('side-line small negative')) {
         throw new Error('反向亏损价差率单元格渲染错误: ' + cellRevN);
       }
       const cellZero = getRowCell(posHtml, 'ZEROPUSDT', 12);
-      if (!cellZero.includes('0.0000%') || !cellZero.includes('0.00 U')) {
+      if (!cellZero.includes('0.0000%') || !cellZero.includes('0.00 U') || !cellZero.includes('side-line small muted')) {
         throw new Error('零价差单元格渲染错误: ' + cellZero);
+      }
+      // B2: 亚分位 0.004 四舍五入为 0.00 U 时，class 应为 muted（灰色），不得出现彩色 0.00 U
+      const cellSubCent = getRowCell(posHtml, 'SUBCENTUSDT', 12);
+      if (!cellSubCent.includes('0.00 U') || !cellSubCent.includes('side-line small muted')) {
+        throw new Error('亚分位金额应展示灰色 0.00 U: ' + cellSubCent);
       }
       const cellNoTask = getRowCell(posHtml, 'NOTASKUSDT', 12);
       if (!cellNoTask.includes('—') || cellNoTask.includes('<br')) {

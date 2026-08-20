@@ -7099,13 +7099,14 @@
           // 否则「暂无」（不画 0.00）。R2：真值 0 与缺失必须可区分。
           const hasUm = !(p.um_position_amt === null || p.um_position_amt === undefined || p.um_position_amt === '');
           const posQty = hasUm
-            ? (p.um_position_amt !== null && p.um_position_amt !== undefined && p.um_position_amt !== '' ? Math.abs(hedgeNum(p.um_position_amt)) : NaN)
+            ? Math.abs(hedgeNum(p.um_position_amt))
             : (p.position_qty !== null && p.position_qty !== undefined && p.position_qty !== '' ? Math.abs(hedgeNum(p.position_qty)) : NaN);
           const basisPnl = computeHedgeOpenBasisPnl(p.spot_avg, p.perp_avg, p.direction, posQty);
-          const basisPnlCls = classForSignedNumber(basisPnl);
+          const basisPnlRounded = Number.isFinite(basisPnl) ? Number(basisPnl.toFixed(2)) : NaN;
+          const basisPnlCls = classForSignedNumber(basisPnlRounded);
           const basisPnlText = formatHedgeBasisPnl(basisPnl);
           const basisPnlLine = (Number.isFinite(basisPnl) && basisPnlText)
-            ? `<br/><span class="side-line small ${basisPnlCls}" title="开单价差实际盈亏（折算 USDT）">${escapeHtml(basisPnlText)}</span>`
+            ? `<br/><span class="side-line small ${basisPnlCls}" title="按当前持仓数量折算的开单价差实际盈亏（USDT）">${escapeHtml(basisPnlText)}</span>`
             : '';
           const upnlPresent = !(p.unrealized_profit === null || p.unrealized_profit === undefined || p.unrealized_profit === '');
           const pnlReal = hasUm && upnlPresent;
