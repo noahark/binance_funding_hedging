@@ -5674,6 +5674,20 @@
           const feeNum = hedgeNum(r.funding_fee);
           const feeCls = (r.funding_fee === null || r.funding_fee === undefined || r.funding_fee === '')
             ? '' : (Number.isFinite(feeNum) ? classForSignedNumber(feeNum) : '');
+          // 手续费成本（2026-08-19-hedge-order-fee-cost-v1 §5.2 / D10/D11）：关仓时冻结的
+          // 开+平全部腿折 U 合计。trading_fee_incomplete 为 1/true 或金额为 null → 单行「—」，
+          // 不画半截金额或半截 BNB 数量；完整时主行两位小数 U（成本按负向着色），
+          // 有 fee_bnb_qty 时第二行写 BNB 数量。
+          const tFeeIncomplete = r.trading_fee_incomplete === 1 || r.trading_fee_incomplete === true;
+          const tFeeBlank = r.trading_fee_usdt === null || r.trading_fee_usdt === undefined || r.trading_fee_usdt === '';
+          const tFeeText = (!tFeeIncomplete && !tFeeBlank) ? formatUsdt2(r.trading_fee_usdt) : null;
+          const tFeeBnbBlank = r.fee_bnb_qty === null || r.fee_bnb_qty === undefined || r.fee_bnb_qty === '';
+          const tFeeBnbLine = (tFeeText !== null && !tFeeBnbBlank)
+            ? `<br/><span class="side-line muted small">${escapeHtml(formatHedgeDecimal(r.fee_bnb_qty))} BNB</span>`
+            : '';
+          const tFeeCellHtml = tFeeText === null
+            ? '<span class="muted">—</span>'
+            : `<span class="negative">${tFeeText}</span>${tFeeBnbLine}`;
           return `
             <tr>
               <td class="mono">${escapeHtml(r.symbol)}</td>
@@ -5691,6 +5705,7 @@
               <td class="mono">${r.spot_close_avg != null ? formatHedgeAvgPrice(r.spot_close_avg) : '<span class="muted">—</span>'}</td>
               <td class="mono">${r.borrow_interest != null ? escapeHtml(r.borrow_interest) : '<span class="muted">—</span>'}</td>
               <td class="mono ${feeCls}">${r.funding_fee != null ? escapeHtml(r.funding_fee) : '<span class="muted">—</span>'}</td>
+              <td class="mono">${tFeeCellHtml}</td>
               <!-- 2026-08：开/平单两腿真实成交数量加权均价价差百分比；(卖出腿均价 - 买入腿均价) / min(两腿均价) * 100，卖价高于买价为正 -->
               <td class="mono ${classForSignedNumber(hedgeNum(r.open_slippage))}">${r.open_slippage != null ? Number(r.open_slippage).toFixed(4) + '%' : '<span class="muted">—</span>'}</td>
               <td class="mono ${classForSignedNumber(hedgeNum(r.close_slippage))}">${r.close_slippage != null ? Number(r.close_slippage).toFixed(4) + '%' : '<span class="muted">—</span>'}</td>
@@ -5713,10 +5728,11 @@
               <th>现货卖出均价</th>
               <th>总借币利息</th>
               <th>总资金费率收益</th>
+              <th title="该周期开仓+平仓全部腿成交手续费折 U 合计（BNB 按写入时冻价折算）；数据不全显示 —">手续费成本</th>
               <th title="开单现货与合约两腿真实成交数量加权均价价差 %：(卖出腿均价 - 买入腿均价) / min(两腿均价) × 100；卖价高于买价为正">总计开单滑点 %</th>
               <th title="平单现货与合约两腿真实成交数量加权均价价差 %：(卖出腿均价 - 买入腿均价) / min(两腿均价) × 100；卖价高于买价为正">总计平单滑点 %</th>
             </tr></thead>
-            <tbody>${rowsHtml || '<tr><td colspan="16"><span class="muted small">暂无已平仓周期记录；平仓任务完成后在此展示结算日志</span></td></tr>'}</tbody>
+            <tbody>${rowsHtml || '<tr><td colspan="17"><span class="muted small">暂无已平仓周期记录；平仓任务完成后在此展示结算日志</span></td></tr>'}</tbody>
           </table></div>`;
       }
 
@@ -7066,6 +7082,20 @@
           const fundingNum = (p.accrued_funding === null || p.accrued_funding === undefined || p.accrued_funding === '')
             ? NaN : hedgeNum(p.accrued_funding);
           const fundingCls = Number.isFinite(fundingNum) ? classForSignedNumber(fundingNum) : '';
+          // 手续费成本（2026-08-19-hedge-order-fee-cost-v1 §5.1 / D10/D11）：本周期开仓腿
+          // 成交手续费折 U（写入时冻价）。trading_fee_incomplete 为 true/1、金额为 null、
+          // 或 no_task 行本就缺键 → 单行「—」，绝不画半截金额或半截 BNB 数量；完整时主行
+          // 两位小数 U（成本按负向着色），有 fee_bnb_qty 时第二行写 BNB 数量。
+          const feeIncomplete = p.trading_fee_incomplete === true || p.trading_fee_incomplete === 1;
+          const feeUsdtBlank = p.trading_fee_usdt === null || p.trading_fee_usdt === undefined || p.trading_fee_usdt === '';
+          const feeUsdtText = (!feeIncomplete && !feeUsdtBlank) ? formatUsdt2(p.trading_fee_usdt) : null;
+          const feeBnbBlank = p.fee_bnb_qty === null || p.fee_bnb_qty === undefined || p.fee_bnb_qty === '';
+          const feeBnbLine = (feeUsdtText !== null && !feeBnbBlank)
+            ? `<br/><span class="side-line muted small">${escapeHtml(formatHedgeDecimal(p.fee_bnb_qty))} BNB</span>`
+            : '';
+          const feeCellHtml = feeUsdtText === null
+            ? '<span class="muted">—</span>'
+            : `<span class="negative">${feeUsdtText}</span>${feeBnbLine}`;
           // 行标记（只展示、不动作）。
           const markers = [];
           // G1: explicit match status — the backend knows both sides, so the UI
@@ -7137,13 +7167,14 @@
                         <td class="mono"${spotAvgTitle}>${formatHedgeAvgPrice(p.spot_avg)}</td>
                         <td class="mono"${perpAvgTitle}>${formatHedgeAvgPrice(p.perp_avg)}</td>
                         <td class="mono ${basisCls}">${formatHedgeBasisPct(basisRate)}</td>
+                        <td class="mono">${feeCellHtml}</td>
                         <td class="mono ${fundingCls}">${stats2Cell(p.accrued_funding, false)}</td>
                         <td class="mono ${netPnlCls}">${stats2Cell(p.net_pnl, true)}</td>
                         <td class="hedge-op-cell">${renderHedgeCloseInputs(p)}</td>
                         <td class="small">${markerText}</td>
                       </tr>
                     `;
-        }).join('') : `<tr><td colspan="17"><span class="muted small">暂无开单持仓；任务成交后按币种聚合展示</span></td></tr>`;
+        }).join('') : `<tr><td colspan="18"><span class="muted small">暂无开单持仓；任务成交后按币种聚合展示</span></td></tr>`;
         // Multi-source freshness: earliest of UM + unified + spot; any null → not-ready
         // (never invents a complete time from remaining sources). Prefer snapshot
         // private_account.source_checked_at; fall back to positions account meta.
@@ -7178,6 +7209,7 @@
                     <th>现货均价</th>
                     <th>合约均价</th>
                     <th>开单价差率</th>
+                    <th title="本周期开仓两腿成交手续费折 U 合计（BNB 按写入时冻价折算）；数据不全显示 —">手续费成本</th>
                     <th>累计资金费</th>
                     <th>净盈亏</th>
                     <th title="立即平仓：仿开单交互——单次平仓币量 + 计划尝试次数，确认后创建平仓任务（功能三，当前为界面预览）">立即平仓</th>
