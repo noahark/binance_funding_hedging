@@ -33,6 +33,13 @@ This file is the canonical approved roadmap.
     review accepted, XLM specified-amount and INJ full repayment live-verified,
     Human final acceptance 2026-08-10.** The independent repayment gate remains
     enabled by Human decision; automatic repayment is still out of scope.
+11. **Hedge order trading fee costing and BNB price freezing v1 (成交手续费冻价成本 V1).
+    Done — Phase 1/2/3 delivered, dual review accepted across all phases (Kimi ACCEPT +
+    Opus 5 ACCEPT), 268/269 historical legs backfilled, real-time commit-first write
+    live-verified, merged to main and deployed 2026-08-20.** Position table renders
+    realtime USD-equivalent fee costs and BNB quantity; close cycles freeze total fee costs
+    on close; legacy close logs remain immutable.
+
 
 ## 持仓周期三功能（2026-08 交付，Human 验收通过）
 

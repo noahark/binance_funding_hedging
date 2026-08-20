@@ -84,6 +84,17 @@ future contract stage.
   coverage on both legs; manual/timeout consume the same gate before the
   existing concurrent two-leg executor. Accepted limits and F-A are recorded
   in `PROJECT_STATE.md`.
+- Hedge order trading fees and BNB price freezing (`backend/hedge_open_tasks/fee_fetcher.py`):
+  Every filled order leg persists four immutable fee columns (`fee_bnb_qty`, `fee_bnb_price`,
+  `fee_other_qty`, `fee_other_asset`). Realtime writes use a strict commit-first hook (order
+  status is committed before any fee I/O; failure logs an audit event and never modifies
+  terminal state). Spot/margin/UM trade detail fetches are whitelisted and isolated.
+  BNB price is frozen at order fill time (minute-level K-line close price for backfill,
+  in-memory price cache <=300s or public price for realtime). Position aggregation computes
+  USD-equivalent fees using `cumulative_quote_amt / cumulative_base_qty` vwap (avg_price forbidden);
+  if any participating leg is incomplete, returns `incomplete=True` and `None` (fail-closed,
+  displaying `—`). Close cycles freeze aggregated fees into `close_log` upon close; historical
+  close logs remain immutable audit records.
 
 ## Data Flow
 
