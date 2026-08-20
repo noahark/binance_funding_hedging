@@ -628,7 +628,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 ## Last Completed
 - stage: `2026-08-19-hedge-order-fee-cost-v1`
 - archive_ref: `archive/2026-08-19-hedge-order-fee-cost-v1`（tip `08fce61`）
-- delivery: `3bc6aca..45eb5ec`；`rework_count` 0。Phase 1/2/3 全部通过双评审（Kimi ACCEPT + Opus 5 ACCEPT）。Human 授权已合并 `main`（`merge: dd736b9`）并重新部署 8787 服务。
+- delivery: `58fe082..45eb5ec`；`rework_count` 0。Phase 1/2/3 全部通过双评审（Kimi ACCEPT + Opus 5 ACCEPT）。Human 授权已合并 `main`（`merge: dd736b9`）并重新部署 8787 服务。
 - recorded_completed_at: `2026-08-20`
 - outcome: 成交手续费冻价成本 V1。完成 `hedge_open_leg` 四列手续费字段扩展与回补（268/269 腿成功入库）、`hedge_open_cycle_close_log` 三列历史关仓手续费字段现算聚合、持仓表 `aggregate_positions` 读链路真实折 U 聚合（quote/base 均价、宁缺毋滥 D10/D11 契约）、三处终态 commit-first 实时写入与 D4 现价冻结，实盘验证 `NOMUSDT` 自动落库记账。
 - follow-ups: 币安 UM 合约历史成交受约 7 天接口限制，老单（如 TSTUSDT 9.6 天前合约腿）返回空列表按契约安全显示 `—`。
