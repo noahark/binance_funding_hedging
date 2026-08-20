@@ -5335,12 +5335,20 @@ setTimeout(async () => {
       }
       // 开单价差率由均价现算（后端 open_basis_rate 占位 "0" 不采用）：
       // AUSDT forward (102.3333-101.3333)/101.3333 → +0.9868%
+      //   第二行实际盈亏 (102.3333-101.3333)*6 → +6.00 U (positive)
       // RSR reverse (0.00125-0.001246)/0.001246 → +0.3210%
+      //   第二行实际盈亏 (0.00125-0.001246)*10000 → +0.04 U (positive)
       if (!privHtml.includes('+0.9868%')) {
         throw new Error('AUSDT 开单价差率期望 +0.9868%，实际 HTML 未包含: ' + privHtml);
       }
+      if (!privHtml.includes('+6.00 U')) {
+        throw new Error('AUSDT 开单价差实际盈亏期望 +6.00 U，实际 HTML 未包含: ' + privHtml);
+      }
       if (!privHtml.includes('+0.3210%')) {
         throw new Error('RSR 开单价差率期望 +0.3210%，实际 HTML 未包含: ' + privHtml);
+      }
+      if (!privHtml.includes('+0.04 U')) {
+        throw new Error('RSR 开单价差实际盈亏期望 +0.04 U，实际 HTML 未包含: ' + privHtml);
       }
       if (privHtml.includes('本地模拟')) throw new Error('持仓表不应再标注本地模拟');
       if (helpers.getHedgePositions().length !== 2) throw new Error('持仓缓存应来自 positions 端点');
@@ -5572,6 +5580,108 @@ setTimeout(async () => {
       await helpers.loadHedgePositions();
       helpers.ingestSnapshot(designFixture);
       console.log('[PASS] 手续费成本列：持仓/历史表头位置、incomplete/缺键单行 —、完整折 U+BNB 双行、历史空态 colspan=17');
+    }
+
+    // 83a1b. 持仓表开单价差率第二行（折算 USDT 实际盈亏）：
+    //        正向盈利 (perp>spot) 绿 / 正向亏损 (perp<spot) 红；
+    //        反向盈利 (spot>perp) 绿 / 反向亏损 (spot<perp) 红；
+    //        零价差灰 0.00 U；缺失均价/no_task 单行 —；隐私模式 ****。
+    {
+      helpers.resetHedgeStateForTest();
+      // 纯函数辅助验证
+      if (typeof helpers.computeHedgeOpenBasisPnl !== 'function' || typeof helpers.formatHedgeBasisPnl !== 'function') {
+        throw new Error('computeHedgeOpenBasisPnl 或 formatHedgeBasisPnl 未暴露');
+      }
+      // forward: (perp - spot) * qty
+      const fwdP = helpers.computeHedgeOpenBasisPnl('100.0', '101.5', 'forward', 10);
+      if (Math.abs(fwdP - 15.0) > 1e-6) throw new Error('forward 盈利计算错误: ' + fwdP);
+      const fwdN = helpers.computeHedgeOpenBasisPnl('100.0', '99.5', 'forward', 10);
+      if (Math.abs(fwdN - (-5.0)) > 1e-6) throw new Error('forward 亏损计算错误: ' + fwdN);
+      // reverse: (spot - perp) * qty
+      const revP = helpers.computeHedgeOpenBasisPnl('101.5', '100.0', 'reverse', 10);
+      if (Math.abs(revP - 15.0) > 1e-6) throw new Error('reverse 盈利计算错误: ' + revP);
+      const revN = helpers.computeHedgeOpenBasisPnl('99.5', '100.0', 'reverse', 10);
+      if (Math.abs(revN - (-5.0)) > 1e-6) throw new Error('reverse 亏损计算错误: ' + revN);
+      // zero
+      const zeroP = helpers.computeHedgeOpenBasisPnl('100.0', '100.0', 'forward', 10);
+      if (zeroP !== 0) throw new Error('zero 计算错误: ' + zeroP);
+      // invalid
+      if (!Number.isNaN(helpers.computeHedgeOpenBasisPnl(null, '100.0', 'forward', 10))) {
+        throw new Error('null 均价应返回 NaN');
+      }
+      // 格式化验证
+      if (helpers.formatHedgeBasisPnl(15.0) !== '+15.00 U') throw new Error('format +15.00 U 错误');
+      if (helpers.formatHedgeBasisPnl(-5.0) !== '-5.00 U') throw new Error('format -5.00 U 错误');
+      if (helpers.formatHedgeBasisPnl(0) !== '0.00 U') throw new Error('format 0.00 U 错误');
+      if (helpers.formatHedgeBasisPnl(NaN) !== '') throw new Error('format NaN 应返回空串');
+
+      // 渲染验证：构造各场景持仓行
+      hedgePositionsGetResponse = {
+        status: 200,
+        body: {
+          positions: [
+            // 正向盈利：spot 100, perp 101, qty 10 -> +1.0000%, +10.00 U (positive)
+            { coin: 'FWDPUSDT', direction: 'forward', position_qty: -10, spot_avg: '100.00', perp_avg: '101.00' },
+            // 正向亏损：spot 100, perp 99.5, qty 10 -> -0.5025%, -5.00 U (negative)
+            { coin: 'FWDNUSDT', direction: 'forward', position_qty: -10, spot_avg: '100.00', perp_avg: '99.50' },
+            // 反向盈利：spot 101, perp 100, qty 10 -> +1.0000%, +10.00 U (positive)
+            { coin: 'REVPUSDT', direction: 'reverse', position_qty: 10, spot_avg: '101.00', perp_avg: '100.00' },
+            // 反向亏损：spot 99.5, perp 100, qty 10 -> -0.5025%, -5.00 U (negative)
+            { coin: 'REVNUSDT', direction: 'reverse', position_qty: 10, spot_avg: '99.50', perp_avg: '100.00' },
+            // 零价差：spot 100, perp 100, qty 10 -> 0.0000%, 0.00 U (muted)
+            { coin: 'ZEROPUSDT', direction: 'forward', position_qty: -10, spot_avg: '100.00', perp_avg: '100.00' },
+            // 缺均价（no_task 行）：spot null -> —（单行无副行）
+            { coin: 'NOTASKUSDT', direction: 'forward', position_qty: -10, spot_avg: null, perp_avg: '100.00' }
+          ],
+          account: { verified: true, error: null, checked_at: null }
+        }
+      };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      const posHtml = elements['private-panel-body'].innerHTML;
+
+      // 验证单元格渲染（列序号 12 为开单价差率）
+      const cellFwdP = getRowCell(posHtml, 'FWDPUSDT', 12);
+      if (!cellFwdP.includes('+1.0000%') || !cellFwdP.includes('+10.00 U') || !cellFwdP.includes('positive')) {
+        throw new Error('正向盈利价差率单元格渲染错误: ' + cellFwdP);
+      }
+      const cellFwdN = getRowCell(posHtml, 'FWDNUSDT', 12);
+      if (!cellFwdN.includes('-0.5025%') || !cellFwdN.includes('-5.00 U') || !cellFwdN.includes('negative')) {
+        throw new Error('正向亏损价差率单元格渲染错误: ' + cellFwdN);
+      }
+      const cellRevP = getRowCell(posHtml, 'REVPUSDT', 12);
+      if (!cellRevP.includes('+1.0000%') || !cellRevP.includes('+10.00 U') || !cellRevP.includes('positive')) {
+        throw new Error('反向盈利价差率单元格渲染错误: ' + cellRevP);
+      }
+      const cellRevN = getRowCell(posHtml, 'REVNUSDT', 12);
+      if (!cellRevN.includes('-0.5025%') || !cellRevN.includes('-5.00 U') || !cellRevN.includes('negative')) {
+        throw new Error('反向亏损价差率单元格渲染错误: ' + cellRevN);
+      }
+      const cellZero = getRowCell(posHtml, 'ZEROPUSDT', 12);
+      if (!cellZero.includes('0.0000%') || !cellZero.includes('0.00 U')) {
+        throw new Error('零价差单元格渲染错误: ' + cellZero);
+      }
+      const cellNoTask = getRowCell(posHtml, 'NOTASKUSDT', 12);
+      if (!cellNoTask.includes('—') || cellNoTask.includes('<br')) {
+        throw new Error('缺均价行应单行显示 —: ' + cellNoTask);
+      }
+
+      // 隐私模式脱敏：金额脱敏为 ****，百分比保留
+      helpers.togglePrivacy();
+      helpers.renderPrivatePanel();
+      const privMaskHtml = elements['private-panel-body'].innerHTML;
+      const cellFwdPMask = getRowCell(privMaskHtml, 'FWDPUSDT', 12);
+      if (!cellFwdPMask.includes('+1.0000%') || !cellFwdPMask.includes('****')) {
+        throw new Error('隐私模式下开单价差实际盈亏应脱敏为 ****: ' + cellFwdPMask);
+      }
+      // 恢复隐私状态
+      helpers.togglePrivacy();
+
+      // 恢复默认 mock，避免影响后续用例。
+      hedgePositionsGetResponse = { status: 200, body: { positions: [], account: { verified: true, error: null, checked_at: null } } };
+      await helpers.loadHedgePositions();
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] 开单价差率第二行实际盈亏：双向盈利/亏损着色、零价差、缺均价降级 —、隐私脱敏');
     }
 
     // 83a2. 统一账户余额卡的实时未还利息行（快照 cross_margin_interest，

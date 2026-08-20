@@ -5549,6 +5549,22 @@
         return NaN;
       }
 
+      // 开单价差实际盈亏（折算 USDT）：
+      // 正向（现多期空）：(perp - spot) * qty
+      // 反向（现空期多）：(spot - perp) * qty
+      // 返回数字（USDT 金额，正=盈利绿，负=亏损/成本红）。
+      function computeHedgeOpenBasisPnl(spotAvg, perpAvg, direction, qty) {
+        const spot = hedgeNum(spotAvg);
+        const perp = hedgeNum(perpAvg);
+        const q = hedgeNum(qty);
+        if (!Number.isFinite(spot) || !Number.isFinite(perp) || !Number.isFinite(q) || spot <= 0 || perp <= 0 || q <= 0) {
+          return NaN;
+        }
+        if (direction === 'forward') return (perp - spot) * q;
+        if (direction === 'reverse') return (spot - perp) * q;
+        return NaN;
+      }
+
       // rate 为小数比率（非百分数）；展示固定 4 位百分数（如 +0.3210%）。
       function formatHedgeBasisPct(rate) {
         const n = typeof rate === 'number' ? rate : hedgeNum(rate);
@@ -5556,6 +5572,18 @@
         const pct = n * 100;
         const sign = pct > 0 ? '+' : pct < 0 ? '-' : '';
         return `${sign}${Math.abs(pct).toFixed(4)}%`;
+      }
+
+      // 开单价差盈亏金额展示：带 +/- 符号，固定 2 位小数，单位 U（如 +6.00 U、-0.42 U、0.00 U）；隐私态脱敏 ****。
+      function formatHedgeBasisPnl(pnl) {
+        if (state.privacyHidden) return '****';
+        const n = typeof pnl === 'number' ? pnl : hedgeNum(pnl);
+        if (typeof n !== 'number' || !Number.isFinite(n)) return '';
+        const absVal = Math.abs(n);
+        const formatted = absVal.toFixed(2);
+        if (formatted === '0.00') return '0.00 U';
+        const sign = n > 0 ? '+' : '-';
+        return `${sign}${formatted} U`;
       }
 
       function formatHedgeSigned(n) {
@@ -7070,6 +7098,15 @@
           // 未实现盈亏：仅当存在真实 UM 持仓且 unrealized_profit 可解析时才有真值；
           // 否则「暂无」（不画 0.00）。R2：真值 0 与缺失必须可区分。
           const hasUm = !(p.um_position_amt === null || p.um_position_amt === undefined || p.um_position_amt === '');
+          const posQty = hasUm
+            ? (p.um_position_amt !== null && p.um_position_amt !== undefined && p.um_position_amt !== '' ? Math.abs(hedgeNum(p.um_position_amt)) : NaN)
+            : (p.position_qty !== null && p.position_qty !== undefined && p.position_qty !== '' ? Math.abs(hedgeNum(p.position_qty)) : NaN);
+          const basisPnl = computeHedgeOpenBasisPnl(p.spot_avg, p.perp_avg, p.direction, posQty);
+          const basisPnlCls = classForSignedNumber(basisPnl);
+          const basisPnlText = formatHedgeBasisPnl(basisPnl);
+          const basisPnlLine = (Number.isFinite(basisPnl) && basisPnlText)
+            ? `<br/><span class="side-line small ${basisPnlCls}" title="开单价差实际盈亏（折算 USDT）">${escapeHtml(basisPnlText)}</span>`
+            : '';
           const upnlPresent = !(p.unrealized_profit === null || p.unrealized_profit === undefined || p.unrealized_profit === '');
           const pnlReal = hasUm && upnlPresent;
           const pnlCls = pnlReal ? classForSignedNumber(hedgeNum(p.price_pnl)) : '';
@@ -7166,7 +7203,7 @@
                         ${renderPositionDualBalanceCell(p, borrowLineHtml)}
                         <td class="mono"${spotAvgTitle}>${formatHedgeAvgPrice(p.spot_avg)}</td>
                         <td class="mono"${perpAvgTitle}>${formatHedgeAvgPrice(p.perp_avg)}</td>
-                        <td class="mono ${basisCls}">${formatHedgeBasisPct(basisRate)}</td>
+                        <td class="mono ${basisCls}">${formatHedgeBasisPct(basisRate)}${basisPnlLine}</td>
                         <td class="mono">${feeCellHtml}</td>
                         <td class="mono ${fundingCls}">${stats2Cell(p.accrued_funding, false)}</td>
                         <td class="mono ${netPnlCls}">${stats2Cell(p.net_pnl, true)}</td>
@@ -9090,6 +9127,10 @@
         showHedgeTaskActionError,
         getHedgeTaskActionErrors: () => state.hedgeTaskActionErrors,
         getHedgePositions: () => state.hedgePositions,
+        computeHedgeOpenBasisRate,
+        computeHedgeOpenBasisPnl,
+        formatHedgeBasisPct,
+        formatHedgeBasisPnl,
         getHedgeSettings: () => state.hedgeSettings,
         getHedgeModal: () => state.hedgeModal,
         // ---- 开单日志页（15 号修正案 §开单日志页 / 16 号拆分 §5） ----
