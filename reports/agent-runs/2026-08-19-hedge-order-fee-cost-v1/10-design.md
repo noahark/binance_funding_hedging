@@ -1,10 +1,10 @@
 # 10-design：成交手续费冻价成本 V1
 
-状态：**Planner r3（第二轮计划评审 B1a/B1b）。等待 Human 决定是否再评一次；未授权改源码、重启服务、创建任务、下单、push、merge 或部署。**
-日期：2026-08-19；r2：2026-08-20；r3：2026-08-20
+状态：**Planner r4（计划评审已 ACCEPT；对齐 Human 五步实施顺序）。未授权改源码、重启服务、创建任务、下单、push、merge 或部署。**
+日期：2026-08-19；r2–r3：2026-08-20；r4：2026-08-20
 作者：Grok 4.6（xAI），Human 对话拍板
 stage：`2026-08-19-hedge-order-fee-cost-v1`
-修订依据：`evidence/20-plan-review.handoff.md` 勘误 1/2；`evidence/21-plan-review-r2.handoff.md` B1a/B1b（同根因「部分和冒充完整」站点 3、6）
+修订依据：r3 正文；Human 2026-08-20 五步实施顺序（fake 页 → 建表 → 回补 → 读链路 → 实时写入）
 
 ## 1. 为什么要做
 
@@ -152,18 +152,40 @@ stage：`2026-08-19-hedge-order-fee-cost-v1`
 - 不把回补挂进 worker / 启动闸门
 - 不回写已关闭 `close_log` 行
 
-## 7. 风险与拆分
+## 7. 风险、实施顺序与拆包
 
-HIGH_RISK：账务含义、成交确认路径上新的签名 GET、历史回补数百次签名 GET、持仓/历史展示。
+HIGH_RISK：账务含义、成交确认路径上新的签名 GET、历史回补数百次签名 GET、持仓/历史展示。D1–D11 口径不变。
 
-拆包顺序（契约先冻）：
+### 7.1 Human 五步（采纳，两点必须写明）
 
-1. **后端**（`claude_glm`）：建列（腿 4 列 + close_log 3 列）、白名单、终态后一次 GET、两站点回写、持仓聚合、close_log 快照、money-zero 名单、回补脚本与断点、pytest（含两站点夹具、平滑调用上界、回补跳过已写腿）。
-2. **前端**（`kimi`）：持仓列 + 历史列 + 历史空表 colspan=17 + 持仓空表 colspan=18（含 self-check 原 17 断言）+ `self-check.js`。排在后端之后。键名以前端 dispatch 抄后端冻名，不得推断。
+顺序合理：先把格子排对，再建表，再动真实成交明细，最后才把查询接到下单链上。不要 5 个正式 task 各走一轮双评审——按所有权合成 **4 个 task**（第 2 步建表与第 4 步的后端读链路不可分）。
 
-计划评审再一次：跨 provider、只读；作者 xAI，评审者不能是 Grok。
+| 步 | 做什么 | 正式 task | 所有者 |
+|---|---|---|---|
+| 1 | fake 页：持仓/历史手续费列排版、不全与「—」、历史 colspan=17、持仓 colspan=18、self-check。夹具用已冻键名，**不得发明数字当实盘** | **T1** | `kimi` |
+| 2 | 建表：`hedge_open_leg` 4 列 + `close_log` 3 列（`incomplete DEFAULT 1`） | **T2** 前半 | `claude_glm` |
+| 3 | 独立回补脚本：补存量 FILLED 腿；Human 另授才打 live 库 | **T3** | `claude_glm` |
+| 4 | 读链路：`aggregate_positions` / 新关仓的 `insert_close_log` 从腿聚合；前端去掉 fake、接真实 API | **T2** 后半（后端）+ **T4**（前端） | glm → kimi |
+| 5 | 实时写入：两站点终态 commit 之后各 1 次成交明细 GET，复用 T3 的「拉成交 → 写四列」 | **T5** | `claude_glm` |
 
-下一份 dispatch 的 Inputs **禁止**再写不存在的 `backend/store.py`、`backend/services/hedge_open_live_service.py`、`backend/domain/positions.py`。实际路径：`backend/hedge_open_tasks/store.py`、`backend/hedge_open_tasks/service.py`、`backend/services/hedge_open_live_client.py`、`backend/services/live_hedge_executor.py`、`frontend/index.html`、`frontend/self-check.js`。
+T1 可在 T2 之前开工（键已冻）。T3 必须在 T2 建表之后。T4 必须在 T2 读 API 之后；最好在 T3 回补跑完之后再做页面验收，否则持仓仍是「—」。T5 最后：回补期间不要在下单路径上加签名 GET。
+
+**断点 1（历史表，必须告诉操作者）。** 回补只写 **腿**，**不改已关闭的 `close_log` 行**（§5.2 / §6）。因此第 4 步联调时：
+
+- **未平仓持仓**可以显示回补后的开仓手续费；
+- **已经写进历史仓位的旧行**仍是 `incomplete=1`、金额空 → 页面「—」。这不是联调失败。若 Human 要旧历史行也出数，须另授「按已补全的腿重算 close_log」——本轮不做。
+
+**断点 2。** T3 与 T5 之间新成交的腿手续费仍空。T5 上线后用同一回补脚本再跑一遍（已写跳过、只补空腿），不要为此新写一套。
+
+**断点 3。** T3 与 T5 必须共用一个「按腿拉成交并写四列」的函数；禁止脚本一套、下单链再写一套。
+
+T1 若 dispatch 写明「纯展示夹具、不接实盘、不改库、不下单」，可按 `LOW_RISK` 只做一次独立终评。T2–T5 均为 HIGH_RISK。
+
+### 7.2 不再使用的旧拆法
+
+「先整包后端（含实时写入与回补）再前端」废止，改走 §7.1。前端 T1 不得猜测键名，只抄 D11 / §5 已冻名。
+
+下一份 dispatch 的 Inputs **禁止**再写不存在的 `backend/store.py`、`backend/services/hedge_open_live_service.py`、`backend/domain/positions.py`。实际路径：`backend/hedge_open_tasks/store.py`、`backend/hedge_open_tasks/service.py`、`backend/services/hedge_open_live_client.py`、`backend/services/live_hedge_executor.py`、`backend/adapters/binance_public.py`、`scripts/backfill-leg-fees.py`（T3 创建）、`frontend/index.html`、`frontend/self-check.js`。
 
 ## 8. 验收（实现时写入 dispatch）
 
