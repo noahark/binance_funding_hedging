@@ -57,8 +57,8 @@ override 有腐蚀性，例外应写进规则。
 >   （`reports/agent-runs/2026-07-auto-review-pipeline-v1/19-model-routing-convergence-operator-decision.md`）
 >   收敛；当前值以 `agents/registry.yaml` 为准（此处不复述具体值，避免二次漂移）。
 >   下方"仍为 gpt-5.5"是当时事实，保留原文作历史记录。
-> - **Gemini 3.1 Pro future-candidate 事件记录点：仍开放**，作为独立 follow-up，
->   不随本节关闭。
+> - **Gemini 3.1 Pro future-candidate 事件记录点：已关闭。** 现行路由已指定
+>   `gemini-3.7-flash`；下方 2026-07 事件记录保留为未来模型选择的历史证据。
 >
 > 以下为原始记录（verbatim）：
 
