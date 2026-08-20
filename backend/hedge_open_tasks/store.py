@@ -1810,6 +1810,58 @@ class HedgeOpenStore:
             ).fetchall()
             return [_row_to_leg(r) for r in rows]
 
+    # ---------------------------------------- 手续费冻结四列（成本 V1 T3/T5）----
+
+    def update_leg_fees(
+        self, leg_id: int, *, fee_bnb_qty: str | None, fee_bnb_price: str | None,
+        fee_other_qty: str | None, fee_other_asset: str | None,
+    ) -> bool:
+        """写腿上冻结的手续费四列（10-design D1/§4.1）。幂等守卫：仅当四列
+        当前全空才写（§4.3「不改已有非空四列」）——已写入是该腿的历史真值。
+        返回是否实际写入。"""
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "UPDATE hedge_open_leg"
+                " SET fee_bnb_qty = ?, fee_bnb_price = ?,"
+                " fee_other_qty = ?, fee_other_asset = ?"
+                " WHERE id = ?"
+                " AND fee_bnb_qty IS NULL AND fee_bnb_price IS NULL"
+                " AND fee_other_qty IS NULL AND fee_other_asset IS NULL",
+                (fee_bnb_qty, fee_bnb_price, fee_other_qty, fee_other_asset, leg_id),
+            )
+            return cur.rowcount > 0
+
+    def list_legs_missing_fees(
+        self, *, after_id: int = 0, exclude_ids: tuple | list = (),
+        limit: int | None = None,
+    ) -> list[dict]:
+        """手续费回补候选腿（T3，10-design §4.3）：``exchange_status`` 为
+        FILLED、``order_id`` 已知、冻结四列全空、id 大于游标且不在已失败
+        集合。带 attempt→task 的身份列（现货/杠杆路由用 ``spot_symbol``、
+        合约路由用 ``coin``）。按 id 升序。只读。"""
+        sql = (
+            "SELECT l.id, l.leg, l.endpoint, l.order_id, l.dispatched_at_us,"
+            " l.last_query_at_us, t.coin, t.spot_symbol, t.spot_base_asset"
+            " FROM hedge_open_leg l"
+            " JOIN hedge_open_attempt a ON a.id = l.attempt_id"
+            " JOIN hedge_open_task t ON t.id = a.task_id"
+            " WHERE l.exchange_status = ? AND l.order_id IS NOT NULL"
+            " AND l.fee_bnb_qty IS NULL AND l.fee_bnb_price IS NULL"
+            " AND l.fee_other_qty IS NULL AND l.fee_other_asset IS NULL"
+            " AND l.id > ?"
+        )
+        params: list = [D.LEG_FILLED, int(after_id)]
+        ids = [int(i) for i in exclude_ids]
+        if ids:
+            sql += f" AND l.id NOT IN ({','.join('?' * len(ids))})"
+            params.extend(ids)
+        sql += " ORDER BY l.id ASC"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(int(limit))
+        with self._lock:
+            return [dict(r) for r in self._conn.execute(sql, params).fetchall()]
+
     def list_attempts_for_task(self, task_id: str) -> list[dict]:
         with self._lock:
             rows = self._conn.execute(

@@ -76,6 +76,12 @@ _FROZEN_ALLOWLIST = {
     # 统一账户全仓杠杆还款（stage 2026-08-09-pm-margin-repay-v1）：PAPI TRADE，weight 3000，
     # one-shot。与 /papi/v1/repayLoan（经典逐仓，禁止）是不同端点。
     ("POST", "/papi/v1/margin/repay-debt"): _PAPI_HOST,
+    # 成交手续费成本 V1（stage 2026-08-19-hedge-order-fee-cost-v1 §2.2/§4.1）：
+    # 三条成交明细只读 GET（weight 5）。回补（T3）与实时写入（T5）共用；
+    # 每腿至多 1 次、失败不重试。
+    ("GET", "/api/v3/myTrades"): _SPOT_HOST,
+    ("GET", "/papi/v1/margin/myTrades"): _PAPI_HOST,
+    ("GET", "/papi/v1/um/userTrades"): _PAPI_HOST,
 }
 # The two host groups, for the per-group hardcoded-host assertion.
 _PAPI_KEYS = frozenset({
@@ -88,6 +94,8 @@ _PAPI_KEYS = frozenset({
     ("GET", "/papi/v1/rateLimit/order"),
     ("GET", "/papi/v1/um/positionRisk"),    ("POST", "/papi/v1/um/leverage"),  # 统一账户 UM 合约杠杆（2026-08：原 fapi 端点对 PM 账户 401，改 PAPI）
     ("POST", "/papi/v1/margin/repay-debt"),  # 统一账户全仓杠杆还款（stage 2026-08-09-pm-margin-repay-v1）
+    ("GET", "/papi/v1/margin/myTrades"),    # 成交明细（手续费成本 V1，2026-08-19）
+    ("GET", "/papi/v1/um/userTrades"),      # 成交明细（手续费成本 V1，2026-08-19）
 })
 _SPOT_KEYS = frozenset({
     ("GET", "/sapi/v1/margin/restricted-asset"),
@@ -96,6 +104,7 @@ _SPOT_KEYS = frozenset({
     ("GET", "/api/v3/account"),
     ("GET", "/api/v3/rateLimit/order"),
     ("POST", "/sapi/v1/asset/transfer"),
+    ("GET", "/api/v3/myTrades"),   # 普通现货成交明细（手续费成本 V1，2026-08-19）
 })
 _FAPI_KEYS = frozenset()
 
@@ -139,13 +148,13 @@ def test_store_never_invokes_or_holds_an_executor():
 
 # ---- 2. frozen allowlist (recon §3.1/§3.2/§4.1 + decision §E-2 / §4) ----
 def test_allowlist_is_exactly_the_frozen_allowlist():
-    # Exact equality + length 16 (15 + 统一账户全仓杠杆还款 POST /papi/v1/margin/repay-debt):
+    # Exact equality + length 19 (16 + 手续费成本 V1 三条成交明细 GET，2026-08-19):
     # the anti-expansion guard. A missing authorized one both fail here. Not a
     # subset/contains check.
     assert ALLOWLIST == _FROZEN_ALLOWLIST
-    assert len(ALLOWLIST) == 16  # 15 + 统一账户全仓杠杆还款 repay-debt POST（2026-08-09）
-    assert len(_PAPI_KEYS) == 10  # 9 + 统一账户全仓杠杆还款 repay-debt（PAPI TRADE，2026-08-09）
-    assert len(_SPOT_KEYS) == 6
+    assert len(ALLOWLIST) == 19  # 16 + 成交明细 ×3（手续费成本 V1，2026-08-19）
+    assert len(_PAPI_KEYS) == 12  # 10 + PAPI 成交明细 ×2（手续费成本 V1，2026-08-19）
+    assert len(_SPOT_KEYS) == 7   # 6 + 普通现货成交明细（手续费成本 V1，2026-08-19）
     assert len(_FAPI_KEYS) == 0  # 2026-08：杠杆端点改 PAPI 后无 fapi 端点
     assert _PAPI_KEYS.isdisjoint(_SPOT_KEYS)
     assert _PAPI_KEYS.isdisjoint(_FAPI_KEYS)
@@ -215,7 +224,9 @@ def test_credentials_present_reflects_key_and_secret():
 # ---------------------------------------------------------------------------
 
 _LIVE_EXECUTOR = REPO_ROOT / "backend" / "services" / "live_hedge_executor.py"
-_MONEY_ZERO_SCOPE = [HEDGE_PKG, _LIVE_EXECUTOR]
+# 手续费成本 V1（10-design §4.2）：回补脚本也写费用字段，纳入 money-zero 扫描。
+_BACKFILL_SCRIPT = REPO_ROOT / "scripts" / "backfill-leg-fees.py"
+_MONEY_ZERO_SCOPE = [HEDGE_PKG, _LIVE_EXECUTOR, _BACKFILL_SCRIPT]
 
 # Money figure names (00-plan.md §5). A missing value at one of these must stay
 # NULL/None, never become a fabricated 0.

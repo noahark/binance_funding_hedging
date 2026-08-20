@@ -112,6 +112,12 @@ ALLOWLIST: Dict[tuple, str] = {
     # repay_margin_debt 内部冻结 asset + 固定 specifyRepayAssets=USDT，外部无法注入 host/path/
     # 偿还资产。与 /papi/v1/repayLoan（经典逐仓，本通路禁止）是不同端点。
     ("POST", "/papi/v1/margin/repay-debt"): "https://papi.binance.com",
+    # 成交手续费成本 V1（stage 2026-08-19-hedge-order-fee-cost-v1 §2.2/§4.1）：
+    # 三条成交明细只读 GET（按订单查每笔成交的 commission/commissionAsset）。
+    # 权重均为 5。回补（T3）与实时写入（T5）共用；每腿至多 1 次、失败不重试。
+    ("GET", "/api/v3/myTrades"): "https://api.binance.com",
+    ("GET", "/papi/v1/margin/myTrades"): "https://papi.binance.com",
+    ("GET", "/papi/v1/um/userTrades"): "https://papi.binance.com",
 }
 
 # Order-write transport timeout (mirror borrow client §5.1). Module-level, NOT
@@ -153,6 +159,15 @@ TRANSFER_TYPE_PM_MAIN = "PORTFOLIO_MARGIN_MAIN"
 TRANSFER_TYPE_MAIN_PM = "MAIN_PORTFOLIO_MARGIN"
 _ALLOWED_TRANSFER_TYPES = frozenset({TRANSFER_TYPE_PM_MAIN, TRANSFER_TYPE_MAIN_PM})
 SPOT_RATE_LIMIT_ORDER_PATH = "/api/v3/rateLimit/order"
+# 成交手续费成本 V1（2026-08-19 stage）：三条成交明细端点。现货/杠杆官方支持
+# symbol+orderId（免 24h 窗）；PAPI UM 无 orderId 参数（10-design §2.2 B1a——
+# 实现前未获只读确认前按「无 orderId」实现，分钟级时间窗 + 本地过滤）。
+SPOT_MY_TRADES_PATH = "/api/v3/myTrades"
+MARGIN_MY_TRADES_PATH = "/papi/v1/margin/myTrades"
+UM_USER_TRADES_PATH = "/papi/v1/um/userTrades"
+# 每腿成交明细查询的条数上限（§4.1：返回条数达到该值即判截断不全，是安全阀
+# 不是分页方案）。单一来源，回补与实时写入共用。
+TRADES_LIMIT = 1000
 
 
 @dataclass(frozen=True)
@@ -550,3 +565,47 @@ class HedgeOpenLiveClient:
         Distinct from the PAPI limit (``get_rate_limit_order``); a regular_spot
         order consumes the spot rate-limit budget, not the PAPI one (design §3.5)."""
         return self._get_signed(SPOT_RATE_LIMIT_ORDER_PATH, {}, timestamp_ms, recv_window_ms)
+
+    # ------------------------------------ 成交明细只读 GET（手续费成本 V1 T3/T5）
+
+    def get_spot_my_trades(self, symbol: str, order_id: str, *,
+                           limit: int = TRADES_LIMIT,
+                           timestamp_ms: int,
+                           recv_window_ms: Optional[int] = None) -> HedgeHttpResponse:
+        """GET /api/v3/myTrades?symbol=..&orderId=.. — 普通现货腿的成交明细。
+
+        ``symbol``+``orderId`` 是官方支持组合，不必带时间窗（10-design §2.2）。
+        每腿至多 1 次、失败不重试（§4.1）。"""
+        return self._get_signed(
+            SPOT_MY_TRADES_PATH,
+            {"symbol": symbol, "orderId": str(order_id), "limit": str(int(limit))},
+            timestamp_ms, recv_window_ms,
+        )
+
+    def get_margin_my_trades(self, symbol: str, order_id: str, *,
+                             limit: int = TRADES_LIMIT,
+                             timestamp_ms: int,
+                             recv_window_ms: Optional[int] = None) -> HedgeHttpResponse:
+        """GET /papi/v1/margin/myTrades?symbol=..&orderId=.. — 统一账户杠杆腿的
+        成交明细。参数含 ``orderId``（§2.2）；不带时间窗，无 24h 限制。"""
+        return self._get_signed(
+            MARGIN_MY_TRADES_PATH,
+            {"symbol": symbol, "orderId": str(order_id), "limit": str(int(limit))},
+            timestamp_ms, recv_window_ms,
+        )
+
+    def get_um_user_trades(self, symbol: str, *,
+                           start_time_ms: Optional[int] = None,
+                           end_time_ms: Optional[int] = None,
+                           limit: int = TRADES_LIMIT,
+                           timestamp_ms: int,
+                           recv_window_ms: Optional[int] = None) -> HedgeHttpResponse:
+        """GET /papi/v1/um/userTrades — 合约腿成交明细。PAPI UM 无 ``orderId``
+        参数（B1a）：按成交时刻分钟级 ``startTime``/``endTime`` 窗查询，调用方
+        在本地按 ``orderId`` 过滤；跨度硬上限 7 天（§2.2）。"""
+        params: Dict[str, str] = {"symbol": symbol, "limit": str(int(limit))}
+        if start_time_ms is not None:
+            params["startTime"] = str(int(start_time_ms))
+        if end_time_ms is not None:
+            params["endTime"] = str(int(end_time_ms))
+        return self._get_signed(UM_USER_TRADES_PATH, params, timestamp_ms, recv_window_ms)
