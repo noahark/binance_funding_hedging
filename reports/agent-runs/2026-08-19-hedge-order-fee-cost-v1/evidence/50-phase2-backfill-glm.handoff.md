@@ -146,4 +146,20 @@
 
 ## Bookkeeper Verification (Bookkeeper append-only)
 
+- **verification_time**: 2026-08-20 11:57:45 CST
+- **source_sha256**: `64acae97288c11fe8284660e6056652297c0ebf7ad768d2939d6cfd41abe9ca4`
+- **status_revision**: 14 -> 15
+- **base_sha**: `f510c562667312a0ebf8d531e4add3f95acbe7e1`
+- **delivery_sha**: `831e255492628fded3720f9bcc68489256410788`
+- **verdict_checks**:
+  1. `ALLOWLIST 三条新 GET 与数量钉同步`: pass
+  2. `binance_public.py 增加公开 1m K 线方法`: pass
+  3. `fee_fetcher.py 共享组件与分钟窗/截断安全`: pass
+  4. `scripts/backfill-leg-fees.py 游标断点与纯离线单测`: pass
+  5. `money-zero 纯度守卫扫描`: pass（`pytest backend/tests/test_backfill_leg_fees.py backend/tests/test_hedge_purity.py` 68 passed）
+  6. `邻域回归测试`: pass（`pytest backend/tests/test_hedge_store.py ...` 147 passed）
+  7. `dry-run 冒烟测试`: pass（--dry-run 零网络零写入正常 exit 0）
+  8. `安全红线`: pass（未对外执行 live 实盘回补）
+- **verification_status**: `verified`
+
 ## Errata (append-only)
