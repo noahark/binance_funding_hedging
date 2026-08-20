@@ -6,6 +6,9 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-20)
 
+- **[2026-08-20 Human 直接驱动，无 stage] 持仓与历史表价差/滑点折算 USDT 实际盈亏第二行：**
+  持仓表「开单价差率」列与历史表「总计开单滑点 %」「总计平单滑点 %」列同步增加第二行折算 USDT 实际盈亏金额。正收益绿（+X.XX U）、负成本红（-X.XX U）、零值与亚分位（<0.005 U 取整 0.00 U）灰（muted）、隐私模式脱敏（****）。四组合买卖腿识别与后端完全对齐。纯前端改动，经 Claude 独立 Fast Review ACCEPT 并由 Human 授权推送至 main 分支（提交区间 `4e9295f..1115fce`）。
+
 - **[STAGE COMPLETED 2026-08-20] 成交手续费冻价成本 V1 (`2026-08-19-hedge-order-fee-cost-v1`)：**
   表结构四列手续费扩展落库、历史数据回补 268 腿成功落库（待补 269 腿中，132/133 条 UM 路由腿成功回补；仅 1 条约 9.6 天前的历史老单因超出币安合约 7 天查询窗口返回空列表，系统按 D10/D11 宁缺毋滥原则整行安全显示 `—`）、读链路真实折 U 聚合（quote/base 严格均价、不全 None/None/True 安全契约）、平仓结算 `close_log` 全腿现算冻结、实时下单 commit-first 钩子自动拉取写入（D4 实时现价冻结）。
   双评审闭环（Kimi ACCEPT + Opus 5 ACCEPT）。已合并 main 并重新部署。
