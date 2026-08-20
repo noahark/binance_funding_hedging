@@ -27,6 +27,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -66,6 +67,35 @@ class FeeTransport:
     um_trades: Callable[[str, int, int, int], list]
     # 回补：公开 1m K 线收盘价（start_ms）→ str|None；T5：D4 现价提供方。
     bnb_close_price: Callable[[int], "str | None"]
+
+
+def _now_ms() -> int:
+    return int(time.time() * 1000)
+
+
+def build_realtime_transport(client, bnb_close_price: Callable[[int], "str | None"]) -> FeeTransport:
+    """T5 实时传输装配（duck-typed 签名客户端；本模块不 import 服务层——
+    纯度契约）。``client`` 须已具备阶段二加的三个成交明细签名 GET。BNB 冻价
+    用 D4 提供方（现价），不用回补的历史 K 线。"""
+    def _unwrap(resp) -> list:
+        if resp.http_status in (429, 418):
+            raise RateLimited(resp.http_status)
+        if resp.http_status != 200 or not isinstance(resp.body, list):
+            body = str(resp.body)[:120] if resp.body is not None else resp.transport_error
+            raise FeeFetchError(f"http={resp.http_status} body={body}")
+        return resp.body
+
+    return FeeTransport(
+        spot_trades=lambda s, o, l: _unwrap(
+            client.get_spot_my_trades(s, o, limit=l, timestamp_ms=_now_ms())),
+        margin_trades=lambda s, o, l: _unwrap(
+            client.get_margin_my_trades(s, o, limit=l, timestamp_ms=_now_ms())),
+        um_trades=lambda s, start, end, l: _unwrap(
+            client.get_um_user_trades(
+                s, start_time_ms=start, end_time_ms=end, limit=l,
+                timestamp_ms=_now_ms())),
+        bnb_close_price=bnb_close_price,
+    )
 
 
 @dataclass(frozen=True)
@@ -110,11 +140,47 @@ def route_for_endpoint(endpoint: str | None) -> str | None:
     return None
 
 
+def _rget(row, key):
+    """dict 或 sqlite3.Row 的宽容取值；缺键 → None。"""
+    try:
+        return row[key]
+    except (KeyError, IndexError):
+        return None
+
+
+def resolve_leg_identity(row) -> tuple[str | None, str | None]:
+    """腿行（``leg``/``endpoint``/``coin``/``spot_symbol``/``spot_base_asset``；
+    dict 或 sqlite3.Row）→ ``(symbol, base_asset)``（§4.1 符号对应）。
+
+    合约腿（um 路由）symbol = ``coin``、base 剥 USDT；现货/杠杆腿用任务固化
+    身份（旧行回退查表）。解析失败（路由未知 / coin 非 USDT 后缀）返回
+    ``(None, None)``，调用方按腿身份缺失判失败。回补与 T5 实时共用。"""
+    if route_for_endpoint(_rget(row, "endpoint")) == "um":
+        try:
+            return row["coin"], D.base_asset(row["coin"])
+        except Exception:
+            return None, None
+    task = {
+        "coin": _rget(row, "coin"),
+        "spot_symbol": _rget(row, "spot_symbol"),
+        "spot_base_asset": _rget(row, "spot_base_asset"),
+    }
+    try:
+        return D.spot_symbol_of(task), D.spot_base_of(task)
+    except Exception:
+        return None, None
+
+
 def um_query_window(dispatched_at_us, last_query_at_us):
     """合约成交查询分钟级窗（B1a）。入参是腿上的微秒时间戳；返回
     ``(start_ms, end_ms, clamped)``（毫秒，签名 GET 直接可用）；``clamped``
     表示原始跨度超过接口 7 天硬上限（该腿按不全处理）；``None`` 表示两列
-    时间均缺或窗口为空，无法构造。"""
+    时间均缺，无法构造。
+
+    零宽/倒置窗（``end <= start``）：inline ``resolve_attempt`` 用同一个
+    now_us 落 dispatched 与 last_query 两列，合约腿的窗恒为零宽——按
+    B1a 的「缺 endTime 则 +10 分钟」同款回退向前扩窗：成交必然在
+    dispatched 时刻附近，窗内多余成交由本地 orderId 过滤兜底。"""
     start = None
     if dispatched_at_us:
         start = int(dispatched_at_us)
@@ -127,7 +193,7 @@ def um_query_window(dispatched_at_us, last_query_at_us):
     else:
         end = start + UM_FALLBACK_WINDOW_US
     if end <= start:
-        return None
+        end = start + UM_FALLBACK_WINDOW_US
     clamped = False
     if end - start > UM_WINDOW_MAX_US:
         end = start + UM_WINDOW_MAX_US
@@ -238,6 +304,63 @@ def fetch_leg_fees(
     return LegFeeOutcome(columns, incomplete, reason)
 
 
+def _leg_vwap(row: dict) -> Decimal | None:
+    """该腿本币折 U 用的成交均价 = ``cumulative_quote_amt ÷ cumulative_base_qty``
+    （D5：**严禁** ``hedge_open_leg.avg_price``——交易所 avgPrice 原话，现货基本
+    为 NULL，不是折 U 价格）。任一缺失、不可解析或 base 为 0 / quote 为 0
+    （G5 哨兵）→ None（该腿不可定价）。"""
+    base = _dec_or_none(row.get("cumulative_base_qty"))
+    quote = _dec_or_none(row.get("cumulative_quote_amt"))
+    if base is None or quote is None or base <= 0 or quote <= 0:
+        return None
+    return quote / base
+
+
+def usdt_fee_total(rows) -> tuple[str | None, str | None, bool]:
+    """把一组**有成交**腿的冻结四列折算成 USDT 合计（§5.1/§5.2、D10/D11）。
+
+    ``rows`` 为腿 dict（``fee_bnb_qty``/``fee_bnb_price``/``fee_other_qty``/
+    ``fee_other_asset``/``cumulative_quote_amt``/``cumulative_base_qty``/
+    ``base_asset``）。折 U = Σ(bnb_qty×bnb_price) + Σ(USDT 的 other_qty) +
+    Σ(本币 other_qty×该腿 quote/base 均价)。任一参与腿缺必需构成量（四列
+    全空=从未查询、BNB 缺价、第三种/多种资产、本币不可定价、半截残留）→
+    ``(None, None, False)``——绝不输出半截金额或半截 BNB 数量，不当 0。
+    全腿完整才返回 ``(折 U 字符串, BNB 数量字符串, True)``。空列表 → 不全。"""
+    if not rows:
+        return None, None, False
+    total = Decimal(0)
+    bnb_total = Decimal(0)
+    for row in rows:
+        bnb_qty = _dec_or_none(row.get("fee_bnb_qty"))
+        bnb_price = _dec_or_none(row.get("fee_bnb_price"))
+        other_qty = _dec_or_none(row.get("fee_other_qty"))
+        other_asset = row.get("fee_other_asset")
+        if (bnb_qty is None and bnb_price is None
+                and other_qty is None and not other_asset):
+            # 四列全空：该腿从未做过手续费查询——「还没拉」≠「本来没有」（D10）。
+            return None, None, False
+        if bnb_qty is not None:
+            if bnb_price is None:
+                return None, None, False  # 数量在、价格缺（写入时冻价失败）
+            total += bnb_qty * bnb_price
+            bnb_total += bnb_qty
+        elif bnb_price is not None:
+            return None, None, False  # 有价无量：半截残留
+        if other_qty is not None:
+            if other_asset == "USDT":
+                total += other_qty
+            elif other_asset and other_asset == row.get("base_asset"):
+                avg = _leg_vwap(row)
+                if avg is None:
+                    return None, None, False  # 本币不可定价（D5）
+                total += other_qty * avg
+            else:
+                return None, None, False  # 第三种资产 / 资产名缺失
+        elif other_asset:
+            return None, None, False  # 有资产名无量：半截残留
+    return D.fmt_decimal(total), D.fmt_decimal(bnb_total), True
+
+
 # ------------------------------------------------------------ 回补游标（T3）
 
 def load_progress(path) -> dict:
@@ -342,20 +465,9 @@ class BackfillEngine:
     def _backfill_one(self, leg: dict) -> LegFeeOutcome:
         """单腿：解析身份/路由并调用共享拉取折算。``RateLimited`` 不在此捕获、
         向上抛给 :meth:`run` 触发整轮停止。"""
-        if route_for_endpoint(leg["endpoint"]) == "um":
-            symbol = leg["coin"]
-            try:
-                base = D.base_asset(leg["coin"])
-            except Exception:
-                return LegFeeOutcome(None, True, "bad_coin")
-        else:
-            task = {
-                "coin": leg["coin"],
-                "spot_symbol": leg["spot_symbol"],
-                "spot_base_asset": leg["spot_base_asset"],
-            }
-            symbol = D.spot_symbol_of(task)
-            base = D.spot_base_of(task)
+        symbol, base = resolve_leg_identity(leg)
+        if symbol is None or base is None:
+            return LegFeeOutcome(None, True, "leg_identity_missing")
         return self._fetch(
             self._transport,
             endpoint=leg["endpoint"],

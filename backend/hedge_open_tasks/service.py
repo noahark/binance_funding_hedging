@@ -29,6 +29,7 @@ from typing import Callable, Protocol
 
 from ..domain.normalize import SPOT_MATCH_MULTIPLIER, resolve_spot_identity
 from . import domain as D
+from . import fee_fetcher as FF
 from .executor import (
     AttemptContext,
     AttemptOutcome,
@@ -554,6 +555,10 @@ class HedgeOpenTaskService:
         # :meth:`configure_snapshot_reader`; ``None`` (tests / unwired) keeps the
         # real-time confirmation path unchanged.
         self._snapshot_reader: Callable[[str], tuple[float, object] | None] | None = None
+        # 手续费成本 V1 T5（§4.1）：实时成交明细传输层。默认 None——由
+        # :meth:`_realtime_fee_transport` 从注入的 live 执行器懒装配；测试经
+        # :meth:`configure_fee_transport` 注入假实现。
+        self._fee_transport = None
         # §4.2（Human 决定 3）：进程内「本任务已完成划转」事实记录（task_id ->
         # (amount, asset)），由 _log_close_transfer 的 ok 事件点写入；forward
         # close 后续余额不足暂停时据此追加「可能是划转尚未到账」提示。
@@ -684,6 +689,14 @@ class HedgeOpenTaskService:
         actual insufficient check still goes real-time before any
         ``universal_transfer``). Passing ``None`` disables the shortcut."""
         self._snapshot_reader = reader
+
+    def configure_fee_transport(self, transport) -> None:
+        """手续费成本 V1 T5：注入成交明细传输层（测试用；``None`` 恢复懒装配）。
+
+        真实传输层不需要组合根接线——:meth:`_realtime_fee_transport` 从注入的
+        live 执行器 duck-typed 懒装配，disabled/测试（无真实客户端）下返回
+        ``None``，实时回写为 no-op。"""
+        self._fee_transport = transport
 
     def configure_preflight_reader(
         self, reader: Callable[[str], tuple[float, object] | None] | None,
@@ -2840,6 +2853,13 @@ class HedgeOpenTaskService:
                 "order_query", leg["endpoint"], getattr(verdict, "raw_response", None), now_us,
                 decisive=self._query_verdict_decisive(verdict),
             )
+            if terminal and verdict.exchange_status == D.LEG_FILLED:
+                # T5（§4.1 写入站点二）：drain 查询终态提交之后——只对本腿发
+                # 至多 1 次成交明细 GET 回写冻结四列（commit-first；失败只记
+                # 日志，绝不把腿拖回非终态）。
+                self._fetch_leg_fees_after_terminal(
+                    task_id, leg["attempt_id"], now_us, only_leg_id=leg["id"],
+                )
             if getattr(verdict, "error_category", None) == D.ERROR_CATEGORY_COLLATERAL_CAP:
                 drain_signal = D.SIGNAL_COLLATERAL_CAP
             elif getattr(verdict, "error_category", None) == D.ERROR_CATEGORY_INSUFFICIENT_FUNDS:
@@ -3852,6 +3872,12 @@ class HedgeOpenTaskService:
                 self._record_state_write_failure(
                     ctx.task_id, attempt["id"], "resolve_attempt", exc, now_us,
                 )
+            else:
+                # T5（§4.1）：暂停类终态结算同样已提交——FILLED 腿照常回写
+                # 手续费（钩子内部过滤非成交腿，无副作用即返回）。
+                self._fetch_leg_fees_after_terminal(
+                    ctx.task_id, attempt["id"], now_us,
+                )
             return pause_signal
         if pause_signal is not None:
             # Mixed: one leg pause-class terminal, the other still UNKNOWN — mark
@@ -3887,7 +3913,112 @@ class HedgeOpenTaskService:
             self._record_state_write_failure(
                 ctx.task_id, attempt["id"], "resolve_attempt", exc, now_us,
             )
+        else:
+            # T5（§4.1 写入站点一）：终态事务已提交——此后至多 1 次成交明细
+            # GET 回写冻结四列；失败不改腿终态、只记日志（hook 内部全兜）。
+            self._fetch_leg_fees_after_terminal(
+                ctx.task_id, attempt["id"], now_us,
+            )
         return None
+
+    # ---------------------------------------- 手续费实时写入（T5，§4.1）----
+
+    def _realtime_fee_transport(self):
+        """实时成交明细传输层（懒装配）。签名 GET 来自注入 live 执行器持有的
+        客户端（duck-typed ``_client``——disabled/测试执行器没有它 → ``None``，
+        实时回写为 no-op，绝不为凑传输层发任何请求）。BNB 冻价走 D4 链，直接
+        复用预检 provider 的现价读取器（进程内 price_map 缓存 ≤300s → 公开
+        现价一次 → None；单一实现，不在本包重写一遍）。"""
+        if self._fee_transport is not None:
+            return self._fee_transport
+        client = getattr(self._executor, "_client", None)
+        if client is None or not getattr(client, "credentials_present", False):
+            return None
+        return FF.build_realtime_transport(client, self._bnb_price_reader())
+
+    def _bnb_price_reader(self):
+        """D4 冻价读取器（实时路径用现价，不使用时间戳参数）。预检 provider
+        无该读取器（disabled/测试）时返回恒 ``None``——数量仍记、价格空、
+        该腿标不全（诚实降级，不臆造价格）。"""
+        reader = getattr(self._preflight, "_read_est_price", None)
+        if not callable(reader):
+            return lambda start_ms: None
+
+        def _read(start_ms):
+            value = reader("BNBUSDT")
+            return str(value) if value is not None else None
+
+        return _read
+
+    def _fetch_leg_fees_after_terminal(
+        self, task_id: str, attempt_id: int, now_us: int, *, only_leg_id=None,
+    ) -> None:
+        """终态事务**提交之后**的手续费回写（§4.1；commit-first 由调用点保证
+        ——本方法只在 resolve_attempt / resolve_leg_from_query 返回之后被调）。
+
+        对该 attempt 里 FILLED、order_id 已知且冻结四列仍空的腿，每腿至多
+        1 次成交明细 GET（复用 fee_fetcher 的拉取+分组+冻价，断点 3）。
+        任何失败（含 429/418）不重试、不进 drain 轮询、不改腿终态，只记
+        任务卡日志（kind=``leg_fee_fetch``）；未装配传输层时为 no-op。"""
+        transport = self._realtime_fee_transport()
+        if transport is None:
+            return
+        try:
+            task = self._store.get_task(task_id)
+            legs = self._store.list_legs_for_attempt(attempt_id)
+        except Exception:
+            return
+        if task is None:
+            return
+        for leg in legs:
+            if only_leg_id is not None and leg["id"] != only_leg_id:
+                continue
+            if (leg["exchange_status"] != D.LEG_FILLED
+                    or not leg["order_id"]
+                    or leg["fee_bnb_qty"] is not None
+                    or leg["fee_bnb_price"] is not None
+                    or leg["fee_other_qty"] is not None
+                    or leg["fee_other_asset"] is not None):
+                continue  # 非成交 / 无订单号 / 冻结列已写（历史真值不改）
+            try:
+                identity = {
+                    **leg,
+                    "coin": task["coin"],
+                    "spot_symbol": task["spot_symbol"],
+                    "spot_base_asset": task["spot_base_asset"],
+                }
+                symbol, base = FF.resolve_leg_identity(identity)
+                if symbol is None or base is None:
+                    raise FF.FeeFetchError("leg_identity_missing")
+                outcome = FF.fetch_leg_fees(
+                    transport,
+                    endpoint=leg["endpoint"],
+                    order_id=leg["order_id"],
+                    symbol=symbol,
+                    base_asset=base,
+                    dispatched_at_us=leg["dispatched_at_us"],
+                    last_query_at_us=leg["last_query_at_us"],
+                )
+                written = False
+                if outcome.columns is not None:
+                    written = self._store.update_leg_fees(
+                        leg["id"],
+                        fee_bnb_qty=outcome.columns.fee_bnb_qty,
+                        fee_bnb_price=outcome.columns.fee_bnb_price,
+                        fee_other_qty=outcome.columns.fee_other_qty,
+                        fee_other_asset=outcome.columns.fee_other_asset,
+                    )
+                self._store.append_log(task_id, now_us, "leg_fee_fetch", {
+                    "leg_row_id": leg["id"], "leg": leg["leg"],
+                    "order_id": leg["order_id"], "written": bool(written),
+                    "incomplete": outcome.incomplete, "reason": outcome.reason,
+                })
+            except Exception as exc:
+                self._store.append_log(task_id, now_us, "leg_fee_fetch", {
+                    "leg_row_id": leg["id"], "leg": leg["leg"],
+                    "order_id": leg["order_id"], "written": False,
+                    "error": f"{type(exc).__name__}: {exc}",
+                })
 
     def _mark_legs_querying(
         self, attempt: dict, spot, perp, now_us: int,

@@ -1807,3 +1807,182 @@ def test_latest_auth_error_none_when_absent(tmp_path):
     store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
     _create(store)
     assert store.latest_auth_error("t1") == (None, None)
+
+
+# ---------------------------------------------------------------------------
+# 手续费成本 V1 阶段三：aggregate_positions 真实折 U 聚合 + close_log 关仓聚合
+# ---------------------------------------------------------------------------
+
+def _fee_legs(store) -> list[dict]:
+    return [dict(r) for r in store._conn.execute(
+        "SELECT id, leg, endpoint FROM hedge_open_leg ORDER BY id").fetchall()]
+
+
+def _set_leg_fees(store, leg_id, *, bnb_qty=None, bnb_price=None,
+                  other_qty=None, other_asset=None):
+    store._conn.execute(
+        "UPDATE hedge_open_leg SET fee_bnb_qty = ?, fee_bnb_price = ?,"
+        " fee_other_qty = ?, fee_other_asset = ? WHERE id = ?",
+        (bnb_qty, bnb_price, other_qty, other_asset, leg_id))
+    store._conn.commit()
+
+
+def test_aggregate_positions_fee_complete_bnb_and_usdt(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t1")
+    _apply(store, "t1", _outcome(), 1_100)
+    spot, perp = _fee_legs(store)
+    _set_leg_fees(store, spot["id"], bnb_qty="0.001", bnb_price="600")
+    _set_leg_fees(store, perp["id"], other_qty="0.5", other_asset="USDT")
+    pos = store.aggregate_positions()[0]
+    assert pos["trading_fee_usdt"] == "1.1"  # 0.001×600 + 0.5
+    assert pos["fee_bnb_qty"] == "0.001"
+    assert pos["trading_fee_incomplete"] is False
+    store.close()
+
+
+def test_aggregate_positions_fee_unqueried_legs_stay_incomplete(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t1")
+    _apply(store, "t1", _outcome(), 1_100)
+    pos = store.aggregate_positions()[0]
+    # 冻结四列全空 = 从未查询（「还没拉」≠ 0，D10/D11）。
+    assert pos["trading_fee_usdt"] is None and pos["fee_bnb_qty"] is None
+    assert pos["trading_fee_incomplete"] is True
+    store.close()
+
+
+def test_aggregate_positions_fee_missing_bnb_price_incomplete(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t1")
+    _apply(store, "t1", _outcome(), 1_100)
+    spot, perp = _fee_legs(store)
+    _set_leg_fees(store, spot["id"], bnb_qty="0.001", bnb_price=None)
+    _set_leg_fees(store, perp["id"], other_qty="0.5", other_asset="USDT")
+    pos = store.aggregate_positions()[0]
+    assert pos["trading_fee_usdt"] is None and pos["fee_bnb_qty"] is None
+    assert pos["trading_fee_incomplete"] is True
+    store.close()
+
+
+def test_aggregate_positions_fee_base_asset_uses_vwap_not_avg_price(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t1")
+    # qty 0.5 / price 50000 → quote 25000；本币折 U 均价 = 25000/0.5 = 50000。
+    _apply(store, "t1", _priced_outcome(
+        spot_qty="0.5", spot_price="50000", perp_qty="0.5", perp_price="50000"), 1_100)
+    spot, perp = _fee_legs(store)
+    _set_leg_fees(store, perp["id"], other_qty="0.01", other_asset="BTC")
+    _set_leg_fees(store, spot["id"], other_qty="0.25", other_asset="USDT")
+    # 合约腿 base=BTC（剥 USDT）→ 0.01 × (25000/0.5=50000) = 500；+0.25。
+    pos = store.aggregate_positions()[0]
+    assert pos["trading_fee_usdt"] == "500.25"
+    assert pos["trading_fee_incomplete"] is False
+    store.close()
+
+
+def test_aggregate_positions_fee_excludes_close_legs(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t1")
+    _apply(store, "t1", _outcome(), 1_100)
+    store.create_task(
+        "t2", "BTCUSDT", D.DIR_FORWARD, D.MODE_IMMEDIATE, "0.5", 3, "0.5",
+        D.POS_MODE_BOTH, {"est_price": "50000"}, 1_500,
+        task_type=D.TASK_TYPE_CLOSE, initial_status=D.STATUS_RUNNING,
+    )
+    _apply(store, "t2", _outcome(attempt_id="att2"), 1_600)
+    legs = _fee_legs(store)
+    spot_open, perp_open, spot_close, perp_close = legs
+    _set_leg_fees(store, spot_open["id"], other_qty="0.25", other_asset="USDT")
+    _set_leg_fees(store, perp_open["id"], other_qty="0.25", other_asset="USDT")
+    # close 腿带完整 BNB 费用——持仓表（§5.1 只算 open 腿）不得计入。
+    _set_leg_fees(store, spot_close["id"], bnb_qty="9", bnb_price="9")
+    _set_leg_fees(store, perp_close["id"], bnb_qty="9", bnb_price="9")
+    pos = store.aggregate_positions()[0]
+    assert pos["trading_fee_usdt"] == "0.5"
+    assert pos["fee_bnb_qty"] == "0"
+    assert pos["trading_fee_incomplete"] is False
+    store.close()
+
+
+def test_aggregate_positions_fee_third_asset_incomplete(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t1")
+    _apply(store, "t1", _outcome(), 1_100)
+    spot, perp = _fee_legs(store)
+    _set_leg_fees(store, spot["id"], other_qty="0.01", other_asset="ETH")
+    _set_leg_fees(store, perp["id"], other_qty="0.25", other_asset="USDT")
+    pos = store.aggregate_positions()[0]
+    assert pos["trading_fee_usdt"] is None and pos["fee_bnb_qty"] is None
+    assert pos["trading_fee_incomplete"] is True
+    store.close()
+
+
+def _cycle_close_base(store, cycle_id):
+    return {
+        "cycle_id": cycle_id, "symbol": "BTCUSDT", "direction": D.DIR_FORWARD,
+        "opened_at_us": 1_000, "closed_at_us": 2_000,
+        "close_reason": D.CLOSE_REASON_AUTO_CLOSE, "settled_at_us": 2_100,
+    }
+
+
+def test_insert_close_log_aggregates_open_and_close_legs(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t1")
+    _apply(store, "t1", _outcome(), 1_100)
+    store.create_task(
+        "t2", "BTCUSDT", D.DIR_FORWARD, D.MODE_IMMEDIATE, "0.5", 3, "0.5",
+        D.POS_MODE_BOTH, {"est_price": "50000"}, 1_500,
+        task_type=D.TASK_TYPE_CLOSE, initial_status=D.STATUS_RUNNING,
+    )
+    _apply(store, "t2", _outcome(attempt_id="att2"), 1_600)
+    cycle = store.list_cycles()[0]
+    spot_open, perp_open, spot_close, perp_close = _fee_legs(store)
+    _set_leg_fees(store, spot_open["id"], bnb_qty="0.001", bnb_price="600")
+    _set_leg_fees(store, perp_open["id"], other_qty="0.25", other_asset="USDT")
+    _set_leg_fees(store, spot_close["id"], bnb_qty="0.002", bnb_price="610")
+    _set_leg_fees(store, perp_close["id"], other_qty="0.25", other_asset="USDT")
+    store.close_cycle(cycle["id"], 2_000, D.CLOSE_REASON_AUTO_CLOSE)
+    store.insert_close_log(_cycle_close_base(store, cycle["id"]))
+    log = store.list_close_logs()[0]
+    # 开+平全腿：0.001×600 + 0.25 + 0.002×610 + 0.25 = 2.32；BNB 0.003。
+    assert log["trading_fee_usdt"] == "2.32"
+    assert log["fee_bnb_qty"] == "0.003"
+    assert log["trading_fee_incomplete"] == 0
+    store.close()
+
+
+def test_insert_close_log_any_incomplete_leg_writes_nulls(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t1")
+    _apply(store, "t1", _outcome(), 1_100)
+    cycle = store.list_cycles()[0]
+    spot_open, perp_open = _fee_legs(store)
+    _set_leg_fees(store, spot_open["id"], other_qty="0.25", other_asset="USDT")
+    # perp 腿从未查询 → 全周期不全：金额与 BNB 数量一并 NULL（D11）。
+    store.close_cycle(cycle["id"], 2_000, D.CLOSE_REASON_AUTO_CLOSE)
+    store.insert_close_log(_cycle_close_base(store, cycle["id"]))
+    log = store.list_close_logs()[0]
+    assert log["trading_fee_usdt"] is None and log["fee_bnb_qty"] is None
+    assert log["trading_fee_incomplete"] == 1
+    store.close()
+
+
+def test_insert_close_log_explicit_keys_not_overwritten_by_aggregation(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t1")
+    _apply(store, "t1", _outcome(), 1_100)
+    cycle = store.list_cycles()[0]
+    spot_open, perp_open = _fee_legs(store)
+    _set_leg_fees(store, spot_open["id"], other_qty="0.25", other_asset="USDT")
+    _set_leg_fees(store, perp_open["id"], other_qty="0.25", other_asset="USDT")
+    store.close_cycle(cycle["id"], 2_000, D.CLOSE_REASON_AUTO_CLOSE)
+    store.insert_close_log({
+        **_cycle_close_base(store, cycle["id"]),
+        "trading_fee_usdt": "9.99", "fee_bnb_qty": "9.9",
+        "trading_fee_incomplete": 1,
+    })
+    log = store.list_close_logs()[0]
+    assert log["trading_fee_usdt"] == "9.99" and log["fee_bnb_qty"] == "9.9"
+    assert log["trading_fee_incomplete"] == 1
+    store.close()

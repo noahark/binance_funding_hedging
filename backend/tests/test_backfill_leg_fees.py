@@ -173,8 +173,14 @@ def test_um_window_both_missing_unbuildable():
     assert FF.um_query_window(None, None) is None
 
 
-def test_um_window_reversed_times_unbuildable():
-    assert FF.um_query_window(2_000 * US, 1_000 * US) is None
+def test_um_window_zero_width_or_reversed_extends_fallback():
+    # inline resolve 用同一 now_us 落两列 → 零宽窗；倒置同理。向前扩 10 分钟
+    # （成交在 dispatched 附近，多余成交由本地 orderId 过滤兜底）。
+    t = 2_000 * US
+    assert FF.um_query_window(t, t) == (
+        t // MS, (t + FF.UM_FALLBACK_WINDOW_US) // MS, False)
+    assert FF.um_query_window(2_000 * US, 1_000 * US) == (
+        2_000 * MS, (2_000 * US + FF.UM_FALLBACK_WINDOW_US) // MS, False)
 
 
 def test_um_window_span_over_7d_clamped():

@@ -1038,3 +1038,143 @@ def test_resolve_avg_price_zero_stored_falls_back_to_local_both_streams():
     assert _leg_to_doc(leg_real)["avg_price"] == "99999"
     assert _entry_spot_leg(leg_real, "BUY")["avg_price"] == "99999"
     assert _entry_perp_leg(leg_real, "SELL")["avg_price"] == "99999"
+
+
+# ---------------------------------------------------------------------------
+# 手续费成本 V1 阶段三（T5）：终态提交后的实时成交手续费回写（§4.1）
+# ---------------------------------------------------------------------------
+
+class _FakeFeeTransport:
+    """记录调用的假成交明细传输（与 test_backfill_leg_fees 同语义）。"""
+
+    def __init__(self, trades, *, bnb_price="600.5", error=None):
+        self.trades = trades
+        self.bnb_price = bnb_price
+        self.error = error
+        self.calls = []
+
+    def _list_for(self, order_id):
+        if self.error is not None:
+            raise self.error
+        return [t for t in self.trades if str(t.get("orderId")) == str(order_id)]
+
+    def spot_trades(self, symbol, order_id, limit):
+        self.calls.append(("spot", symbol, order_id, limit))
+        return self._list_for(order_id)
+
+    def margin_trades(self, symbol, order_id, limit):
+        self.calls.append(("margin", symbol, order_id, limit))
+        return self._list_for(order_id)
+
+    def um_trades(self, symbol, start_ms, end_ms, limit):
+        self.calls.append(("um", symbol, start_ms, end_ms, limit))
+        return self._list_for(None) if self.error is not None else self.trades
+
+    def bnb_close_price(self, start_ms):
+        self.calls.append(("kline", start_ms))
+        return self.bnb_price
+
+
+def _fee_filled_attempt(svc, *, task_type=D.TASK_TYPE_OPEN):
+    """建 RUNNING 任务并落一个双腿 FILLED attempt，返回 (task_id, attempt_id)。"""
+    svc.store.create_task(
+        "tf1", "BTCUSDT", D.DIR_FORWARD, D.MODE_IMMEDIATE, "0.5", 3, "0.5",
+        D.POS_MODE_BOTH, {"est_price": "50000"}, 1_000, task_type=task_type,
+        initial_status=D.STATUS_RUNNING,
+    )
+    outcome = AttemptOutcome(
+        attempt_id="fee1", category=D.ATTEMPT_SUCCESS,
+        spot={"status": D.LEG_FILLED, "filled_qty": "0.5", "avg_price": "50000",
+              "order_id": "os-fee", "client_order_id": "hgo-fee1-s"},
+        perp={"status": D.LEG_FILLED, "filled_qty": "0.5", "avg_price": "50000",
+              "order_id": "op-fee", "client_order_id": "hgo-fee1-p"},
+        record_payload={"transport": "dry_run_record", "posted": False},
+        exposure=None,
+    )
+    attempt = svc.store.prepare_attempt(
+        "tf1", "fee1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
+        {"est_price": "50000"}, "hgo-fee1-s", {"side": "BUY"},
+        D.SPOT_ORDER_PATH, "hgo-fee1-p", {"side": "SELL"}, 1_100,
+    )
+    svc.store.resolve_attempt(attempt["id"], outcome, 1_200)
+    return "tf1", attempt["id"]
+
+
+def test_realtime_fee_hook_writes_frozen_columns_after_terminal(tmp_path):
+    svc = _svc(tmp_path)
+    task_id, attempt_id = _fee_filled_attempt(svc)
+    transport = _FakeFeeTransport([
+        {"commissionAsset": "BNB", "commission": "0.001", "orderId": "os-fee"},
+        {"commissionAsset": "USDT", "commission": "0.5", "orderId": "op-fee"},
+    ])
+    svc.configure_fee_transport(transport)
+    svc._fetch_leg_fees_after_terminal(task_id, attempt_id, 1_300)
+    rows = svc.store._conn.execute(
+        "SELECT leg, fee_bnb_qty, fee_bnb_price, fee_other_qty, fee_other_asset"
+        " FROM hedge_open_leg ORDER BY id").fetchall()
+    by_leg = {r["leg"]: dict(r) for r in rows}
+    # 现货腿（margin 路由）BNB 冻价；合约腿（um 路由，返回不过滤按原样）USDT。
+    assert by_leg["spot"]["fee_bnb_qty"] == "0.001"
+    assert by_leg["spot"]["fee_bnb_price"] == "600.5"
+    assert by_leg["perp"]["fee_other_qty"] == "0.5"
+    assert by_leg["perp"]["fee_other_asset"] == "USDT"
+    kinds = [p["kind"] for p in svc.store._conn.execute(
+        "SELECT kind FROM hedge_open_log WHERE kind = 'leg_fee_fetch'").fetchall()]
+    assert len(kinds) == 2  # 每腿一条审计日志
+    svc.close()
+
+
+def test_realtime_fee_hook_no_transport_is_noop(tmp_path):
+    svc = _svc(tmp_path)  # disabled 执行器：无 _client → 无传输层
+    task_id, attempt_id = _fee_filled_attempt(svc)
+    svc._fetch_leg_fees_after_terminal(task_id, attempt_id, 1_300)
+    left = svc.store.list_legs_missing_fees()
+    assert len(left) == 2
+    svc.close()
+
+
+def test_realtime_fee_hook_failure_never_touches_terminal_state(tmp_path):
+    svc = _svc(tmp_path)
+    task_id, attempt_id = _fee_filled_attempt(svc)
+    svc.configure_fee_transport(_FakeFeeTransport(
+        [], error=Exception("transport down")))
+    svc._fetch_leg_fees_after_terminal(task_id, attempt_id, 1_300)
+    # 终态与冻结四列原样：失败不重试、不改腿、不抛出。
+    rows = svc.store._conn.execute(
+        "SELECT exchange_status, terminal, fee_bnb_qty FROM hedge_open_leg").fetchall()
+    assert all(r["exchange_status"] == D.LEG_FILLED and r["terminal"] == 1
+               and r["fee_bnb_qty"] is None for r in rows)
+    logs = svc.store._conn.execute(
+        "SELECT payload FROM hedge_open_log WHERE kind = 'leg_fee_fetch'").fetchall()
+    assert len(logs) == 2 and all("error" in __import__("json").loads(r["payload"])
+                                  for r in logs)
+    svc.close()
+
+
+def test_realtime_fee_hook_single_get_per_leg_and_skip_written(tmp_path):
+    svc = _svc(tmp_path)
+    task_id, attempt_id = _fee_filled_attempt(svc)
+    transport = _FakeFeeTransport([
+        {"commissionAsset": "USDT", "commission": "0.5", "orderId": "os-fee"},
+        {"commissionAsset": "USDT", "commission": "0.5", "orderId": "op-fee"},
+    ])
+    svc.configure_fee_transport(transport)
+    svc._fetch_leg_fees_after_terminal(task_id, attempt_id, 1_300)
+    assert len(transport.calls) == 2  # 每腿恰 1 次 GET
+    # 二次触发（重放/仅本腿）：冻结列已写 → 不再发请求。
+    svc._fetch_leg_fees_after_terminal(task_id, attempt_id, 1_400)
+    svc._fetch_leg_fees_after_terminal(task_id, attempt_id, 1_500, only_leg_id=1)
+    assert len(transport.calls) == 2
+    svc.close()
+
+
+def test_realtime_fee_hook_resolves_symbols_per_leg(tmp_path):
+    svc = _svc(tmp_path)
+    task_id, attempt_id = _fee_filled_attempt(svc)
+    transport = _FakeFeeTransport([])
+    svc.configure_fee_transport(transport)
+    svc._fetch_leg_fees_after_terminal(task_id, attempt_id, 1_300)
+    # 现货/杠杆腿用任务现货身份（BTCUSDT 固化），合约腿用 coin。
+    routes = [(c[0], c[1]) for c in transport.calls]
+    assert ("margin", "BTCUSDT") in routes and ("um", "BTCUSDT") in routes
+    svc.close()

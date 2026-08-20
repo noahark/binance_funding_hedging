@@ -34,6 +34,7 @@ from typing import Any
 
 from ..domain.normalize import resolve_spot_identity
 from . import domain as D
+from . import fee_fetcher as FF
 from .executor import AttemptOutcome
 
 _SCHEMA = """
@@ -2516,7 +2517,21 @@ class HedgeOpenStore:
     # ---- 周期结算日志（功能三 ③a，设计 v1 §3.2）----
 
     def insert_close_log(self, row: dict) -> int:
-        """写一条周期结算日志（平仓完成时，与 close_cycle 同事务调用方负责）。"""
+        """写一条周期结算日志（平仓完成时，与 close_cycle 同事务调用方负责）。
+
+        手续费成本 V1（§5.2/D7/D11）：调用方未显式传三个手续费键时，按该周期
+        open + close **有成交**腿的冻结四列现算折 U 合计——全部腿完整写真实值
+        与 ``incomplete=0``，任一腿不全写 NULL/NULL/1（「还没拉」≠「本来没有」）。
+        回补不改写已落库的旧行（close_log 无 UPDATE 路径，断点 1）。"""
+        fee_keys = ("trading_fee_usdt", "fee_bnb_qty", "trading_fee_incomplete")
+        if any(key not in row for key in fee_keys):
+            fee_usdt, fee_bnb, fee_ok = self._cycle_trading_fee_total(row["cycle_id"])
+            row = {
+                **row,
+                "trading_fee_usdt": fee_usdt,
+                "fee_bnb_qty": fee_bnb,
+                "trading_fee_incomplete": 0 if fee_ok else 1,
+            }
         with self._lock, self._conn:
             cur = self._conn.execute(
                 "INSERT INTO hedge_open_cycle_close_log"
@@ -2536,14 +2551,34 @@ class HedgeOpenStore:
                     row.get("spot_open_avg"), row.get("spot_open_qty"),
                     row.get("spot_close_avg"), row.get("spot_close_qty"),
                     row.get("open_slippage"), row.get("close_slippage"),
-                    # 手续费成本 V1（D11）：未传入时默认「不全」（1）且金额/数量为
-                    # NULL——绝不把「还没算」写成 0。真实聚合由后续任务接入。
                     row.get("trading_fee_usdt"), row.get("fee_bnb_qty"),
                     row.get("trading_fee_incomplete", 1),
                     row["settled_at_us"],
                 ),
             )
             return cur.lastrowid
+
+    def _cycle_trading_fee_total(self, cycle_id) -> tuple[str | None, str | None, bool]:
+        """该周期 open + close 全部有成交腿的手续费折 U 合计（§5.2，供
+        insert_close_log 结算现算）。只读；纯聚合在 FF.usdt_fee_total。"""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT l.leg, l.fee_bnb_qty, l.fee_bnb_price, l.fee_other_qty,"
+                " l.fee_other_asset, l.cumulative_quote_amt, l.cumulative_base_qty,"
+                " t.coin, t.spot_symbol, t.spot_base_asset"
+                " FROM hedge_open_leg l"
+                " JOIN hedge_open_attempt a ON a.id = l.attempt_id"
+                " JOIN hedge_open_task t ON t.id = a.task_id"
+                " WHERE a.cycle_id = ?"
+                " AND CAST(l.cumulative_base_qty AS REAL) > 0",
+                (cycle_id,),
+            ).fetchall()
+        fee_rows = []
+        for r in rows:
+            d = dict(r)
+            d["base_asset"] = FF.resolve_leg_identity(d)[1]
+            fee_rows.append(d)
+        return FF.usdt_fee_total(fee_rows)
 
     def list_close_logs(self, limit: int = 100) -> list[dict]:
         """结算日志，按 closed_at_us 倒序（历史仓位页数据源）。只读。"""
@@ -2720,6 +2755,8 @@ class HedgeOpenStore:
                 "SELECT l.leg, l.exchange_status, l.cumulative_base_qty,"
                 " l.cumulative_quote_amt, t.coin, t.direction, t.status,"
                 " t.task_type, t.spot_symbol, t.spot_base_asset,"
+                " l.fee_bnb_qty, l.fee_bnb_price, l.fee_other_qty,"
+                " l.fee_other_asset,"
                 " a.cycle_id,"
                 " c.opened_at_us AS cycle_opened_at_us,"
                 " c.closed_at_us AS cycle_closed_at_us"
@@ -2809,6 +2846,9 @@ class HedgeOpenStore:
                     # 同一桶的所有腿同属一个 coin，身份一致；取首个非空即可。
                     "spot_symbol": None,
                     "spot_base_asset": None,
+                    # 手续费成本 V1（§5.1）：只累计 open 且有成交腿的冻结四列，
+                    # 末尾统一经 FF.usdt_fee_total 折 U（不全 → None/None/True）。
+                    "fee_rows": [],
                 },
             )
 
@@ -2877,6 +2917,19 @@ class HedgeOpenStore:
             quote_raw = row["cumulative_quote_amt"]
             notional = _num_or_none(quote_raw)
             known_notional = notional is not None and notional != 0
+            if is_open:
+                # 手续费成本 V1（§5.1）：本币折 U 要按「该腿 base 资产」判
+                # fee_other_asset 是否可定价——合约腿剥 USDT，现货腿用固化身份。
+                identity = FF.resolve_leg_identity(row)
+                b["fee_rows"].append({
+                    "fee_bnb_qty": row["fee_bnb_qty"],
+                    "fee_bnb_price": row["fee_bnb_price"],
+                    "fee_other_qty": row["fee_other_qty"],
+                    "fee_other_asset": row["fee_other_asset"],
+                    "cumulative_quote_amt": quote_raw,
+                    "cumulative_base_qty": row["cumulative_base_qty"],
+                    "base_asset": identity[1],
+                })
             if row["leg"] == "spot":
                 b["spot_qty"] += leg_sign * q
                 if is_open and known_notional:
@@ -2916,6 +2969,8 @@ class HedgeOpenStore:
                 b["perp_notional"] / b["perp_qty_priced"]
                 if b["perp_qty_priced"] > 0 else Decimal(0)
             )
+            fee_usdt, fee_bnb, fee_ok = FF.usdt_fee_total(b["fee_rows"])
+            fee_incomplete = not fee_ok
             positions.append(
                 {
                     "coin": coin,
@@ -2943,12 +2998,12 @@ class HedgeOpenStore:
                     "accrued_funding": "0",
                     "borrow_interest": "0",
                     "net_pnl": "0",
-                    # 手续费成本 V1 阶段一占位（10-design §5.1 / D11）：键名先冻死，
-                    # 值恒为 None/None/True——真实聚合（只汇总 open 腿折 U）由后续
-                    # 任务接入。incomplete=True 是诚实默认：还没查过成交明细 ≠ 0。
-                    "trading_fee_usdt": None,
-                    "fee_bnb_qty": None,
-                    "trading_fee_incomplete": True,
+                    # 手续费成本 V1（§5.1/D11）：只汇总 open 且有成交腿的冻结四列；
+                    # 任一参与腿缺必需构成量 → 前两键 None + incomplete=True，
+                    # 绝不输出半截金额或半截 BNB 数量（D10）。
+                    "trading_fee_usdt": fee_usdt,
+                    "fee_bnb_qty": fee_bnb,
+                    "trading_fee_incomplete": fee_incomplete,
                 }
             )
         positions.sort(
