@@ -1,0 +1,23 @@
+{
+  "schema_version": "2",
+  "revision": 9,
+  "stage_id": "2026-08-19-hedge-order-fee-cost-v1",
+  "bookkeeper": "gemini-3.7-flash",
+  "bookkeeper_label": "agy",
+  "phase": "implementation",
+  "checkpoint": "t1-fake-ui-dispatched",
+  "base_sha": "36665f221d96ea2165693743a150c59d25e8c0b7",
+  "delivery_sha": null,
+  "ledger_sha": "36665f221d96ea2165693743a150c59d25e8c0b7",
+  "current_task": {
+    "id": "30-t1-fake-ui-kimi",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-19-hedge-order-fee-cost-v1/30-t1-fake-ui-kimi.dispatch.md"
+  },
+  "next": {
+    "actor": "human_operator",
+    "action": "start-t1-fake-ui-kimi"
+  },
+  "rework_count": 0,
+  "blockers": []
+}
