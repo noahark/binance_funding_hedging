@@ -5701,6 +5701,143 @@ setTimeout(async () => {
       console.log('[PASS] 开单价差率第二行实际盈亏：双向盈利/亏损着色、零价差、缺均价降级 —、隐私脱敏');
     }
 
+    // 83a1c. 历史仓位表总计开单/平单滑点第二行（折算 USDT 实际盈亏）：
+    //        开单/平单滑点正收益（绿）/ 负成本（红）；
+    //        零价差灰 0.00 U；缺失均价/滑点单行 —；隐私模式 ****。
+    {
+      helpers.resetHedgeStateForTest();
+      // 纯函数辅助验证
+      if (typeof helpers.computeHedgeSlippagePnl !== 'function') {
+        throw new Error('computeHedgeSlippagePnl 未暴露');
+      }
+      // open + forward: (perp - spot) * qty
+      const ofP = helpers.computeHedgeSlippagePnl('forward', 'open', '100.0', '101.5', 10);
+      if (Math.abs(ofP - 15.0) > 1e-6) throw new Error('open forward 盈利计算错误: ' + ofP);
+      const ofN = helpers.computeHedgeSlippagePnl('forward', 'open', '100.0', '99.5', 10);
+      if (Math.abs(ofN - (-5.0)) > 1e-6) throw new Error('open forward 亏损计算错误: ' + ofN);
+
+      // open + reverse: (spot - perp) * qty
+      const orP = helpers.computeHedgeSlippagePnl('reverse', 'open', '101.5', '100.0', 10);
+      if (Math.abs(orP - 15.0) > 1e-6) throw new Error('open reverse 盈利计算错误: ' + orP);
+      const orN = helpers.computeHedgeSlippagePnl('reverse', 'open', '99.5', '100.0', 10);
+      if (Math.abs(orN - (-5.0)) > 1e-6) throw new Error('open reverse 亏损计算错误: ' + orN);
+
+      // close + forward: (spot - perp) * qty
+      const cfP = helpers.computeHedgeSlippagePnl('forward', 'close', '101.5', '100.0', 10);
+      if (Math.abs(cfP - 15.0) > 1e-6) throw new Error('close forward 盈利计算错误: ' + cfP);
+      const cfN = helpers.computeHedgeSlippagePnl('forward', 'close', '99.5', '100.0', 10);
+      if (Math.abs(cfN - (-5.0)) > 1e-6) throw new Error('close forward 亏损计算错误: ' + cfN);
+
+      // close + reverse: (perp - spot) * qty
+      const crP = helpers.computeHedgeSlippagePnl('reverse', 'close', '100.0', '101.5', 10);
+      if (Math.abs(crP - 15.0) > 1e-6) throw new Error('close reverse 盈利计算错误: ' + crP);
+      const crN = helpers.computeHedgeSlippagePnl('reverse', 'close', '100.0', '99.5', 10);
+      if (Math.abs(crN - (-5.0)) > 1e-6) throw new Error('close reverse 亏损计算错误: ' + crN);
+
+      // zero & invalid
+      const zP = helpers.computeHedgeSlippagePnl('forward', 'open', '100.0', '100.0', 10);
+      if (zP !== 0) throw new Error('zero 计算错误: ' + zP);
+      if (!Number.isNaN(helpers.computeHedgeSlippagePnl('forward', 'open', null, '100.0', 10))) {
+        throw new Error('null 均价应返回 NaN');
+      }
+
+      // 渲染验证：构造历史仓位日志行
+      hedgeCloseLogsGetResponse = {
+        status: 200,
+        body: {
+          logs: [
+            // 正向：开单盈利 (+1.0000%, +10.00 U)，平单亏损 (-0.5025%, -5.00 U)
+            {
+              symbol: 'HISTFWDUSDT', direction: 'forward',
+              opened_at_us: 1753600000000000, closed_at_us: 1753700000000000,
+              open_qty: '10', open_avg_price: '101.00', close_avg_price: '100.00',
+              spot_open_qty: '10', spot_open_avg: '100.00', spot_close_avg: '99.50', spot_close_qty: '10',
+              open_slippage: '1.0000', close_slippage: '-0.5025',
+              borrow_interest: '0', funding_fee: '0', trading_fee_incomplete: 0
+            },
+            // 反向：开单亏损 (-0.5025%, -5.00 U)，平单盈利 (+1.0000%, +10.00 U)
+            {
+              symbol: 'HISTREVUSDT', direction: 'reverse',
+              opened_at_us: 1753600000000000, closed_at_us: 1753700000000000,
+              open_qty: '10', open_avg_price: '100.00', close_avg_price: '101.00',
+              spot_open_qty: '10', spot_open_avg: '99.50', spot_close_avg: '100.00', spot_close_qty: '10',
+              open_slippage: '-0.5025', close_slippage: '1.0000',
+              borrow_interest: '0', funding_fee: '0', trading_fee_incomplete: 0
+            },
+            // 零价差与亚分位（0.004 U 四舍五入 0.00 U 灰色）
+            {
+              symbol: 'HISTZEROUSDT', direction: 'forward',
+              opened_at_us: 1753600000000000, closed_at_us: 1753700000000000,
+              open_qty: '10', open_avg_price: '100.00', close_avg_price: '100.0004',
+              spot_open_qty: '10', spot_open_avg: '100.00', spot_close_avg: '100.00', spot_close_qty: '10',
+              open_slippage: '0.0000', close_slippage: '-0.0004',
+              borrow_interest: '0', funding_fee: '0', trading_fee_incomplete: 0
+            },
+            // 缺失滑点/均价
+            {
+              symbol: 'HISTNULLUSDT', direction: 'forward',
+              opened_at_us: 1753600000000000, closed_at_us: 1753700000000000,
+              open_qty: null, open_avg_price: null, close_avg_price: null,
+              spot_open_qty: null, spot_open_avg: null, spot_close_avg: null, spot_close_qty: null,
+              open_slippage: null, close_slippage: null,
+              borrow_interest: '0', funding_fee: '0', trading_fee_incomplete: 0
+            }
+          ]
+        }
+      };
+      await helpers.loadHedgeCloseLogs();
+      const hHtml = elements['history-list'].innerHTML;
+
+      // 验证列 15 (总计开单滑点 %) 与 列 16 (总计平单滑点 %)
+      const cellFwdOpen = getRowCell(hHtml, 'HISTFWDUSDT', 15);
+      if (!cellFwdOpen.includes('+1.0000%') || !cellFwdOpen.includes('+10.00 U') || !cellFwdOpen.includes('side-line small positive')) {
+        throw new Error('历史正向开单滑点渲染错误: ' + cellFwdOpen);
+      }
+      const cellFwdClose = getRowCell(hHtml, 'HISTFWDUSDT', 16);
+      if (!cellFwdClose.includes('-0.5025%') || !cellFwdClose.includes('-5.00 U') || !cellFwdClose.includes('side-line small negative')) {
+        throw new Error('历史正向平单滑点渲染错误: ' + cellFwdClose);
+      }
+
+      const cellRevOpen = getRowCell(hHtml, 'HISTREVUSDT', 15);
+      if (!cellRevOpen.includes('-0.5025%') || !cellRevOpen.includes('-5.00 U') || !cellRevOpen.includes('side-line small negative')) {
+        throw new Error('历史反向开单滑点渲染错误: ' + cellRevOpen);
+      }
+      const cellRevClose = getRowCell(hHtml, 'HISTREVUSDT', 16);
+      if (!cellRevClose.includes('+1.0000%') || !cellRevClose.includes('+10.00 U') || !cellRevClose.includes('side-line small positive')) {
+        throw new Error('历史反向平单滑点渲染错误: ' + cellRevClose);
+      }
+
+      const cellZeroOpen = getRowCell(hHtml, 'HISTZEROUSDT', 15);
+      if (!cellZeroOpen.includes('0.0000%') || !cellZeroOpen.includes('0.00 U') || !cellZeroOpen.includes('side-line small muted')) {
+        throw new Error('历史零滑点渲染错误: ' + cellZeroOpen);
+      }
+      const cellSubCentClose = getRowCell(hHtml, 'HISTZEROUSDT', 16);
+      if (!cellSubCentClose.includes('0.00 U') || !cellSubCentClose.includes('side-line small muted')) {
+        throw new Error('历史亚分位平单滑点应展示灰色 0.00 U: ' + cellSubCentClose);
+      }
+
+      const cellNullOpen = getRowCell(hHtml, 'HISTNULLUSDT', 15);
+      if (!cellNullOpen.includes('—') || cellNullOpen.includes('<br')) {
+        throw new Error('历史缺失开单滑点应单行显示 —: ' + cellNullOpen);
+      }
+
+      // 隐私模式脱敏：金额脱敏为 ****，百分比保留
+      helpers.togglePrivacy();
+      helpers.renderHedgeHistory();
+      const hPrivMaskHtml = elements['history-list'].innerHTML;
+      const cellFwdOpenMask = getRowCell(hPrivMaskHtml, 'HISTFWDUSDT', 15);
+      if (!cellFwdOpenMask.includes('+1.0000%') || !cellFwdOpenMask.includes('****')) {
+        throw new Error('历史隐私模式下开单滑点实际盈亏应脱敏为 ****: ' + cellFwdOpenMask);
+      }
+      // 恢复隐私状态
+      helpers.togglePrivacy();
+
+      // 恢复默认 mock
+      hedgeCloseLogsGetResponse = { status: 200, body: { logs: [] } };
+      await helpers.loadHedgeCloseLogs();
+      console.log('[PASS] 历史仓位表开/平单滑点第二行实际盈亏：双向盈利/亏损着色、零价差、缺均价降级 —、隐私脱敏');
+    }
+
     // 83a2. 统一账户余额卡的实时未还利息行（快照 cross_margin_interest，
     //       直读交易所 papi balance.crossMarginInterest）：位置在「已借」之下、
     //       「净价值」之上；还款控件在净价值之下。真零/缺失不占行。
