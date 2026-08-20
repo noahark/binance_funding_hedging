@@ -23,7 +23,7 @@ import re
 import sys
 import time
 from datetime import datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
@@ -1479,12 +1479,21 @@ class _Handler(BaseHTTPRequestHandler):
                     if price is not None:
                         interest_usdt = str(Decimal(interest) * Decimal(price))
             row["borrow_interest_usdt"] = interest_usdt
-            # 单位一致：net_pnl = 资金费(U) − 利息换算(U)（利息是成本，账本记正数；
-            # 2026-08-08 Human 更正口径，此前误作相加）；任一不可解析 → 「暂无」。
-            if funding is not None and interest_usdt is not None:
-                row["net_pnl"] = str(Decimal(funding) - Decimal(interest_usdt))
+            # 单位一致：net_pnl = 资金费(U) − 利息换算(U) − 开仓手续费(U)（利息与
+            # 手续费都是成本，账本记正数；2026-08-08 Human 更正利息为减项，
+            # 2026-08-20 Human Fast 增补手续费减项）。三个源任一缺失、不全
+            # （trading_fee_incomplete）或不可解析 → 「暂无」，绝不输出残缺假数据。
+            fee_usdt = row.get("trading_fee_usdt")
+            if (funding is not None and interest_usdt is not None
+                    and not row.get("trading_fee_incomplete")
+                    and fee_usdt is not None):
+                try:
+                    row["net_pnl"] = str(
+                        Decimal(funding) - Decimal(interest_usdt) - Decimal(fee_usdt))
+                except InvalidOperation:
+                    row["net_pnl"] = None
             else:
-                row["net_pnl"] = None  # 任一不可解析/无价格 → 「暂无」
+                row["net_pnl"] = None  # 任一缺失/不全/不可解析 → 「暂无」
         self._send_hedge_open(200, {"positions": merged, "account": account_meta})
 
     def _serve_static(self, path: str):

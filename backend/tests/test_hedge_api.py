@@ -90,7 +90,9 @@ _POSITION_KEYS = {
     # 三列非真值；无统计行三列为 None（前端「暂无」）。
     "stats_incomplete",
     # Human 2026-08-05：利息按币（asset）计，此为按 price_map 换算的 U 值
-    # （null=无法换算/无统计；真零为 "0"）。net_pnl = 资金费(U) − 利息(U)（2026-08-08 更正：利息是减项）。
+    # （null=无法换算/无统计；真零为 "0"）。net_pnl = 资金费(U) − 利息(U) − 开仓
+    # 手续费(U)（2026-08-08 利息改减项；2026-08-20 Fast 增补手续费减项，任一
+    # 源缺失/不全 → null「暂无」）。
     "borrow_interest_usdt",
     # 手续费成本 V1 阶段一占位（10-design §5.1 / D11）：键先冻死；阶段一恒为
     # None/None/True（未聚合=不全），真实折 U 聚合由后续任务接入。
@@ -873,7 +875,53 @@ def test_positions_stats_true_values_with_ledger(tmp_path):
             assert p["accrued_funding"] == "0.4"
             assert p["borrow_interest"] == "0.2"
             assert p["borrow_interest_usdt"] == "12000.0"          # 0.2 × 60000（Decimal 保留精度）
-            assert p["net_pnl"] == "-11999.6"                    # 0.4 − 12000，单位一致（利息是减项）
+            # 2026-08-20 Fast：冻结四列未查询（trading_fee_incomplete=True）→
+            # net_pnl 缺一源即「暂无」，绝不输出缺手续费的半截净盈亏。
+            assert p["trading_fee_incomplete"] is True
+            assert p["net_pnl"] is None
+    finally:
+        _Handler.ledger_flow_service = None
+
+
+def test_positions_net_pnl_subtracts_open_fee_when_complete(tmp_path):
+    """开仓手续费完整（四列已写、incomplete=False）→ net_pnl 三项相减。"""
+    import time
+    now_ms = int(time.time() * 1000)
+    t0_ms = now_ms - 3600 * 1000
+    client = _StubLedgerClient(
+        interest_rows=[
+            {"txId": 1, "interestAccuredTime": t0_ms + 1000, "asset": "BTC", "interest": "0.2"},
+        ],
+        income_rows=[
+            {"symbol": "BTCUSDT", "incomeType": "FUNDING_FEE", "income": "0.1",
+             "asset": "USDT", "info": "FUNDING_FEE", "time": t0_ms + 1000, "tranId": 1, "tradeId": ""},
+            {"symbol": "BTCUSDT", "incomeType": "FUNDING_FEE", "income": "0.3",
+             "asset": "USDT", "info": "FUNDING_FEE", "time": t0_ms + 2000, "tranId": 2, "tradeId": ""},
+        ],
+    )
+    ledger_svc = _make_ledger_svc(tmp_path, client, now_ms)
+    exe = RecordTransportFake()
+    clock = _Clock(t0_ms * 1000)
+    svc = _svc(tmp_path, executor=exe, clock=clock)
+    snap = _StubSnapshotService(rows=[
+        {"symbol": "BTCUSDT", "opening_quotes": {"status": "fresh", "spot_bid_price": "60000"}},
+    ])
+    try:
+        _Handler.ledger_flow_service = ledger_svc
+        with _server(svc, snapshot_service=snap) as (host, port):
+            p = _fill_one_position(host, port)
+            assert p["cycle_id"] is not None
+            # 给两条 open 腿写完整冻结费用（USDT 0.25 × 2 = 0.5，incomplete=False）。
+            svc.store._conn.execute(
+                "UPDATE hedge_open_leg SET fee_other_qty = '0.25',"
+                " fee_other_asset = 'USDT'")
+            svc.store._conn.commit()
+            status, _, payload = _req(host, port, "GET", "/api/hedge-open-positions")
+            p = _json(payload)["positions"][0]
+            assert p["trading_fee_incomplete"] is False
+            assert p["trading_fee_usdt"] == "0.5"
+            # 0.4 − 12000 − 0.5（单位一致：利息与手续费都是减项成本）。
+            assert p["net_pnl"] == "-12000.1"
     finally:
         _Handler.ledger_flow_service = None
 

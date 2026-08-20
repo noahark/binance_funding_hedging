@@ -2307,6 +2307,21 @@ Additive fields for hedge position fee costing and historical close cycle fee co
 - `trading_fee_incomplete`: `number` — `0` for complete fee accounting, `1` for incomplete.
 - Immutable historical baseline: Historical close logs created before this stage retain `trading_fee_usdt: null`, `fee_bnb_qty: null`, `trading_fee_incomplete: 1` as immutable audit snapshots.
 
+### `net_pnl` now subtracts the open-leg trading fee (Human Fast, 2026-08-20)
+
+The position row's `net_pnl` formula is now
+`net_pnl = funding(U) − interest_usdt(U) − trading_fee_usdt(open legs, U)`
+(both interest and the open-leg trading fee are costs recorded as positive
+ledger figures). Fail-closed, exactly as before for the two-source form: when
+any of the three sources is missing, unparseable, or incomplete
+(`trading_fee_incomplete === true`, which includes never-queried legs whose
+frozen fee columns are all empty), `net_pnl` is `null` and the frontend shows
+「暂无」 — a partial net figure with the fee term silently dropped is never
+emitted. Implementation authority: `backend/app/server.py` (positions
+stats block); pinned by `backend/tests/test_hedge_api.py`
+(`test_positions_stats_true_values_with_ledger`,
+`test_positions_net_pnl_subtracts_open_fee_when_complete`).
+
 ### Binance Trade History Empirical Retrieval Boundary
 
 - **Spot / Margin Trade History** (`GET /api/v3/myTrades`, `GET /papi/v1/margin/myTrades`): Supports `orderId`-based historical trade retrieval without the 7-day restriction.
