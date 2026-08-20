@@ -5549,20 +5549,9 @@
         return NaN;
       }
 
-      // 开单价差实际盈亏（折算 USDT）：
-      // 正向（现多期空）：(perp - spot) * qty
-      // 反向（现空期多）：(spot - perp) * qty
-      // 返回数字（USDT 金额，正=盈利绿，负=亏损/成本红）。
+      // 开单价差实际盈亏（折算 USDT）：委托单一权威实现 computeHedgeSlippagePnl(direction, 'open', spot, perp, qty)
       function computeHedgeOpenBasisPnl(spotAvg, perpAvg, direction, qty) {
-        const spot = hedgeNum(spotAvg);
-        const perp = hedgeNum(perpAvg);
-        const q = hedgeNum(qty);
-        if (!Number.isFinite(spot) || !Number.isFinite(perp) || !Number.isFinite(q) || spot <= 0 || perp <= 0 || q <= 0) {
-          return NaN;
-        }
-        if (direction === 'forward') return (perp - spot) * q;
-        if (direction === 'reverse') return (spot - perp) * q;
-        return NaN;
+        return computeHedgeSlippagePnl(direction, 'open', spotAvg, perpAvg, qty);
       }
 
       // 历史仓位开/平单滑点实际盈亏（折算 USDT）：
@@ -5744,14 +5733,13 @@
             ? '<span class="muted">—</span>'
             : `<span class="negative">${tFeeText}</span>${tFeeBnbLine}`;
           // 2026-08：开/平单滑点折算 USDT 实际盈亏第二行
-          const openQty = (r.open_qty != null && r.open_qty !== '') ? hedgeNum(r.open_qty)
-            : ((r.spot_open_qty != null && r.spot_open_qty !== '') ? hedgeNum(r.spot_open_qty) : NaN);
+          const openQty = hedgeNum(r.open_qty);
           const openSlipPnl = computeHedgeSlippagePnl(r.direction, 'open', r.spot_open_avg, r.open_avg_price, openQty);
           const openSlipPnlRounded = Number.isFinite(openSlipPnl) ? Number(openSlipPnl.toFixed(2)) : NaN;
           const openSlipPnlCls = classForSignedNumber(openSlipPnlRounded);
           const openSlipPnlText = formatHedgeBasisPnl(openSlipPnl);
           const openSlipPnlLine = (Number.isFinite(openSlipPnl) && openSlipPnlText)
-            ? `<br/><span class="side-line small ${openSlipPnlCls}" title="按开单成交数量折算的开单价差实际盈亏（USDT）">${escapeHtml(openSlipPnlText)}</span>`
+            ? `<br/><span class="side-line small ${openSlipPnlCls}" title="按合约开单成交数量折算的开单价差实际盈亏（USDT）">${escapeHtml(openSlipPnlText)}</span>`
             : '';
           const openSlipNum = (r.open_slippage != null && r.open_slippage !== '') ? hedgeNum(r.open_slippage) : NaN;
           const openSlipCls = Number.isFinite(openSlipNum) ? classForSignedNumber(openSlipNum) : 'muted';
@@ -5759,14 +5747,13 @@
             ? `${openSlipNum > 0 ? '+' : ''}${openSlipNum.toFixed(4)}%${openSlipPnlLine}`
             : '<span class="muted">—</span>';
 
-          const closeQty = (r.spot_close_qty != null && r.spot_close_qty !== '') ? hedgeNum(r.spot_close_qty)
-            : ((r.open_qty != null && r.open_qty !== '') ? hedgeNum(r.open_qty) : NaN);
+          const closeQty = hedgeNum(r.spot_close_qty);
           const closeSlipPnl = computeHedgeSlippagePnl(r.direction, 'close', r.spot_close_avg, r.close_avg_price, closeQty);
           const closeSlipPnlRounded = Number.isFinite(closeSlipPnl) ? Number(closeSlipPnl.toFixed(2)) : NaN;
           const closeSlipPnlCls = classForSignedNumber(closeSlipPnlRounded);
           const closeSlipPnlText = formatHedgeBasisPnl(closeSlipPnl);
           const closeSlipPnlLine = (Number.isFinite(closeSlipPnl) && closeSlipPnlText)
-            ? `<br/><span class="side-line small ${closeSlipPnlCls}" title="按平仓成交数量折算的平单价差实际盈亏（USDT）">${escapeHtml(closeSlipPnlText)}</span>`
+            ? `<br/><span class="side-line small ${closeSlipPnlCls}" title="按现货平仓成交数量折算的平单价差实际盈亏（USDT）">${escapeHtml(closeSlipPnlText)}</span>`
             : '';
           const closeSlipNum = (r.close_slippage != null && r.close_slippage !== '') ? hedgeNum(r.close_slippage) : NaN;
           const closeSlipCls = Number.isFinite(closeSlipNum) ? classForSignedNumber(closeSlipNum) : 'muted';
