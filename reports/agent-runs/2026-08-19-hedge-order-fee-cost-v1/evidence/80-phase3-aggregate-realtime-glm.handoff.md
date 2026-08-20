@@ -146,4 +146,19 @@
 
 ## Bookkeeper Verification (Bookkeeper append-only)
 
+- **verification_time**: 2026-08-20 13:31:00 CST
+- **source_sha256**: `cd34087d5a587c693b0fa5757bebcb6362a9aba34fcfa2a8fdb466457690d7a9`
+- **status_revision**: 19 -> 20
+- **base_sha**: `06c00c07e0181c596292c2f163890456abed3d8d`
+- **delivery_sha**: `3bc6acaec6e3bd2b837239d7a925007a29729db6`
+- **verdict_checks**:
+  1. `持仓真实聚合 aggregate_positions`: pass（支持完整折 U、均价使用 quote/base、不全返回 None/None/True）
+  2. `关仓日志聚合 insert_close_log`: pass（聚合 open+close 腿、完整 0、不全 1）
+  3. `实时开平仓写入 T5`: pass（三处终态 commit-first 后发至多 1 次 GET，复用 fee_fetcher，D4 现价冻结）
+  4. `UM 零宽窗修正`: pass（解决 inline 终态 dispatched==last_query 问题）
+  5. `自动化单测验证`: pass（`pytest` 232 passed）
+  6. `前端自检`: pass（`node frontend/self-check.js` 全部通过）
+  7. `邻域回归`: pass（`test_hedge_cycle_close.py` 等 204 passed）
+- **verification_status**: `verified`
+
 ## Errata (append-only)

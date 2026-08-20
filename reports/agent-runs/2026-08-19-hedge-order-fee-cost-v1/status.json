@@ -1,22 +1,22 @@
 {
   "schema_version": "2",
-  "revision": 18,
+  "revision": 24,
   "stage_id": "2026-08-19-hedge-order-fee-cost-v1",
   "bookkeeper": "gemini-3.7-flash",
   "bookkeeper_label": "agy",
-  "phase": "phase2_accepted",
-  "checkpoint": "phase2-dual-review-accepted",
-  "base_sha": "f510c562667312a0ebf8d531e4add3f95acbe7e1",
-  "delivery_sha": "831e255492628fded3720f9bcc68489256410788",
-  "ledger_sha": "831e255492628fded3720f9bcc68489256410788",
+  "phase": "phase3_accepted",
+  "checkpoint": "phase3-dual-review-accepted",
+  "base_sha": "06c00c07e0181c596292c2f163890456abed3d8d",
+  "delivery_sha": "3bc6acaec6e3bd2b837239d7a925007a29729db6",
+  "ledger_sha": "3bc6acaec6e3bd2b837239d7a925007a29729db6",
   "current_task": {
-    "id": "70-phase2-review2-opus5",
+    "id": "100-phase3-review2-opus5",
     "state": "verified",
-    "dispatch": "reports/agent-runs/2026-08-19-hedge-order-fee-cost-v1/70-phase2-review2-opus5.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-19-hedge-order-fee-cost-v1/100-phase3-review2-opus5.dispatch.md"
   },
   "next": {
-    "actor": "human_operator",
-    "action": "decide-live-backfill-authorization-and-phase3"
+    "actor": "human",
+    "action": "authorize-backfill-re-run-with-cleared-progress-and-server-restart"
   },
   "rework_count": 0,
   "blockers": []
