@@ -78,9 +78,24 @@ class BinancePublicClient:
         self.request_log[key] = self.request_log.get(key, 0) + 1
 
     def _http_get(self, url: str) -> Any:
-        req = urllib.request.Request(url, headers={"User-Agent": self.user_agent})
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": self.user_agent,
+                "Accept-Encoding": "gzip, deflate",
+            },
+        )
         with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            raw = resp.read()
+            info = resp.info() if hasattr(resp, "info") else getattr(resp, "headers", None)
+            encoding = info.get("Content-Encoding") if info is not None else None
+            if encoding == "gzip":
+                import gzip
+                raw = gzip.decompress(raw)
+            elif encoding == "deflate":
+                import zlib
+                raw = zlib.decompress(raw)
+            return json.loads(raw.decode("utf-8"))
 
     def fetch_raw(self) -> dict:
         """Return the public inputs plus an offline funding-history index.
