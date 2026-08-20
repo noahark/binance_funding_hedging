@@ -78,9 +78,24 @@ class BinancePublicClient:
         self.request_log[key] = self.request_log.get(key, 0) + 1
 
     def _http_get(self, url: str) -> Any:
-        req = urllib.request.Request(url, headers={"User-Agent": self.user_agent})
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": self.user_agent,
+                "Accept-Encoding": "gzip, deflate",
+            },
+        )
         with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            raw = resp.read()
+            info = resp.info() if hasattr(resp, "info") else getattr(resp, "headers", None)
+            encoding = info.get("Content-Encoding") if info is not None else None
+            if encoding == "gzip":
+                import gzip
+                raw = gzip.decompress(raw)
+            elif encoding == "deflate":
+                import zlib
+                raw = zlib.decompress(raw)
+            return json.loads(raw.decode("utf-8"))
 
     def fetch_raw(self) -> dict:
         """Return the public inputs plus an offline funding-history index.
@@ -292,3 +307,34 @@ class BinancePublicClient:
         url = f"{self.spot_base_url}/api/v3/ticker/price"
         rows = self._http_get(url)
         return {row["symbol"]: row["price"] for row in rows if "symbol" in row}
+
+    def fetch_kline_close(self, symbol: str, *, start_time_ms: int,
+                          interval: str = "1m") -> str | None:
+        """公开 ``GET /api/v3/klines``：``start_time_ms`` 所在分钟的 1m K 线收盘价。
+
+        手续费成本 V1（stage 2026-08-19 §4.3 回补冻价）：BNB 折 U 用**成交时刻**
+        的历史 BNB 价，不是「现在的价」——``limit=1`` 取开于 ``start_time_ms`` 的
+        那 1 根 K 线，close 即该分钟末价格。无签名、走 spot 公开端点，与签名
+        客户端配额分开（§4.2：绝不进签名白名单）。Decimal-safe：close 只接受
+        原始字符串，数字类型/空结果返回 ``None``（价格缺失→该腿标不全，不臆造）。
+
+        Offline 无历史 K 线源 → ``None``。Raises on transport/HTTP failure.
+        """
+        if self.offline:
+            return None
+        self._bump("GET /api/v3/klines")
+        query = urllib.parse.urlencode({
+            "symbol": symbol,
+            "interval": interval,
+            "startTime": str(int(start_time_ms)),
+            "limit": "1",
+        })
+        rows = self._http_get(f"{self.spot_base_url}/api/v3/klines?{query}")
+        if not isinstance(rows, list) or not rows:
+            return None
+        kline = rows[0]
+        # 币安 K 线行：[openTime, open, high, low, close, volume, ...]（close=idx 4）
+        if not isinstance(kline, list) or len(kline) < 5:
+            return None
+        close = kline[4]
+        return close if isinstance(close, str) else None

@@ -5422,12 +5422,13 @@ setTimeout(async () => {
         if (!statsHtml.includes(piece)) throw new Error(`功能二持仓统计缺少「${piece}」: ` + statsHtml);
       }
       // 资金费正值 positive 着色（正=收取绿）；net_pnl 负值 negative 着色（−2.2886 → -2.29）。
+      // （2026-08-20 手续费成本列插入在开单价差率之后，累计资金费 13→14、净盈亏 14→15。）
       const posStatsHtml = statsHtml.slice(statsHtml.indexOf('对冲开单持仓'));
-      const ausdtFundCell = getRowCell(posStatsHtml, 'AUSDT', 13);
+      const ausdtFundCell = getRowCell(posStatsHtml, 'AUSDT', 14);
       if (!ausdtFundCell.includes('positive') || !ausdtFundCell.includes('0.06')) {
         throw new Error('资金费列正值应 positive 着色: ' + ausdtFundCell);
       }
-      const ausdtNetCell = getRowCell(posStatsHtml, 'AUSDT', 14);
+      const ausdtNetCell = getRowCell(posStatsHtml, 'AUSDT', 15);
       if (!ausdtNetCell.includes('negative') || !ausdtNetCell.includes('-2.29')) {
         throw new Error('net_pnl 列负值应 negative 着色: ' + ausdtNetCell);
       }
@@ -5474,6 +5475,103 @@ setTimeout(async () => {
         throw new Error('RSR 行应为「暂无」: ' + statsHtml);
       }
       console.log('[PASS] 功能二：三列真值（资金费着色 + 利息≈U换算 + net_pnl 单位一致）+ 统计区间不全 + 已完全平仓标记');
+    }
+
+    // 83z. 手续费成本列（2026-08-19-hedge-order-fee-cost-v1 阶段一，10-design §5.1/§5.2、
+    //     D10/D11）：持仓表「开单价差率」与「累计资金费」之间、历史表「总资金费率收益」旁。
+    //     incomplete 或金额 null 或缺键（no_task 行）→ 单行「—」且无 BNB 第二行；
+    //     完整 → 两位小数折 U（成本负向着色），有 fee_bnb_qty 时第二行 BNB 数量。
+    {
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        { coin: 'FEEAUSDT', direction: 'forward', position_qty: 6, spot_avg: '1', perp_avg: '1',
+          trading_fee_usdt: '1.234', fee_bnb_qty: '0.00075', trading_fee_incomplete: false },
+        { coin: 'FEEBUSDT', direction: 'forward', position_qty: 6, spot_avg: '1', perp_avg: '1',
+          trading_fee_usdt: null, fee_bnb_qty: null, trading_fee_incomplete: true },
+        { coin: 'FEECUSDT', direction: 'forward', position_qty: 6, spot_avg: '1', perp_avg: '1',
+          trading_fee_usdt: null, fee_bnb_qty: null, trading_fee_incomplete: false },
+        { coin: 'FEEDUSDT', direction: 'forward', position_qty: 6, spot_avg: '1', perp_avg: '1',
+          trading_fee_usdt: '0.5', fee_bnb_qty: null, trading_fee_incomplete: false },
+        // no_task 行（§31 交接边界）：后端不含三个手续费键，前端必须按「—」处理。
+        { coin: 'FEEEUSDT', direction: 'forward', match_status: 'no_task', um_position_amt: '-1' }
+      ], account: { verified: true, error: null, checked_at: null } } };
+      helpers.ingestSnapshot(designFixture);
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      const feePosHtml = elements['private-panel-body'].innerHTML.slice(
+        elements['private-panel-body'].innerHTML.indexOf('对冲开单持仓'));
+      const iBasis = feePosHtml.indexOf('开单价差率');
+      const iFee = feePosHtml.indexOf('手续费成本');
+      const iFund = feePosHtml.indexOf('累计资金费');
+      if (!(iBasis >= 0 && iBasis < iFee && iFee < iFund)) {
+        throw new Error(`持仓表头顺序须为 开单价差率→手续费成本→累计资金费: ${iBasis}/${iFee}/${iFund}`);
+      }
+      const feeCellA = getRowCell(feePosHtml, 'FEEAUSDT', 13);
+      if (!feeCellA.includes('1.23') || !feeCellA.includes('negative') || !feeCellA.includes('0.00075 BNB')) {
+        throw new Error('完整手续费应显示两位小数折 U（负向着色）+ BNB 数量第二行: ' + feeCellA);
+      }
+      const feeCellB = getRowCell(feePosHtml, 'FEEBUSDT', 13);
+      if (!feeCellB.includes('—') || feeCellB.includes('BNB') || feeCellB.includes('<br')) {
+        throw new Error('incomplete=true 应单行 — 且不显示第二行: ' + feeCellB);
+      }
+      const feeCellC = getRowCell(feePosHtml, 'FEECUSDT', 13);
+      if (!feeCellC.includes('—') || feeCellC.includes('<br')) {
+        throw new Error('incomplete=false 但金额为 null 也应显示 —: ' + feeCellC);
+      }
+      const feeCellD = getRowCell(feePosHtml, 'FEEDUSDT', 13);
+      if (!feeCellD.includes('0.50') || feeCellD.includes('BNB') || feeCellD.includes('<br')) {
+        throw new Error('无 BNB 数量时只显示折 U 主行: ' + feeCellD);
+      }
+      const feeCellE = getRowCell(feePosHtml, 'FEEEUSDT', 13);
+      if (!feeCellE.includes('—')) {
+        throw new Error('no_task 行缺手续费键应显示 —（不得当 0）: ' + feeCellE);
+      }
+
+      // 历史仓位表（§5.2）：incomplete=1 或金额 null → —；完整 → 折 U + BNB 第二行。
+      hedgeCloseLogsGetResponse = { status: 200, body: { logs: [
+        { symbol: 'FEEAUSDT', direction: 'forward', opened_at_us: 1753600000000000, closed_at_us: 1753700000000000,
+          open_qty: '6', open_avg_price: '100', close_avg_price: '101',
+          borrow_interest: '0.02', funding_fee: '0.06', open_slippage: null, close_slippage: null,
+          trading_fee_usdt: '2.345', fee_bnb_qty: '0.001', trading_fee_incomplete: 0 },
+        { symbol: 'FEEBUSDT', direction: 'reverse', opened_at_us: 1753600000000000, closed_at_us: 1753700000000000,
+          open_qty: '6', open_avg_price: '100', close_avg_price: '101',
+          borrow_interest: null, funding_fee: null, open_slippage: null, close_slippage: null,
+          trading_fee_usdt: null, fee_bnb_qty: null, trading_fee_incomplete: 1 },
+        { symbol: 'FEECUSDT', direction: 'forward', opened_at_us: 1753600000000000, closed_at_us: 1753700000000000,
+          open_qty: null, open_avg_price: null, close_avg_price: null,
+          borrow_interest: null, funding_fee: null, open_slippage: null, close_slippage: null,
+          trading_fee_usdt: null, fee_bnb_qty: null, trading_fee_incomplete: 0 }
+      ] } };
+      await helpers.loadHedgeCloseLogs();
+      const histHtml = elements['history-list'].innerHTML;
+      const iHistFund = histHtml.indexOf('总资金费率收益');
+      const iHistFee = histHtml.indexOf('手续费成本');
+      if (!(iHistFund >= 0 && iHistFund < iHistFee)) {
+        throw new Error('历史表头「手续费成本」须在「总资金费率收益」旁');
+      }
+      const histCellA = getRowCell(histHtml, 'FEEAUSDT', 14);
+      if (!histCellA.includes('2.35') || !histCellA.includes('negative') || !histCellA.includes('0.001 BNB')) {
+        throw new Error('历史完整手续费应显示折 U（负向着色）+ BNB 第二行: ' + histCellA);
+      }
+      const histCellB = getRowCell(histHtml, 'FEEBUSDT', 14);
+      if (!histCellB.includes('—') || histCellB.includes('BNB') || histCellB.includes('<br')) {
+        throw new Error('历史 incomplete=1 应单行 —: ' + histCellB);
+      }
+      const histCellC = getRowCell(histHtml, 'FEECUSDT', 14);
+      if (!histCellC.includes('—') || histCellC.includes('<br')) {
+        throw new Error('历史 incomplete=0 但金额 null 应显示 —: ' + histCellC);
+      }
+      // 历史空态 colspan 16→17。
+      hedgeCloseLogsGetResponse = { status: 200, body: { logs: [] } };
+      await helpers.loadHedgeCloseLogs();
+      const histEmpty = elements['history-list'].innerHTML;
+      if (!histEmpty.includes('colspan="17"') || histEmpty.includes('colspan="16"')) {
+        throw new Error('历史空态 colspan 须为 17: ' + histEmpty);
+      }
+      // 恢复默认 mock，避免影响后续用例。
+      hedgePositionsGetResponse = { status: 200, body: { positions: [], account: { verified: true, error: null, checked_at: null } } };
+      await helpers.loadHedgePositions();
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] 手续费成本列：持仓/历史表头位置、incomplete/缺键单行 —、完整折 U+BNB 双行、历史空态 colspan=17');
     }
 
     // 83a2. 统一账户余额卡的实时未还利息行（快照 cross_margin_interest，
@@ -6092,7 +6190,7 @@ setTimeout(async () => {
       let body = elements['private-panel-body'].innerHTML;
       const noTaskSpot = getRowCell(body, 'MUUSDT', 10);
       const noTaskPerp = getRowCell(body, 'MUUSDT', 11);
-      const noTaskMark = getRowCell(body, 'MUUSDT', 16);
+      const noTaskMark = getRowCell(body, 'MUUSDT', 17);
       if (!noTaskSpot.includes('—') || noTaskSpot.includes('0')) {
         throw new Error('G2: no_task 现货均价应显示 — 而非 0: ' + noTaskSpot);
       }
@@ -6113,7 +6211,7 @@ setTimeout(async () => {
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
       body = elements['private-panel-body'].innerHTML;
-      const noUmMark = getRowCell(body, 'XYZUSDT', 16);
+      const noUmMark = getRowCell(body, 'XYZUSDT', 17);
       if (!noUmMark.includes('交易所无仓')) {
         throw new Error('G1: no_um 行应标记「交易所无仓」: ' + noUmMark);
       }
@@ -6129,7 +6227,7 @@ setTimeout(async () => {
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
       body = elements['private-panel-body'].innerHTML;
-      const g5Mark = getRowCell(body, 'RSRUSDT', 16);
+      const g5Mark = getRowCell(body, 'RSRUSDT', 17);
       if (!g5Mark.includes('均价不完整')) {
         throw new Error('G5: 不完整均价应显示「均价不完整」标记: ' + g5Mark);
       }
@@ -8440,8 +8538,8 @@ setTimeout(async () => {
         positionSection.indexOf('<thead>'), positionSection.indexOf('</thead>') + 8
       );
       const positionThCount = (positionThead.match(/<th[\s>]/g) || []).length;
-      if (positionThCount !== 17) {
-        throw new Error(`持仓表 th 数量期望 17，实际 ${positionThCount}`);
+      if (positionThCount !== 18) {
+        throw new Error(`持仓表 th 数量期望 18，实际 ${positionThCount}`);
       }
       for (const symbol of ['SNXXUSDT', '1000BONKUSDT']) {
         const symbolAt = positionSection.indexOf(symbol);
@@ -8449,8 +8547,8 @@ setTimeout(async () => {
         const rowEnd = positionSection.indexOf('</tr>', symbolAt);
         const rowHtml = positionSection.slice(rowStart, rowEnd + 5);
         const tdCount = (rowHtml.match(/<td[\s>]/g) || []).length;
-        if (tdCount !== 17) {
-          throw new Error(`${symbol} 持仓行 td 数量期望 17，实际 ${tdCount}`);
+        if (tdCount !== 18) {
+          throw new Error(`${symbol} 持仓行 td 数量期望 18，实际 ${tdCount}`);
         }
       }
 
@@ -8585,12 +8683,12 @@ setTimeout(async () => {
       helpers.renderPrivatePanel();
       const emptyPositionBody = elements['private-panel-body'].innerHTML;
       const emptyPositionSection = emptyPositionBody.slice(emptyPositionBody.indexOf('对冲开单持仓'));
-      if (!emptyPositionSection.includes('colspan="17"')
+      if (!emptyPositionSection.includes('colspan="18"')
           || (emptyPositionSection.match(/<td[\s>]/g) || []).length !== 1) {
-        throw new Error('持仓空态须只有一个 td 且 colspan=17: ' + emptyPositionSection);
+        throw new Error('持仓空态须只有一个 td 且 colspan=18: ' + emptyPositionSection);
       }
       helpers.ingestSnapshot(designFixture);
-      console.log('[PASS] frontend-position-balance-display-v1：双行现货/杠杆、借款同代估值、17 列结构、缺失/真零/隐私、徽标列、标题区时间与 PM 位置');
+      console.log('[PASS] frontend-position-balance-display-v1：双行现货/杠杆、借款同代估值、18 列结构、缺失/真零/隐私、徽标列、标题区时间与 PM 位置');
     }
 
     // 75y2. 幂等键生成器（2026-08-07 实盘首笔划转故障的回归防线）

@@ -263,7 +263,7 @@ def test_smooth_frontend_reuses_log_poll_and_has_no_new_timer():
 def test_expanded_log_poll_includes_all_running_tasks_and_retains_non_running_expanded():
     """统一 2 秒刷新资格：running 任务必刷新，非 running 仅展开时刷新，无 mode/task_type 特判。"""
     text = INDEX_HTML.read_text(encoding="utf-8")
-    load_start = text.index("async function loadHedgeTasks()")
+    load_start = text.index("async function loadHedgeTasks(")
     load_end = text.index("async function loadHedgePositions()", load_start)
     load_block = text[load_start:load_end]
     refresh_start = text.index("async function refreshExpandedRunningHedgeLogs()")
@@ -288,7 +288,7 @@ def test_expanded_log_poll_includes_all_running_tasks_and_retains_non_running_ex
 
     # refreshExpandedRunningHedgeLogs 仅在任务标签页复用共享 tick 调用 loadHedgeTasks。
     assert "state.activeView !== 'hedge-tasks' || state.hedgeTab !== 'tasks'" in refresh_block
-    assert "await loadHedgeTasks()" in refresh_block
+    assert "await loadHedgeTasks({ liveOnly: true })" in refresh_block
 
 
 def test_smooth_dynamic_market_only_renders_for_running_cards():

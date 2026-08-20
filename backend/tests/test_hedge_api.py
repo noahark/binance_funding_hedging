@@ -92,6 +92,9 @@ _POSITION_KEYS = {
     # Human 2026-08-05：利息按币（asset）计，此为按 price_map 换算的 U 值
     # （null=无法换算/无统计；真零为 "0"）。net_pnl = 资金费(U) − 利息(U)（2026-08-08 更正：利息是减项）。
     "borrow_interest_usdt",
+    # 手续费成本 V1 阶段一占位（10-design §5.1 / D11）：键先冻死；阶段一恒为
+    # None/None/True（未聚合=不全），真实折 U 聚合由后续任务接入。
+    "trading_fee_usdt", "fee_bnb_qty", "trading_fee_incomplete",
 }
 
 

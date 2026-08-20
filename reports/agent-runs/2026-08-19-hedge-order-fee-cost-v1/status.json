@@ -1,0 +1,23 @@
+{
+  "schema_version": "2",
+  "revision": 24,
+  "stage_id": "2026-08-19-hedge-order-fee-cost-v1",
+  "bookkeeper": "gemini-3.7-flash",
+  "bookkeeper_label": "agy",
+  "phase": "phase3_accepted",
+  "checkpoint": "phase3-dual-review-accepted",
+  "base_sha": "06c00c07e0181c596292c2f163890456abed3d8d",
+  "delivery_sha": "3bc6acaec6e3bd2b837239d7a925007a29729db6",
+  "ledger_sha": "3bc6acaec6e3bd2b837239d7a925007a29729db6",
+  "current_task": {
+    "id": "100-phase3-review2-opus5",
+    "state": "verified",
+    "dispatch": "reports/agent-runs/2026-08-19-hedge-order-fee-cost-v1/100-phase3-review2-opus5.dispatch.md"
+  },
+  "next": {
+    "actor": "human",
+    "action": "authorize-backfill-re-run-with-cleared-progress-and-server-restart"
+  },
+  "rework_count": 0,
+  "blockers": []
+}

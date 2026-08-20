@@ -4,7 +4,12 @@ Cross-stage state, read at startup. Keep under 64 KB. Git history is not a runti
 check. Completed work's trace is git history and archive references (see Update
 Rule); this file records only live risks, open follow-ups, and pointers.
 
-## Current Status (2026-08-18)
+## Current Status (2026-08-20)
+
+- **[STAGE COMPLETED 2026-08-20] 成交手续费冻价成本 V1 (`2026-08-19-hedge-order-fee-cost-v1`)：**
+  表结构四列手续费扩展落库、历史数据回补 268 腿、读链路真实折 U 聚合（quote/base 严格均价、不全 None/None/True 安全契约）、平仓结算 `close_log` 全腿现算冻结、实时下单 commit-first 钩子自动拉取写入（D4 实时现价冻结）。
+  双评审闭环（Kimi ACCEPT + Opus 5 ACCEPT）。
+  实测证实币安 UM `userTrades` 在 10 分钟未来窗扩展下 132/133 条全部成功回溯落库；10 天前老单受币安 7 天窗口限制返回空列表，系统按 D10/D11 宁缺毋滥原则安全显示 `—`。
 
 - **[2026-08-18 Human 直接驱动，无 stage] 非正常借币中标红：**
   不是「live + 已启动、且没有拦住原因」时，借币页顶上执行状态改红色；
