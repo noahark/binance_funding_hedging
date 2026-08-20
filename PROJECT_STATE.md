@@ -7,9 +7,9 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 ## Current Status (2026-08-20)
 
 - **[STAGE COMPLETED 2026-08-20] 成交手续费冻价成本 V1 (`2026-08-19-hedge-order-fee-cost-v1`)：**
-  表结构四列手续费扩展落库、历史数据回补 268 腿、读链路真实折 U 聚合（quote/base 严格均价、不全 None/None/True 安全契约）、平仓结算 `close_log` 全腿现算冻结、实时下单 commit-first 钩子自动拉取写入（D4 实时现价冻结）。
-  双评审闭环（Kimi ACCEPT + Opus 5 ACCEPT）。
-  实测证实币安 UM `userTrades` 在 10 分钟未来窗扩展下 132/133 条全部成功回溯落库；10 天前老单受币安 7 天窗口限制返回空列表，系统按 D10/D11 宁缺毋滥原则安全显示 `—`。
+  表结构四列手续费扩展落库、历史数据回补 268 腿成功落库（待补 269 腿中，132/133 条 UM 路由腿成功回补；仅 1 条约 9.6 天前的历史老单因超出币安合约 7 天查询窗口返回空列表，系统按 D10/D11 宁缺毋滥原则整行安全显示 `—`）、读链路真实折 U 聚合（quote/base 严格均价、不全 None/None/True 安全契约）、平仓结算 `close_log` 全腿现算冻结、实时下单 commit-first 钩子自动拉取写入（D4 实时现价冻结）。
+  双评审闭环（Kimi ACCEPT + Opus 5 ACCEPT）。已合并 main 并重新部署。
+
 
 - **[2026-08-18 Human 直接驱动，无 stage] 非正常借币中标红：**
   不是「live + 已启动、且没有拦住原因」时，借币页顶上执行状态改红色；
@@ -626,7 +626,12 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   operation. Live actions follow the Live Risks gates above.
 
 ## Last Completed
-
+- stage: `2026-08-19-hedge-order-fee-cost-v1`
+- archive_ref: `archive/2026-08-19-hedge-order-fee-cost-v1`（tip `08fce61`）
+- delivery: `3bc6aca..45eb5ec`；`rework_count` 0。Phase 1/2/3 全部通过双评审（Kimi ACCEPT + Opus 5 ACCEPT）。Human 授权已合并 `main`（`merge: dd736b9`）并重新部署 8787 服务。
+- recorded_completed_at: `2026-08-20`
+- outcome: 成交手续费冻价成本 V1。完成 `hedge_open_leg` 四列手续费字段扩展与回补（268/269 腿成功入库）、`hedge_open_cycle_close_log` 三列历史关仓手续费字段现算聚合、持仓表 `aggregate_positions` 读链路真实折 U 聚合（quote/base 均价、宁缺毋滥 D10/D11 契约）、三处终态 commit-first 实时写入与 D4 现价冻结，实盘验证 `NOMUSDT` 自动落库记账。
+- follow-ups: 币安 UM 合约历史成交受约 7 天接口限制，老单（如 TSTUSDT 9.6 天前合约腿）返回空列表按契约安全显示 `—`。
 - stage: `2026-08-14-smooth-close-orders-v1`
 - archive_ref: `archive/2026-08-14-smooth-close-orders-v1`（tip `f667e6ff8f5fb010d5116563b325bf4384c52caf`）
 - delivery: `6f6c729..f95577f`；`rework_count` 1（P1修复一次）。Review-1 (gemini-3.1-pro) ACCEPT；Review-2 (opus5) ACCEPT。未授权 push/部署或合并。

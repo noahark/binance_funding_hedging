@@ -61,6 +61,11 @@ close, borrow, repay, or transfer assets as a response to an order outcome.
   the fallback repay asset while Binance still spends same-coin assets first.
   It is one-shot, locally idempotent in `data/margin-repay.sqlite3`, gated by
   `APP_MARGIN_REPAY_ENABLED`, and live-verified with XLM and INJ repayments.
+- Hedge position and historical close cycle trading fee costing (stage `2026-08-19-hedge-order-fee-cost-v1`):
+  Holdings and close-log tables render an explicit 「手续费成本」 column showing total USD-equivalent fee
+  and BNB quantity spent. Orders automatically trigger commit-first trade-detail fetching with live BNB
+  price freezing. Data incompleteness renders `—` safely under the fail-closed integrity contract.
+
 - Unified-account asset cards that still have principal borrow (`cross_margin_borrowed`
   > 0) but no current hedge — no non-zero UM position for that asset, and no
   local unclosed cycle — render on their own first row, with a red 「未开单」

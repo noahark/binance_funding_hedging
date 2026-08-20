@@ -2289,3 +2289,26 @@ the same-round gate snapshot and monotonic-microsecond stage marks; it does
 not contain API keys, signatures, full private URLs, credentials, or private
 raw responses. Immediate/close tasks do not create these rows. Existing
 `logs`, `attempts`, and `smooth_market` fields are unchanged.
+
+## Hedge order trading fee cost contract (v0.21, stage `2026-08-19-hedge-order-fee-cost-v1`)
+
+Additive fields for hedge position fee costing and historical close cycle fee costs.
+
+### `GET /api/hedge-open-positions` (Additive fields on each position object)
+
+- `trading_fee_usdt`: `string | null` — Aggregated total trading fee in USDT (sum of Spot/margin USDT-equivalent fees and UM perp USDT fees) for all filled open legs in the active cycle. Base asset fees are converted to USDT using `cumulative_quote_amt / cumulative_base_qty` vwap (strictly forbidden `avg_price`). If any open leg fee is missing/unresolved, returns `null`.
+- `fee_bnb_qty`: `string | null` — Aggregated total fee paid in BNB across all filled open legs in the active cycle. Returns `null` if fee data is incomplete.
+- `trading_fee_incomplete`: `boolean` — True when at least one filled open leg in the active cycle has missing/unresolved fee or price data. In this state, `trading_fee_usdt` and `fee_bnb_qty` are both `null`, and frontend displays `—` (fail-closed, D10/D11).
+
+### `GET /api/hedge-open-close-logs` (Additive fields on each close log object)
+
+- `trading_fee_usdt`: `string | null` — Total trading fee in USDT aggregated across all open and close legs in the cycle at close time.
+- `fee_bnb_qty`: `string | null` — Total fee paid in BNB across all open and close legs in the cycle.
+- `trading_fee_incomplete`: `number` — `0` for complete fee accounting, `1` for incomplete.
+- Immutable historical baseline: Historical close logs created before this stage retain `trading_fee_usdt: null`, `fee_bnb_qty: null`, `trading_fee_incomplete: 1` as immutable audit snapshots.
+
+### Binance Trade History Empirical Retrieval Boundary
+
+- **Spot / Margin Trade History** (`GET /api/v3/myTrades`, `GET /papi/v1/margin/myTrades`): Supports `orderId`-based historical trade retrieval without the 7-day restriction.
+- **UM Futures Trade History** (`GET /papi/v1/um/userTrades`): Enforces a **~7-day query window limit** from the current timestamp. Orders older than ~7 days return empty `[]` even when valid `startTime`/`endTime` are passed. System fail-closed behavior safely treats empty trade returns on older orders as incomplete (`trading_fee_incomplete: true`), rendering `—` without data corruption.
+

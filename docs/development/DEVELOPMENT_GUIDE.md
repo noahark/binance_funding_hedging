@@ -158,6 +158,20 @@ operator on a stopped server; always take a `.bak` copy first.
 `open+forward+regular_spot` 建仓（collateral-cap / bStock / SPOT_ONLY 标的）时，
 `create_task` 内从统一账户一次性划转 `truncate(q×N×price×1.03)` USDT 到普通现货账户
 （1.03 缓冲覆盖价格漂移，向下截两位）；划转失败则不建卡，前端弹
+`open_spot_transfer_failed` 弹窗。
+
+### Historical leg fee backfill script (`scripts/backfill-leg-fees.py`)
+
+- **Usage**: `python3 scripts/backfill-leg-fees.py [--db PATH] [--progress PATH] [--limit N] [--dry-run]`
+- **Idempotency & Red Lines**:
+  - Updates only `hedge_open_leg` via atomic `WHERE id = ? AND fee_bnb_qty IS NULL AND fee_bnb_price IS NULL AND fee_other_qty IS NULL AND fee_other_asset IS NULL`.
+  - Never touches or rewrites `hedge_open_cycle_close_log` (Breakpoint 1).
+  - Fetches trades via `backend/hedge_open_tasks/fee_fetcher.py`.
+  - BNB price is frozen at order fill time using Binance 1m K-line close price from `binance_public`.
+- **Progress Tracking & Operational Note**:
+  - Breakpoint progress is stored in `data/backfill-leg-fees-progress.json`.
+  - If backfill code logic or Binance query window calculations are patched, delete or reset the progress file so previously failed candidate legs can be re-evaluated.
+
 `open_spot_transfer_failed`。preflight 对 regular_spot forward 余额门放行；dispatch
 下单前核验 `fresh=regular_spot` 时建卡固化的 frozen route 必须也是 `regular_spot`
 （即已备款），否则暂停不发单防裸空。开完不自动回流，残余 USDT 人工收尾（Human 决断
