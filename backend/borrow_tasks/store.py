@@ -325,8 +325,8 @@ class BorrowTaskStore:
         """Delete historical attempt rows used by the borrow log page.
 
         Keeps any attempt still referenced by ``borrow_task.unresolved_attempt_id``
-        so an in-flight / recon marker is never orphaned. Does not delete tasks
-        or settings.
+        so a row the owner is about to resolve is never deleted. Does not delete
+        tasks or settings.
         """
         with self._lock, self._conn:
             before = self._conn.execute(

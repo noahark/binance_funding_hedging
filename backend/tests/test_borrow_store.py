@@ -752,8 +752,3 @@ def test_migration_quarantines_pre_c_borrowing_and_is_idempotent(tmp_path):
     assert s2.get_task("A")["status"] == D.STATUS_PAUSED
     assert s2.get_task("A")["live_authorized"] == 0
     s2.close()
-
-
-# ===========================================================================
-# Cross-task attribution gate (§5.3 / risk §11 — no false cross-task credit)
-# ===========================================================================

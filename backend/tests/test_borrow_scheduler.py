@@ -192,7 +192,7 @@ def test_rate_limit_cooldown_suppresses_until_expiry(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Unknown blocks only its task; others rotate; seam unblocks (acceptance 4)
+# Unknown keeps its task in the rotation (DEC-2026-08-21)
 # ---------------------------------------------------------------------------
 def test_unknown_keeps_its_task_in_the_rotation(tmp_path):
     # DEC-2026-08-21: an unconfirmed POST is treated as "did not borrow", so the
@@ -519,7 +519,3 @@ def test_post_start_at_target_completes_instead_of_borrowing(tmp_path):
     assert doc["status"] == D.STATUS_COMPLETED
     assert doc["live_authorized"] is True
     svc.close()
-
-
-# ---------------------------------------------------------------------------
-# ---------------------------------------------------------------------------

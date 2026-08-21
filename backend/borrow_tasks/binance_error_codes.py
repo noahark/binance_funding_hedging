@@ -8,7 +8,7 @@ Sources (public docs, not a live scrape at runtime):
   ``developers.binance.com/docs/margin_trading/error-code``
   (user-facing CN path: zh-CN/.../margin-trading/error-code)
 
-Only codes that matter for this product's signed borrow / recon path are
+Only codes that matter for this product's signed borrow POST path are
 listed. Lookup is **display-only**: classification still uses the frozen
 executor rules. Wire bodies may carry either sign (``51061`` or ``-51061``);
 lookup normalizes a single leading ``+``/``-`` before matching.

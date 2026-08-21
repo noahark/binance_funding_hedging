@@ -356,7 +356,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   `fetch_loan_records` 与 `GET /papi/v1/margin/marginLoan` 白名单项——借币客户端现在只剩下单
   POST 一个签名端点）与前端「待对账·暂停调度」徽标，净减约 1400 行。
   `unresolved_attempt_id` 降级为纯进程内在途锁：每次结算清、开机也清。
-  ⚠️ **开机恢复已改为 owner-gated**（先抢 sidecar 锁再开库）：codex Review-1 发现非 owner 进程
+  ⚠️ **开机恢复已改为 owner-gated**（先抢 sidecar 锁再开库）：codex 评审发现非 owner 进程
   启动会清掉在跑进程的在途标记，随后一次「清空日志」即可删掉它正要结算的那行，**丢掉一笔真实
   `tranId` 成功**。已修 + 并发回归测试（变异验证改坏即红）。
   **接受的代价**：每个孤儿最多多借一笔，Human 从币安控制台核对余额收口；「每卡只准释放一次」

@@ -300,7 +300,7 @@ class BorrowTaskService:
         """Delete historical borrow attempt rows (UI log cleanup).
 
         Requires ``{"confirm": true}``. Preserves attempts still referenced by
-        task ``unresolved_attempt_id`` (in-flight / recon).
+        task ``unresolved_attempt_id`` (in flight right now).
         """
         if not isinstance(body, dict):
             raise D.BorrowError(400, "invalid_json", "request body must be a JSON object")
