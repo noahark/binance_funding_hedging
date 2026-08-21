@@ -400,30 +400,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   Human 于 `2026-08-13 20:03 CST` 接受当前展示限制并决定继续最终评审；本次接受不改变严格 `>`
   或两位量化契约。重开条件：Human 实际因此误操作，或后续明确要求醒目的通过/未通过比较状态。
 
-- `[RESOLVED-BY-DELIVERY][LIVE-OBSERVATION][2026-08-13]` **首笔真实平滑任务已成交；该次验收发现的任务卡刷新与放行审计缺口已修复。**
-  Human 页面验收创建任务 `36951966-6942-43e3-833c-99606ca3fae5`
-  （`1000CATUSDT`、forward、smooth、阈值 `+0.05%`、单次 `5000`、目标 `1`）。因全局
-  Start gate 已开启，建卡后自动进入 `running` 并开启 gate，故“启动”按钮置灰是运行态按钮矩阵，
-  不是启动失败；`2026-08-13 16:27:54 CST` 以 `smooth_pass_reason=market` 放行，现货 BUY
-  `5000 @ 0.00172`、合约 SELL `5000 @ 0.0017120` 均 FILLED，任务 `done`。账户读模型随后
-  显示现货 `+5000`、UM `-5000`、`single_leg_exposure=false`、`drift=false`；该 symbol 是
-  exact `1000CAT` 资产，不是当前表内的 multiplier alias。
-  **已证实的 UI 缺陷：**动态盘口块数据只由任务日志 GET 填充；新建 smooth 任务不会自动展开/
-  拉取日志，因此卡片先显示“现货/合约 数据不完整”，即使后台 provider 已 live。手动展开日志后
-  同源 GET 显示两侧 `live`，不是行情订阅故障。D17–D19 重启后，Human 于 `2026-08-13 18:50`
-  启动 reverse smooth 任务 `b3ebc0fa-cc61-46f7-90da-85c1af29a596` 再次复现：启动当页可读，
-  但浏览器刷新会清空仅存内存的 `hedgeLogExpanded`，运行卡仍渲染动态盘口块却不再请求
-  `GET /api/hedge-open-logs?task_id=…`，因而永久误报两侧“数据不完整”；后端同一时刻两侧均为
-  `live`。手动展开一次日志后卡片立即恢复真实价格，证明根因是前端刷新触发条件，不是 WebSocket。
-  **审计观察：**最终成交均价折算 forward spread 约 `-0.465%`，与 `+0.05%` 阈值相反；当前
-  attempt 只记录 `market`，不持久化放行瞬间两侧 bookTicker，故不能区分“放行后约 0.3–0.4 秒
-  内行情跳动一档”与“放行快照本身异常”。D15 明确取消发单前联网复核，所以成交价偏离本身不证明
-  gate 算错，但缺少放行快照使实盘不可审计。临时边界：UI 修正前不要把初始“数据不完整”解释成
-  worker 未运行；也不要再创建平滑任务做纯展示验收——Start 开启时它会自动运行并可能真实成交。
-  后续交付已把 smooth 新卡改为 `paused + awaiting_manual_start`、running 卡纳入统一 2 秒刷新，并持久化
-  同次放行快照与 gate→两腿 client-call monotonic 分段；当前 PID `23396` 已加载这些修复。上文保留为
-  历史触发证据，不再作为当前 UI/审计限制。
-
 - `[OPEN][LIVE-RISK][2026-08-10]` **reverse 自动平仓仍可能因组合保证金口径再次单腿。**
   两腿非原子并发，合约腿不等待现货腿；close+reverse 预检仅以最长 5 分钟缓存可命中的
   逐资产 `crossMarginFree >= q×估价` 放行，未校验组合保证金 `totalAvailableBalance`，
@@ -447,23 +423,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   资产分别二次确认并提交。它不是系统自动重发，每笔仍须 Human 主动输入并确认，因此
   review-2 不阻塞交付。临时操作边界：还款时只保留一个页面，不在多标签页/多窗口并行操作。
   重开条件：出现自动化/定时提交路径，或 Human 实际需要多标签页/多设备并行还款。
-
-- `[RESOLVED-BY-BLOCKING][PERMANENT][2026-08-07 / 封存 2026-08-15]`
-  **1000x 乘数合约两腿数量口径错配（资金安全）**。
-  ⚠️ **2026-08-15 更新：换算需求已由 Human 决定不做，下述 fail-closed 拦截由「止血」
-  转为「长期终态」。** 相关脚手架（`PAUSE_REASON_MULTIPLIER_CLOSE_UNSUPPORTED` 常量/
-  注册/文案、测试夹具 `_allow_multiplier_open`）**全部保留，不得作为死代码清理**。
-  重启说明见 `docs/planning/leg-unit-size-conversion-2026-08-15.CLOSED-lessons.md`。
-  执行链两腿发同一个 `q_common`，但 1 张 1000x 合约 = 1000 个现货币：现货买 N 个、
-  合约空 N 张 → 净裸空 999N。实盘库从未开过此类仓位，无实际损失。
-  **止血（已实施）**：`create_task` 对 `symbol_match_type == multiplier_strip_alias`
-  的 **open** 任务 fail-closed（`multiplier_contract_unsupported`）。
-  **⚠️ 当前运行中服务的 close 放行 ≠ close 安全**：它仍会给两腿同一个
-  `q_common`，自动平仓腿量同样错 1000 倍；真要处置这种仓位须人工去交易所平。
-  2026-08-09 交付已通过双评审、合并 main、部署生效并经 TSTUSDT 实盘平仓验证（见 Last
-  Completed）；close 侧建卡/dispatch 双判拦截已在运行中服务生效，但仅有离线 + 一笔实盘证据。
-  **换算改造（资金路径）见 Open Follow-ups 的「1000x 腿量换算」条，须 Human 授权。**
-  另注意：持仓表 `single_leg_exposure` 对乘数币因量纲不同会误报，换算落地时跟着改。
 
 - `[OPEN][ACCEPTED][2026-08-07]` **划转端点默认即可真实动钱，不受 `APP_HEDGE_EXECUTOR`
   控制（review-1 R1，Human 决定接受现状，DEC-2026-08-07-001）**。事实：
@@ -587,21 +546,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   数据量增加（现 130 条在持仓腿 + 10 行 close-log → 全部 293 条腿，一年后约 7000 条腿）。
   重启触发条件：曲线时间失真造成实际误判，或单张任务卡成交跨度变长使前提失效。
 
-- `[CLOSED-SETTLED][2026-08-17]` **`totalWalletBalance` 不含 UM/CM 合约子钱包——已定论，
-  推翻契约的长期说法。** 不需要新接口，单份实盘快照反证即可：毛额 `100.82` − 负债
-  `52.48` = `48.34`，而净值 `actualEquity` 是 `187.97`，**净值比它多 `139.63`**。
-  权益不可能超过它据以计算的资产，所以毛额必然漏了这部分——即当时 9 个 UM 持仓占用的
-  保证金与浮盈。逐行核对佐证：所有非零行都是明面持有的币（USDT/BNB/1000CAT/SNX/WLD/
-  AVNT），没有一分合约保证金。
-  **影响**：当前**无**——毛额自 2026-08-17 起不进任何总额，前后端零消费者。但它是一个
-  **部分钱包视图**，不是「统一账户里的全部」：**做对账、算持仓成本、回答「里面一共多少钱」
-  都不能直接用它**，必须另加合约钱包。这也量化了删除旧回退链的必要性——退到毛额会把总额
-  少报三位数 USDT，页面上读起来像凭空亏了一笔。
-  已同步 `docs/api/public-market-contract.md`、`backend/domain/snapshot.py` docstring、
-  `test_private_account_v1.py` 注释。
-  **未做**：字段本身零消费者且语义易误导，可考虑直接删除，但那属契约破坏（schema
-  `required`）——归入既有的死代码清理轮（见 `hedge_open_fill` 条目），不单开。
-
 - `[OPEN][2026-08-16]` **未还利息已进快照并落地展示（本轮已交付），遗留一处口径提醒。**
   `crossMarginInterest` 已进 `balances_unified`（`cross_margin_interest` +
   `cross_margin_interest_value_usdt`），统一账户卡展示实时未还利息、净价值扣息、
@@ -621,24 +565,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   某资产欠息 12.5 且价表无该 symbol → 卡片净值 `—`（诚实 fail-closed），概览负债把这笔当 0
   丢掉（偏小且不自知）。这是 `total_value_usdt`「缺价记 0」的既有规则，本轮未触碰。若要统一
   成 fail-closed 需单独决定——会影响 `total_value_usdt` 的既有行为。
-
-- `[CLOSED-NOT-DOING][2026-08-15]` **1000x 乘数币适配：Human 决定不做，需求封存。**
-  **活文档同步已完成**（`AGENTS.md` 收口义务）：`docs/product/PRD.md` §2.2 / §11.3、
-  `docs/symbol-mismatch-analysis.md` 状态头、`docs/planning/duplicate-concept-
-  consolidation-2026-08-15.opus5.md`（其「改动二并入乘数轮」的去向已作废，须单独立项）。
-  `docs/api/public-market-contract.md` **无需改**——其 `multiplier_strip_alias` 相关
-  描述是现行行为的事实陈述，未随本决定变化。
-  **重启前必读 `docs/planning/leg-unit-size-conversion-2026-08-15.CLOSED-lessons.md`**
-  （封存说明 + 五轮评审经验 + 已知漏项 + 重启顺序）。
-  **代码零改动**，六个币仍被三道 fail-closed 挡着，**零风险敞口——这是终态，不是止血**。
-  停的理由是投入产出比，不是设计不成立：五轮评审后三方中两家确认「设计本身逐点核对
-  全部成立」，三个阻塞项全为清单完整性与文档自相矛盾。实测收益边际贡献 **1.72%**，
-  其中 74% 集中于 `1000XEC` 单一标的，`1000SHIB` 在 500 个结算周期内从未达阈。
-  ⛔ **`...opus5.md`（r5）与 `...column-inventory.md` 的清单已知不全**（至少漏 7 个展示格
-  + `service.py:385`/`:1505` 的 `residual` 一个**计算路径**），**不要照其开工**。
-  已交付并合并的两项纯技术债与本需求解耦、**不必回退**：发单数量三处装配点收敛为
-  `domain.resolve_send_qty`（`3dc74f5`）、websocket 纯度扫描假阳性修复（`11be65f`）。
-  测试基线 **1940 收集 / 1939 通过 / 1 已知失败**。
 
 - `[OPEN][SIMPLIFICATION][2026-08-15]` **正向平仓的前端余额预检可评估整个删除。**
   误拦已修（改为 `spot_balance + unified_balance` 两账户求和，`c04a006`，STOUSDT 实盘验证）。
@@ -673,94 +599,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   `total_balance` 可造成 forward 假阳性；原始评审记录由提交 `bbeb130` 引入，早于本阶段
   base `7194876`，因此不阻塞本轮交付。后续与 O-2 一并补齐文档，不改变当前弱告警口径。
 
-- `[CLOSED-NOT-DOING][2026-08-15]` **1000x 腿量换算——需求已封存，下文保留供重启参考**。
-  Human 于 2026-08-15 决定不做；三道 fail-closed 拦截转为长期状态。
-  **下文的「必须一次改齐的八处」已被五轮评审证明不全**（真实面为约 32 个展示格 +
-  多个计算路径），**重启时勿照抄**，改读
-  `docs/planning/leg-unit-size-conversion-2026-08-15.CLOSED-lessons.md` §6。
-  以下原文保留仅供追溯：
-
-- `[SUPERSEDED-BY-ABOVE][2026-08-07]` **1000x 腿量换算——未做的资金路径**。
-  P0 止血只是把 6 个乘数币（BONK/FLOKI/LUNC/PEPE/SHIB/XEC）挡在门外（见 Live Risks
-  同日条目），**换算本身一行未写**。恢复这 6 个币的对冲能力必须改下单数量这条真金
-  白银的路径，故须 Human 明确授权后单开一轮，不得顺手夹带。
-  **必须一次改齐的八处**（改一半比不改更危险——半套换算会造出一个「看起来对、
-  实际错」的敞口，而现在至少是显式拒绝）：
-  1. `backend/services/live_hedge_executor.py:873` `send_qty = ctx.q_common` ——
-     两腿共用一个数量。现货腿需 ×1000（或合约腿 ÷1000），方向别搞反：合约 1 张 =
-     1000 个现货币，故**现货腿的量 = 合约张数 × 1000**。
-  2. `backend/services/hedge_preflight_provider.py:832`
-     `est_price = self._read_est_price(spot_symbol)` —— 取的是**现货**价。合约腿的
-     minNotional 校验与 UM 保证金估算需要合约价（= 现货价 × 1000），两腿不能共用一个价。
-  3. `backend/hedge_open_tasks/domain.py:1183` `q_common = floor_to_grid(single_amount, grid)`
-     —— `grid = lcm(spot_step, perp_step)` 把两腿的 stepSize 当同一量纲取最小公倍数，
-     换算后这个 lcm 不再成立，两腿的取整格必须各算各的。
-  4. `backend/hedge_open_tasks/domain.py:1267/1273` `required` 的两个方向分支 ——
-     forward 是 `q_common * target_n * est_price`（USDT），reverse 是
-     `q_common * target_n`（**币的数量**）。reverse 分支尤其危险：若 `q_common` 是
-     合约张数，required 会少算 1000 倍，余额检查通过但实际卖出需要 1000 倍的币。
-  5. `backend/hedge_open_tasks/domain.py:1952` 持仓表 `single_leg_exposure` 的
-     `abs(spot_qty - perp_qty)` —— 两腿记账量纲不同（个 vs 张），换算前它对乘数币
-     必然误报，换算后要按同一量纲比。代码注释已留指针。
-  6. **`backend/hedge_open_tasks/domain.py:1001-1027` `_check_common_quantity`**
-     （review-1 kimi 2026-08-07 指出，此前清单遗漏）——它是 `compute_preflight`
-     中间调用的**独立 helper**，极易被「preflight 一起改了」带过。两处都错：
-     (a) `for filters in (spot_filters, perp_filters)` 拿**同一个** `q_common` 去比
-     两腿各自的 min/max qty；(b) `notional = q_common * est_price` 用**同一个**数量
-     和**现货**价算出一个 notional，再拿它比两腿各自的 minNotional。
-     修法：每腿的数量边界和 minNotional 各按各的量纲与价格查。
-  7. `backend/hedge_open_tasks/domain.py:1191-1202` `snapshot_record` 的审计指纹
-     （`spot_min_qty`/`perp_min_qty`/`grid`/`est_price`）——**不影响计算正确性**，
-     但这份不可变记录当前隐含「两腿同量纲」，换算后不更新会让事后审计读错。
-  8. `backend/hedge_open_tasks/domain.py:1265` `base = base_asset(coin)` ——
-     只剥 USDT 后缀得 `1000BONK`，而 `snapshot.balances` 的键是币安返回的真实资产名
-     `BONK`，`balances.get(base, 0)` 查不到即 `available=0` → 恒判余额不足。
-     走到这一行的是 `open + reverse`（负费率开仓，借币卖现货，papi_margin）。
-     修法：改用 `resolve_spot_identity(coin)[1]`（纯查表零 IO，与建任务时固化身份同源）。
-     **当前被 P0 拦截掩盖**：乘数币开不了 open，所以这一行现在走不到；移除 P0 拦截的
-     同一轮必须连它一起修，否则换算做对了、余额检查仍恒拒。
-     （bStock 也命中这一行，但**无借币市场故不存在负费率开单**，对它而言 fail-closed
-     恰是正确行为——见 Current Status 的领域事实条目。）
-
-  **行号校验（2026-08-07 核对，全部命中）**：这份清单的价值全在行号准确。改动
-  `domain.py` 后行号会漂——下轮动手前先跑一遍校验，别照着漂移的行号改：
-  ```
-  python3 - <<'EOF'
-  for path, line, needle in [
-      ("backend/services/live_hedge_executor.py", 873, "send_qty = ctx.q_common"),
-      ("backend/services/hedge_preflight_provider.py", 832, "est_price = self._read_est_price"),
-      ("backend/hedge_open_tasks/domain.py", 1183, "q_common = floor_to_grid"),
-      ("backend/hedge_open_tasks/domain.py", 1267, "required = q_common * target_n * snapshot.est_price"),
-      ("backend/hedge_open_tasks/domain.py", 1273, "required = q_common * target_n"),
-      ("backend/hedge_open_tasks/domain.py", 1952, "abs(spot_qty - perp_qty)"),
-      ("backend/hedge_open_tasks/domain.py", 1001, "def _check_common_quantity"),
-      ("backend/hedge_open_tasks/domain.py", 1195, '"spot_min_qty"'),
-      ("backend/hedge_open_tasks/domain.py", 1265, "base = base_asset(coin)"),
-  ]:
-      lines = open(path, encoding="utf-8").read().split("\n")
-      hit = needle in (lines[line-1] if line <= len(lines) else "")
-      print(("OK  " if hit else "DRIFT ") + f"{path}:{line}",
-            "" if hit else [i+1 for i,l in enumerate(lines) if needle in l])
-  EOF
-  ```
-  **改完要一并移除**：`service.py:807` 的 `multiplier_contract_unsupported` 拦截
-  + `test_hedge_service.py` 的两条拦截测试 + `test_hedge_cycle_close.py` 的
-  `_allow_multiplier_open` monkeypatch（三处调用）。
-  **验收不能只靠单测**：这是量纲错误，单测很容易两边用同一个错误假设而全绿。
-  建议先用最小额度实盘开一笔再立刻平掉，核对交易所两腿的**实际持仓数量**是否对平
-  （而非只看系统自己的记账）。
-  **乘数来源**：币安不在 exchangeInfo 里给显式 multiplier 字段，倍率隐含在 symbol
-  前缀里，只能由 `SPOT_SYMBOL_MAP` 显式携带（当前表只存 symbol 映射，不存倍率，
-  需要扩表）。当前 6 条恰好全是 1000 倍，但**别把倍率写死成常量**：币安存在过
-  `1000000` 前缀（`1000000MOG`——d717595 的 `base[4:]` 正是在它上面剥成 `000MOG` 的），
-  倍率应随表逐条声明，新增条目时由 `scripts/check-spot-symbol-map.py` 一起校验。
-
-- `[ACCEPTED][OPERATIONS][2026-08-03, decided 2026-08-15]` **手动前台模式下日志不落固定
-  文件——已知代价，不修。** launchd 曾把 stdout/stderr 写到
-  `~/Library/Logs/funding-hedging/`；改手动前台后日志只在启动它的那个终端里（2026-08-03 那次
-  甚至落在临时的 Claude session scratchpad）。随「本地不修 launchd」的决定一并接受（见 Live
-  Risks 同条）。**操作口径**：从 operator 终端启动以便日志留在可回看的窗口；需要留存就自己重定向
-  （`scripts/run-server.sh > 某文件 2>&1`）。服务器部署由 systemd 的 journal 接管，届时自然消解。
 - `[OPEN][RESIDUAL]` **UM drain 可在 `cumulative_quote` 未知时把 FILLED 腿判为终态。**
   该路径会保留 `avg_price` 但缺 quote，导致该周期的合约均价与开/平滑点显示 `—`；这是
   fail-closed，不影响订单或持仓且不臆造数值。重开条件：出现真实历史周期命中该形态，或 Human
@@ -769,11 +607,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   costs one failure count (pauses one early, fail-closed). Fix = a new column.
 - `[OPEN][RESIDUAL]` The money-zero tripwire is a speed bump, not a proof: five
   evasions + `fee_amount` outside the money names. DEC-2026-07-30-001.
-- `[RESOLVED][OPERATIONS][2026-08-05]` **COOKIEUSDT 平仓单腿事故**（已修复并实盘
-  验证）：forward close 现货 SELL 被路由误导到普通现货账户而币在统一账户 → 单腿
-  遗留。修复链含 close 固定账户路由 + 万向划转补足 + close 完成判定重构。
-  **持仓表口径决策（Human 2026-08）仍生效**：只显示「未平仓周期」。全过程：
-  `archive/2026-08-hedge-position-cycle-v1` 相关证据（见 git 历史）。
 - `[OPEN][HARNESS-FOLLOW-UP]` **O-A — handoff source SHA-256 boundary.** The
   accepted handoff contract needs one mechanical clarification: the source ends
   at the first line exactly equal to the complete `BOOKKEEPER_APPEND_ONLY`
@@ -846,6 +679,29 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 - previous stage: `2026-08-03-harness-task-handoff-evidence-v1`
   (`archive/2026-08-03-harness-task-handoff-evidence-v1`, `0a0b952`)
 - 更早的完结记录见 git 历史与 archive branches/tags。
+
+## Evicted (2026-08-21)
+
+按 Update Rule 驱逐了 8 条已结条目（`RESOLVED-BY-DELIVERY` / `RESOLVED-BY-BLOCKING` /
+`CLOSED-SETTLED` / `CLOSED-NOT-DOING` ×2 / `SUPERSEDED-BY-ABOVE` / `RESOLVED` / `ACCEPTED`），
+完整原文见 `git show 3c1834c:PROJECT_STATE.md`。**驱逐时从中提取出仍然生效的约束，保留在下方**
+——它们不是历史，只留 git 指针会让后来者误判：
+
+- **1000x fail-closed 拦截脚手架不得作为死代码清理。** `PAUSE_REASON_MULTIPLIER_CLOSE_UNSUPPORTED`
+  常量/注册/文案与测试夹具 `_allow_multiplier_open` 全部保留。换算需求 Human `2026-08-15` 决定
+  不做，该拦截已由「止血」转为**长期终态**。重启材料：
+  `docs/planning/leg-unit-size-conversion-2026-08-15.CLOSED-lessons.md`、
+  `docs/planning/HANDOFF-1000x-2026-08-15.md`（r5 清单已知不全，漏 residual 计算路径）。
+- **持仓表只显示「未平仓周期」**（Human `2026-08` 决策，仍生效）：已平仓周期只在历史仓位页
+  （close-log）呈现，避免全平标的回显。
+- **`totalWalletBalance` 是部分钱包视图，不含 UM/CM 合约子钱包。** 做对账、算持仓成本、回答
+  「统一账户里一共多少钱」都不能直接用它，必须另加合约钱包。当前前后端零消费者。
+- **手动前台模式下日志不落固定文件**（已接受，不修）：从 operator 终端启动以便日志可回看；
+  需留存自行重定向 `scripts/run-server.sh > 某文件 2>&1`。服务器部署由 systemd journal 接管后消解。
+
+纯历史、无残留约束，仅存指针：1000x 腿量换算「必须一次改齐的八处」清单、1000x 乘数币适配封存
+详情、首笔真实平滑任务验收缺口（已随交付修复）、COOKIEUSDT 平仓单腿事故修复链
+（`archive/2026-08-hedge-position-cycle-v1`）。
 
 ## Update Rule
 
