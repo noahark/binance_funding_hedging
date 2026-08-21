@@ -921,15 +921,12 @@ def test_live_fresh_preflight_forward_close_checks_base_asset(tmp_path):
     assert fp.fatal is False and fp.rejection is None
 
 
-def test_live_fresh_preflight_reverse_close_checks_usdt(tmp_path):
-    """reverse close：对称——余额校验走反转方向（forward → 查统一账户 USDT）。
-
-    统一账户 USDT 充足（100000）、base 资产 0 → 修复前按 reverse 查 base 会误拒。
-    """
+def test_live_fresh_preflight_reverse_close_defers_balance_to_pm_total_available(tmp_path):
+    """reverse close：旧 crossMarginFree 不得抢在 PM 总可用余额门前误拦。"""
     from backend.hedge_open_tasks.domain import PreflightSnapshot as _PS
     snap = _PS(
         spot_filters=_spot_filters_fx(), perp_filters=_perp_filters_fx(),
-        balances={"USDT": D.Decimal("100000")},  # 统一账户 USDT 充足
+        balances={"USDT": D.Decimal("0")},  # 旧逐币可用额故意不足
         position_mode=D.POS_MODE_BOTH, est_price=D.Decimal("1"),
         symbol_tradable=True,
     )
@@ -939,6 +936,7 @@ def test_live_fresh_preflight_reverse_close_checks_usdt(tmp_path):
     assert provider.calls[-1] == ("COOKIEUSDT", D.DIR_FORWARD, D.TASK_TYPE_CLOSE)
     assert fp is not None and fp.ok is True
     assert fp.fatal is False and fp.rejection is None
+    assert fp.snapshot_record["balance_gate"] == "external_close_spot_gate"
 
 
 class _GuardPreflightProvider(_SpyPreflightProvider):
@@ -1086,6 +1084,49 @@ def test_reverse_close_uses_pm_total_available_before_attempt(tmp_path):
     assert after["pause_reason"] == D.PAUSE_REASON_INSUFFICIENT_BALANCE
     assert "totalAvailableBalance 50" in after["pause_reason_zh"]
     assert svc._store.list_attempts_for_task(task["id"]) == []
+
+
+@pytest.mark.parametrize("cache_case", ["missing", "stale", "field_missing", "invalid"])
+def test_reverse_close_unavailable_pm_total_fails_closed_before_attempt(
+    tmp_path, cache_case,
+):
+    provider = _GuardPreflightProvider(
+        _guard_snapshot(D.DIR_REVERSE), D.Decimal("100"),
+    )
+    svc = HedgeOpenTaskService(
+        str(tmp_path / "ho.sqlite3"), mode="live",
+        executor=_GuardExecutor(), preflight_provider=provider,
+    )
+    svc.set_start_gate(True)
+    now = service_mod.time.monotonic()
+    entries = {
+        "missing": None,
+        "stale": (now - 301, {"totalAvailableBalance": "100000"}),
+        "field_missing": (now, {}),
+        "invalid": (now, {"totalAvailableBalance": "NaN"}),
+    }
+    svc.configure_snapshot_reader(
+        lambda source: entries[cache_case] if source == "pm_account" else None
+    )
+    task = _make_close_task(svc, "COOKIEUSDT", D.DIR_REVERSE)
+    _, signal = svc._dispatch_one_for_task(task, svc._wall_us())
+    after = svc._store.get_task(task["id"])
+    assert signal == D.SIGNAL_CLOSE_GUARD_FAILED
+    assert after["status"] == D.STATUS_PAUSED
+    assert after["pause_reason"] == D.PAUSE_REASON_PREFLIGHT_INCOMPLETE
+    assert "totalAvailableBalance 不可用" in after["pause_reason_zh"]
+    assert svc._store.list_attempts_for_task(task["id"]) == []
+
+
+def test_reverse_close_unavailable_price_fails_closed(tmp_path):
+    svc = HedgeOpenTaskService(str(tmp_path / "ho.sqlite3"), mode="disabled")
+    task = {"task_type": D.TASK_TYPE_CLOSE, "direction": D.DIR_REVERSE}
+    error = svc._close_reverse_usdt_error(
+        task, D.Decimal("100"), {}, smooth_audit=None,
+    )
+    assert error is not None
+    assert error[0] == D.PAUSE_REASON_PREFLIGHT_INCOMPLETE
+    assert "价格不可用" in error[1]
 
 
 def test_dispatch_blocks_legacy_null_multiplier_before_preflight(tmp_path):

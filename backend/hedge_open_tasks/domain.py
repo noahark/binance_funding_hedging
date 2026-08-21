@@ -1306,9 +1306,10 @@ def compute_preflight(
             rejection=filter_reject,
             snapshot_record=snapshot_record,
         )
-    # forward close 的普通现货余额门需要按“本轮 fresh q_common × 剩余次数”
-    # 每个 attempt 重算，故由 service 在 prepare_attempt 前执行。过滤器、价格、
-    # min/max/minNotional 仍全部在这里校验；其它路径默认保持原余额语义。
+    # close 余额门需要在 service 中使用正确的账户权威每轮重算：
+    # forward 校验普通现货 base，reverse 校验 PM totalAvailableBalance。
+    # 过滤器、价格、min/max/minNotional 仍全部在这里校验；
+    # 其它路径默认保持原余额语义。
     if not check_balance:
         snapshot_record["balance_gate"] = "external_close_spot_gate"
         return PreflightResult(

@@ -3413,10 +3413,7 @@ class HedgeOpenTaskService:
             preflight_dir,  # 余额校验必须与路由决策同方向（close 用反转方向校验实际资金约束）
             D.Decimal(task["single_amount"]),
             task["target_n"],
-            check_balance=not (
-                task_type == D.TASK_TYPE_CLOSE
-                and task["direction"] == D.DIR_FORWARD
-            ),
+            check_balance=task_type != D.TASK_TYPE_CLOSE,
         )
         if preflight.rejection == D.REJECT_PREFLIGHT_INCOMPLETE:
             return None

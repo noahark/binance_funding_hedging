@@ -258,9 +258,13 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   **Fast 修复已准备、尚未上线（2026-08-21）：** 分支
   `fast/reverse-close-total-available-balance` 已补前端计划总额提示，并在后端每次真实
   reverse-close `prepare_attempt` 前读取 5 分钟内的 PM `totalAvailableBalance`；不足、缺失、
-  超龄或非法均暂停且零 attempt/零 POST。前端全量 self-check 通过；后端相关 133 项通过，
-  完整后端套件排除既有 `public_ip_service.py` HTTP 白名单误报后 `2048 passed`。未合并、未推送、
-  未重启服务。**残余风险：** Fast 范围未增加跨任务余额预留；极近同时到达的多个任务仍可能
+  超龄或非法均暂停且零 attempt/零 POST。双审核均 `ACCEPT` 后根据 Claude-GLM 的观察
+  继续移除了旧反向平仓逐币种 `crossMarginFree` 误拦：所有 close 的 domain 预检只校验交易过滤器，
+  forward 余额由现有普通现货 base 门负责，reverse 余额只由发单前的 PM 账户级门负责。
+  前端全量 self-check 通过；后端相关 138 项通过，完整套件排除既有 HTTP 白名单误报后
+  `2053 passed, 1 deselected`，并新增旧门误拦、PM 快照缺失/超龄/缺字段/非法值与价格缺失的
+  回归检查。未合并、未重启服务。**残余风险：** Fast 范围未增加
+  跨任务余额预留；极近同时到达的多个任务仍可能
   各自读取同一份可用余额后分别放行，故本条保持 OPEN，需后续正式 HIGH_RISK 修复或实盘限制。
 
 - `[OPEN][UI-GAP][2026-08-20]` **被崩溃孤儿卡住的借币任务在界面上没有任何提示，反而显示上一次的失败原因。**
