@@ -6381,8 +6381,8 @@ setTimeout(async () => {
       console.log('[PASS] 立即平仓列：表头+输入框+禁用逻辑+确认弹框+真实 POST（task_type:close）+ 跳已暂停');
     }
 
-    // 83c. 前端提前量检测（Human 2026-08）：forward close 的缓存提前提示——
-    //     总量（单次×次数）对比统一账户余额 + 合约持仓；不足强制拦截（零请求）。
+    // 83c. 前端提前量检测（Human 2026-08）：forward close 校验现货/合约数量；
+    //     reverse close 用 PM totalAvailableBalance 校验预计买回所需 USDT。
     {
       hedgePositionsGetResponse = { status: 200, body: { positions: [
         { coin: 'COOKIEUSDT', direction: 'forward', cycle_id: 'c1', cycle_closed_at: null, match_status: 'normal',
@@ -6444,7 +6444,32 @@ setTimeout(async () => {
         throw new Error('币全在普通现货账户应按两账户之和放行: ' + JSON.stringify(r4));
       }
       if (fetchCallLog.length !== mark) throw new Error('STOUSDT 放行阶段不应发请求');
-      console.log('[PASS] 前端提前量检测：余额不足强制拦截（零请求）+ 余额足够放行确认');
+      const reverseFx = JSON.parse(JSON.stringify(designFixture));
+      reverseFx.private_account.pm_account = { total_available_balance_usdt: '50' };
+      reverseFx.rows.find(r => r.symbol === 'AUSDT').opening_quotes.spot_ask_price = '10';
+      helpers.ingestSnapshot(reverseFx);
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        { coin: 'AUSDT', direction: 'reverse', cycle_id: 'c4', cycle_closed_at: null,
+          match_status: 'normal', um_position_amt: '100' }
+      ], account: { verified: true, error: null, checked_at: null } } };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      const amtR = document.getElementById('hedge-close-amount-AUSDT');
+      const cntR = document.getElementById('hedge-close-count-AUSDT');
+      if (amtR) amtR.value = '2';
+      if (cntR) cntR.value = '3';
+      const reverseMark = fetchCallLog.length;
+      const r5 = helpers.requestHedgeCloseConfirm('AUSDT', 'reverse');
+      if (r5.ok !== false || r5.error !== 'insufficient_balance_frontend') {
+        throw new Error('反向平仓应按 totalAvailableBalance 拦截: ' + JSON.stringify(r5));
+      }
+      if (!elements['hedge-close-error-AUSDT'].textContent.includes('50.00')
+          || !elements['hedge-close-error-AUSDT'].textContent.includes('60.00')) {
+        throw new Error('反向平仓拦截文案缺少可用/所需 USDT');
+      }
+      if (fetchCallLog.length !== reverseMark) throw new Error('反向平仓余额拦截时不应发请求');
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] 前端提前量检测：正向现货/合约 + 反向 totalAvailableBalance，余额不足均零请求');
     }
 
     // 82b. R1/R2 渲染证据（fix-merged-positions-n2-ui-v1）

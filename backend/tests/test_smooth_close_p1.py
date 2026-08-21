@@ -240,6 +240,13 @@ def _close_service(tmp_path, *, clock=None, market=None, executor=None,
         wall_us=clock.wall_us,
         market_provider=market,
     )
+    pm_checked_at = time.monotonic()
+    svc.configure_snapshot_reader(
+        lambda source: (
+            (pm_checked_at, {"totalAvailableBalance": "100000"})
+            if source == "pm_account" else None
+        )
+    )
     _seed_cycle(svc)
     return svc, clock, market, executor, preflight
 

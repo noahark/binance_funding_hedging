@@ -229,7 +229,9 @@ Before every live close pair, and before `prepare_attempt`, the worker:
    `um_positions` only within a 300-second ceiling and otherwise querying the
    symbol live;
 5. for forward close, validates/optionally transfers ordinary-spot base for the
-   same remaining quantity; for reverse close, retains the unified-USDT gate.
+   same remaining quantity; immediately before each reverse-close attempt,
+   validates the estimated spot BUY cost against PM account-level
+   `totalAvailableBalance` (never per-asset USDT `crossMarginFree`).
 
 Close preflight deliberately does not read position mode, PAPI order rate
 limit, Spot order rate limit, or ordinary-Spot USDT. Position mode comes from

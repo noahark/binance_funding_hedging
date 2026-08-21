@@ -550,8 +550,9 @@ class HedgeOpenTaskService:
         # (SnapshotService is never imported here).
         self._submit_cache_refresh: Callable[[], None] | None = cache_refresh_submitter
         # Stage 2026-08-06 task 05 (§4.2): read-only SnapshotService cache
-        # access for the close-spot-balance GATE (缓存只用于「放行」，不用于触发
-        # 有副作用的划转动作). Injected by the server via
+        # access for close balance gates: forward base transfer preparation and
+        # reverse PM totalAvailableBalance admission immediately before attempt
+        # creation. Injected by the server via
         # :meth:`configure_snapshot_reader`; ``None`` (tests / unwired) keeps the
         # real-time confirmation path unchanged.
         self._snapshot_reader: Callable[[str], tuple[float, object] | None] | None = None
@@ -684,10 +685,10 @@ class HedgeOpenTaskService:
 
         Mirrors :meth:`configure_cache_refresh`: the server calls this after
         both services are built so SnapshotService stays uninjected here. The
-        reader is used ONLY for the close-spot-balance GATE's "cache suffices ->
-        pass" shortcut — a cached balance NEVER authorizes a real transfer (the
-        actual insufficient check still goes real-time before any
-        ``universal_transfer``). Passing ``None`` disables the shortcut."""
+        reader supplies close balance gates. Forward base transfer preparation
+        keeps its existing cache-pass/live-confirm rule; reverse spot BUY
+        admission reads PM ``totalAvailableBalance`` immediately before attempt
+        creation. Passing ``None`` makes the reverse gate fail closed."""
         self._snapshot_reader = reader
 
     def configure_fee_transport(self, transport) -> None:
@@ -768,6 +769,63 @@ class HedgeOpenTaskService:
                     return D.Decimal(str(free))
                 except (InvalidOperation, ValueError, TypeError):
                     return None
+        return None
+
+    def _cached_pm_total_available(self) -> Decimal | None:
+        """Fresh PM ``totalAvailableBalance`` used by reverse-close spot BUYs."""
+        reader = self._snapshot_reader
+        if reader is None:
+            return None
+        entry = reader("pm_account")
+        if entry is None:
+            return None
+        try:
+            ts, value = entry
+        except (TypeError, ValueError):
+            return None
+        if time.monotonic() - float(ts) > 5 * 60.0 or not isinstance(value, dict):
+            return None
+        try:
+            available = D.Decimal(str(value.get("totalAvailableBalance")))
+        except (InvalidOperation, ValueError, TypeError):
+            return None
+        return available if available.is_finite() else None
+
+    def _close_reverse_usdt_error(
+        self, task: dict, send_qty: Decimal, snapshot_record: dict,
+        smooth_audit: dict | None,
+    ) -> tuple[str, str] | None:
+        """Final reverse-close quote gate immediately before attempt creation."""
+        if task.get("task_type") != D.TASK_TYPE_CLOSE or task["direction"] != D.DIR_REVERSE:
+            return None
+        spot_audit = smooth_audit.get("spot") if isinstance(smooth_audit, dict) else None
+        raw_price = (
+            spot_audit.get("ask") if isinstance(spot_audit, dict) else None
+        ) or snapshot_record.get("est_price")
+        try:
+            price = D.Decimal(str(raw_price))
+        except (InvalidOperation, ValueError, TypeError):
+            price = D.Decimal(0)
+        if not price.is_finite() or price <= 0:
+            return (
+                D.PAUSE_REASON_PREFLIGHT_INCOMPLETE,
+                "现货买入价格不可用，无法核算反向平仓所需 USDT（fail-closed，未发单）",
+            )
+        available = self._cached_pm_total_available()
+        if available is None:
+            return (
+                D.PAUSE_REASON_PREFLIGHT_INCOMPLETE,
+                "统一账户 totalAvailableBalance 不可用或缓存超过 5 分钟"
+                "（fail-closed，未发单）",
+            )
+        required = send_qty * price
+        if available < required:
+            return (
+                D.PAUSE_REASON_INSUFFICIENT_BALANCE,
+                f"统一账户可用 USDT 不足：totalAvailableBalance "
+                f"{D.fmt_decimal(available)}，本次反向平仓预计需 "
+                f"{D.fmt_decimal(required)}（fail-closed，未发单）",
+            )
         return None
 
     def _notify_cache_refresh(self, task: dict | None) -> None:
@@ -3623,6 +3681,19 @@ class HedgeOpenTaskService:
             task_type=task_type,
         )
         send_qty = D.resolve_send_qty(q_common, task["single_amount"])
+        reverse_balance_error = self._close_reverse_usdt_error(
+            task, send_qty, snapshot_record or {}, smooth_audit,
+        ) if live else None
+        if reverse_balance_error is not None:
+            pause_reason, pause_zh = reverse_balance_error
+            self._pause_task_local(
+                task, pause_reason, D.SIGNAL_CLOSE_GUARD_FAILED, now_us,
+                pause_zh=pause_zh,
+            )
+            return (
+                self._store.get_task(task["id"]) or task,
+                D.SIGNAL_CLOSE_GUARD_FAILED,
+            )
         spot_route = (snapshot_record or {}).get(
             "spot_route", D.SPOT_ROUTE_PAPI_MARGIN
         )

@@ -233,6 +233,36 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Live Risks
 
+- `[OPEN][LIVE][MONEY][2026-08-21 09:35 CST]` **四个反向持仓平仓任务因统一账户真实可用余额不足形成单腿敞口。**
+  `INJ/WLD/JST/SNX` 四个 `close + reverse + smooth` 任务（attempt `145..148`）均在第一轮
+  同时提交两腿后出现：现货 `BUY /papi/v1/margin/order` 被币安 `-2019 Margin is
+  insufficient` 拒绝，合约 `SELL /papi/v1/um/order`（`reduceOnly=true`）分别成交
+  `2 INJ / 20 WLD / 100 JST / 50 SNX`；任务均以 `insufficient_margin` 暂停、worker 已退出，
+  但现货负债未买回，现有反向对冲量因此分别少了上述数量。`09:44 CST` 只读快照仍显示四项
+  `single_leg_exposure=true`：INJ 借款本金 `8.00109129` 对 UM 多仓 `4`，WLD `60` 对 `40`，
+  JST `200` 对 `100`，SNX `50.10709571` 对 `0`（另有各币未还利息）。
+  根因有三层：① 前端 `requestHedgeCloseConfirm` 的余额提前拦截只在 `direction=forward`
+  分支执行，反向平仓没有按预计买入额检查统一账户 USDT；② 后端反向平仓预检虽然存在，
+  `HedgePreflightProvider._read_balances` / `compute_preflight` 却用 USDT
+  `crossMarginFree`，没有用 PM 账户级 `totalAvailableBalance`。事后同一缓存快照为
+  `crossMarginFree=117.29255906 U`、`totalAvailableBalance=4.47625223 U`，前者会误放行，
+  后者才反映账户可用于新交易的余额；③ smooth close 只在 `09:30` Start 时同步备料并冻结
+  `q_common/preflight_snapshot`，随后等待完整 5 分钟，四笔均在 `09:35` 以 `reason=timeout`
+  放行，真实 POST 前不再刷新余额。四任务并发还要求余额门按计划总额/在途预留处理，不能仅
+  逐任务读取同一旧余额后各自放行。
+  **临时限制：不要直接重启这四张卡**；恢复会继续提交剩余计划次数，并不能补齐已经失败的
+  现货腿。先由 Human 在币安核对并决定如何补齐现货负债/合约对冲，再处理任务状态。修复需同时
+  覆盖前端提示、后端 fail-closed 实时门及并发余额预留/串行化；属资金与订单路径，须走
+  HIGH_RISK 计划评审、实现、Review-1、Review-2。重开条件：上述敞口人工收口、修复上线并经
+  实盘前只读验收，或任一余额/仓位继续变化。
+  **Fast 修复已准备、尚未上线（2026-08-21）：** 分支
+  `fast/reverse-close-total-available-balance` 已补前端计划总额提示，并在后端每次真实
+  reverse-close `prepare_attempt` 前读取 5 分钟内的 PM `totalAvailableBalance`；不足、缺失、
+  超龄或非法均暂停且零 attempt/零 POST。前端全量 self-check 通过；后端相关 133 项通过，
+  完整后端套件排除既有 `public_ip_service.py` HTTP 白名单误报后 `2048 passed`。未合并、未推送、
+  未重启服务。**残余风险：** Fast 范围未增加跨任务余额预留；极近同时到达的多个任务仍可能
+  各自读取同一份可用余额后分别放行，故本条保持 OPEN，需后续正式 HIGH_RISK 修复或实盘限制。
+
 - `[OPEN][UI-GAP][2026-08-20]` **被崩溃孤儿卡住的借币任务在界面上没有任何提示，反而显示上一次的失败原因。**
   事实：`COTI`（attempt `542383`，发出 `2026-08-20 15:35:21 CST`）与 `HOME`（attempt `330073`，
   发出 `2026-08-16 21:11:44 CST`）两个任务的 `unresolved_attempt_id` 指向

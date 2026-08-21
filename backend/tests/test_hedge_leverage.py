@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import time
 
 import pytest
 
@@ -247,6 +248,13 @@ def _make_svc(tmp_path, executor, snapshot=None, mode="live"):
     svc = HedgeOpenTaskService(
         str(tmp_path / "ho.sqlite3"), mode=mode,
         executor=executor, preflight_provider=provider,
+    )
+    pm_checked_at = time.monotonic()
+    svc.configure_snapshot_reader(
+        lambda source: (
+            (pm_checked_at, {"totalAvailableBalance": "100000"})
+            if source == "pm_account" else None
+        )
     )
     return svc, provider
 

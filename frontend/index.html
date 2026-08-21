@@ -6347,6 +6347,21 @@
               return { ok: false, error: 'insufficient_perp_frontend' };
             }
           }
+        } else if (direction === 'reverse') {
+          const pa = state.snapshot && state.snapshot.private_account;
+          const availableRaw = pa && pa.pm_account
+            ? pa.pm_account.total_available_balance_usdt : null;
+          const snapRow = (state.snapshot && state.snapshot.rows || []).find(r => r.symbol === coin);
+          const spotAsk = snapRow && snapRow.opening_quotes
+            ? snapRow.opening_quotes.spot_ask_price : null;
+          const available = Number(availableRaw);
+          const required = Number(amountStr) * n * Number(spotAsk);
+          if (availableRaw != null && spotAsk != null
+              && Number.isFinite(available) && Number.isFinite(required)
+              && available < required) {
+            setErr(`页面显示统一账户可用 USDT 约 ${available.toFixed(2)} < 估算需 ${required.toFixed(2)}（单次 ${amountStr} × ${n} × 现货卖一价 ${spotAsk}，缓存约 60s 旧，以后端校验为准）；已拦截`);
+            return { ok: false, error: 'insufficient_balance_frontend' };
+          }
         }
         setErr('');
         const dirLabel = direction === 'forward' ? '正向' : '反向';

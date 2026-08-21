@@ -754,9 +754,11 @@ use the normal secondary text color.
 
 Each item also carries additive **`cross_margin_free`** (raw decimal string |
 null): the unencumbered full-cross balance from `GET /papi/v1/balance` field
-`crossMarginFree` — the same field the hedge preflight and the live executor
-already read to size what the unified account can actually move. Additive and
-optional: frozen pre-2026-08 samples omit the key (absent ≠ zero). Display-only,
+`crossMarginFree`. Hedge base-asset sell/transfer checks may use this per-asset
+figure, but reverse-close spot BUY admission uses PM account-level
+`pm_account.total_available_balance_usdt`; the two are not interchangeable.
+Additive and optional: frozen pre-2026-08 samples omit the key (absent ≠ zero).
+Display-only,
 never counted into `total_value_usdt` (which takes the unified side from
 `actual_equity_usdt`, not from per-asset balance rows). **It is an availability
 figure, not a max-transferable quote:** a
@@ -2326,4 +2328,3 @@ stats block); pinned by `backend/tests/test_hedge_api.py`
 
 - **Spot / Margin Trade History** (`GET /api/v3/myTrades`, `GET /papi/v1/margin/myTrades`): Supports `orderId`-based historical trade retrieval without the 7-day restriction.
 - **UM Futures Trade History** (`GET /papi/v1/um/userTrades`): Enforces a **~7-day query window limit** from the current timestamp. Orders older than ~7 days return empty `[]` even when valid `startTime`/`endTime` are passed. System fail-closed behavior safely treats empty trade returns on older orders as incomplete (`trading_fee_incomplete: true`), rendering `—` without data corruption.
-

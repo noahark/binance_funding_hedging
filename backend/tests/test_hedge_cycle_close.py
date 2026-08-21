@@ -1062,6 +1062,32 @@ def test_forward_close_balance_gate_uses_fresh_q_times_remaining(tmp_path):
     assert svc._store.list_attempts_for_task(task["id"]) == []
 
 
+def test_reverse_close_uses_pm_total_available_before_attempt(tmp_path):
+    provider = _GuardPreflightProvider(
+        _guard_snapshot(D.DIR_REVERSE), D.Decimal("100"),
+    )
+    svc = HedgeOpenTaskService(
+        str(tmp_path / "ho.sqlite3"), mode="live",
+        executor=_GuardExecutor(), preflight_provider=provider,
+    )
+    svc.set_start_gate(True)
+    now = service_mod.time.monotonic()
+    svc.configure_snapshot_reader(
+        lambda source: (
+            (now, {"totalAvailableBalance": "50"})
+            if source == "pm_account" else None
+        )
+    )
+    task = _make_close_task(svc, "COOKIEUSDT", D.DIR_REVERSE)
+    _, signal = svc._dispatch_one_for_task(task, svc._wall_us())
+    after = svc._store.get_task(task["id"])
+    assert signal == D.SIGNAL_CLOSE_GUARD_FAILED
+    assert after["status"] == D.STATUS_PAUSED
+    assert after["pause_reason"] == D.PAUSE_REASON_INSUFFICIENT_BALANCE
+    assert "totalAvailableBalance 50" in after["pause_reason_zh"]
+    assert svc._store.list_attempts_for_task(task["id"]) == []
+
+
 def test_dispatch_blocks_legacy_null_multiplier_before_preflight(tmp_path):
     provider = _GuardPreflightProvider(
         _guard_snapshot(D.DIR_FORWARD), D.Decimal("-1000"),
