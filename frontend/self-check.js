@@ -8194,6 +8194,31 @@ setTimeout(async () => {
         throw new Error('脚注须说明未计入的在持仓滑点笔数');
       }
 
+      // 两腿量不等（敞口）：滑点**已计入**净收益，但必须在脚注标明是加权均价推算
+      // 的、不对应单次真实成交。计入是刻意的——不计入曲线就与历史仓位页分家；
+      // 静默计入同样不可接受——TSTUSDT 现货 7000 / 合约 6500 推出的 +2.28U 会被
+      // 当成实测滑点。两条都锁住。
+      pnlSeriesGetResponse = { status: 200, body: buildMockPnlPayload({
+        slippage_unbalanced_count: 2, slippage_incomplete_count: 0 }) };
+      await helpers.loadPnlSeries();
+      await new Promise(r => setTimeout(r, 0));
+      const unbalHtml = document.getElementById('pnl-summary-body').innerHTML;
+      if (!unbalHtml.includes('+1.7000') || unbalHtml.includes('暂无')) {
+        throw new Error('两腿量不等不该遮蔽净收益（仅脚注标注）: ' + unbalHtml.slice(0, 200));
+      }
+      const unbalFoot = document.getElementById('pnl-footnote').innerHTML;
+      if (!unbalFoot.includes('两腿数量不等') || !unbalFoot.includes('2 段')) {
+        throw new Error('脚注须标明两腿量不等的段数与其失真性质: ' + unbalFoot.slice(0, 300));
+      }
+      // 计数为 0 时不得出现该提示——常驻的警告等于没有警告
+      pnlSeriesGetResponse = { status: 200, body: buildMockPnlPayload({
+        slippage_unbalanced_count: 0, slippage_incomplete_count: 0 }) };
+      await helpers.loadPnlSeries();
+      await new Promise(r => setTimeout(r, 0));
+      if (document.getElementById('pnl-footnote').innerHTML.includes('两腿数量不等')) {
+        throw new Error('无失衡段时不应显示两腿量不等提示');
+      }
+
       // 持仓源读失败：与 close_logs_ok=false 同级，必须遮蔽
       pnlSeriesGetResponse = { status: 200, body: buildMockPnlPayload({ open_fills_ok: false }) };
       await helpers.loadPnlSeries();

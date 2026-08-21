@@ -9079,6 +9079,13 @@
           parts.push(`${slipMissing} 笔成交批次的滑点未计入`
             + `（单腿成交等两腿无法配对的情况，没有价差可言）。`);
         }
+        // 两腿量不等：滑点已计入，但那是加权均价推出来的，不对应单次真实成交。
+        // 不标出来就会被当成实测值——与持仓表「开单价差率」同源、同样失真。
+        const slipUnbalanced = (payload && payload.slippage_unbalanced_count) || 0;
+        if (slipUnbalanced > 0) {
+          parts.push(`${slipUnbalanced} 段成交的两腿数量不等（敞口），其滑点按两腿`
+            + `加权均价推算并已计入，不对应单次真实成交，与持仓表「开单价差率」同源。`);
+        }
         const cov = payload && payload.coverage;
         if (cov && cov.complete === false) {
           parts.push('本地账本在该窗口内不完整（起点截断或有空洞），累计值可能偏低。');

@@ -614,11 +614,13 @@ class _Handler(BaseHTTPRequestHandler):
         曲线（2026-08-20）。四条构成（资金费 / 手续费 / 利息 / 滑点）与合成净收益
         的累计序列，口径同持仓级 net_pnl。纯读、现算、不写库。
 
-        滑点两个来源：已平仓周期取全量 close-log；在持仓周期按 attempt 逐笔配对
-        成交腿现算（``list_open_cycle_fill_pairs``）——当下的收益正来自这些持仓，
-        漏掉它净收益就不完整。单腿批次（一条腿被拒）算不出，计入
-        ``slippage_incomplete_count`` 供前端在脚注明示，**不**遮蔽净收益；遮蔽只
-        发生在数据源读失败（``*_ok=false``）或缺行情价（``unpriced_assets``）时。
+        滑点两个来源：已平仓周期取全量 close-log；在持仓周期取周期级两腿加权均价
+        （``list_open_cycle_slippage_basis``）——当下的收益正来自这些持仓，漏掉它
+        净收益就不完整。两个来源**同一口径**，故周期平仓时曲线不重排。算不出的
+        （缺价/缺量）计入 ``slippage_incomplete_count``，两腿成交量不等（敞口）
+        推出的滑点计入 ``slippage_unbalanced_count``，均只在脚注明示，**不**遮蔽
+        净收益；遮蔽只发生在数据源读失败（``*_ok=false``）或缺行情价
+        （``unpriced_assets``）时。
         """
         if self.ledger_flow_service is None or self.hedge_open_service is None:
             self._send_ledger(
@@ -666,11 +668,11 @@ class _Handler(BaseHTTPRequestHandler):
         # 超过 100 后悄悄丢掉最早周期的滑点，而其资金费等仍在账本里。
         status, close_doc = self._safe_hedge(self.hedge_open_service.get_close_logs, None)
         close_logs = close_doc.get("logs") or [] if status == 200 else []
-        # 在持仓周期：按 attempt 逐笔配对成交腿，均价用 quote/base 现算。
-        # 不能改用 aggregate_positions 的加权均价×剩余净持仓——两条腿数量可能不同
-        # （实测 TSTUSDT 现货 7000 / 合约 6500），乘出来的不是真实两腿价差。
+        # 在持仓周期：周期级两腿加权均价，与 close-log 逐字同口径（2026-08-21）。
+        # 均价的分母是该周期 open/close 腿的累计成交量，**不是** aggregate_positions
+        # 的剩余净持仓（open−close）——后者已被平掉的部分不该从开仓成本基里消失。
         pos_status, fills_doc = self._safe_hedge(
-            self.hedge_open_service.get_open_cycle_fill_pairs)
+            self.hedge_open_service.get_open_cycle_slippage_basis)
         open_cycle_fills = fills_doc.get("fills") or [] if pos_status == 200 else []
 
         try:

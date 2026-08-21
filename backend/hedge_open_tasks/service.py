@@ -1074,9 +1074,13 @@ class HedgeOpenTaskService:
         tasks = [self._doc(t) for t in self._store.list_tasks(status_filter)]
         return 200, {"tasks": tasks}
 
-    def get_open_cycle_fill_pairs(self) -> tuple[int, dict]:
-        """未平仓周期的成交批次两腿配对（收益曲线算在持仓开/平滑点用）。只读。"""
-        return 200, {"fills": self._store.list_open_cycle_fill_pairs()}
+    def get_open_cycle_slippage_basis(self) -> tuple[int, dict]:
+        """未平仓周期的开/平两腿加权均价（收益曲线算在持仓开/平滑点用）。只读。
+
+        口径与 close-log 逐字对齐，故周期平仓时曲线不重排——见
+        ``store.list_open_cycle_slippage_basis``。
+        """
+        return 200, {"fills": self._store.list_open_cycle_slippage_basis()}
 
     def get_close_logs(self, limit: int | None = 100) -> tuple[int, dict]:
         """功能三 ③a：周期结算日志（按 closed_at 倒序），历史仓位页数据源。只读。

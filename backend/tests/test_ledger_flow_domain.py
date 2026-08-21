@@ -509,6 +509,64 @@ def test_pnl_series_ignores_open_cycle_fill_outside_window():
     assert out["slippage_incomplete_count"] == 0
 
 
+def test_pnl_series_counts_unbalanced_fill_but_still_sums_it():
+    """两腿量不等（敞口）的滑点**要计入**合计，同时必须计数供脚注标注。
+
+    计入是刻意的：不计入曲线就与历史仓位页分家（close-log 在敞口周期同样按加权
+    均价出数）。计数同样刻意：TSTUSDT 现货 7000 / 合约 6500 推出的 +2.28U 静默
+    上屏会被当成实测滑点。两条一起锁——去掉任一条都应让本用例红。
+    """
+    out = _series(close_logs=[], open_cycle_fills=[_open_fill(unbalanced=True)])
+    assert Decimal(out["totals"]["slippage"]) == Decimal("10")   # 照常计入
+    assert out["slippage_unbalanced_count"] == 1
+    assert out["slippage_incomplete_count"] == 0                 # 不是「算不出」
+
+
+def test_pnl_series_unbalanced_counter_zero_without_flag():
+    """未标失衡的批次不得进计数——常驻的警告等于没有警告。"""
+    out = _series(close_logs=[], open_cycle_fills=[_open_fill()])
+    assert out["slippage_unbalanced_count"] == 0
+
+
+def test_pnl_series_unusable_unbalanced_fill_counts_only_as_incomplete():
+    """算不出的批次不进失衡计数：它根本没进合计，标它失真会误导。"""
+    out = _series(close_logs=[], open_cycle_fills=[
+        _open_fill(unbalanced=True, incomplete=True)])
+    assert out["slippage_incomplete_count"] == 1
+    assert out["slippage_unbalanced_count"] == 0
+
+
+def test_pnl_series_unbalanced_fill_outside_window_not_counted():
+    """窗口外的失衡批次不属于本区间，不该让脚注为它报警。"""
+    out = _series(close_logs=[], open_cycle_fills=[
+        _open_fill(at_ms=_T0 - 5 * HOUR, unbalanced=True)],
+        start_ms=_T0 - HOUR, end_ms=_T0 + HOUR)
+    assert out["slippage_unbalanced_count"] == 0
+
+
+def test_pnl_series_counts_unbalanced_open_legs_in_close_log():
+    """close-log 固化了开仓两腿量，失衡能判就得判（实测 THEUSDT 现货 600/合约 400）。
+
+    平仓腿只有现货数量列、无合约腿数量，判不了——不为它伪造对比，宁可漏报。
+    """
+    logs = [{"direction": "forward", "spot_open_avg": "10", "open_avg_price": "11",
+             "open_qty": "10", "spot_open_qty": "15",          # 两腿量不等
+             "spot_close_avg": "11", "close_avg_price": "10", "spot_close_qty": "10",
+             "opened_at_us": _T0 * 1000, "closed_at_us": _T0 * 1000}]
+    out = _series(close_logs=logs, open_cycle_fills=[])
+    assert out["slippage_unbalanced_count"] == 1        # 开仓腿失衡
+    # 开(11−10)×10 + 平(11−10)×10：失衡不改变金额，只加标注
+    assert Decimal(out["totals"]["slippage"]) == Decimal("20")
+
+
+def test_pnl_series_balanced_close_log_open_legs_not_counted():
+    logs = [{"direction": "forward", "spot_open_avg": "10", "open_avg_price": "11",
+             "open_qty": "10", "spot_open_qty": "10",
+             "spot_close_avg": "11", "close_avg_price": "10", "spot_close_qty": "10",
+             "opened_at_us": _T0 * 1000, "closed_at_us": _T0 * 1000}]
+    assert _series(close_logs=logs, open_cycle_fills=[])["slippage_unbalanced_count"] == 0
+
+
 def test_pnl_series_close_fill_of_open_cycle_uses_close_branch():
     """在持仓周期上的部分平仓也要算，且走 close 分支（买卖腿与开仓相反）。"""
     opened = _series(close_logs=[], open_cycle_fills=[_open_fill(kind="open")])

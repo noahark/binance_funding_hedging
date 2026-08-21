@@ -506,14 +506,18 @@ def build_pnl_series(*, interest_rows, income_rows, capital_rows, close_logs,
     累加仍逐桶进行，所以两次结算之间的利息/手续费/滑点不会丢，只是累积到下一个
     结算点一起体现——曲线画的是前缀和，末值恒等于全部之和。
 
-    ``open_cycle_fills`` 是**未平仓**周期的成交批次两腿配对
-    （``{direction, kind, spot_avg, perp_avg, qty, at_ms, incomplete}``，来自
-    ``HedgeOpenStore.list_open_cycle_fill_pairs``）。必须传：持仓期间它们的资金费/
-    手续费/利息已经进了另外三条线，滑点却锁在 close-log 里（那张表要整周期关闭才
-    写），漏掉净收益就不完整。**不要**改用持仓聚合的加权均价×剩余量——两条腿数量
-    可能不同（实测 TSTUSDT 现货 7000 / 合约 6500），乘出来的数不对应任何真实事件。
-    单腿批次（一条腿被拒）计入 ``slippage_incomplete_count``：它只驱动脚注说明，
-    **不**遮蔽净收益；遮蔽只发生在数据源读失败或缺行情价时。
+    ``open_cycle_fills`` 是**未平仓**周期的开/平两腿加权均价
+    （``{direction, kind, spot_avg, perp_avg, qty, at_ms, incomplete, unbalanced}``，
+    来自 ``HedgeOpenStore.list_open_cycle_slippage_basis``）。必须传：持仓期间它们
+    的资金费/手续费/利息已经进了另外三条线，滑点却锁在 close-log 里（那张表要整
+    周期关闭才写），漏掉净收益就不完整。它与 close-log **同一口径**（2026-08-21）
+    ——两者不同口径时，周期一平仓，同一段历史就在曲线上重排。
+
+    两类瑕疵都只驱动脚注、**不**遮蔽净收益（遮蔽只发生在数据源读失败或缺行情价时）：
+    算不出的（缺价/缺量/缺时刻）计入 ``slippage_incomplete_count`` 且不进合计；
+    两腿成交量不等的（敞口所致，加权均价推出的价差不对应单次真实成交）计入
+    ``slippage_unbalanced_count``，**仍进合计**——不计入就又与历史仓位页分家。
+    close-log 只固化了开仓两腿量，故其平仓腿的失衡无从判断，不计入该计数。
     """
     validate_window(start_ms, end_ms)
     unpriced: set = set()
@@ -569,6 +573,7 @@ def build_pnl_series(*, interest_rows, income_rows, capital_rows, close_logs,
 
         # 在持仓周期：逐笔配对补开/平滑点，归到各自成交时刻
         slippage_incomplete = 0
+        slippage_unbalanced = 0
         for fill in (open_cycle_fills or []):
             at_ms = fill.get("at_ms")
             # 先判窗口：窗口外的批次不属于这个区间，既不计入也不算「算不出」，
@@ -581,6 +586,8 @@ def build_pnl_series(*, interest_rows, income_rows, capital_rows, close_logs,
             if value is None or at_ms is None:
                 slippage_incomplete += 1
                 continue
+            if fill.get("unbalanced"):
+                slippage_unbalanced += 1
             add(slip, at_ms, value)
 
         for log in close_logs:
@@ -602,6 +609,10 @@ def build_pnl_series(*, interest_rows, income_rows, capital_rows, close_logs,
                 if value is None or at_ms is None:
                     slippage_incomplete += 1
                     continue
+                # 开仓两腿量都固化在 close-log 里，能判失衡就判；平仓只固化了现货腿
+                # 数量（无合约腿列），判不了——宁可漏报，不为它伪造一个对比。
+                if kind == "open" and _dec(log.get("open_qty")) != _dec(log.get("spot_open_qty")):
+                    slippage_unbalanced += 1
                 add(slip, at_ms, value)
 
         buckets = set(funding) | set(fees) | set(interest) | set(slip)
@@ -611,7 +622,8 @@ def build_pnl_series(*, interest_rows, income_rows, capital_rows, close_logs,
         if not buckets:
             return {"points": [], "bucket_ms": bucket_ms,
                     "unpriced_assets": sorted(unpriced), "totals": None,
-                    "slippage_incomplete_count": slippage_incomplete}
+                    "slippage_incomplete_count": slippage_incomplete,
+                    "slippage_unbalanced_count": slippage_unbalanced}
 
         lo, hi = min(buckets), max(buckets)
         # 出点节拍 = 有资金费结算的桶；末桶总是保留，否则最后一次结算之后新增的
@@ -648,6 +660,9 @@ def build_pnl_series(*, interest_rows, income_rows, capital_rows, close_logs,
             # 算不出的批次数（单腿等）。只驱动脚注说明，**不**遮蔽净收益——
             # 遮蔽只发生在数据源读失败或缺行情价时，见 docstring。
             "slippage_incomplete_count": slippage_incomplete,
+            # 两腿成交量不等（敞口）推出的滑点段数。已计入合计，仅供脚注标注其
+            # 非单次真实成交——与持仓表的开单价差率同源。
+            "slippage_unbalanced_count": slippage_unbalanced,
             "totals": {"funding": last[1], "fees": last[2], "interest": last[3],
                        "slippage": last[4], "net": last[5]},
         }

@@ -1455,3 +1455,129 @@ def test_dispatch_route_change_pauses_before_send(tmp_path):
     _, signal = svc._dispatch_one_for_task(task, svc._wall_us())
     assert signal == D.SIGNAL_SPOT_ROUTE_CHANGED
     assert svc._store.get_task(tid)["status"] == D.STATUS_PAUSED
+
+
+# ---------------------------------------------------------------------------
+# 收益曲线：在持仓周期的滑点口径（2026-08-21）
+# ---------------------------------------------------------------------------
+def _seed_cycle(store, *, spot, perp, task_type=D.TASK_TYPE_OPEN, closed=False,
+                cycle_id="cyc-1", opened_at_us=1_700_000_000_000_000,
+                direction="forward"):
+    """直插一个周期的两腿成交。``spot``/``perp`` 为 ``[(base, quote), ...]``，每条一次 attempt。"""
+    c = store._conn
+    c.execute("INSERT OR IGNORE INTO hedge_open_cycle (id, symbol, direction, opened_at_us,"
+              " closed_at_us) VALUES (?,?,?,?,?)",
+              (cycle_id, "TSTUSDT", direction, opened_at_us,
+               opened_at_us + 10_000_000 if closed else None))
+    task_id = f"t-{cycle_id}-{task_type}"
+    c.execute("INSERT OR IGNORE INTO hedge_open_task (id, coin, direction, mode, single_amount,"
+              " target_n, status, creation_seq, created_at_us, updated_at_us, task_type)"
+              " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+              (task_id, "TSTUSDT", direction, "immediate", "10", 9, "done", 1,
+               opened_at_us, opened_at_us, task_type))
+    for i, (sb, sq) in enumerate(spot):
+        pb, pq = perp[i]
+        att = c.execute(
+            "INSERT INTO hedge_open_attempt (task_id, cycle_id, attempt_uuid, attempt_seq,"
+            " direction, q_common, preflight_fingerprint, position_side_mode, created_at_us,"
+            " rate_limited) VALUES (?,?,?,?,?,?,?,?,?,0)",
+            (task_id, cycle_id, f"u-{cycle_id}-{task_type}-{i}", i, direction, "10",
+             "fp", "BOTH", opened_at_us + i)).lastrowid
+        for leg, base, quote in (("spot", sb, sq), ("perp", pb, pq)):
+            c.execute(
+                "INSERT INTO hedge_open_leg (attempt_id, leg, client_order_id, endpoint,"
+                " request_shape, dispatch_state, cumulative_base_qty, cumulative_quote_amt,"
+                " terminal, dispatched_at_us) VALUES (?,?,?,?,?,?,?,?,1,?)",
+                (att, leg, f"co-{att}-{leg}", "/x", "{}", "sent", base, quote,
+                 opened_at_us + i * 1_000_000))
+    c.commit()
+    return cycle_id
+
+
+def test_open_cycle_slippage_basis_equals_close_log_basis(tmp_path):
+    """在持仓周期的均价必须与 close-log 的 ``cycle_leg_basis`` **逐字同口径**。
+
+    这是该函数存在的唯一理由：两者口径不同时，周期一平仓，滑点就从逐笔换成周期
+    汇总，同一段历史在曲线上重排（实测 TSTUSDT 8/11 五笔开仓塌缩到周期起点）。
+    实测 10 个已平仓周期，两法在两腿配平时差额恒为 0.0000。
+    """
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    cid = _seed_cycle(store, spot=[("100", "1000"), ("300", "3060")],
+                      perp=[("100", "1010"), ("300", "3030")])
+    rows = store.list_open_cycle_slippage_basis()
+    assert len(rows) == 1, "同周期同 task_type 的多次 attempt 必须汇总成一条，不是逐笔"
+    row = rows[0]
+    for leg in ("spot", "perp"):
+        expected = store.cycle_leg_basis(cid, D.TASK_TYPE_OPEN, leg)["avg_price"]
+        assert Decimal(row[f"{leg}_avg"]) == Decimal(expected), leg
+    # 加权而非算术平均：(1000+3060)/(100+300) = 10.15
+    assert Decimal(row["spot_avg"]) == Decimal("10.15")
+    assert row["at_ms"] == 1_700_000_000_000_000 // 1000     # 归到周期开仓时刻
+    assert row["incomplete"] is False and row["unbalanced"] is False
+    store.close()
+
+
+def test_open_cycle_slippage_basis_qty_copies_close_log_choice(tmp_path):
+    """数量取法照抄 close-log：open 用合约腿量、close 用现货腿量。
+
+    两腿不等时这个取法才有分别，而它正是「平仓不重排」的前提——换成 min() 或
+    现货量，周期一关就跳变。
+    """
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    # 两腿量必须让「照抄 close-log」与 min(两腿) 得出不同的数，否则用例抓不住退化：
+    # open 取合约腿故意让它更大，close 取现货腿故意让它更大。
+    _seed_cycle(store, spot=[("300", "3060")], perp=[("400", "4080")])
+    _seed_cycle(store, spot=[("7000", "70000")], perp=[("6500", "65650")],
+                task_type=D.TASK_TYPE_CLOSE, cycle_id="cyc-1")
+    by_kind = {r["kind"]: r for r in store.list_open_cycle_slippage_basis()}
+    assert Decimal(by_kind["open"]["qty"]) == Decimal("400")     # 合约腿，非 min(300)
+    assert Decimal(by_kind["close"]["qty"]) == Decimal("7000")   # 现货腿，非 min(6500)
+    store.close()
+
+
+def test_open_cycle_slippage_basis_flags_unbalanced_legs(tmp_path):
+    """两腿成交量不等 → ``unbalanced``：加权均价推出的价差不对应单次真实成交。
+
+    实测 TSTUSDT 现货 7000 / 合约 6500 推出 +2.28U。仍照 close-log 口径计入
+    （不计入就与历史仓位页分家），但必须留下标记供脚注明示。
+    """
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _seed_cycle(store, spot=[("7000", "70000")], perp=[("6500", "65650")])
+    row = store.list_open_cycle_slippage_basis()[0]
+    assert row["unbalanced"] is True
+    assert row["incomplete"] is False        # 失衡不等于算不出，金额照常给
+    store.close()
+
+
+def test_open_cycle_slippage_basis_skips_closed_cycles(tmp_path):
+    """已平仓周期归 close-log 管，本函数只出未平仓的——同时计入会双算滑点。"""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _seed_cycle(store, spot=[("100", "1000")], perp=[("100", "1010")],
+                cycle_id="closed-1", closed=True)
+    assert store.list_open_cycle_slippage_basis() == []
+    store.close()
+
+
+def test_open_cycle_slippage_basis_counts_partially_filled_legs(tmp_path):
+    """未终态但已有正成交量的腿也算数——同 ``cycle_leg_basis`` 与聚合持仓的既有口径。"""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    cid = _seed_cycle(store, spot=[("100", "1000")], perp=[("100", "1010")])
+    store._conn.execute("UPDATE hedge_open_leg SET terminal = 0")
+    store._conn.commit()
+    rows = store.list_open_cycle_slippage_basis()
+    assert len(rows) == 1, "正在部分成交的腿被漏掉了"
+    assert Decimal(rows[0]["spot_avg"]) == Decimal(
+        store.cycle_leg_basis(cid, D.TASK_TYPE_OPEN, "spot")["avg_price"])
+    store.close()
+
+
+def test_open_cycle_slippage_basis_unknown_notional_not_priced(tmp_path):
+    """成交额未知的腿只贡献数量、不进均价分母（G5 口径，同 cycle_leg_basis）。"""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    cid = _seed_cycle(store, spot=[("100", "1000"), ("100", None)],
+                      perp=[("100", "1010"), ("100", "1010")])
+    row = store.list_open_cycle_slippage_basis()[0]
+    assert Decimal(row["spot_avg"]) == Decimal("10")     # 未知那笔不把均价拖到一半
+    assert Decimal(row["spot_avg"]) == Decimal(
+        store.cycle_leg_basis(cid, D.TASK_TYPE_OPEN, "spot")["avg_price"])
+    store.close()

@@ -2580,91 +2580,88 @@ class HedgeOpenStore:
             fee_rows.append(d)
         return FF.usdt_fee_total(fee_rows)
 
-    def list_open_cycle_fill_pairs(self) -> list[dict]:
-        """**未平仓**周期的成交批次两腿配对，供收益曲线算在持仓的开/平滑点。只读。
+    def list_open_cycle_slippage_basis(self) -> list[dict]:
+        """**未平仓**周期的开/平两腿加权均价，供收益曲线算在持仓的滑点。只读。
 
-        为什么需要它：滑点要的是「单次成交事件里两条腿的价差」。已平仓周期在关闭
-        时把这些数写进 ``hedge_open_cycle_close_log``；在持仓周期那张表还没写，而
-        持仓聚合（``aggregate_positions``）只有跨批次加权均价与剩余净持仓——两条腿
-        数量都可能不同（实测 TSTUSDT 现货 7000 / 合约 6500），相减不对应任何真实
-        事件。逐笔配对是唯一能还原真实价差的路径。
+        口径与 close-log **逐字对齐**：均价走 ``_cycle_leg_basis_locked`` 同一算法
+        （仅已知 notional 进分母），数量也照抄 close-log 的取法——open 取合约腿
+        数量、close 取现货腿数量。逐字对齐是本函数存在的全部理由：此前按 attempt
+        逐笔配对，周期一平仓就换成 close-log 的周期汇总，同一段历史在曲线上重排
+        （实测 TSTUSDT 8/11 五笔开仓在平仓后塌缩到周期起点）。两腿成交量相等时
+        两法数学等价——实测 10 个已平仓周期里 7 个配平周期差额恒为 0.0000，故统一
+        到汇总口径不改动任何配平周期的金额。
 
-        按 ``attempt`` 配对（同一 attempt 即同一次两腿下单），周期归属走
-        ``hedge_open_attempt.cycle_id``——与 ``_cycle_trading_fee_total`` 同一口径，
-        不用 symbol+时间猜。均价一律 ``cumulative_quote_amt / cumulative_base_qty``
-        现算：现货腿的 ``avg_price`` 列在本地账本里是空的。
+        两腿成交量不等时，加权均价推出的价差不对应任何单次真实成交（实测 TSTUSDT
+        现货 7000 / 合约 6500）。仍按 close-log 口径计入——不计入曲线就又与历史
+        仓位页分家——但置 ``unbalanced=True`` 交调用方计数、前端脚注明示：静默的
+        伪数比明示的缺口更危险。
+
+        腿的筛选条件 ``cumulative_base_qty > 0`` 同样照抄 ``_cycle_leg_basis_locked``，
+        **不**按 ``terminal`` 过滤：正在部分成交的腿其已成交部分也算数（同
+        ``aggregate_positions`` 的既有口径）。
 
         每条返回 ``{cycle_id, direction, kind, spot_avg, perp_avg, qty, at_ms,
-        incomplete}``；两腿缺一（单腿批次）、成交额缺失或数量非正 →
-        ``incomplete=True``，由调用方计数，绝不当 0。
+        incomplete, unbalanced}``，形状即 ``build_pnl_series`` 的 ``open_cycle_fills``。
         """
         with self._lock:
             rows = self._conn.execute(
-                "SELECT a.id AS attempt_id, a.cycle_id, t.direction, t.task_type,"
-                " l.leg, l.cumulative_base_qty AS base, l.cumulative_quote_amt AS quote,"
-                " l.dispatched_at_us"
+                "SELECT a.cycle_id, t.direction, t.task_type, l.leg,"
+                " l.cumulative_base_qty AS base, l.cumulative_quote_amt AS quote,"
+                " c.opened_at_us, l.dispatched_at_us"
                 " FROM hedge_open_leg l"
                 " JOIN hedge_open_attempt a ON a.id = l.attempt_id"
                 " JOIN hedge_open_task t ON t.id = a.task_id"
                 " JOIN hedge_open_cycle c ON c.id = a.cycle_id"
-                " WHERE c.closed_at_us IS NULL AND l.terminal = 1"
-                " ORDER BY a.id, l.leg",
+                " WHERE c.closed_at_us IS NULL"
+                " AND CAST(l.cumulative_base_qty AS REAL) > 0",
             ).fetchall()
         grouped: dict = {}
         for r in rows:
-            d = dict(r)
-            key = d["attempt_id"]
-            slot = grouped.setdefault(key, {
-                "cycle_id": d["cycle_id"], "direction": d["direction"],
-                "kind": "close" if d["task_type"] == "close" else "open",
-                "at_ms": None if d["dispatched_at_us"] is None
-                         else int(d["dispatched_at_us"]) // 1000,
+            kind = "close" if r["task_type"] == D.TASK_TYPE_CLOSE else "open"
+            g = grouped.setdefault((r["cycle_id"], kind), {
+                "cycle_id": r["cycle_id"], "direction": r["direction"], "kind": kind,
+                "opened_at_us": r["opened_at_us"], "last_close_at_us": None,
+                "spot": {"qty": Decimal(0), "notional": Decimal(0), "priced": Decimal(0)},
+                "perp": {"qty": Decimal(0), "notional": Decimal(0), "priced": Decimal(0)},
             })
-            slot[d["leg"]] = d
+            leg = g.get(r["leg"])
+            if leg is None:
+                continue        # 未知腿名：不参与，也不伪造
+            qty = _num_or_none(r["base"])
+            if qty is None or qty <= 0:
+                continue
+            leg["qty"] += qty
+            quote = _num_or_none(r["quote"])
+            if quote is not None and quote != 0:
+                leg["notional"] += quote
+                leg["priced"] += qty
+            if kind == "close" and r["dispatched_at_us"] is not None:
+                prev = g["last_close_at_us"]
+                g["last_close_at_us"] = (r["dispatched_at_us"] if prev is None
+                                         else max(prev, r["dispatched_at_us"]))
+
+        def _avg(leg: dict) -> Decimal | None:
+            return leg["notional"] / leg["priced"] if leg["priced"] > 0 else None
+
         out = []
-        for attempt_id, g in grouped.items():
-            spot, perp = g.get("spot"), g.get("perp")
-            avg = self._fill_avg
-            spot_avg = avg(spot) if spot else None
-            perp_avg = avg(perp) if perp else None
-            qty = self._fill_min_qty(spot, perp)
+        for g in grouped.values():
+            spot_avg, perp_avg = _avg(g["spot"]), _avg(g["perp"])
+            # 数量照抄 close-log：open 用 open_qty（合约腿）、close 用 spot_close_qty（现货腿）
+            sized = g["perp"] if g["kind"] == "open" else g["spot"]
+            qty = sized["qty"] if sized["qty"] > 0 else None
+            # 周期未关闭 → close 没有 closed_at_us 可挂，取该周期最后一笔平仓腿的时刻
+            at_us = g["opened_at_us"] if g["kind"] == "open" else g["last_close_at_us"]
             out.append({
-                "attempt_id": attempt_id,
-                "cycle_id": g["cycle_id"], "direction": g["direction"],
-                "kind": g["kind"], "at_ms": g["at_ms"],
-                "spot_avg": spot_avg, "perp_avg": perp_avg, "qty": qty,
-                # 单腿批次（一条腿被拒）没有价差可言——不是 0，是不可算
+                "cycle_id": g["cycle_id"], "direction": g["direction"], "kind": g["kind"],
+                "spot_avg": None if spot_avg is None else str(spot_avg),
+                "perp_avg": None if perp_avg is None else str(perp_avg),
+                "qty": None if qty is None else str(qty),
+                "at_ms": None if at_us is None else int(at_us) // 1000,
                 "incomplete": spot_avg is None or perp_avg is None or qty is None,
+                "unbalanced": g["spot"]["qty"] != g["perp"]["qty"],
             })
-        out.sort(key=lambda x: (x["at_ms"] or 0, x["attempt_id"]))
+        out.sort(key=lambda x: (x["at_ms"] or 0, x["cycle_id"], x["kind"]))
         return out
-
-    @staticmethod
-    def _fill_avg(leg: dict | None) -> str | None:
-        """成交均价 = 成交额 / 成交量；任一缺失或非正 → None（不可算，不当 0）。"""
-        if not leg:
-            return None
-        try:
-            base = Decimal(str(leg.get("base") or 0))
-            quote = Decimal(str(leg.get("quote") or 0))
-        except (InvalidOperation, ValueError):
-            return None
-        if base <= 0 or quote <= 0:
-            return None
-        return str(quote / base)
-
-    @staticmethod
-    def _fill_min_qty(spot: dict | None, perp: dict | None) -> str | None:
-        """配对数量取两腿较小者：多出的部分没有对手腿，不构成两腿价差。"""
-        if not spot or not perp:
-            return None
-        try:
-            sb = Decimal(str(spot.get("base") or 0))
-            pb = Decimal(str(perp.get("base") or 0))
-        except (InvalidOperation, ValueError):
-            return None
-        smaller = min(sb, pb)
-        return str(smaller) if smaller > 0 else None
 
     def list_close_logs(self, limit: int | None = 100) -> list[dict]:
         """结算日志，按 closed_at_us 倒序（历史仓位页数据源）。只读。
