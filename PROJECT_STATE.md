@@ -4,7 +4,18 @@ Cross-stage state, read at startup. Keep under 64 KB. Git history is not a runti
 check. Completed work's trace is git history and archive references (see Update
 Rule); this file records only live risks, open follow-ups, and pointers.
 
-## Current Status (2026-08-20)
+## Current Status (2026-08-21)
+
+- **[2026-08-21 Human 直接驱动，无 stage] 资金费率收益曲线 + 流水日志升为侧栏一级视图：**
+  新增 `GET /api/private-ledger/pnl-series` 与纯函数 `ledger_flow.build_pnl_series`，前端手搓
+  SVG 绘制五条线（资金费收益 / 手续费 / 利息 / 滑点 / 净收益），左图右表并排、双滑块选区、
+  贴线悬停、1D/3D/7D/全部本地切片零请求、隐私脱敏。口径：**净收益 = 资金费 − 手续费 − 利息
+  − 滑点**，成本在序列中存负值直接相加，与持仓级 `net_pnl`（`4d52c39`）一致；出点节拍为「有
+  资金费结算的小时」（350 → 91 点）；`REALIZED_PNL` 不进净收益（对冲下被现货腿抵消，单列供
+  对账，当前 `-23.54 U`）。同时将流水日志从费率行情页内双看板移到侧栏一级视图，`state.marketBoard`
+  退役；私有账户面板拆为 `#private-overview-panel`（八张统计卡）与 `#private-panel`
+  （余额/互转/持仓）。提交区间 `b0bffaf..f3fe3ba`，经 codex + grok 四轮双评审。
+  已知失真与接受理由见 Live Risks「收益曲线的滑点已统一到 close-log 口径」。
 
 - **[2026-08-20 Human 直接驱动，无 stage] 持仓与历史表价差/滑点折算 USDT 实际盈亏第二行：**
   持仓表「开单价差率」列与历史表「总计开单滑点 %」「总计平单滑点 %」列同步增加第二行折算 USDT 实际盈亏金额。正收益绿（+X.XX U）、负成本红（-X.XX U）、零值与亚分位（<0.005 U 取整 0.00 U）灰（muted）、隐私模式脱敏（****）。四组合买卖腿识别与后端完全对齐。纯前端改动，经 Claude 独立 Fast Review ACCEPT 并由 Human 授权推送至 main 分支（提交区间 `4e9295f..1115fce`）。
@@ -233,6 +244,68 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Live Risks
 
+- `[OPEN][ACCEPTED][2026-08-21]` **收益曲线的滑点已统一到 close-log 口径，代价是成本在时间轴上
+  前移，最长实测 8 天。**
+  背景：在持仓周期原按 `attempt` 逐笔配对、已平仓周期走 `close-log` 周期汇总，两套粒度导致
+  周期一平仓、同一段历史就在曲线上重排（TSTUSDT `08-11` 五笔开仓塌缩到周期起点）。`f3fe3ba`
+  统一到 close-log 口径：均价走 `cycle_leg_basis` 同一算法，数量也照抄其取法（open 取合约腿、
+  close 取现货腿），新函数 `store.list_open_cycle_slippage_basis`。
+  实测依据：10 个已平仓周期中，新算法与 `close_log` 现有口径 **9 个精确相等（差 0.0000）**，
+  唯一不等的 `XLMUSDT` 是 close-log 侧脏数据（见下条）；12 个在持仓周期中 **10 个金额分文不变**，
+  变化只在两个敞口币（`INJ -0.0530`、`TST +1.6736`）。腿的筛选条件同步照抄
+  `cumulative_base_qty > 0`，不再按 `terminal` 过滤，顺带修掉正在部分成交的腿被漏计。
+  **已知失真（Human `2026-08-21` 明示接受，不修）：**
+  ① **成本前移**：整周期一个数挂在周期开仓时刻。TSTUSDT 14 笔跨 `08-11..08-19`（8 天）全挂
+  `08-11`，XVGUSDT 12 笔跨 7 天全挂 `08-06`。**末值/总额恒准，中间任一时点的曲线值偏高**；
+  持仓越久、加仓越多越严重。
+  ② **部分平仓时点位后移**：在持仓周期的 close 段挂「该周期最后一笔平仓腿」时刻，每新平一次
+  就整体后移。已平仓周期锚 `closed_at_us`，实测两者差 0.5–1.4 秒（桶 1 小时，不跨桶），
+  唯 `XLMUSDT` 差 1757 秒且跨整点。
+  ③ **两腿量不等段计入但失真**：加权均价推出的价差不对应单次真实成交，仍按 close-log 口径
+  计入（不计入就与历史仓位页分家），新增 `slippage_unbalanced_count` 计数 + 前端脚注明示。
+  close-log 只固化开仓两腿量，其平仓腿失衡无从判断、不计数。
+  ④ **早于现货流水入库起点的点净收益偏高**：现货手续费与滑点那时尚未入库。实测
+  `spot_flow_start_ms = 08-09 20:51`，受影响 **22/92 点**（曲线左侧 24%），前端 `partial=1` 标记。
+  ⑤ **曲线不存快照、每次全量现算**：数据源一变（补录、脏数据修复、手续费回补）历史即重画。
+  `2026-08-21` 人工补录 TST 500 后，`08-11` 那一刻凭空多出 `+0.93` 即为实例。
+  影响：仅展示层，不影响下单与资金安全。`slippage_incomplete_count`（当前 4 笔，即今早四个
+  半平仓币的 close 段）与 `slippage_unbalanced_count`（当前 2 段）均只驱动脚注、**不遮蔽净收益**；
+  遮蔽只发生在数据源读失败或缺行情价时。
+  改进方案已评估但 Human 决定暂不做，见 Open Follow-ups「按任务卡分组」。
+  重开条件：出现单张任务卡成交跨度显著变长（当前 55 张卡全部 ≤1 小时），或曲线失真造成实际误判。
+
+- `[OPEN][MONEY][MANUAL][2026-08-21 12:00 CST]` **TSTUSDT 开仓敞口由 Human 手动补仓 + 人工补录
+  账本收口——这是一次绕过系统下单链的生产数据写入，必须留痕可追。**
+  事实：TST 原为现货 `7000` / 合约 `-6500`，裸多 `500`（≈7.51 U）。Human 于币安手动做空 500，
+  订单 `1974358402`，成交 `500 @ 0.015060`、成交额 `7.53 USDT`、手续费 `0.003765 USDT`，
+  `12:00:54 CST`。成交明细经 `GET /papi/v1/um/userTrades` 只读核对，非系统下单。
+  账本补录：新建**独立任务卡** `3199dff1`（不挂现有自动卡，避免那张卡的 attempt 数与实际执行
+  不符）+ attempt `149`（`pair_outcome=single_leg`，如实反映单腿）+ 一条 perp 腿
+  （`terminal=1`、`exchange_status=FILLED`、四列手续费直接填入，故回补引擎与结算流程都不会再
+  触碰它）。`hedge_open_log` 写入 `kind=manual_backfill` 留痕（含订单号、成交明细、授权人、
+  备份路径）。备份：`scratchpad/hedge-open-tasks.BACKUP-20260821-120337.sqlite3`。
+  验证：持仓表 `7000 / -7000`、`single_leg_exposure=false`；合约均价 `0.017900` 与币安自报
+  `um_entry_price=0.0179003` **独立吻合（差 ≈0.0024 U）**；曲线滑点 `+1.6208 → +0.2672`、
+  净收益 `+3.5597 → +2.2634`、失衡段 `3 → 2`。数据库不在版本控制内，无代码变更，无需重启。
+  **残留问题**：补录的合约腿单独成卡、卡内无现货腿，而对应的现货 500 在另一张已删除卡
+  `be355ffd`（attempt 142，合约腿 `REJECTED -2019`）内——**按周期汇总能配上，若将来改按任务卡
+  分组则配不上、会算不出**（实测差 `0.32`）。改按卡分组前须先把这条腿改挂到 `be355ffd`。
+  重开条件：TST 平仓收口，或补录数据被发现与币安实际不符。
+
+- `[OPEN][DATA-LOSS][2026-08-21]` **合约成交手续费一旦漏写且超过 7 天即永久缺失，该币手续费栏
+  终身显示 `—`。**
+  事实：币安 `GET /papi/v1/um/userTrades` 无 `orderId` 参数、只能按时间窗查，且**跨度硬上限
+  7 天**（`fee_fetcher.um_window_clamped_7d`）。TSTUSDT 14 条开仓合约腿中有 **1 条**缺手续费：
+  订单 `1950618349`，`500` 个、`11.555 U`、`2026-08-11 01:13:51 CST`，距今 10 天，已不可回补。
+  手续费成本按 fail-closed 口径聚合（任一腿未知 → 整体 `trading_fee_incomplete=true`、
+  `trading_fee_usdt=null`），故 TST 整张卡的手续费栏显示 `—` 而非一个少算的数——**这是正确
+  行为，不是缺陷**。其余 13 条合约腿与全部 14 条现货腿手续费均在库。
+  影响：仅持仓表手续费列；曲线的手续费线走币安账单流水（`um_income_rows` /
+  `margin_capital_flow_rows`），不受此影响。正常下单路径手续费是终态实时写入的，只有漏写才
+  依赖回补。
+  唯一出路：从币安账单人工查得该单手续费后按 `manual_backfill` 方式补填。
+  重开条件：补填完成，或再次出现新的超窗缺口。
+
 - `[OPEN][LIVE][MONEY][2026-08-21 09:35 CST]` **四个反向持仓平仓任务因统一账户真实可用余额不足形成单腿敞口。**
   `INJ/WLD/JST/SNX` 四个 `close + reverse + smooth` 任务（attempt `145..148`）均在第一轮
   同时提交两腿后出现：现货 `BUY /papi/v1/margin/order` 被币安 `-2019 Margin is
@@ -255,7 +328,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   覆盖前端提示、后端 fail-closed 实时门及并发余额预留/串行化；属资金与订单路径，须走
   HIGH_RISK 计划评审、实现、Review-1、Review-2。重开条件：上述敞口人工收口、修复上线并经
   实盘前只读验收，或任一余额/仓位继续变化。
-  **Fast 修复已准备、尚未上线（2026-08-21）：** 分支
+  **Fast 修复已上线（2026-08-21 11:46 CST）：** 分支
   `fast/reverse-close-total-available-balance` 已补前端计划总额提示，并在后端每次真实
   reverse-close `prepare_attempt` 前读取 5 分钟内的 PM `totalAvailableBalance`；不足、缺失、
   超龄或非法均暂停且零 attempt/零 POST。双审核均 `ACCEPT` 后根据 Claude-GLM 的观察
@@ -263,16 +336,24 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   forward 余额由现有普通现货 base 门负责，reverse 余额只由发单前的 PM 账户级门负责。
   前端全量 self-check 通过；后端相关 138 项通过，完整套件排除既有 HTTP 白名单误报后
   `2053 passed, 1 deselected`，并新增旧门误拦、PM 快照缺失/超龄/缺字段/非法值与价格缺失的
-  回归检查。未合并、未重启服务。**残余风险：** Fast 范围未增加
-  跨任务余额预留；极近同时到达的多个任务仍可能
-  各自读取同一份可用余额后分别放行，故本条保持 OPEN，需后续正式 HIGH_RISK 修复或实盘限制。
+  回归检查。`42629cc` + `2d339b6` 已合并 `main` 并推送，服务已于 `11:46 CST` 重启，该门现已生效。
+  **但只防新发、不补存量**：上述四笔单腿敞口不会自愈，四张卡仍 `paused`（`连续失败 1 / 阈值 1`），
+  重启只会继续提交剩余计划次数、补不齐已失败的现货腿。
+  `2026-08-21 12:10 CST` 只读复核净敞口：`INJ` 欠 8 对合约多 4（裸 4，≈19.08 U）、
+  `JST` 欠 200 对 100（裸 100，≈10.71 U）、`SNX` 欠 50 对 0（**完全裸露**，≈10.82 U）、
+  `WLD` 欠 60 对 40（裸 20，≈7.50 U），四者合计约 `48.11 U` 无对冲。
+  **残余风险：** Fast 范围未增加跨任务余额预留；极近同时到达的多个任务仍可能各自读取同一份
+  可用余额后分别放行（本次四笔正是挤在 40 秒内：`09:35:08/19/33/47`），故本条保持 OPEN，
+  需后续正式 HIGH_RISK 修复或实盘限制。
 
 - `[OPEN][UI-GAP][2026-08-20]` **被崩溃孤儿卡住的借币任务在界面上没有任何提示，反而显示上一次的失败原因。**
-  事实：`COTI`（attempt `542383`，发出 `2026-08-20 15:35:21 CST`）与 `HOME`（attempt `330073`，
-  发出 `2026-08-16 21:11:44 CST`）两个任务的 `unresolved_attempt_id` 指向
+  事实（`2026-08-21` 复核已增至**三个**）：`COTI`（attempt `542383`，发出
+  `2026-08-20 15:35:21 CST`）、`HOME`（attempt `330073`，发出 `2026-08-16 21:11:44 CST`，
+  至 `2026-08-21` 已静默停摆 **5 天**）、`PROM`（发出 `2026-08-20 22:09:59 CST`，本次新增）
+  三个任务的 `unresolved_attempt_id` 指向
   `reason=crash_orphan_responseless` 的孤儿尝试，`reconcile_step=5`、`reconcile_exhausted=1`
   —— 自动对账已耗尽，后端按 ADR-006 fail-closed 永久阻塞其调度（正确行为，防重复借币）。
-  但两卡在页面上仍显示 `borrowing` + 「可贷资产不足，请稍后再试」（`known_rejection:51061`），
+  但三卡在页面上仍显示 `borrowing` + 「可贷资产不足，请稍后再试」（`known_rejection:51061`），
   没有「待对账·暂停调度」徽标，看不出已停摆；`HOME` 至 `2026-08-20` 已静默卡住 4 天。
   根因两环：① 孤儿恢复只写阻塞标记，**不更新 `borrow_task.latest_result_*` 冗余列**，故
   `latest_result` 停留在孤儿之前那次尝试（`HOME` 停在 attempt `330025`，`finished_at`
@@ -481,6 +562,30 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   path to `ensure_worker` appears.** Five elements: archive `32-` §7.3.
 
 ## Open Follow-ups
+
+- `[DEFERRED][2026-08-21]` **收益曲线滑点改按「任务卡」分组——已完整评估、数据支持，Human 决定
+  暂不做，等实际遇到问题再说。**
+  提议（Human）：滑点不按整轮持仓汇总、改按开单任务卡汇总。
+  **实测支持**：① 全部 55 张任务卡的成交跨度 **47 张在 1 分钟内、8 张在 1 小时内、无一超过
+  1 小时**（最长 `FFUSDT` smooth 平仓卡 50.2 分钟）——而曲线的桶就是 1 小时，**故按卡分组的时间
+  精度已顶到图本身的分辨率上限，再细分到逐笔也画不出更多**。TST 那 8 天跨度不是「一张卡跑了
+  8 天」，而是 Human 隔几天新建一张卡加仓（共 7 张）。② 换粒度不改金额：17 个币中 **14 个
+  完全相同（0.0000）**，仅 3 个敞口币不等（`INJ +0.0563`、`THE +0.0433`、`TST -0.3200`），
+  这是加权均价在两腿配平时与任意分组等价的数学性质。③ 算不出的组数：按周期 5、**按卡 6**、
+  逐笔 10——**按卡比逐笔少丢一半**，同卡内其他成交能兜住被拒的单腿。④ 曲线点位 38 → 55。
+  **改动规模**（估）：`store.list_open_cycle_slippage_basis` 改分组键 + 时间锚点改「该卡首笔
+  成交时刻」+ 去掉 `closed_at_us IS NULL` 过滤，约 15 行实质改动；`domain` 中读 close-log 算
+  滑点那 25 行**整段删除**；`server` 少拉一次 close-log 与一个状态标志；前端删 `close_logs_ok`
+  一条提示；约 10 条用例调整。**净减代码。** 附带收益：时间锚点改为成交时刻后，上面 Live Risk
+  的失真 ② 一并消失。
+  **前置条件**：① 必须两边同时改（已平仓周期也按卡算），只改在持仓那半边会重新引入重排——实测
+  TST 平仓那一刻会从 5 个点塌缩成 1 个、金额从 `+0.6100` 跳到 `+0.9300`；② 须先把手动补录的
+  合约腿改挂到 `be355ffd`（见上条 Live Risk）；③ 曲线历史将完全依赖成交腿明细而非 close-log
+  的 10 行汇总——**已确认当前无任何清理/归档/保留期机制，腿永久保留**，将来若新增数据清理功能，
+  必须先知道收益曲线依赖它。
+  **代价**：敞口币会与「历史仓位」页（close-log 周期级）对不上，三个币合计差 `0.22 U`；读取
+  数据量增加（现 130 条在持仓腿 + 10 行 close-log → 全部 293 条腿，一年后约 7000 条腿）。
+  重启触发条件：曲线时间失真造成实际误判，或单张任务卡成交跨度变长使前提失效。
 
 - `[CLOSED-SETTLED][2026-08-17]` **`totalWalletBalance` 不含 UM/CM 合约子钱包——已定论，
   推翻契约的长期说法。** 不需要新接口，单份实盘快照反证即可：毛额 `100.82` − 负债
