@@ -140,7 +140,17 @@ Product decisions: `DEC-2026-07-22-001`…`003` and
 | HTTP 4xx (incl. 401/-2015, 51061 either sign) | `known_rejection` | Yes |
 | Transport timeout / connection_error | `known_rejection` (Scheme C) | Yes — over-borrow risk accepted |
 | 429 / 400+`-1003` / 418 | `rate_limited` | Global cooldown |
-| 5xx / malformed 2xx (no `tranId`) | `unknown` | **No** — recon block |
+| 5xx / malformed 2xx (no `tranId`) | `unknown` | Yes — see below |
+| Crash orphan (process died before the response) | `unknown` | Yes — see below |
+
+**DEC-2026-08-21:** a POST that returns a usable `tranId` is the ONLY successful
+borrow; every other outcome is treated as "did not borrow" and the task stays in
+rotation. No task-level state blocks scheduling any more — the loan-record
+reconciliation subsystem was removed, and `unresolved_attempt_id` is now purely
+an in-process in-flight guard cleared on every resolution and on (owner-gated)
+startup recovery. The global rate-limit cooldown and the 418 manual re-arm are
+unchanged and still gate every task. Accepted cost: at most one duplicate borrow per orphan, reconciled by
+Human from the Binance console.
 
 **Logging:** same-task same-failure coalesce updates last failure time only.
 There is no durable `fail_count`; count failures from the attempt ledger with

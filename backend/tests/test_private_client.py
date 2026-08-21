@@ -76,7 +76,7 @@ def _http_error(code: int, body: str) -> urllib.error.HTTPError:
 def test_single_hmac_exit_in_product_code():
     """Only binance_signing.py touches hmac/hashlib/signature; neither HTTP client
     (private_client.py for GET reads, portfolio_margin_borrow_client.py for the
-    borrow POST + loan-record GET) constructs a signature inline."""
+    borrow POST) constructs a signature inline."""
     allowed = {"binance_signing.py"}
     bad = []
     for py in BACKEND_DIR.rglob("*.py"):
@@ -92,7 +92,7 @@ def test_single_hmac_exit_in_product_code():
 def test_urlopen_only_in_designated_http_clients():
     """Direct-HTTP guard: only the designated HTTP clients may call urlopen
     (private_client.py for GET reads, binance_public.py for public market,
-    portfolio_margin_borrow_client.py for the borrow POST + loan-record GET, and
+    portfolio_margin_borrow_client.py for the borrow POST, and
     the two hedge-open clients — hedge_open_live_client.py for the PAPI margin/UM
     POST+query transport and hedge_preflight_provider.py for the public
     exchangeInfo preflight reads), so no other product module can bypass them to

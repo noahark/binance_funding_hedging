@@ -63,8 +63,11 @@ def test_restart_preserves_tasks_settings_cursor_attempts(tmp_path):
     assert entries[0]["result_category"] == D.RESULT_EXECUTION_DISABLED
 
 
-def test_restart_fail_closed_blocks_pending_attempt(tmp_path):
-    # A pending attempt orphaned by a crash blocks its task (breakdown §3.8).
+def test_restart_releases_orphaned_pending_attempt(tmp_path):
+    # DEC-2026-08-21: a pending attempt orphaned by a crash is recorded as a
+    # response-less unknown and its task RELEASED — only a POST that returned a
+    # usable loan id counts as borrowed, so an unconfirmed one is treated as
+    # "did not borrow" rather than stalling the task indefinitely.
     path = str(tmp_path / "borrow.sqlite3")
     s1 = BorrowTaskStore(path)
     s1.create_task("A", "BTC", "1", 1, NOW)
@@ -72,34 +75,12 @@ def test_restart_fail_closed_blocks_pending_attempt(tmp_path):
     s1.close()
 
     s2 = BorrowTaskStore(path)
-    task = s2.get_task("A")
-    assert task["unresolved_attempt_id"] is not None    # fail-closed
-    assert s2.list_eligible_tasks() == []               # blocked -> ineligible
-
-
-def test_restart_preserves_unknown_outcome_block(tmp_path):
-    # A resolved ``unknown`` outcome must stay blocked across close/reopen
-    # (acceptance 4 / §6.1-1 invariant-across-restart). Startup recovery adds
-    # markers for orphaned pending attempts but must NOT clear an already-
-    # persisted unknown-outcome marker (the bug it regresses wiped it to NULL
-    # because the task has no pending row).
-    path = str(tmp_path / "borrow.sqlite3")
-    s1 = BorrowTaskStore(path)
-    s1.create_task("A", "BTC", "1", 1, NOW)
-    att = s1.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")
-    s1.resolve_attempt(
-        att["id"], ExecutorResult(result_category=D.RESULT_UNKNOWN, reason="unk"), NOW + 12
-    )
-    assert s1.get_task("A")["unresolved_attempt_id"] == att["id"]
-    assert s1.list_eligible_tasks() == []
-    s1.close()
-
-    s2 = BorrowTaskStore(path)
-    task = s2.get_task("A")
-    assert task["unresolved_attempt_id"] == att["id"]      # marker preserved, not wiped
-    assert s2.list_eligible_tasks() == []                  # still ineligible after reopen
-    s2.clear_unresolved("A", NOW + 30)                     # test seam -> eligible again
+    assert s2.get_task("A")["unresolved_attempt_id"] is None
     assert [t["id"] for t in s2.list_eligible_tasks()] == ["A"]
+    att = s2.list_attempts_page(50, None, None)[0][0]
+    assert att["outcome"] == D.OUTCOME_RESOLVED
+    assert att["result_category"] == D.RESULT_UNKNOWN
+    assert att["reason"] == D.REASON_CRASH_ORPHAN_RESPONSELESS  # audit trail kept
 
 
 # ---------------------------------------------------------------------------
@@ -144,11 +125,9 @@ def test_clear_attempt_logs_keeps_unresolved_marker(tmp_path):
     # Finished attempt on A
     att_a = s.insert_pending_attempt("A", "BTC", "1", NOW + 2, NOW + 3, "A")
     s.resolve_attempt(att_a["id"], _disabled(), NOW + 4)
-    # Unresolved (unknown) on B — must be retained
+    # In-flight (still pending) on B — must be retained: deleting it would
+    # break the resolve that is about to land.
     att_b = s.insert_pending_attempt("B", "ETH", "1", NOW + 5, NOW + 6, "B")
-    s.resolve_attempt(
-        att_b["id"], ExecutorResult(result_category=D.RESULT_UNKNOWN, reason="unk"), NOW + 7
-    )
     page, _ = s.list_attempts_page(50, None, None)
     assert len(page) >= 2
     result = s.clear_attempt_logs()
@@ -157,12 +136,12 @@ def test_clear_attempt_logs_keeps_unresolved_marker(tmp_path):
     page2, _ = s.list_attempts_page(50, None, None)
     assert len(page2) == 1
     assert page2[0]["id"] == att_b["id"]
-    # Unresolved marker still points at retained row
+    # In-flight marker still points at the retained row
     task_b = s.get_task("B")
     assert task_b["unresolved_attempt_id"] == att_b["id"]
 
 
-def test_list_eligible_excludes_non_borrowing_and_unresolved(tmp_path):
+def test_list_eligible_excludes_non_borrowing_but_not_unknown(tmp_path):
     s = _store(tmp_path)
     s.create_task("A", "BTC", "1", 1, NOW)              # eligible
     s.create_task("B", "ETH", "1", 1, NOW + 1)          # eligible
@@ -170,13 +149,16 @@ def test_list_eligible_excludes_non_borrowing_and_unresolved(tmp_path):
     s.set_task_status("C", "paused", NOW + 3)           # paused -> excluded
     s.create_task("D", "SOL", "1", 1, NOW + 4)
     s.set_task_status("D", "deleted", NOW + 5)          # deleted -> excluded
-    s.create_task("E", "ADA", "1", 1, NOW + 6)          # will be blocked
+    s.create_task("E", "ADA", "1", 1, NOW + 6)          # unknown -> still eligible
     att = s.insert_pending_attempt("E", "ADA", "1", NOW + 7, NOW + 8, "E")
     s.resolve_attempt(
         att["id"], ExecutorResult(result_category=D.RESULT_UNKNOWN, reason="unk"), NOW + 9
     )
+    # F: in flight right now -> excluded until its resolve lands.
+    s.create_task("F", "DOT", "1", 1, NOW + 10)
+    s.insert_pending_attempt("F", "DOT", "1", NOW + 11, NOW + 12, "F")
     eligible = s.list_eligible_tasks()
-    assert [t["id"] for t in eligible] == ["A", "B"]
+    assert [t["id"] for t in eligible] == ["A", "B", "E"]
 
 
 # ---------------------------------------------------------------------------
@@ -228,7 +210,7 @@ def test_resolve_rate_limited_sets_global_cooldown(tmp_path):
     assert s.get_task("A")["status"] == "borrowing"     # still runnable later
 
 
-def test_resolve_unknown_blocks_task(tmp_path):
+def test_resolve_unknown_does_not_block_task(tmp_path):
     s = _store(tmp_path)
     s.create_task("A", "BTC", "1", 1, NOW)
     att = s.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")
@@ -236,7 +218,8 @@ def test_resolve_unknown_blocks_task(tmp_path):
         att["id"], ExecutorResult(result_category=D.RESULT_UNKNOWN, reason="unk"), NOW + 12
     )
     t = s.get_task("A")
-    assert t["unresolved_attempt_id"] == att["id"]
+    assert t["unresolved_attempt_id"] is None            # DEC-2026-08-21: not blocked
+    assert [x["id"] for x in s.list_eligible_tasks()] == ["A"]
     assert t["latest_result_category"] == D.RESULT_UNKNOWN
 
 
@@ -393,8 +376,6 @@ def test_unknown_does_not_coalesce(tmp_path):
     s.resolve_attempt(
         a1["id"], ExecutorResult(result_category=D.RESULT_UNKNOWN, reason="u"), NOW + 20
     )
-    # Task blocked; clear marker so a second unknown can be inserted for the test.
-    s.clear_unresolved("A", NOW + 50)
     a2 = s.insert_pending_attempt("A", "BTC", "1", NOW + 100, NOW + 110, "A")
     s.resolve_attempt(
         a2["id"], ExecutorResult(result_category=D.RESULT_UNKNOWN, reason="u"), NOW + 120
@@ -423,18 +404,6 @@ def test_soft_delete_retains_attempts(tmp_path):
     entries, _ = s.list_attempts_page(50, None, None)
     assert len(entries) == 1                            # ledger untouched
     assert s.get_task("A")["status"] == "deleted"
-
-
-def test_clear_unresolved_test_seam(tmp_path):
-    s = _store(tmp_path)
-    s.create_task("A", "BTC", "1", 1, NOW)
-    att = s.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")
-    s.resolve_attempt(
-        att["id"], ExecutorResult(result_category=D.RESULT_UNKNOWN, reason="unk"), NOW + 12
-    )
-    assert s.list_eligible_tasks() == []
-    s.clear_unresolved("A", NOW + 30)
-    assert [t["id"] for t in s.list_eligible_tasks()] == ["A"]
 
 
 def test_resolve_unknown_attempt_raises_for_missing(tmp_path):
@@ -538,7 +507,6 @@ def test_start_does_not_bypass_active_418_cooldown_or_rearm(tmp_path):
     assert st["requires_rearm"] == 1                          # still armed
     assert st["global_cooldown_until_us"] == cooldown_until   # cooldown untouched
     # A live-gated insert stays blocked (both cooldown and rearm still active).
-    s.clear_unresolved("A", NOW + 7)
     blocked = s.insert_pending_attempt("A", "BTC", "1", NOW + 8, NOW + 9, "A", live_gates=True)
     assert blocked is None
 
@@ -570,12 +538,31 @@ def test_start_after_418_cooldown_expiry_rearms_and_clears(tmp_path):
     assert st["execution_enabled"] == 1
 
 
+def _rate_limit_via_resolve(s, task_id, asset, retry_seconds, finished_us, http_status=None):
+    """Drive the production rate-limit path: resolve a rate_limited attempt.
+
+    The store's ``set_rate_cooldown`` / ``set_requires_rearm`` setters existed
+    only for the reconciliation pass and were removed with it (DEC-2026-08-21);
+    cooldown and 418 re-arm now persist solely through ``resolve_attempt``.
+    """
+    att = s.insert_pending_attempt(task_id, asset, "1", finished_us - 2, finished_us - 1, task_id)
+    s.resolve_attempt(
+        att["id"],
+        ExecutorResult(
+            result_category=D.RESULT_RATE_LIMITED,
+            http_status=http_status,
+            retry_after_seconds=Decimal(retry_seconds),
+        ),
+        finished_us,
+    )
+
+
 def test_start_does_not_bypass_ordinary_rate_cooldown(tmp_path):
     # An ordinary 429/-1003 cooldown (no rearm) is also not bypassed by Start.
     s = _store(tmp_path)
     s.set_execution_enabled(True, NOW)
     s.create_task("A", "BTC", "1", 1, NOW + 1)
-    s.set_rate_cooldown(120, NOW + 2)  # cooldown ends NOW+2+120s
+    _rate_limit_via_resolve(s, "A", "BTC", 120, NOW + 2)  # cooldown ends NOW+2+120s
     cooldown_until = s.get_settings()["global_cooldown_until_us"]
     # Early Start inside the ordinary cooldown: cooldown preserved.
     s.set_execution_enabled(True, NOW + 3)
@@ -583,79 +570,23 @@ def test_start_does_not_bypass_ordinary_rate_cooldown(tmp_path):
     assert s.get_settings()["execution_enabled"] == 1
 
 
-def test_set_requires_rearm_persists_418_rearm_from_reconcile_get(tmp_path):
-    # A reconciliation GET 418 must persist requires_rearm (no auto-resume), so a
-    # later ordinary-cooldown expiry cannot restart execution on its own.
-    s = _store(tmp_path)
-    assert s.get_settings()["requires_rearm"] == 0
-    s.set_requires_rearm(NOW)
-    assert s.get_settings()["requires_rearm"] == 1
-
-
-def test_count_pending_orphan_attempts_reports_crash_orphans(tmp_path):
-    s = _store(tmp_path)
-    s.create_task("A", "BTC", "1", 3, NOW)
-    assert s.count_pending_orphan_attempts() == 0
-    s.insert_pending_attempt("A", "BTC", "1", NOW + 1, NOW + 2, "A")  # left pending
-    assert s.count_pending_orphan_attempts() == 1
-
-
-def test_count_pending_orphan_attempts_covers_recovered_orphan_lifecycle(tmp_path):
-    # BK-R1-FIX4-002: the sanitized count must represent tasks currently blocked
-    # by a crash orphan across the pending -> response-less-unknown transition
-    # and a second (idempotent) restart, return to zero after a unique-match
-    # reconciliation clears the marker, and stay non-zero while no-match
-    # reconciliation keeps the marker. Counting is by the task's current marker,
-    # so a resolved-but-still-in-ledger orphan is not re-counted.
+def test_count_pending_orphan_attempts_reports_this_startups_orphans(tmp_path):
+    # The sanitized startup integer answers "how many borrows did the previous
+    # process leave unconfirmed" — each is one balance for Human to check.
     path = str(tmp_path / "borrow.sqlite3")
     s1 = BorrowTaskStore(path)
     s1.create_task("A", "BTC", "1", 3, NOW)
-    s1.insert_pending_attempt("A", "BTC", "1", NOW + 1, NOW + 2, "A")  # orphaned pending
-    assert s1.count_pending_orphan_attempts() == 1
+    assert s1.count_pending_orphan_attempts() == 0        # nothing recovered
+    s1.insert_pending_attempt("A", "BTC", "1", NOW + 1, NOW + 2, "A")  # left pending
+    assert s1.count_pending_orphan_attempts() == 0        # not yet a restart
     s1.close()
 
-    # First recovery: orphan -> resolved/unknown/crash_orphan_responseless,
-    # marker retained -> still counted (regression under fix-4 was 0 here).
     s2 = BorrowTaskStore(path)
-    assert s2.count_pending_orphan_attempts() == 1
-    # Second reopen: recovery is idempotent; evidence does not disappear.
+    assert s2.count_pending_orphan_attempts() == 1        # recovered on this startup
     s2.close()
+
     s3 = BorrowTaskStore(path)
-    assert s3.count_pending_orphan_attempts() == 1
-    att_id = s3.get_task("A")["unresolved_attempt_id"]
-
-    # No-match reconciliation keeps the marker -> still counted.
-    base = s3.get_attempt(att_id)["finished_at_us"]
-    for i in range(1, len(D.RECONCILE_DELAYS_SECONDS) + 1):
-        s3.advance_reconciliation(att_id, base + i * 1_000_000)
-    assert s3.get_attempt(att_id)["reconcile_exhausted"] == 1
-    assert s3.get_task("A")["unresolved_attempt_id"] == att_id   # marker retained
-    assert s3.count_pending_orphan_attempts() == 1
-
-    # A DIFFERENT task with a unique-match success clears its marker -> not counted.
-    s3.create_task("B", "ETH", "2", 1, NOW + 100)
-    att_b = s3.insert_pending_attempt("B", "ETH", "2", NOW + 101, NOW + 102, "B")
-    s3.resolve_reconciliation_success(att_b["id"], "999", NOW + 200)
-    assert s3.get_task("B")["unresolved_attempt_id"] is None       # marker cleared
-    # B was never a crash orphan (resolved via reconcile), so it is not counted;
-    # A still is -> count stays 1 (not 2).
-    assert s3.count_pending_orphan_attempts() == 1
-    s3.close()
-
-    # Reconciling A's orphan to success clears A's marker -> count drops to 0.
-    s4 = BorrowTaskStore(path)
-    att_a = s4.get_task("A")["unresolved_attempt_id"]
-    s4.resolve_reconciliation_success(att_a, "4242", NOW + 300)
-    assert s4.get_task("A")["unresolved_attempt_id"] is None
-    assert s4.count_pending_orphan_attempts() == 0
-
-
-def test_set_rate_cooldown_clamps_to_band(tmp_path):
-    s = _store(tmp_path)
-    s.set_rate_cooldown(5, NOW)        # below floor -> 60s
-    assert s.get_settings()["global_cooldown_until_us"] == NOW + 60 * 1_000_000
-    s.set_rate_cooldown(9999, NOW + 1)  # above ceiling -> 300s
-    assert s.get_settings()["global_cooldown_until_us"] == NOW + 1 + 300 * 1_000_000
+    assert s3.count_pending_orphan_attempts() == 0        # idempotent: nothing new
 
 
 # ---- atomic live-gate insert returns None on every failed predicate ----
@@ -672,7 +603,7 @@ def test_insert_pending_live_gates_block_in_cooldown(tmp_path):
     s = _store(tmp_path)
     s.create_task("A", "BTC", "1", 1, NOW)
     s.set_execution_enabled(True, NOW)
-    s.set_rate_cooldown(120, NOW + 1)  # cooldown active at NOW+1
+    _rate_limit_via_resolve(s, "A", "BTC", 120, NOW + 1)  # cooldown active at NOW+1
     att = s.insert_pending_attempt("A", "BTC", "1", NOW + 2, NOW + 3, "A", live_gates=True)
     assert att is None
 
@@ -689,7 +620,6 @@ def test_insert_pending_live_gates_block_when_rearm_required(tmp_path):
                        retry_after_seconds=Decimal("300")),
         NOW + 3,
     )
-    s.clear_unresolved("A", NOW + 4)  # test-seam: make it eligible again
     blocked = s.insert_pending_attempt("A", "BTC", "1", NOW + 5, NOW + 6, "A", live_gates=True)
     assert blocked is None  # rearm gate blocks even though eligible otherwise
 
@@ -718,64 +648,14 @@ def test_insert_pending_live_gates_pass_when_all_open(tmp_path):
     assert att["outcome"] == D.OUTCOME_PENDING
 
 
-# ---- reconciliation store methods ----
-
-def test_unknown_attempt_schedules_first_reconcile_and_lists_due(tmp_path):
-    s = _store(tmp_path)
-    s.create_task("A", "BTC", "1", 1, NOW)
-    att = s.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")
-    s.resolve_attempt(att["id"], _unknown(), NOW + 12)
-    # first read scheduled at finished(+5s)
-    row = s.get_attempt(att["id"])
-    assert row["reconcile_next_at_us"] == NOW + 12 + 5 * 1_000_000
-    assert row["reconcile_exhausted"] == 0
-    # not due before +5s
-    assert s.list_due_reconciliations(NOW + 12 + 4_000_000) == []
-    due = s.list_due_reconciliations(NOW + 12 + 5_000_000)
-    assert [d["id"] for d in due] == [att["id"]]
-
-
-def test_resolve_reconciliation_success_completes_and_records_reason(tmp_path):
-    s = _store(tmp_path)
-    s.create_task("A", "BTC", "1", 1, NOW)
-    att = s.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")
-    s.resolve_attempt(att["id"], _unknown(), NOW + 12)
-    s.resolve_reconciliation_success(att["id"], "4242", NOW + 12 + 5_000_000)
-    task = s.get_task("A")
-    assert task["status"] == D.STATUS_COMPLETED
-    assert task["success_count"] == 1
-    assert task["unresolved_attempt_id"] is None
-    row = s.get_attempt(att["id"])
-    assert row["tran_id"] == "4242"
-    assert row["reason"] == D.REASON_RECONCILED_UNIQUE_TXID_MATCH
-
-
-def test_advance_reconciliation_steps_then_exhausts(tmp_path):
-    from backend.borrow_tasks import domain as dom
-    s = _store(tmp_path)
-    s.create_task("A", "BTC", "1", 1, NOW)
-    att = s.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")
-    s.resolve_attempt(att["id"], _unknown(), NOW + 12)
-    finished = NOW + 12
-    exhausted = False
-    for i in range(1, len(dom.RECONCILE_DELAYS_SECONDS) + 1):
-        exhausted = s.advance_reconciliation(att["id"], finished + i * 1_000_000)
-    assert exhausted is True
-    row = s.get_attempt(att["id"])
-    assert row["reconcile_exhausted"] == 1
-    assert row["reconcile_next_at_us"] is None  # terminal: no more reads
-    # Still blocked
-    assert s.list_eligible_tasks() == []
-
 
 # ---------------------------------------------------------------------------
-# Crash-orphan pending attempts enter bounded reconciliation (F3 / ADR-006)
+# Crash-orphan pending attempts are recorded and released (DEC-2026-08-21)
 # ---------------------------------------------------------------------------
-def test_restart_orphan_pending_enters_reconciliation_schedule(tmp_path):
+def test_restart_orphan_pending_is_recorded_as_responseless_unknown(tmp_path):
     # A crash-orphaned pending attempt (insert committed, resolve never ran) is
-    # transitioned at startup into the bounded reconciliation schedule as a
-    # response-less unknown; the task stays blocked (marker preserved) and
-    # ineligible until reconciliation resolves it.
+    # recorded at startup as a response-less unknown so the borrow log shows
+    # which POST was never confirmed — and the task is released (DEC-2026-08-21).
     path = str(tmp_path / "borrow.sqlite3")
     s1 = BorrowTaskStore(path)
     s1.create_task("A", "BTC", "1", 1, NOW)
@@ -783,82 +663,18 @@ def test_restart_orphan_pending_enters_reconciliation_schedule(tmp_path):
     s1.close()
 
     s2 = BorrowTaskStore(path)
-    task = s2.get_task("A")
-    assert task["unresolved_attempt_id"] is not None      # marker preserved -> blocked
-    assert s2.list_eligible_tasks() == []                 # ineligible
-    att = s2.get_attempt(task["unresolved_attempt_id"])
+    assert s2.get_task("A")["unresolved_attempt_id"] is None
+    assert [t["id"] for t in s2.list_eligible_tasks()] == ["A"]
+    att = s2.list_attempts_page(50, None, None)[0][0]
     assert att["outcome"] == D.OUTCOME_RESOLVED
     assert att["result_category"] == D.RESULT_UNKNOWN
     assert att["reason"] == D.REASON_CRASH_ORPHAN_RESPONSELESS
-    assert att["reconcile_step"] == 0
-    assert att["reconcile_exhausted"] == 0
-    # First read anchored at recovery_now + DELAYS[0] (recovery clock, finished_at_us set).
     assert att["finished_at_us"] is not None
-    expected_first = att["finished_at_us"] + int(D.RECONCILE_DELAYS_SECONDS[0]) * 1_000_000
-    assert att["reconcile_next_at_us"] == expected_first
-    # Not due before the scheduled time; due at/after it.
-    assert s2.list_due_reconciliations(att["reconcile_next_at_us"] - 1) == []
-    due = s2.list_due_reconciliations(att["reconcile_next_at_us"])
-    assert [d["id"] for d in due] == [att["id"]]
-
-
-def test_restart_orphan_reconciliation_success_finalizes_and_counts(tmp_path):
-    # Unique CONFIRMED match (attribution_is_unique) -> success credited; the
-    # formerly-pending orphan row is finalized (outcome/finished_at_us kept,
-    # tran_id + reason recorded) and the marker cleared.
-    path = str(tmp_path / "borrow.sqlite3")
-    s1 = BorrowTaskStore(path)
-    s1.create_task("A", "BTC", "1", 1, NOW)
-    s1.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")
-    s1.close()
-
-    s2 = BorrowTaskStore(path)
-    att_id = s2.get_task("A")["unresolved_attempt_id"]
-    finished_at_recovery = s2.get_attempt(att_id)["finished_at_us"]
-    due_now = s2.get_attempt(att_id)["reconcile_next_at_us"]
-    # attribution_is_unique: no competing attempt for this asset/amount/txId
-    assert s2.attribution_is_unique(att_id, "A", "BTC", "1", "4242") is True
-    s2.resolve_reconciliation_success(att_id, "4242", due_now)
-    task = s2.get_task("A")
-    assert task["status"] == D.STATUS_COMPLETED
-    assert task["success_count"] == 1
-    assert task["unresolved_attempt_id"] is None
-    row = s2.get_attempt(att_id)
-    assert row["outcome"] == D.OUTCOME_RESOLVED
-    assert row["result_category"] == D.RESULT_UNKNOWN
-    assert row["tran_id"] == "4242"
-    assert row["reason"] == D.REASON_RECONCILED_UNIQUE_TXID_MATCH
-    assert row["finished_at_us"] == finished_at_recovery   # finalized (kept, no longer null)
-    assert row["reconcile_next_at_us"] is None             # schedule cleared
-
-
-def test_restart_orphan_no_match_exhausts_stays_blocked(tmp_path):
-    # Five reads, all no-match -> terminal reconciliation_exhausted; the orphan
-    # stays blocked (no force-clear / retry-anyway).
-    path = str(tmp_path / "borrow.sqlite3")
-    s1 = BorrowTaskStore(path)
-    s1.create_task("A", "BTC", "1", 1, NOW)
-    s1.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")
-    s1.close()
-
-    s2 = BorrowTaskStore(path)
-    att_id = s2.get_task("A")["unresolved_attempt_id"]
-    base = s2.get_attempt(att_id)["finished_at_us"]
-    exhausted = False
-    for i in range(1, len(D.RECONCILE_DELAYS_SECONDS) + 1):
-        exhausted = s2.advance_reconciliation(att_id, base + i * 1_000_000)
-    assert exhausted is True
-    row = s2.get_attempt(att_id)
-    assert row["reconcile_exhausted"] == 1
-    assert row["reconcile_next_at_us"] is None
-    # Still blocked and ineligible
-    assert s2.list_eligible_tasks() == []
-    assert s2.get_task("A")["unresolved_attempt_id"] == att_id
 
 
 def test_restart_orphan_recovery_is_idempotent(tmp_path):
     # Recovery only touches outcome='pending' rows, so a second startup finds
-    # none and does NOT reset/re-anchor the schedule (no double scheduling).
+    # none and does not rewrite the already-recorded orphan.
     path = str(tmp_path / "borrow.sqlite3")
     s1 = BorrowTaskStore(path)
     s1.create_task("A", "BTC", "1", 1, NOW)
@@ -866,16 +682,14 @@ def test_restart_orphan_recovery_is_idempotent(tmp_path):
     s1.close()
 
     s2 = BorrowTaskStore(path)
-    att_id = s2.get_task("A")["unresolved_attempt_id"]
-    first = s2.get_attempt(att_id)
+    first = s2.list_attempts_page(50, None, None)[0][0]
     assert first["outcome"] == D.OUTCOME_RESOLVED          # transitioned on first startup
     s2.close()
 
     s3 = BorrowTaskStore(path)
-    second = s3.get_attempt(att_id)
+    second = s3.get_attempt(first["id"])
     assert second["outcome"] == D.OUTCOME_RESOLVED
-    assert second["reconcile_step"] == first["reconcile_step"]
-    assert second["reconcile_next_at_us"] == first["reconcile_next_at_us"]
+    assert second["finished_at_us"] == first["finished_at_us"]   # not re-anchored
     assert second["reason"] == first["reason"]
     # Still exactly one attempt row (no duplication).
     entries, has_more = s3.list_attempts_page(50, None, None)
@@ -943,86 +757,3 @@ def test_migration_quarantines_pre_c_borrowing_and_is_idempotent(tmp_path):
 # ===========================================================================
 # Cross-task attribution gate (§5.3 / risk §11 — no false cross-task credit)
 # ===========================================================================
-
-def test_attribution_unique_with_no_competing_attempt(tmp_path):
-    # Positive case: no other task has an unresolved same-asset/amount attempt
-    # and the candidate txId is unclaimed -> attribution is unique.
-    s = _store(tmp_path)
-    s.create_task("A", "BTC", "1.5", 3, NOW)
-    att = s.insert_pending_attempt("A", "BTC", "1.5", NOW + 1, NOW + 2, "A")
-    assert s.attribution_is_unique(att["id"], "A", "BTC", "1.5", "777") is True
-
-
-def test_attribution_blocked_when_candidate_txid_already_claimed(tmp_path):
-    # Another attempt already credited this txId -> cannot re-attribute it.
-    s = _store(tmp_path)
-    s.create_task("A", "BTC", "1.5", 3, NOW)
-    s.create_task("B", "BTC", "1.5", 3, NOW + 1)
-    att_b = s.insert_pending_attempt("B", "BTC", "1.5", NOW + 2, NOW + 3, "B")
-    s.resolve_reconciliation_success(att_b["id"], "777", NOW + 4)  # B claims txId 777
-    att_a = s.insert_pending_attempt("A", "BTC", "1.5", NOW + 5, NOW + 6, "A")
-    assert s.attribution_is_unique(att_a["id"], "A", "BTC", "1.5", "777") is False
-
-
-def test_attribution_blocked_when_other_task_has_overlapping_same_amount_attempt(tmp_path):
-    # Two tasks, same asset + exact Decimal amount, both with unresolved attempts
-    # whose dispatch windows overlap -> a single history row cannot be uniquely
-    # attributed to either; both stay blocked.
-    s = _store(tmp_path)
-    s.create_task("A", "BTC", "1.5", 3, NOW)
-    s.create_task("B", "BTC", "1.50", 3, NOW + 1)  # Decimal-equal amount
-    att_a = s.insert_pending_attempt("A", "BTC", "1.5", NOW + 2, NOW + 3, "A")
-    att_b = s.insert_pending_attempt("B", "BTC", "1.50", NOW + 4, NOW + 5, "B")
-    # B is pending (in-flight) -> cannot be excluded as the row's owner.
-    assert s.attribution_is_unique(att_a["id"], "A", "BTC", "1.5", "888") is False
-    # Symmetric: A pending also blocks B's attribution.
-    assert s.attribution_is_unique(att_b["id"], "B", "BTC", "1.50", "888") is False
-
-
-def test_attribution_blocked_when_other_task_unknown_attempt_overlaps(tmp_path):
-    # A resolved-unknown same-asset/amount attempt is still an unresolved
-    # competitor (it is itself awaiting reconciliation) -> stay blocked.
-    s = _store(tmp_path)
-    s.create_task("A", "BTC", "1.5", 3, NOW)
-    s.create_task("B", "BTC", "1.5", 3, NOW + 1)
-    att_b = s.insert_pending_attempt("B", "BTC", "1.5", NOW + 2, NOW + 3, "B")
-    s.resolve_attempt(
-        att_b["id"], ExecutorResult(result_category=D.RESULT_UNKNOWN, reason="unk"), NOW + 4
-    )
-    att_a = s.insert_pending_attempt("A", "BTC", "1.5", NOW + 5, NOW + 6, "A")
-    assert s.attribution_is_unique(att_a["id"], "A", "BTC", "1.5", "999") is False
-
-
-def test_attribution_unique_when_other_task_resolved_terminal_non_unknown(tmp_path):
-    # Another task's same-asset/amount attempt that resolved to a terminal
-    # non-unknown category (e.g. known_rejection) is no longer a competitor.
-    s = _store(tmp_path)
-    s.create_task("A", "BTC", "1.5", 3, NOW)
-    s.create_task("B", "BTC", "1.5", 3, NOW + 1)
-    att_b = s.insert_pending_attempt("B", "BTC", "1.5", NOW + 2, NOW + 3, "B")
-    s.resolve_attempt(
-        att_b["id"],
-        ExecutorResult(result_category=D.RESULT_KNOWN_REJECTION, business_code="-51006"),
-        NOW + 4,
-    )
-    att_a = s.insert_pending_attempt("A", "BTC", "1.5", NOW + 5, NOW + 6, "A")
-    assert s.attribution_is_unique(att_a["id"], "A", "BTC", "1.5", "999") is True
-
-
-def test_attribution_different_amount_is_not_a_competitor(tmp_path):
-    # Same asset but a different Decimal amount cannot match the same row.
-    s = _store(tmp_path)
-    s.create_task("A", "BTC", "1.5", 3, NOW)
-    s.create_task("B", "BTC", "2.0", 3, NOW + 1)
-    att_b = s.insert_pending_attempt("B", "BTC", "2.0", NOW + 2, NOW + 3, "B")
-    att_a = s.insert_pending_attempt("A", "BTC", "1.5", NOW + 4, NOW + 5, "A")
-    assert s.attribution_is_unique(att_a["id"], "A", "BTC", "1.5", "111") is True
-
-
-def test_attribution_none_candidate_still_checks_overlapping_attempts(tmp_path):
-    # candidate_txid=None (response-less query): only the overlapping-attempt
-    # condition applies. With no competitor, still unique.
-    s = _store(tmp_path)
-    s.create_task("A", "BTC", "1.5", 3, NOW)
-    att = s.insert_pending_attempt("A", "BTC", "1.5", NOW + 1, NOW + 2, "A")
-    assert s.attribution_is_unique(att["id"], "A", "BTC", "1.5", None) is True

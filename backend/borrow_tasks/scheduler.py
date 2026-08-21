@@ -65,8 +65,7 @@ class BorrowScheduler:
         while not self._stop.is_set():
             # Last-resort containment (Boundary C §5.2): a store/projection
             # exception inside tick() must not silently kill the scheduler
-            # thread — that would stop reconciliation of unknown attempts. The
-            # service's _dispatch_one/_reconcile_pass already contain their own
+            # thread. The service's _dispatch_one already contains its own
             # exceptions; this is the belt-and-braces outer net so an unexpected
             # raise from anywhere in the tick path cannot terminate dispatch.
             try:

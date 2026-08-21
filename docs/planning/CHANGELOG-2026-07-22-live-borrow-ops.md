@@ -1,5 +1,8 @@
 # Session changelog — 2026-07-22 live borrow ops & market UI
 
+> **[SUPERSEDED 2026-08-21 — `DEC-2026-08-21-001`]** Everything below about `unknown` outcomes blocking for reconciliation, and the frontend 「待对账·暂停调度」badge, no longer describes the system. Only a POST that returns a usable `tranId` counts as a borrow; every other outcome is treated as "did not borrow" and the task keeps running. The reconciliation subsystem and that badge were removed. This file is kept as historical record.
+
+
 Status: user-directed product ops polish after Boundary C merge to local main.
 Owner: User / Grok (implementation session).
 Decisions: see `docs/planning/DECISIONS.md` (`DEC-2026-07-22-001` … `003`).
@@ -24,7 +27,7 @@ approval; formal dual-review stage delivery was deferred by the user.
      also `known_rejection` (**Scheme C**). Operator accepts possible over-borrow
      on ambiguous POST for high-frequency empty-pool hunting.
    - **5xx** and **malformed 2xx** (no valid `tranId`) remain `unknown` and still
-     block for reconciliation.
+     block for reconciliation. *(superseded 2026-08-21: no longer blocks)*
 
 2. **Borrow attempt log coalesce**: same task + same failure signature
    (`result_category` + `reason` + `business_code`) does not keep a second log
@@ -54,7 +57,7 @@ approval; formal dual-review stage delivery was deferred by the user.
 
 | Area | Change |
 |------|--------|
-| Task card blocked UI | 「待对账·暂停调度」only when `unresolved` **and** `latest_result === unknown` (no flash during in-flight pending) |
+| Task card blocked UI | 「待对账·暂停调度」only when `unresolved` **and** `latest_result === unknown` (no flash during in-flight pending) *(superseded 2026-08-21: badge removed)* |
 | Nav badge | Count **`borrowing` only**; load tasks at boot so market view is not stuck at 0 |
 | Default filter | Entering borrow view selects **借币中**, not 全部 |
 | Official error text | Log + task note show curated zh/en labels when mapped |
@@ -78,7 +81,7 @@ approval; formal dual-review stage delivery was deferred by the user.
 ## Explicitly not changed
 
 - Manual order / spot-sell / full accounting execution.
-- 5xx / malformed-2xx still block via `unknown` + recon.
+- 5xx / malformed-2xx still block via `unknown` + recon. *(superseded 2026-08-21)*
 - Crash-orphan pending → `crash_orphan_responseless` path still exists.
 - Group C maxBorrowable still FR-4 only (~30 min component TTL); green
   「已验证可借」on negative-rate verified rows unchanged semantics except

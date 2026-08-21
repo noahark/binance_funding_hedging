@@ -3,9 +3,8 @@
 No network: ``urlopen`` is a recording fake injected via the constructor with
 DUMMY credentials. Asserts the frozen allowlist (deny-before-signing), exact
 host/path/method, the POST body == signed ``application/x-www-form-urlencoded``
-bytes, the GET query carries the signature, credential presence, transport-error
-classification, ``Retry-After`` parsing, ``records_from`` shape, and one-shot
-semantics (no internal retry).
+bytes, credential presence, transport-error classification, ``Retry-After``
+parsing, and one-shot semantics (no internal retry).
 """
 from __future__ import annotations
 
@@ -89,11 +88,10 @@ def _http_error(code, body="", retry_after=None):
 # ---------------------------------------------------------------------------
 # Allowlist (deny-before-signing)
 # ---------------------------------------------------------------------------
-def test_allowlist_contains_exactly_two_pairs():
-    assert set(ALLOWLIST.keys()) == {
-        ("POST", "/papi/v1/marginLoan"),
-        ("GET", "/papi/v1/margin/marginLoan"),
-    }
+def test_allowlist_contains_exactly_the_borrow_post():
+    # DEC-2026-08-21: the loan-record GET was removed with the reconciliation
+    # subsystem, so the borrow client's only signed endpoint is the POST.
+    assert set(ALLOWLIST.keys()) == {("POST", "/papi/v1/marginLoan")}
     assert all(host == "https://papi.binance.com" for host in ALLOWLIST.values())
 
 
@@ -105,16 +103,16 @@ def test_gate_rejects_unknown_path_before_signing():
 
 
 def test_gate_rejects_non_whitelisted_method_on_path():
-    # GET-only allowlist has no POST on the loan-record path, and no DELETE anywhere.
+    # The allowlist is POST-on-the-borrow-path only: no method on the removed
+    # loan-record path, and no DELETE anywhere.
     with pytest.raises(PermissionError):
         PortfolioMarginBorrowClient._require_whitelisted("POST", "/papi/v1/margin/marginLoan")
     with pytest.raises(PermissionError):
         PortfolioMarginBorrowClient._require_whitelisted("DELETE", "/papi/v1/marginLoan")
 
 
-def test_gate_accepts_the_two_whitelisted_pairs():
+def test_gate_accepts_the_whitelisted_post():
     assert PortfolioMarginBorrowClient._require_whitelisted("POST", "/papi/v1/marginLoan")
-    assert PortfolioMarginBorrowClient._require_whitelisted("GET", "/papi/v1/margin/marginLoan")
 
 
 # ---------------------------------------------------------------------------
@@ -147,28 +145,6 @@ def test_post_body_is_signed_form_urlencoded_bytes():
     # signature is the LAST field of the body
     assert sent_body.endswith("&signature=" + binance_signing.sign(
         binance_signing.build_total_params(expected_params), DUMMY_SECRET))
-
-
-def test_get_targets_exact_host_path_and_carries_signature():
-    transport = RecordingTransport([(200, {"rows": [], "total": 0}, {})])
-    client = _client(transport)
-    client.fetch_loan_records("BTC", timestamp_ms=2000)
-    assert len(transport.requests) == 1
-    req = transport.requests[0]
-    assert req.method == "GET"
-    assert req.full_url.startswith("https://papi.binance.com/papi/v1/margin/marginLoan?")
-    assert "&signature=" in req.full_url
-    # No Content-Type/body on a GET
-    assert req.data is None
-
-
-def test_get_with_tx_id_precedence():
-    transport = RecordingTransport([(200, {"rows": [], "total": 0}, {})])
-    client = _client(transport)
-    client.fetch_loan_records("BTC", timestamp_ms=2000, tx_id="999")
-    url = transport.requests[0].full_url
-    assert "txId=999" in url
-    assert "startTime=" not in url  # txId path does not add a window
 
 
 # ---------------------------------------------------------------------------
@@ -229,85 +205,3 @@ def test_one_transport_attempt_per_call_no_retry():
     transport = RecordingTransport([_http_error(500, "boom")])
     _client(transport).post_margin_loan("BTC", "1", timestamp_ms=1)
     assert len(transport.requests) == 1  # exactly one POST, no retry on 5xx
-
-
-# ---------------------------------------------------------------------------
-# records_from shape
-# ---------------------------------------------------------------------------
-def test_records_from_parses_rows_envelope():
-    # Documented 200 contract is {"rows": [...], "total": N} (archived evidence).
-    resp = BorrowHttpResponse(
-        200, {"rows": [{"txId": 1, "status": "CONFIRMED"}], "total": 1}, "{}", None, None
-    )
-    rows = PortfolioMarginBorrowClient.records_from(resp)
-    assert rows == [{"txId": 1, "status": "CONFIRMED"}]
-
-
-def test_records_from_filters_non_dict_rows():
-    resp = BorrowHttpResponse(
-        200, {"rows": [{"txId": 1}, "junk", 5, None], "total": 1}, "{}", None, None
-    )
-    assert PortfolioMarginBorrowClient.records_from(resp) == [{"txId": 1}]
-
-
-def test_records_from_fail_closed_on_non_envelope_or_error():
-    # A real successful GET uses the rows envelope; a top-level list (the old
-    # wrong assumption), a transport error, an HTTP error, a malformed rows
-    # member, or a missing envelope must all yield [] so nothing proves success.
-    assert PortfolioMarginBorrowClient.records_from(
-        BorrowHttpResponse(200, [{"txId": 1}], "[]", None, None)) == []  # top-level list
-    assert PortfolioMarginBorrowClient.records_from(
-        BorrowHttpResponse(200, {"rows": "not-a-list"}, "{}", None, None)) == []
-    assert PortfolioMarginBorrowClient.records_from(
-        BorrowHttpResponse(200, {"total": 0}, "{}", None, None)) == []  # no rows key
-    assert PortfolioMarginBorrowClient.records_from(
-        BorrowHttpResponse(400, {"rows": []}, "{}", None, None)) == []
-    assert PortfolioMarginBorrowClient.records_from(
-        BorrowHttpResponse(None, None, "", "timeout", None)) == []
-
-
-def test_declared_total_reads_envelope_total():
-    resp = BorrowHttpResponse(200, {"rows": [], "total": 3}, "{}", None, None)
-    assert PortfolioMarginBorrowClient.declared_total(resp) == 3
-
-
-def test_declared_total_fail_closed():
-    # Missing/bool/non-int/negative total, non-envelope body, transport/HTTP error.
-    for body in ({"rows": []}, {"rows": [], "total": True},
-                 {"rows": [], "total": "3"}, {"rows": [], "total": -1}):
-        assert PortfolioMarginBorrowClient.declared_total(
-            BorrowHttpResponse(200, body, "{}", None, None)) is None
-    # top-level list (not the envelope) -> None
-    assert PortfolioMarginBorrowClient.declared_total(
-        BorrowHttpResponse(200, [{"txId": 1}], "[]", None, None)) is None
-    assert PortfolioMarginBorrowClient.declared_total(
-        BorrowHttpResponse(None, None, "", "timeout", None)) is None
-    assert PortfolioMarginBorrowClient.declared_total(
-        BorrowHttpResponse(400, {"rows": [], "total": 0}, "{}", None, None)) is None
-
-
-# ---------------------------------------------------------------------------
-# raw_rows — unfiltered envelope rows (matcher fail-closed input)
-# ---------------------------------------------------------------------------
-def test_raw_rows_returns_unfiltered_envelope_rows():
-    # raw_rows returns the rows list AS-IS (no non-dict filtering) so the matcher
-    # can fail-closed on a malformed member instead of silently dropping it.
-    resp = BorrowHttpResponse(
-        200, {"rows": [{"txId": 1}, "junk", 5, None], "total": 4}, "{}", None, None
-    )
-    assert PortfolioMarginBorrowClient.raw_rows(resp) == [{"txId": 1}, "junk", 5, None]
-
-
-def test_raw_rows_fail_closed_on_non_envelope_or_error():
-    # Any non-envelope shape or transport/HTTP error yields None so the matcher
-    # treats the read as unprovable (records_from maps the same inputs to []).
-    assert PortfolioMarginBorrowClient.raw_rows(
-        BorrowHttpResponse(200, [{"txId": 1}], "[]", None, None)) is None  # top-level list
-    assert PortfolioMarginBorrowClient.raw_rows(
-        BorrowHttpResponse(200, {"rows": "not-a-list"}, "{}", None, None)) is None
-    assert PortfolioMarginBorrowClient.raw_rows(
-        BorrowHttpResponse(200, {"total": 0}, "{}", None, None)) is None  # no rows key
-    assert PortfolioMarginBorrowClient.raw_rows(
-        BorrowHttpResponse(400, {"rows": []}, "{}", None, None)) is None
-    assert PortfolioMarginBorrowClient.raw_rows(
-        BorrowHttpResponse(None, None, "", "timeout", None)) is None

@@ -11,7 +11,7 @@ persisted in one short conditional transaction (which re-checks every gate
 atomically), the executor is invoked with no store lock or transaction held, and
 the attempt is resolved in a second short transaction. A non-owner process never
 dispatches even on a forced tick; a rate-limit cooldown blocks every signed
-borrow-client call including reconciliation GETs.
+borrow-client call.
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from .binance_error_codes import business_code_display_fields
 from .executor import BorrowExecutor, DisabledBorrowExecutor, ExecutorResult
 from .ownership import BorrowDbOwnership
 from .scheduler import BorrowScheduler, select_next_task
-from .store import BorrowTaskStore, UnknownTaskError, VersionConflictError
+from .store import BorrowTaskStore, VersionConflictError
 
 # Whitelisted mutation-body keys (breakdown §3.7): unknown keys are rejected
 # deterministically as ``invalid_field`` instead of being silently ignored.
@@ -124,18 +124,28 @@ class BorrowTaskService:
         credentials_present: bool = False,
         ownership: BorrowDbOwnership | None = None,
     ):
-        self._store = BorrowTaskStore(db_path)
+        # Execution-owner sidecar lock (§4.3): acquired before any scheduler can
+        # start and held for process lifetime. A non-owner still constructs and
+        # serves read/mutation APIs but never dispatches.
+        #
+        # Acquired BEFORE the store is opened, because startup recovery rewrites
+        # in-flight rows and is only safe for the owner (a non-owner would clear
+        # the live owner's in-flight marker mid-POST).
+        self._ownership = ownership or BorrowDbOwnership(db_path)
+        self._is_execution_owner = self._ownership.try_acquire()
+        try:
+            self._store = BorrowTaskStore(db_path, recover=self._is_execution_owner)
+        except Exception:
+            # The sidecar lock is already held but no object exists whose
+            # close() could release it; drop it before the caller sees the error.
+            self._ownership.close()
+            raise
         self._executor: BorrowExecutor = executor or DisabledBorrowExecutor()
         self._mono_us = mono_us or _real_mono_us
         self._wall_us = wall_us or _real_wall_us
         self._mode = mode
         self._live_mode = mode == "live"
         self._credentials_present = credentials_present
-        # Execution-owner sidecar lock (§4.3): acquired before any scheduler can
-        # start and held for process lifetime. A non-owner still constructs and
-        # serves read/mutation APIs but never dispatches.
-        self._ownership = ownership or BorrowDbOwnership(db_path)
-        self._is_execution_owner = self._ownership.try_acquire()
         self._last_tick_mono: int | None = None
         self._in_flight_attempt_id: int | None = None
         self._lock = threading.Lock()  # serializes tick() against itself
@@ -388,15 +398,15 @@ class BorrowTaskService:
         return self.get_execution_status()
 
     def post_execution_stop(self) -> tuple[int, dict]:
-        # Idempotent durable Stop: blocks new POSTs, never rewrites an in-flight
-        # attempt. Reconciliation GETs may still continue once not rate-limited.
+        # Idempotent durable Stop: blocks new POSTs, never rewrites an
+        # in-flight attempt.
         self._store.set_execution_enabled(False, self._wall_us())
         return self.get_execution_status()
 
     # --------------------------------------------------------------- scheduler
 
     def tick(self) -> bool:
-        """Run one due-tick check; dispatch at most one attempt, then reconcile.
+        """Run one due-tick check; dispatch at most one attempt.
 
         Returns whether an attempt was dispatched. Tests drive this directly
         with injected clocks; the scheduler thread calls it on the cadence.
@@ -414,7 +424,6 @@ class BorrowTaskService:
             else:
                 self._last_tick_mono = now
                 dispatched = self._dispatch_one(self._wall_us())
-            self._reconcile_pass(self._wall_us())
             return dispatched
 
     def _dispatch_one(self, scheduled_us: int) -> bool:
@@ -469,69 +478,4 @@ class BorrowTaskService:
             pass
         return True
 
-    def _reconcile_pass(self, now_us: int) -> None:
-        """Prove success for due unresolved unknown attempts (§5.3).
-
-        A rate-limit cooldown blocks ALL signed borrow-client traffic including
-        reconciliation GETs, so the pass is skipped while cooling down or while
-        a 418 ban awaits manual re-arm.
-        """
-        settings = self._store.get_settings()
-        cooldown = settings["global_cooldown_until_us"]
-        if cooldown is not None and cooldown > now_us:
-            return
-        if settings["requires_rearm"]:
-            return
-        due = self._store.list_due_reconciliations(now_us)
-        for attempt in due:
-            task = self._store.get_task(attempt["task_id"])
-            if task is None:
-                continue
-            try:
-                outcome = self._executor.reconcile(task, attempt)
-            except Exception:
-                # Containment: a reconcile exception must not kill the pass.
-                outcome = None
-            if outcome is None:
-                break  # executor cannot reconcile (disabled / non-live)
-            if outcome.rate_limited:
-                if outcome.retry_after_seconds is not None:
-                    self._store.set_rate_cooldown(outcome.retry_after_seconds, now_us)
-                if outcome.requires_rearm:
-                    # A reconciliation GET can observe a 418 ban; persist the
-                    # manual-rearm requirement so execution does not auto-resume
-                    # after the 300s local cooldown (§5.1).
-                    self._store.set_requires_rearm(now_us)
-                break  # stop the pass while rate-limited
-            if outcome.matched:
-                # Cross-task attribution gate (§5.3 / risk §11): only credit the
-                # attempt when the candidate is unambiguously its own — never
-                # attribute a loan record another task/attempt could also match.
-                if self._store.attribution_is_unique(
-                    attempt["id"],
-                    attempt["task_id"],
-                    attempt["asset"],
-                    attempt["requested_amount"],
-                    outcome.tran_id,
-                ):
-                    self._store.resolve_reconciliation_success(
-                        attempt["id"], outcome.tran_id, now_us
-                    )
-                else:
-                    self._store.advance_reconciliation(attempt["id"], now_us)
-            else:
-                self._store.advance_reconciliation(attempt["id"], now_us)
-
     # ------------------------------------------------------------- test seam
-
-    def clear_unresolved(self, task_id: str) -> None:
-        """Python-level (not HTTP) seam to clear an unresolved marker.
-
-        Reconciliation of a genuinely unknown outcome has no HTTP unblock route;
-        a blocked task's only operator exit is delete. Tests use this to restore
-        eligibility for deterministic scheduling scenarios.
-        """
-        try:
-            self._store.clear_unresolved(task_id, self._wall_us())
-        except UnknownTaskError as exc:
-            raise D.BorrowError(404, "unknown_task", f"unknown task {task_id}") from exc

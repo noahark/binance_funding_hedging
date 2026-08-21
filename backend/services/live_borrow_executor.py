@@ -13,11 +13,9 @@ accepts possible over-borrow when a POST may have landed without a local
 response; ``-1003``/429/418 are rate-limited; malformed/empty 2xx and 5xx remain
 ``unknown`` (exchange may have accepted without a usable body).
 
-Reconciliation (§5.3) queries the loan-record endpoint and proves success only
-on a unique ``CONFIRMED`` record whose ``asset`` and ``Decimal(principal)`` match
-the dispatched attempt exactly. Zero / multiple / cross-task ambiguity returns
-``matched=False``; a rate-limited reconciliation GET surfaces so the service can
-extend the shared cooldown without advancing the reconcile step.
+Only a POST that returned a usable ``tranId`` counts as borrowed
+(DEC-2026-08-21); every other outcome leaves the task in rotation and is
+recorded for Human to reconcile from the Binance console.
 
 This module lives under ``backend/services/`` (it imports the network transport
 and the shared signer) and is injected via ``BorrowTaskService(executor=...)``;
@@ -29,7 +27,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Callable, Optional
 
 from ..borrow_tasks import domain as D
-from ..borrow_tasks.executor import ExecutorResult, ReconcileOutcome
+from ..borrow_tasks.executor import ExecutorResult
 from .portfolio_margin_borrow_client import BorrowHttpResponse, PortfolioMarginBorrowClient
 
 # -1003 TOO_MANY_REQUESTS is verified; its exact PAPI HTTP representation is not,
@@ -37,10 +35,6 @@ from .portfolio_margin_borrow_client import BorrowHttpResponse, PortfolioMarginB
 _RATE_LIMIT_BODY_CODE = "-1003"
 # 418 ban: 300s minimum local cooldown, no auto-resume (manual re-arm only).
 _BAN_COOLDOWN_SECONDS = Decimal("300")
-# Bounded dispatch-anchored reconciliation window (local conservative policy,
-# not a Binance SLA). The archived selection contract caps a window at 30 days.
-_RECONCILE_WINDOW_BACKSTEP_MS = 1_000
-_RECONCILE_WINDOW_SPAN_MS = 30 * 86_400 * 1_000
 
 
 def _business_code(response: BorrowHttpResponse) -> Optional[str]:
@@ -84,82 +78,6 @@ def _clamped_retry_after(raw_seconds: Optional[int]) -> Decimal:
     return D.clamp_retry_after(raw_seconds)
 
 
-def _decimal_equal(principal_raw, requested_amount: str) -> bool:
-    """Exact Decimal equality of the loan-record principal vs requested amount."""
-    if principal_raw is None:
-        return False
-    try:
-        return Decimal(str(principal_raw)) == Decimal(str(requested_amount))
-    except (InvalidOperation, ValueError, TypeError):
-        return False
-
-
-# Frozen loan-record row contract (archived Query Margin Loan Record evidence;
-# breakdown §5.3). Every returned row must satisfy all five fields before it may
-# be used as success proof; one malformed member fails the whole read closed.
-_LOAN_RECORD_STATUSES = ("PENDING", "CONFIRMED", "FAILED")
-
-
-def _is_int64_like(value) -> bool:
-    """``txId``/``timestamp`` are documented int64: a non-bool int or an
-    int-valued numeric string. ``bool`` is rejected (it subclasses ``int``)."""
-    if value is None or isinstance(value, bool):
-        return False
-    if isinstance(value, int):
-        return True
-    if isinstance(value, str):
-        text = value.strip()
-        if not text:
-            return False
-        try:
-            parsed = Decimal(text)
-        except (InvalidOperation, ValueError):
-            return False
-        return parsed.is_finite() and parsed == parsed.to_integral_value()
-    return False
-
-
-def _row_timestamp_ms(row) -> Optional[int]:
-    """Return a row's ``timestamp`` as an int (ms), or ``None`` if not int64-like."""
-    ts = row.get("timestamp")
-    if not _is_int64_like(ts):
-        return None
-    if isinstance(ts, int):
-        return ts
-    return int(Decimal(ts.strip()).to_integral_value())
-
-
-def _row_contract_valid(row) -> bool:
-    """A row proves nothing unless every frozen field parses safely.
-
-    ``txId`` (positive int64), ``asset`` (non-empty string), ``principal``
-    (finite decimal), ``timestamp`` (int64), and ``status`` (frozen enum) must
-    all be present and contract-valid. Any single malformed row fails the entire
-    read closed — it is never silently filtered away to prove success.
-    """
-    if not isinstance(row, dict):
-        return False
-    if _normalize_tran_id(row.get("txId")) is None:
-        return False
-    asset = row.get("asset")
-    if not isinstance(asset, str) or not asset:
-        return False
-    principal = row.get("principal")
-    if principal is None or isinstance(principal, bool):
-        return False
-    try:
-        amount = Decimal(str(principal))
-    except (InvalidOperation, ValueError, TypeError):
-        return False
-    if not amount.is_finite():
-        return False
-    if not _is_int64_like(row.get("timestamp")):
-        return False
-    if row.get("status") not in _LOAN_RECORD_STATUSES:
-        return False
-    return True
-
-
 def classify_post_response(response: BorrowHttpResponse) -> ExecutorResult:
     """Map a POST /papi/v1/marginLoan response to the result vocabulary.
 
@@ -201,7 +119,7 @@ def classify_post_response(response: BorrowHttpResponse) -> ExecutorResult:
         )
     # 2xx first: a valid normalized tranId is the only success proof; every
     # other 2xx (including one whose body carries a known rejection code) is
-    # unknown so the task blocks and reconciles instead of re-entering rotation.
+    # unknown; the task stays in rotation either way (DEC-2026-08-21).
     if 200 <= status < 300:
         tran_id = None
         if isinstance(response.body, dict):
@@ -219,8 +137,8 @@ def classify_post_response(response: BorrowHttpResponse) -> ExecutorResult:
             business_code=code,
             reason="malformed_2xx_no_tranid",
         )
-    # 5xx may have been accepted by the exchange, so it stays unknown and
-    # reconciles — even if the body happens to carry a known rejection code.
+    # 5xx may have been accepted by the exchange, so it is recorded as unknown
+    # — even if the body happens to carry a known rejection code.
     if 500 <= status < 600:
         return ExecutorResult(
             result_category=D.RESULT_UNKNOWN,
@@ -250,34 +168,6 @@ def classify_post_response(response: BorrowHttpResponse) -> ExecutorResult:
     )
 
 
-def classify_reconcile_response(response: BorrowHttpResponse) -> Optional[ExecutorResult]:
-    """If a reconciliation GET is itself rate-limited, surface it; else ``None``.
-
-    A rate-limited GET must not advance the reconcile step; the service extends
-    the shared cooldown and retries the same step later.
-    """
-    if response.transport_error is not None or response.http_status is None:
-        return None
-    status = response.http_status
-    code = _business_code(response)
-    if status == 429 or (status == 400 and code == _RATE_LIMIT_BODY_CODE):
-        return ExecutorResult(
-            result_category=D.RESULT_RATE_LIMITED,
-            http_status=status,
-            reason="reconcile_rate_limited",
-            business_code=code,
-            retry_after_seconds=_clamped_retry_after(response.retry_after_seconds),
-        )
-    if status == 418:
-        return ExecutorResult(
-            result_category=D.RESULT_RATE_LIMITED,
-            http_status=418,
-            reason="reconcile_rate_limited_418_ban",
-            retry_after_seconds=_BAN_COOLDOWN_SECONDS,
-        )
-    return None
-
-
 class LiveBorrowExecutor:
     """Production executor over the exact-path PM borrow client."""
 
@@ -304,101 +194,3 @@ class LiveBorrowExecutor:
             timestamp_ms=self._now_ms(),
         )
         return classify_post_response(response)
-
-    def reconcile(self, task: dict, attempt: dict) -> Optional[ReconcileOutcome]:
-        """Query the loan-record endpoint; prove success only on a unique match.
-
-        A response-less unknown is queried over a bounded dispatch-anchored
-        ``startTime``/``endTime`` window whose ``endTime`` never exceeds the signed
-        request timestamp and whose span never exceeds the archived 30-day cap. A
-        known ``tranId`` uses the precise ``txId`` selection instead.
-
-        Success is proven only when ALL of the following hold (any miss stays
-        blocked): the body is the ``{"rows": [...], "total": N}`` envelope; the
-        declared ``total`` exactly equals the number of raw rows returned (a single
-        inspected page proves global uniqueness only at exact equality — missing /
-        bool / non-int / negative ``total``, or ``total`` above OR below the raw
-        row count, all fail closed); EVERY returned row satisfies the frozen field
-        contract (``txId``/``asset``/``principal``/``timestamp``/``status``) so a
-        malformed member is never silently dropped to prove success; exactly one
-        contract-valid ``CONFIRMED`` row matches asset + exact Decimal principal;
-        on the known-ID path the candidate's canonical ``txId`` equals the posted
-        ``tranId``; on the response-less path the candidate ``timestamp`` falls
-        inside the dispatched ``[startTime, endTime]`` window. A rate-limited read
-        (429/-1003/418) surfaces without advancing the reconcile step; a 418 ban
-        additionally carries the manual-rearm requirement through to the store.
-        """
-        if not self._client.credentials_present:
-            return None
-        asset = task["asset"]
-        requested_amount = attempt["requested_amount"]
-        dispatched_at_us = attempt.get("dispatched_at_us")
-        known_tran_id = attempt.get("tran_id")
-        ts_ms = self._now_ms()
-        start_ms: Optional[int] = None
-        end_ms: Optional[int] = None
-        if known_tran_id:
-            response = self._client.fetch_loan_records(
-                asset, timestamp_ms=ts_ms, tx_id=str(known_tran_id)
-            )
-        else:
-            anchor_ms = dispatched_at_us // 1000 if dispatched_at_us else ts_ms
-            # Dispatch-anchored window: endTime never later than the signed request
-            # timestamp; span capped at the archived 30-day maximum so the query
-            # never asks Binance for records newer than the request itself.
-            window_floor_ms = ts_ms - _RECONCILE_WINDOW_SPAN_MS
-            start_ms = max(anchor_ms - _RECONCILE_WINDOW_BACKSTEP_MS, window_floor_ms)
-            end_ms = ts_ms
-            response = self._client.fetch_loan_records(
-                asset,
-                timestamp_ms=ts_ms,
-                start_ms=start_ms,
-                end_ms=end_ms,
-            )
-        rate_limited = classify_reconcile_response(response)
-        if rate_limited is not None:
-            return ReconcileOutcome(
-                matched=False,
-                rate_limited=True,
-                retry_after_seconds=rate_limited.retry_after_seconds,
-                requires_rearm=rate_limited.http_status == 418,
-            )
-        raw_rows = PortfolioMarginBorrowClient.raw_rows(response)
-        total = PortfolioMarginBorrowClient.declared_total(response)
-        # Envelope completeness + pagination fail-closed (§5.3): a single
-        # inspected page proves global uniqueness only when the declared total
-        # exactly equals the raw row count. Missing/bool/non-int/negative total
-        # (-> None) and any total != raw row count (above OR below) stay blocked.
-        if raw_rows is None or total is None or total != len(raw_rows):
-            return ReconcileOutcome(matched=False)
-        # Frozen row contract: every returned row must carry all five fields in
-        # contract-valid form. One malformed member fails the whole read closed —
-        # it is never filtered away to prove success on the remainder.
-        for row in raw_rows:
-            if not _row_contract_valid(row):
-                return ReconcileOutcome(matched=False)
-        confirmed = [
-            r for r in raw_rows
-            if r.get("status") == "CONFIRMED"
-            and str(r.get("asset")) == asset
-            and _decimal_equal(r.get("principal"), requested_amount)
-        ]
-        if len(confirmed) != 1:
-            return ReconcileOutcome(matched=False)
-        candidate = confirmed[0]
-        tran_id = _normalize_tran_id(candidate.get("txId"))
-        if tran_id is None:
-            return ReconcileOutcome(matched=False)
-        # Known-ID fast path (§5.3): the response candidate must BE the posted
-        # transaction — canonical txId == tranId — else the read proves nothing.
-        if known_tran_id is not None:
-            known_canonical = _normalize_tran_id(known_tran_id)
-            if known_canonical is None or tran_id != known_canonical:
-                return ReconcileOutcome(matched=False)
-        # Response-less window path: the candidate timestamp must actually fall
-        # inside the dispatched [startTime, endTime] window we queried.
-        if start_ms is not None and end_ms is not None:
-            cand_ts = _row_timestamp_ms(candidate)
-            if cand_ts is None or cand_ts < start_ms or cand_ts > end_ms:
-                return ReconcileOutcome(matched=False)
-        return ReconcileOutcome(matched=True, tran_id=tran_id)

@@ -346,33 +346,25 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   可用余额后分别放行（本次四笔正是挤在 40 秒内：`09:35:08/19/33/47`），故本条保持 OPEN，
   需后续正式 HIGH_RISK 修复或实盘限制。
 
-- `[OPEN][UI-GAP][2026-08-20]` **被崩溃孤儿卡住的借币任务在界面上没有任何提示，反而显示上一次的失败原因。**
-  事实（`2026-08-21` 复核已增至**三个**）：`COTI`（attempt `542383`，发出
-  `2026-08-20 15:35:21 CST`）、`HOME`（attempt `330073`，发出 `2026-08-16 21:11:44 CST`，
-  至 `2026-08-21` 已静默停摆 **5 天**）、`PROM`（发出 `2026-08-20 22:09:59 CST`，本次新增）
-  三个任务的 `unresolved_attempt_id` 指向
-  `reason=crash_orphan_responseless` 的孤儿尝试，`reconcile_step=5`、`reconcile_exhausted=1`
-  —— 自动对账已耗尽，后端按 ADR-006 fail-closed 永久阻塞其调度（正确行为，防重复借币）。
-  但三卡在页面上仍显示 `borrowing` + 「可贷资产不足，请稍后再试」（`known_rejection:51061`），
-  没有「待对账·暂停调度」徽标，看不出已停摆；`HOME` 至 `2026-08-20` 已静默卡住 4 天。
-  根因两环：① 孤儿恢复只写阻塞标记，**不更新 `borrow_task.latest_result_*` 冗余列**，故
-  `latest_result` 停留在孤儿之前那次尝试（`HOME` 停在 attempt `330025`，`finished_at`
-  `21:11:40` 对得上，孤儿本身完成于 `21:11:52`）；② 前端徽标判据
-  （`frontend/index.html` `renderBorrowTaskCard`）是 `hasUnresolved && latestCat === 'unknown'`，
-  第二个条件读到 `known_rejection` 即为假。该 `&& 'unknown'` 是早先为压掉在途 pending 标记
-  每 tick 闪烁而加的过滤，把真孤儿一并滤掉了。
-  影响：任务静默停摆且**提示是误导性的**（看起来在正常重试）。仅展示层，不影响资金安全——
-  后端阻塞本身正确，不会重复下单。
-  修法（未实施，Human 2026-08-20 决定先做曲线）：后端 `task_to_doc` 增 `reconcile_blocked`
-  布尔字段，判据复用 `store.count_pending_orphan_attempts()` 那条 SQL 的条件
-  （`outcome='pending'` 属在途不算，`reason='crash_orphan_responseless'` 或
-  `result_category='unknown'` 命中）；前端判据改读该字段。约后端 20 行 + 前端 1 行 + 测试 3 条，
-  需重启后端。**不要**改成「有标记就报警」：在途窗口 100–400ms、前端 60s 轮询，撞上概率约
-  0.5%，一次假警报即毁掉该徽标可信度。
-  临时口径：怀疑借币任务停摆时，直接查库
-  `SELECT t.asset, a.reason FROM borrow_task t JOIN borrow_attempt a ON a.id=t.unresolved_attempt_id
-  WHERE a.reason='crash_orphan_responseless';`。解开需人工到币安确认该笔是否已借成，
-  再删除任务重建（代码给的唯一出口）。重开条件：修复上线，或再次出现新的孤儿阻塞。
+- `[RESOLVED-BY-DELIVERY][2026-08-21]` **借币「崩溃孤儿永久卡死任务」已从根上取消（`DEC-2026-08-21-001`）。**
+  原风险：`COTI`/`HOME`/`PROM` 三卡因 `crash_orphan_responseless` 被 ADR-006 fail-closed 永久
+  阻塞调度，页面却仍显示上一次的 `known_rejection:51061`「可贷资产不足，请稍后再试」，看起来像在
+  正常重试；`HOME` 静默停摆 5 天。
+  处置不是补徽标，而是按 Human 裁定改口径：**只有 POST 返回可用 `tranId` 才算借成，其余一律当
+  「没借成」、任务继续跑**。据此删除了整套借币记录对账子系统（`_reconcile_pass`、
+  `advance_reconciliation`、`attribution_is_unique`、`LiveBorrowExecutor.reconcile`、
+  `fetch_loan_records` 与 `GET /papi/v1/margin/marginLoan` 白名单项——借币客户端现在只剩下单
+  POST 一个签名端点）与前端「待对账·暂停调度」徽标，净减约 1400 行。
+  `unresolved_attempt_id` 降级为纯进程内在途锁：每次结算清、开机也清。
+  ⚠️ **开机恢复已改为 owner-gated**（先抢 sidecar 锁再开库）：codex Review-1 发现非 owner 进程
+  启动会清掉在跑进程的在途标记，随后一次「清空日志」即可删掉它正要结算的那行，**丢掉一笔真实
+  `tranId` 成功**。已修 + 并发回归测试（变异验证改坏即红）。
+  **接受的代价**：每个孤儿最多多借一笔，Human 从币安控制台核对余额收口；「每卡只准释放一次」
+  的闸门经评估后由 Human 否决为过度设计。**不查实际借到的本金**（POST 只回 `tranId`），
+  Human 原话「出了问题再增加查询实际借到的资金量」。
+  三张旧卡**下次重启自愈**（开机清掉残留标记），无需删卡重建、无需数据库手术。
+  遗留物理列 `reconcile_next_at_us` / `reconcile_step` / `reconcile_exhausted` 仍在旧库中，
+  已从 `_SCHEMA` / `_migrate` / 行映射移除，读取不受影响；`DROP COLUMN` 属数据库手术，未做。
 
 - `[OPEN][ACCEPTED][REVIEW-2][2026-08-13]` **建卡预检从未成功的 live 平滑任务仍可能按默认值发单（F-A）。**
   事实：缓存未命中/超龄且实时补读失败时，smooth 仍会 `201 paused` 建卡，固化

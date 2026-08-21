@@ -54,20 +54,16 @@ ALL_BLOCK_REASONS = (
     BLOCK_INVALID_CONFIGURATION,
 )
 
-# Boundary C §5.3: reconciliation read delays measured from the moment the
-# attempt became unresolved. Five reads (~21 min), then terminal exhaustion.
-RECONCILE_DELAYS_SECONDS = (5, 15, 60, 300, 900)
-# Boundary C §5.3: persisted reason distinguishing history-inferred success.
-REASON_RECONCILED_UNIQUE_TXID_MATCH = "reconciled_unique_txid_match"
-# Boundary C §5.3 / ADR-006: marker for a crash-orphaned pending attempt that
-# never resolved (the process died mid-flight); it enters the bounded
-# reconciliation schedule at startup as a response-less unknown.
+# DEC-2026-08-21: marker for a crash-orphaned pending attempt that never
+# resolved (the process died between POST and response). It is recorded so the
+# borrow log shows which POST was never confirmed; it does NOT block the task —
+# only a POST that returned a usable loan id counts as borrowed.
 REASON_CRASH_ORPHAN_RESPONSELESS = "crash_orphan_responseless"
 
 # Boundary C §5.1: Retry-After fail-closed default and clamp window. A missing or
 # nonsensical Retry-After falls back to the 60s floor; any value is clamped to
-# [60, 300]. Pure Decimal helper shared by the executor (response classification)
-# and the store (cooldown persistence) so both boundaries clamp identically.
+# [60, 300]. Clamping happens once, at response classification in the executor;
+# the store persists the already-clamped value.
 RETRY_AFTER_DEFAULT_SECONDS = Decimal("60")
 RETRY_AFTER_MIN_SECONDS = 60
 RETRY_AFTER_MAX_SECONDS = 300
@@ -102,7 +98,8 @@ ALL_RESULT_CATEGORIES = (
 )
 # Failures that may coalesce into the previous same-task ledger row (bump
 # finished_at only) instead of growing the log. success stays one row per hit
-# so success timestamps remain visible; unknown never coalesces (recon identity).
+# so success timestamps remain visible; unknown never coalesces (each unknown
+# identifies one POST whose result was never confirmed).
 COALESCEABLE_FAILURE_CATEGORIES = frozenset({
     RESULT_KNOWN_REJECTION,
     RESULT_RATE_LIMITED,

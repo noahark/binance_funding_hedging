@@ -1947,6 +1947,10 @@ def run(config: Config = None) -> None:
         mode=config.borrow_executor,
         execution_owner=borrow_service.is_execution_owner,
         live_authorized_task_count=borrow_service.store.count_live_authorized_tasks(),
+        # Legacy field name (frozen for log consumers): since DEC-2026-08-21 no
+        # task is ever blocked, so the value is the number of in-flight POSTs the
+        # PREVIOUS process left unconfirmed — each one a balance to check on the
+        # Binance console, not a stalled task.
         recovered_orphan_blocker_count=borrow_service.store.count_pending_orphan_attempts(),
     )
     # Distinct sanitized startup event when live mode cannot execute because the

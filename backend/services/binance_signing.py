@@ -6,7 +6,7 @@ This is the ONLY module in the repository permitted to touch ``hmac`` /
 
 * no product module other than this one references those primitives; and
 * neither HTTP client (``private_client.py`` for GET reads,
-  ``portfolio_margin_borrow_client.py`` for the borrow POST + loan-record GET)
+  ``portfolio_margin_borrow_client.py`` for the borrow POST)
   constructs a signature inline.
 
 One serializer (``build_total_params``) produces the exact ``k=v`` joined string

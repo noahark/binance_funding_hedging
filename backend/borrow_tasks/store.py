@@ -11,7 +11,7 @@ Internal time is integer microseconds since epoch (breakdown §3.10). The store
 holds no JSON/HTTP/executor concerns; the service serializes rows to documents.
 
 No network imports: only :mod:`sqlite3`, :mod:`threading`, :mod:`time` and
-:mod:`decimal` (the latter for exact-amount cross-task attribution only).
+:mod:`decimal`.
 """
 from __future__ import annotations
 
@@ -19,9 +19,6 @@ import os
 import sqlite3
 import threading
 import time
-from decimal import Decimal, InvalidOperation
-from typing import Any
-
 from . import domain as D
 from .executor import ExecutorResult
 
@@ -61,10 +58,7 @@ CREATE TABLE IF NOT EXISTS borrow_attempt (
     dispatched_at_us  INTEGER,
     finished_at_us    INTEGER,
     latency_ms        INTEGER,
-    effective_gap_us  INTEGER,
-    reconcile_next_at_us  INTEGER,
-    reconcile_step        INTEGER NOT NULL DEFAULT 0,
-    reconcile_exhausted   INTEGER NOT NULL DEFAULT 0
+    effective_gap_us  INTEGER
 );
 CREATE TABLE IF NOT EXISTS borrow_settings (
     id                       INTEGER PRIMARY KEY CHECK (id = 1),
@@ -150,15 +144,22 @@ def _row_to_attempt(row: sqlite3.Row) -> dict:
         "finished_at_us": row["finished_at_us"],
         "latency_ms": row["latency_ms"],
         "effective_gap_us": row["effective_gap_us"],
-        "reconcile_next_at_us": row["reconcile_next_at_us"],
-        "reconcile_step": row["reconcile_step"],
-        "reconcile_exhausted": row["reconcile_exhausted"],
     }
 
 
 class BorrowTaskStore:
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str, *, recover: bool = True):
+        """Open the store; ``recover=False`` skips startup recovery.
+
+        Startup recovery REWRITES rows another live process may still own (it
+        clears in-flight markers and finalizes pending attempts), so only the
+        execution owner may run it. ``BorrowTaskService`` acquires the ownership
+        lock first and passes the result here; a non-owner opens the same DB
+        read/mutation-capable but must not touch another process's in-flight
+        work. Defaults to ``True`` for direct single-process use (tests, tools).
+        """
         self._lock = threading.RLock()
+        self._recovered_orphan_count = 0
         # Ensure the parent directory exists (the default path lives under the
         # gitignored ``data/`` dir, which is not created at checkout time).
         parent = os.path.dirname(os.path.abspath(db_path))
@@ -185,48 +186,46 @@ class BorrowTaskStore:
                         int(time.time() * 1_000_000),
                     ),
                 )
-            # Fail-closed recovery (breakdown §3.8): a pending attempt orphaned
-            # by a crash blocks its task until reconciliation (Boundary C). The
-            # pending-orphan marker is added, but an already-persisted marker —
-            # e.g. a resolved ``unknown`` outcome — is preserved (COALESCE keeps
-            # the existing value when there is no pending row), so the
-            # unknown-outcome block holds across close/reopen (acceptance 4 /
-            # §6.1-1 invariant-across-restart).
-            self._conn.execute(
-                "UPDATE borrow_task SET unresolved_attempt_id = COALESCE(("
-                "  SELECT MAX(a.id) FROM borrow_attempt a"
-                "  WHERE a.task_id = borrow_task.id AND a.outcome = ?),"
-                " unresolved_attempt_id)",
-                (D.OUTCOME_PENDING,),
-            )
-            # Crash-orphan reconciliation intake (Boundary C §5.3 / ADR-006): a
-            # pending attempt whose insert committed but whose resolve never ran
-            # (the process died mid-flight) is the most ambiguous case — the POST
-            # may have reached Binance. Transition it into the bounded
-            # reconciliation schedule as a response-less ``unknown`` so the
-            # existing ``_reconcile_pass`` can prove/exclude a real loan via the
-            # loan-record API under the same unique-match + attribution_is_unique
-            # gates. Idempotent: only ``outcome='pending'`` rows are touched, so a
-            # second startup finds none and re-schedules nothing. The task's
-            # ``unresolved_attempt_id`` marker (set pre-crash by
-            # ``insert_pending_attempt`` and reconfirmed just above) keeps it
-            # blocked until reconciliation resolves it. No second POST, no
-            # force-clear, no retry-anyway.
-            recovery_now_us = int(time.time() * 1_000_000)
-            self._conn.execute(
-                "UPDATE borrow_attempt SET outcome = ?, result_category = ?,"
-                " reason = ?, finished_at_us = COALESCE(finished_at_us, ?),"
-                " reconcile_step = 0, reconcile_next_at_us = ?"
-                " WHERE outcome = ?",
-                (
-                    D.OUTCOME_RESOLVED,
-                    D.RESULT_UNKNOWN,
-                    D.REASON_CRASH_ORPHAN_RESPONSELESS,
-                    recovery_now_us,
-                    recovery_now_us + int(D.RECONCILE_DELAYS_SECONDS[0]) * 1_000_000,
-                    D.OUTCOME_PENDING,
-                ),
-            )
+            # Startup recovery (DEC-2026-08-21, supersedes the Boundary C §5.3 /
+            # ADR-006 fail-closed block). Human's rule: only a POST that returned
+            # a usable loan id counts as borrowed; EVERY other outcome —
+            # including a crash orphan whose response was lost — is treated as
+            # "did not borrow" and the task keeps running. The accepted downside
+            # is at most one duplicate borrow per orphan, which Human reconciles
+            # from the Binance console; the previous fail-closed block instead
+            # stalled tasks silently and indefinitely (HOME sat 5 days).
+            #
+            # The in-flight marker is therefore an IN-PROCESS guard only: a
+            # marker that survived into a new OWNING process is by definition
+            # stale, so recovery clears every one of them. The orphaned attempt
+            # keeps its own row with ``reason='crash_orphan_responseless'`` so
+            # the borrow log still shows which POST was never confirmed.
+            #
+            # Owner-gated: a non-owner running this would clear the live owner's
+            # in-flight marker, after which a `clear_attempt_logs` call would
+            # delete the attempt row the owner is about to resolve — losing a
+            # real `tranId` success.
+            if recover:
+                self._conn.execute(
+                    "UPDATE borrow_task SET unresolved_attempt_id = NULL"
+                    " WHERE unresolved_attempt_id IS NOT NULL"
+                )
+                # Idempotent: only ``outcome='pending'`` rows are touched, so a
+                # second startup finds none. No second POST is issued here.
+                recovery_now_us = int(time.time() * 1_000_000)
+                cur = self._conn.execute(
+                    "UPDATE borrow_attempt SET outcome = ?, result_category = ?,"
+                    " reason = ?, finished_at_us = COALESCE(finished_at_us, ?)"
+                    " WHERE outcome = ?",
+                    (
+                        D.OUTCOME_RESOLVED,
+                        D.RESULT_UNKNOWN,
+                        D.REASON_CRASH_ORPHAN_RESPONSELESS,
+                        recovery_now_us,
+                        D.OUTCOME_PENDING,
+                    ),
+                )
+                self._recovered_orphan_count = int(cur.rowcount or 0)
 
     def _migrate(self) -> None:
         """Idempotent PRAGMA user_version schema gate (Boundary C §4.4).
@@ -254,17 +253,6 @@ class BorrowTaskStore:
         if "requires_rearm" not in settings_cols:
             self._conn.execute(
                 "ALTER TABLE borrow_settings ADD COLUMN requires_rearm INTEGER NOT NULL DEFAULT 0"
-            )
-        attempt_cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(borrow_attempt)")}
-        if "reconcile_next_at_us" not in attempt_cols:
-            self._conn.execute("ALTER TABLE borrow_attempt ADD COLUMN reconcile_next_at_us INTEGER")
-        if "reconcile_step" not in attempt_cols:
-            self._conn.execute(
-                "ALTER TABLE borrow_attempt ADD COLUMN reconcile_step INTEGER NOT NULL DEFAULT 0"
-            )
-        if "reconcile_exhausted" not in attempt_cols:
-            self._conn.execute(
-                "ALTER TABLE borrow_attempt ADD COLUMN reconcile_exhausted INTEGER NOT NULL DEFAULT 0"
             )
         # One-time quarantine of pre-C borrowing tasks (counts/logs preserved).
         self._conn.execute(
@@ -420,17 +408,6 @@ class BorrowTaskStore:
             ).fetchone()
             return _row_to_task(row)
 
-    def clear_unresolved(self, task_id: str, now_us: int) -> None:
-        """Test-seam: clear the unresolved marker so a task is eligible again."""
-        with self._lock, self._conn:
-            cur = self._conn.execute(
-                "UPDATE borrow_task SET unresolved_attempt_id = NULL,"
-                " version = version + 1, updated_at_us = ? WHERE id = ?",
-                (now_us, task_id),
-            )
-            if cur.rowcount == 0:
-                raise UnknownTaskError(task_id)
-
     # --------------------------------------------------------------- settings
 
     def get_settings(self) -> dict:
@@ -485,33 +462,18 @@ class BorrowTaskStore:
             ).fetchone()[0]
 
     def count_pending_orphan_attempts(self) -> int:
-        """Count tasks currently blocked by a crash orphan (D7 / ADR-006).
+        """Count in-flight borrows this startup orphaned (D7, sanitized integer).
 
-        A task is counted when its ``unresolved_attempt_id`` marker points at an
-        attempt that is either still ``pending`` (a freshly dispatched in-flight
-        marker a previous process never resolved) or has been recovered at
-        startup into a response-less ``unknown``
-        (``reason='crash_orphan_responseless'``). Counting by the task's *current*
-        marker — not by a bare outcome scan — keeps the count stable across the
-        pending→response-less-unknown transition and across a second (idempotent)
-        restart, while ensuring it returns to zero once reconciliation clears the
-        marker (unique match success) and stays non-zero while no-match
-        reconciliation keeps the marker. Historical orphan rows that were
-        resolved/reconciled but still live in the ledger are not re-counted,
-        because their task's marker was cleared. Only a sanitized integer is
-        reported; no asset / amount / txId / credential / private response.
+        A pending attempt whose insert committed but whose resolve never ran (the
+        process died between POST and response) is converted to a response-less
+        ``unknown`` by ``_recover`` and its task released. Nothing stays blocked
+        (DEC-2026-08-21), so the useful startup fact is HOW MANY borrows were left
+        unconfirmed by the previous process — each is a POST that may or may not
+        have reached Binance, i.e. each is one balance for Human to check on the
+        console. Only a sanitized integer is reported; no asset / amount / txId /
+        credential / private response.
         """
-        with self._lock:
-            return int(self._conn.execute(
-                "SELECT COUNT(*) FROM borrow_task t"
-                " WHERE t.unresolved_attempt_id IS NOT NULL"
-                "   AND EXISTS ("
-                "     SELECT 1 FROM borrow_attempt a"
-                "     WHERE a.id = t.unresolved_attempt_id"
-                "       AND (a.outcome = ? OR a.reason = ?)"
-                "   )",
-                (D.OUTCOME_PENDING, D.REASON_CRASH_ORPHAN_RESPONSELESS),
-            ).fetchone()[0])
+        return self._recovered_orphan_count
 
     def set_execution_enabled(self, enabled: bool, now_us: int) -> None:
         """Toggle the durable global switch (§3.3).
@@ -555,37 +517,6 @@ class BorrowTaskStore:
                     (now_us,),
                 )
 
-    def set_requires_rearm(self, now_us: int) -> None:
-        """Persist a 418 ban's manual-rearm requirement from a reconciliation GET.
-
-        A reconciliation GET can observe a 418 just like a POST; the durable
-        ``requires_rearm`` flag must be set so execution does not auto-resume
-        after the 300s local cooldown, exactly as for a POST 418 (§5.1).
-        """
-        with self._lock, self._conn:
-            self._conn.execute(
-                "UPDATE borrow_settings SET requires_rearm = 1,"
-                " version = version + 1, updated_at_us = ? WHERE id = 1",
-                (now_us,),
-            )
-
-    def set_rate_cooldown(self, retry_after_seconds, now_us: int) -> None:
-        """Extend the shared cooldown after a rate-limited reconciliation GET.
-
-        Clamped to the same [60, 300] band as POST responses (a missing or
-        nonsensical Retry-After falls back to the 60s floor). The cooldown blocks
-        all signed borrow-client traffic including further reconciliation GETs,
-        so a single rate-limit pauses the whole pass without advancing it.
-        """
-        retry = D.clamp_retry_after(retry_after_seconds)
-        cooldown_us = now_us + int((retry * 1_000_000).to_integral_value())
-        with self._lock, self._conn:
-            self._conn.execute(
-                "UPDATE borrow_settings SET global_cooldown_until_us = ?,"
-                " version = version + 1, updated_at_us = ? WHERE id = 1",
-                (cooldown_us, now_us),
-            )
-
     # ---------------------------------------------------------------- attempts
 
     def insert_pending_attempt(
@@ -602,13 +533,16 @@ class BorrowTaskStore:
         """Atomically gate, insert the pending attempt, advance the cursor, and
         set the in-flight marker (breakdown §4.5).
 
+        The marker is an in-process guard: it blocks a second dispatch for this
+        task until the POST resolves, and is cleared by EVERY resolution,
+        ``unknown`` included (DEC-2026-08-21).
+
         One conditional transaction re-checks execution ownership of the task
         (status ``borrowing``, no unresolved attempt, count below target) and,
         when ``live_gates`` is set, also the durable live gates
         (``live_authorized=1``, ``execution_enabled=1``, not rate-banned, not in
         global cooldown). A failed predicate creates no attempt row and no POST
-        (returns ``None``). No transaction is held during I/O. The marker clears
-        only on a terminal non-``unknown`` resolution.
+        (returns ``None``). No transaction is held during I/O.
         """
         with self._lock, self._conn:
             task = self._conn.execute(
@@ -674,7 +608,9 @@ class BorrowTaskStore:
                 (new_cursor_task_id, scheduled_at_us),
             )
             # In-flight marker set inside the same transaction: a crash between
-            # this commit and resolution leaves the task blocked (§4.5).
+            # this commit and resolution leaves an orphaned pending row, which
+            # owner-gated startup recovery records as a response-less unknown
+            # and releases (DEC-2026-08-21).
             self._conn.execute(
                 "UPDATE borrow_task SET unresolved_attempt_id = ?,"
                 " version = version + 1, updated_at_us = ? WHERE id = ?",
@@ -716,13 +652,13 @@ class BorrowTaskStore:
 
         Why a pending row still exists before this method runs: the scheduler
         must insert intent **before** the signed POST so a crash mid-flight
-        leaves the task blocked for reconciliation. At insert time the outcome
-        is unknown, so the "update last failure only" decision can only happen
-        here, after the executor returns. Success always keeps its own row;
-        unknown never coalesces (recon identity).
+        leaves a durable record of it. At insert time the outcome is unknown, so
+        the "update last failure only" decision can only happen here, after the
+        executor returns. Success always keeps its own row; unknown never
+        coalesces (it identifies a POST whose result was never confirmed).
 
-        The in-flight marker clears on any terminal non-``unknown`` resolution
-        and is retained on ``unknown``.
+        The in-flight marker clears on EVERY resolution, unknown included
+        (DEC-2026-08-21).
         """
         category = result.result_category
         with self._lock, self._conn:
@@ -816,17 +752,10 @@ class BorrowTaskStore:
                 if (dispatched_at_us is not None and prev_row is not None)
                 else None
             )
-            # Unknown attempts schedule their first reconciliation read at +5s.
-            reconcile_next_at_us = None
-            if category == D.RESULT_UNKNOWN:
-                reconcile_next_at_us = finished_at_us + int(
-                    D.RECONCILE_DELAYS_SECONDS[0]
-                ) * 1_000_000
             self._conn.execute(
                 "UPDATE borrow_attempt SET outcome = ?, result_category = ?,"
                 " business_code = ?, reason = ?, http_status = ?, tran_id = ?,"
-                " finished_at_us = ?, latency_ms = ?, effective_gap_us = ?,"
-                " reconcile_next_at_us = ?"
+                " finished_at_us = ?, latency_ms = ?, effective_gap_us = ?"
                 " WHERE id = ?",
                 (
                     D.OUTCOME_RESOLVED,
@@ -838,7 +767,6 @@ class BorrowTaskStore:
                     finished_at_us,
                     latency_ms,
                     effective_gap_us,
-                    reconcile_next_at_us,
                     attempt_id,
                 ),
             )
@@ -850,15 +778,16 @@ class BorrowTaskStore:
                     new_status = _resolve_status(
                         task["status"], new_count, task["success_target"]
                     )
-                # In-flight marker: cleared on terminal non-unknown resolution;
-                # retained on unknown (stays blocked for reconciliation).
-                marker = attempt_id if category == D.RESULT_UNKNOWN else None
+                # In-flight marker: cleared on EVERY resolution, unknown
+                # included (DEC-2026-08-21). Only a POST that returned a usable
+                # loan id counts as borrowed; anything else is treated as "did
+                # not borrow" and the task keeps running.
                 self._conn.execute(
                     "UPDATE borrow_task SET"
                     " latest_result_category = ?, latest_result_business_code = ?,"
                     " latest_result_reason = ?, latest_result_tran_id = ?,"
                     " latest_result_finished_at_us = ?, success_count = ?,"
-                    " status = ?, unresolved_attempt_id = ?,"
+                    " status = ?, unresolved_attempt_id = NULL,"
                     " version = version + 1, updated_at_us = ?"
                     " WHERE id = ?",
                     (
@@ -869,7 +798,6 @@ class BorrowTaskStore:
                         finished_at_us,
                         new_count,
                         new_status,
-                        marker,
                         finished_at_us,
                         task_id,
                     ),
@@ -925,173 +853,9 @@ class BorrowTaskStore:
         entries = [_row_to_attempt(r) for r in rows[:limit]]
         return entries, has_more
 
-    # ----------------------------------------------------- reconciliation (C)
-
     def get_attempt(self, attempt_id: int) -> dict | None:
         with self._lock:
             row = self._conn.execute(
                 "SELECT * FROM borrow_attempt WHERE id = ?", (attempt_id,)
             ).fetchone()
             return _row_to_attempt(row) if row is not None else None
-
-    def list_due_reconciliations(self, now_us: int) -> list[dict]:
-        """Unresolved unknown attempts due for a reconciliation read (§5.3).
-
-        An attempt is due when it resolved ``unknown``, is not yet exhausted,
-        and its scheduled next read is at or before ``now_us``.
-        """
-        with self._lock:
-            rows = self._conn.execute(
-                "SELECT * FROM borrow_attempt"
-                " WHERE outcome = ? AND result_category = ?"
-                "   AND reconcile_exhausted = 0"
-                "   AND reconcile_next_at_us IS NOT NULL"
-                "   AND reconcile_next_at_us <= ?"
-                " ORDER BY reconcile_next_at_us ASC, id ASC",
-                (D.OUTCOME_RESOLVED, D.RESULT_UNKNOWN, now_us),
-            ).fetchall()
-            return [_row_to_attempt(r) for r in rows]
-
-    def resolve_reconciliation_success(
-        self, attempt_id: int, tran_id: str, now_us: int
-    ) -> dict:
-        """Resolve a reconciliation-proven success (unique CONFIRMED match).
-
-        Records the matched id with ``reason=reconciled_unique_txid_match`` so
-        audit distinguishes response-proven from history-inferred success, then
-        applies the §5.4 matrix (increment, complete at target, deleted stays
-        deleted) and clears the in-flight marker. It also finalizes the attempt
-        row itself (``outcome='resolved'``, ``finished_at_us`` set if still null)
-        so a formerly-pending crash orphan — recovered into the schedule as a
-        response-less unknown — is not left dangling after reconciliation proves
-        success.
-        """
-        with self._lock, self._conn:
-            attempt = self._conn.execute(
-                "SELECT * FROM borrow_attempt WHERE id = ?", (attempt_id,)
-            ).fetchone()
-            if attempt is None:
-                raise UnknownTaskError(f"attempt {attempt_id}")
-            self._conn.execute(
-                "UPDATE borrow_attempt SET tran_id = ?, reason = ?,"
-                " outcome = ?, finished_at_us = COALESCE(finished_at_us, ?),"
-                " reconcile_next_at_us = NULL, reconcile_exhausted = 0"
-                " WHERE id = ?",
-                (
-                    tran_id,
-                    D.REASON_RECONCILED_UNIQUE_TXID_MATCH,
-                    D.OUTCOME_RESOLVED,
-                    now_us,
-                    attempt_id,
-                ),
-            )
-            task_id = attempt["task_id"]
-            task = self._conn.execute(
-                "SELECT * FROM borrow_task WHERE id = ?", (task_id,)
-            ).fetchone()
-            if task is not None:
-                new_count = task["success_count"] + 1
-                new_status = _resolve_status(
-                    task["status"], new_count, task["success_target"]
-                )
-                self._conn.execute(
-                    "UPDATE borrow_task SET"
-                    " latest_result_category = ?, latest_result_reason = ?,"
-                    " latest_result_tran_id = ?, latest_result_finished_at_us = ?,"
-                    " success_count = ?, status = ?, unresolved_attempt_id = NULL,"
-                    " version = version + 1, updated_at_us = ?"
-                    " WHERE id = ?",
-                    (
-                        D.RESULT_SUCCESS,
-                        D.REASON_RECONCILED_UNIQUE_TXID_MATCH,
-                        tran_id,
-                        now_us,
-                        new_count,
-                        new_status,
-                        now_us,
-                        task_id,
-                    ),
-                )
-            row = self._conn.execute(
-                "SELECT * FROM borrow_attempt WHERE id = ?", (attempt_id,)
-            ).fetchone()
-            return _row_to_attempt(row)
-
-    def advance_reconciliation(self, attempt_id: int, now_us: int) -> bool:
-        """Advance to the next reconciliation delay; return ``True`` if now exhausted.
-
-        After the final (+900s) read with no unique match the attempt enters
-        terminal ``reconciliation_exhausted``; the task stays blocked.
-        """
-        with self._lock, self._conn:
-            attempt = self._conn.execute(
-                "SELECT finished_at_us, reconcile_step FROM borrow_attempt WHERE id = ?",
-                (attempt_id,),
-            ).fetchone()
-            if attempt is None:
-                raise UnknownTaskError(f"attempt {attempt_id}")
-            next_step = attempt["reconcile_step"] + 1
-            if next_step >= len(D.RECONCILE_DELAYS_SECONDS):
-                self._conn.execute(
-                    "UPDATE borrow_attempt SET reconcile_step = ?,"
-                    " reconcile_next_at_us = NULL, reconcile_exhausted = 1"
-                    " WHERE id = ?",
-                    (next_step, attempt_id),
-                )
-                return True
-            base_us = attempt["finished_at_us"] or now_us
-            next_at_us = base_us + int(D.RECONCILE_DELAYS_SECONDS[next_step]) * 1_000_000
-            self._conn.execute(
-                "UPDATE borrow_attempt SET reconcile_step = ?, reconcile_next_at_us = ?"
-                " WHERE id = ?",
-                (next_step, next_at_us, attempt_id),
-            )
-            return False
-
-    def attribution_is_unique(
-        self,
-        attempt_id: int,
-        task_id: str,
-        asset: str,
-        requested_amount: str,
-        candidate_txid: str | None,
-    ) -> bool:
-        """Return True only if a candidate loan record is unambiguously this
-        attempt's (Boundary C §5.3 / risk §11 — no false cross-task attribution).
-
-        Two fail-closed conditions keep the attempt blocked:
-        1. the candidate ``txId`` is already claimed by another attempt's
-           ``tran_id`` (a different attempt already proved/credited it); or
-        2. another task has an unresolved same-asset attempt whose requested
-           amount is Decimal-equal — it could also match the same loan record, so
-           the single history row cannot be uniquely attributed here.
-
-        Amount comparison is Decimal (not string), so ``"1.5"`` and ``"1.50"``
-        are correctly equal. An unparseable requested_amount fails closed.
-        """
-        with self._lock:
-            if candidate_txid is not None:
-                claimed = self._conn.execute(
-                    "SELECT COUNT(*) FROM borrow_attempt"
-                    " WHERE tran_id = ? AND id != ?",
-                    (candidate_txid, attempt_id),
-                ).fetchone()[0]
-                if claimed > 0:
-                    return False
-            try:
-                target = Decimal(requested_amount)
-            except (InvalidOperation, TypeError, ValueError):
-                return False
-            rows = self._conn.execute(
-                "SELECT requested_amount FROM borrow_attempt"
-                " WHERE task_id != ? AND asset = ? AND id != ?"
-                "   AND (outcome = ? OR result_category = ?)",
-                (task_id, asset, attempt_id, D.OUTCOME_PENDING, D.RESULT_UNKNOWN),
-            ).fetchall()
-            for r in rows:
-                try:
-                    if Decimal(r["requested_amount"]) == target:
-                        return False
-                except (InvalidOperation, TypeError, ValueError):
-                    continue
-            return True

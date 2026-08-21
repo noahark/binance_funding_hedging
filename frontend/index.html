@@ -1683,7 +1683,7 @@
           <div id="borrow-logs-panel" style="display:none;">
             <div class="borrow-logs-toolbar">
               <button class="btn compact" id="borrow-logs-refresh" type="button">刷新</button>
-              <button class="btn compact" id="borrow-logs-clear" type="button" title="删除历史借币尝试记录（保留进行中/待对账）">清空日志</button>
+              <button class="btn compact" id="borrow-logs-clear" type="button" title="删除历史借币尝试记录（保留进行中）">清空日志</button>
             </div>
             <div class="status-banner error" id="borrow-logs-error" style="display:none; margin-bottom: var(--space-3);"></div>
             <div id="borrow-log-list"></div>
@@ -4862,7 +4862,7 @@
         success: '成功',
         known_rejection: '已知拒绝',
         rate_limited: '限频冷却',
-        unknown: '未知·待对账',
+        unknown: '未知·未确认',
         execution_disabled: '执行未启用'
       };
       const BORROW_RESULT_BADGE = { success: 'success', known_rejection: 'warn', rate_limited: 'info', unknown: 'danger', execution_disabled: 'muted' };
@@ -5333,27 +5333,18 @@
         const totalText = multiplyDecimalString(task.amount_per_attempt, task.success_target);
         const statusLabel = BORROW_TASK_STATUS_LABELS[task.status] || task.status;
         const statusBadge = BORROW_TASK_STATUS_BADGE[task.status] || 'muted';
-        // unresolved_attempt_id is set for TWO cases:
-        //   (1) in-flight pending (marker set before POST; cleared on known_rejection/success)
-        //   (2) true unknown outcome awaiting reconciliation
-        // Only (2) should show「待对账·暂停调度」. Case (1) used to flash that badge
-        // every scheduler tick when poll hit the POST window (often ~100–400ms).
-        const hasUnresolved = task.unresolved_attempt_id !== null && task.unresolved_attempt_id !== undefined;
+        // unresolved_attempt_id is purely an in-flight marker now: it is set
+        // just before the POST and cleared on EVERY resolution, unknown
+        // included (DEC-2026-08-21). No task state blocks scheduling any more,
+        // so there is no「待对账」badge to render.
         const latestCat = task.latest_result && task.latest_result.result_category;
-        const reconBlocked = hasUnresolved && latestCat === 'unknown';
         const latestBadge = latestCat
           ? borrowResultBadge(latestCat)
           : '<span class="badge muted">暂无执行记录</span>';
-        const blockedBadge = reconBlocked
-          ? '<span class="badge danger" title="存在未知结果的尝试，后端已暂停调度该任务，等待对账">待对账·暂停调度</span>'
-          : '';
-        const blockedLine = reconBlocked
-          ? '<div class="borrow-task-note">该任务存在未知结果的尝试，后端已暂停调度，等待对账；如需退出可删除该任务。</div>'
-          : '';
         // 按钮矩阵：borrowing 禁启动；paused 禁暂停；completed 禁启动/暂停/编辑；
-        // deleted 全部禁用（含编辑只读）；仅「真·待对账」(unknown) 禁启动/暂停。
-        const startDisabled = (task.status !== 'paused' || reconBlocked) ? ' disabled' : '';
-        const pauseDisabled = (task.status !== 'borrowing' || reconBlocked) ? ' disabled' : '';
+        // deleted 全部禁用（含编辑只读）。
+        const startDisabled = task.status !== 'paused' ? ' disabled' : '';
+        const pauseDisabled = task.status !== 'borrowing' ? ' disabled' : '';
         const deleteDisabled = task.status === 'deleted' ? ' disabled' : '';
         const editDisabled = (task.status === 'deleted' || task.status === 'completed') ? ' disabled' : '';
         const idAttr = escapeHtml(task.id);
@@ -5363,7 +5354,6 @@
               <h3>${asset}</h3>
               <span class="badge ${statusBadge}">${statusLabel}</span>
               ${latestBadge}
-              ${blockedBadge}
             </div>
             <div class="borrow-task-lines">
               <div>单次数量：<strong>${amountText} ${asset}/次</strong></div>
@@ -5379,7 +5369,6 @@
                 const code = lr.business_code ? ` (${escapeHtml(String(lr.business_code))})` : '';
                 return `<div class="borrow-task-note">交易所说明：${escapeHtml(zh)}${name}${code}</div>`;
               })()}
-              ${blockedLine}
               <div class="borrow-task-note">任务持久化在后端；执行模式与启停状态见借币任务视图顶部执行徽标。</div>
             </div>
             <div class="borrow-task-controls">
@@ -5447,7 +5436,7 @@
         state.hedgeGatePending = null;
         showHedgeConfirm(
           '清空借币日志？',
-          '将删除历史借币尝试记录以释放本地空间。进行中或待对账的尝试会保留，任务本身不会删除。此操作不可恢复。',
+          '将删除历史借币尝试记录以释放本地空间。进行中的尝试会保留，任务本身不会删除。此操作不可恢复。',
           '确认清空'
         );
         return { ok: true, pending: true };
@@ -5466,7 +5455,7 @@
           const retained = doc && doc.retained_unresolved_count != null ? doc.retained_unresolved_count : '—';
           showHedgeModal(
             '借币日志已清空',
-            `已删除 ${deleted} 条历史记录；保留进行中/待对账 ${retained} 条。`
+            `已删除 ${deleted} 条历史记录；保留进行中 ${retained} 条。`
           );
           return { ok: true, doc };
         } catch (err) {

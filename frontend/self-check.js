@@ -4194,7 +4194,7 @@ setTimeout(async () => {
         ['task-cat-success', '<span class="badge success">成功</span>'],
         ['task-cat-known', '<span class="badge warn">已知拒绝</span>'],
         ['task-cat-rate', '<span class="badge info">限频冷却</span>'],
-        ['task-cat-unknown', '<span class="badge danger">未知·待对账</span>'],
+        ['task-cat-unknown', '<span class="badge danger">未知·未确认</span>'],
         ['task-cat-disabled', '<span class="badge muted">执行未启用</span>']
       ];
       for (const [id, badge] of labelCases) {
@@ -4203,23 +4203,24 @@ setTimeout(async () => {
           throw new Error(`${id} 应渲染冻结结果标签 ${badge}: ${cardHtml}`);
         }
       }
-      // 未知阻塞：阻塞徽标 + 启动/暂停禁用（不会被调度）；删除仍可用（退出通道）
-      const blockedCard = getTaskCardHtml(listHtml, 'task-cat-unknown');
-      if (!blockedCard.includes('待对账·暂停调度')) {
-        throw new Error(`未知阻塞任务应渲染阻塞徽标: ${blockedCard}`);
+      // DEC-2026-08-21：unknown 不再阻塞调度，卡片不得再出现「待对账」阻塞徽标/说明，
+      // 按钮矩阵只由 status 决定（该夹具 status=borrowing → 禁启动、可暂停、可删除）。
+      const unknownCard = getTaskCardHtml(listHtml, 'task-cat-unknown');
+      if (unknownCard.includes('待对账') || unknownCard.includes('暂停调度')) {
+        throw new Error(`unknown 任务不应再渲染阻塞徽标/说明: ${unknownCard}`);
       }
-      if (!taskActionBtnHtml(blockedCard, 'start').includes('disabled') || !taskActionBtnHtml(blockedCard, 'pause').includes('disabled')) {
-        throw new Error('未知阻塞任务的启动/暂停应禁用');
+      if (taskActionBtnHtml(unknownCard, 'pause').includes('disabled')) {
+        throw new Error('unknown 任务（borrowing）的暂停不应被禁用');
       }
-      if (taskActionBtnHtml(blockedCard, 'delete').includes('disabled')) {
-        throw new Error('未知阻塞任务的删除应可用（operator 退出通道）');
+      if (taskActionBtnHtml(unknownCard, 'delete').includes('disabled')) {
+        throw new Error('unknown 任务的删除应可用');
       }
       // latest_result null → 暂无执行记录
       const noneCard = getTaskCardHtml(listHtml, 'task-cat-none');
       if (!noneCard.includes('暂无执行记录')) {
         throw new Error(`latest_result=null 应渲染暂无执行记录: ${noneCard}`);
       }
-      console.log('[PASS] latest_result 五类标签、未知阻塞徽标与空结果占位');
+      console.log('[PASS] latest_result 五类标签、unknown 不阻塞调度与空结果占位');
     }
 
     // 70. 筛选成员与软删除可见性（全部含 deleted；借币中不含 deleted）

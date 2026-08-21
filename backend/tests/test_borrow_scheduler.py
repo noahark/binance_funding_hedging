@@ -8,15 +8,14 @@ cooldown gate, the per-task at-most-one-unresolved invariant, and completion.
 """
 from __future__ import annotations
 
-import pytest
+import threading
 
-from decimal import Decimal
+import pytest
 
 from backend.borrow_tasks import domain as D
 from backend.borrow_tasks.executor import ExecutorResult
 from backend.borrow_tasks.scheduler import select_next_task
 from backend.borrow_tasks.service import BorrowTaskService
-from backend.borrow_tasks.executor import ReconcileOutcome
 from backend.tests.borrow_paper_executor import (
     PaperBorrowExecutor,
     execution_disabled,
@@ -95,7 +94,7 @@ def test_round_robin_abc_at_3s(tmp_path):
     assert order == [ids[0], ids[1], ids[2], ids[0]]
 
 
-def test_scheduler_skips_paused_deleted_completed_blocked(tmp_path):
+def test_scheduler_skips_paused_deleted_completed_and_in_flight(tmp_path):
     clock = FakeClock(0)
     exe = PaperBorrowExecutor([execution_disabled()] * 10)
     svc = _service(tmp_path, exe, clock)
@@ -115,9 +114,9 @@ def test_scheduler_skips_paused_deleted_completed_blocked(tmp_path):
     att_d = svc.store.insert_pending_attempt(d_completed, "SOL", "1", NOW_US, NOW_US + 1, d_completed)
     svc.store.resolve_attempt(att_d["id"], ExecutorResult(result_category=D.RESULT_SUCCESS, tran_id="t"), NOW_US + 2)
     assert svc.store.get_task(d_completed)["status"] == D.STATUS_COMPLETED
-    # block E with an unknown outcome
-    att_e = svc.store.insert_pending_attempt(e_blocked, "ADA", "1", NOW_US, NOW_US + 1, e_blocked)
-    svc.store.resolve_attempt(att_e["id"], ExecutorResult(result_category=D.RESULT_UNKNOWN, reason="u"), NOW_US + 2)
+    # block E by leaving an attempt in flight (an unknown RESULT no longer
+    # blocks — DEC-2026-08-21 — but a dispatch still in flight does)
+    svc.store.insert_pending_attempt(e_blocked, "ADA", "1", NOW_US, NOW_US + 1, e_blocked)
     assert svc.store.get_task(e_blocked)["unresolved_attempt_id"] is not None
 
     # Only A is eligible -> A is the sole task rotated across both ticks.
@@ -195,7 +194,9 @@ def test_rate_limit_cooldown_suppresses_until_expiry(tmp_path):
 # ---------------------------------------------------------------------------
 # Unknown blocks only its task; others rotate; seam unblocks (acceptance 4)
 # ---------------------------------------------------------------------------
-def test_unknown_blocks_only_its_task_and_seam_unblocks(tmp_path):
+def test_unknown_keeps_its_task_in_the_rotation(tmp_path):
+    # DEC-2026-08-21: an unconfirmed POST is treated as "did not borrow", so the
+    # task keeps its slot in the round robin instead of dropping out of it.
     clock = FakeClock(0)
     exe = PaperBorrowExecutor(
         [unknown(), execution_disabled(), execution_disabled(), execution_disabled()]
@@ -203,18 +204,11 @@ def test_unknown_blocks_only_its_task_and_seam_unblocks(tmp_path):
     svc = _service(tmp_path, exe, clock)
     svc.put_settings({"interval_seconds": "2"})
     ids = [_create(svc, a) for a in ("BTC", "ETH", "XRP")]
-    clock.t = 0
-    svc.tick()                        # A -> unknown -> blocked
-    clock.t = 2_000_000
-    svc.tick()                        # B
-    clock.t = 4_000_000
-    svc.tick()                        # C
-    clock.t = 6_000_000
-    svc.tick()                        # B again (A blocked, cursor C wraps to B)
+    for i, t in enumerate((0, 2_000_000, 4_000_000, 6_000_000)):
+        clock.t = t
+        svc.tick()
     order = [task_id for (task_id, _a, _c) in exe.calls]
-    assert order == [ids[0], ids[1], ids[2], ids[1]]
-    assert svc.store.get_task(ids[0])["unresolved_attempt_id"] is not None
-    svc.clear_unresolved(ids[0])
+    assert order == [ids[0], ids[1], ids[2], ids[0]]   # A comes back around
     assert svc.store.get_task(ids[0])["unresolved_attempt_id"] is None
 
 
@@ -258,7 +252,7 @@ def test_no_eligible_tick_records_nothing_and_keeps_cursor(tmp_path):
 
 
 # ===========================================================================
-# Boundary C: ownership, live gates, no-catch-up, one-shot, containment, reconcile
+# Boundary C: ownership, live gates, no-catch-up, one-shot, containment
 # ===========================================================================
 
 def _live_service(tmp_path, executor, clock, *, credentials_present=True, db_path=None):
@@ -270,6 +264,66 @@ def _live_service(tmp_path, executor, clock, *, credentials_present=True, db_pat
         mode="live",
         credentials_present=credentials_present,
     )
+
+
+def test_non_owner_startup_does_not_touch_the_owners_in_flight_attempt(tmp_path):
+    # DEC-2026-08-21 startup recovery clears in-flight markers and finalizes
+    # pending attempts, so it MUST be owner-gated: a non-owner opening the same
+    # DB while the owner is mid-POST would strip the owner's marker, after which
+    # clear_attempt_logs deletes the row the owner is about to resolve — and a
+    # real tranId success is lost with resolve_attempt raising into a swallowed
+    # except. The store is therefore opened only after the ownership lock.
+    path = str(tmp_path / "borrow.sqlite3")
+    clock = FakeClock(0)
+
+    class BlockingExecutor:
+        """Blocks inside execute() until released, so a POST is genuinely in flight."""
+
+        def __init__(self):
+            self.entered = threading.Event()
+            self.release = threading.Event()
+
+        def execute(self, task, attempt):
+            self.entered.set()
+            # No timeout: the POST must not self-release and let a slow runner
+            # race past the non-owner assertions below.
+            self.release.wait()
+            return success()
+
+    exe = BlockingExecutor()
+    owner = BorrowTaskService(
+        path, executor=exe, mono_us=clock.mono_us, wall_us=clock.wall_us
+    )
+    assert owner.is_execution_owner is True
+    tid = _create(owner, "BTC")
+
+    t = threading.Thread(target=owner.tick, daemon=True)
+    t.start()
+    try:
+        assert exe.entered.wait(10) is True                # POST is in flight
+        in_flight_id = owner.store.get_task(tid)["unresolved_attempt_id"]
+        assert in_flight_id is not None
+
+        # A second process starts against the same DB while the POST is in flight.
+        non_owner = BorrowTaskService(
+            path, executor=PaperBorrowExecutor([]), mono_us=clock.mono_us, wall_us=clock.wall_us
+        )
+        try:
+            assert non_owner.is_execution_owner is False
+            # The owner's marker survives, so a log wipe cannot delete the pending row.
+            assert non_owner.store.get_task(tid)["unresolved_attempt_id"] == in_flight_id
+            assert non_owner.store.clear_attempt_logs()["retained_unresolved_count"] == 1
+        finally:
+            non_owner.close()
+    finally:
+        exe.release.set()
+        t.join(10)
+    assert t.is_alive() is False                           # the tick really finished
+    # The real tranId success was recorded, not lost.
+    task = owner.store.get_task(tid)
+    assert task["success_count"] == 1
+    assert task["unresolved_attempt_id"] is None
+    owner.close()
 
 
 def test_second_process_is_non_owner_and_never_dispatches(tmp_path):
@@ -408,14 +462,11 @@ def test_missed_time_is_not_replayed_as_a_burst(tmp_path):
 
 
 def test_executor_exception_is_contained_as_unknown(tmp_path):
-    # §5.2 containment: an executor.execute() exception maps to unknown (task
-    # blocked for reconciliation) and never propagates out of tick.
+    # §5.2 containment: an executor.execute() exception maps to unknown and
+    # never propagates out of tick.
     class BoomExecutor:
         def execute(self, task, attempt):
             raise RuntimeError("boom")
-
-        def reconcile(self, task, attempt):
-            return None
 
     clock = FakeClock(0)
     svc = _service(tmp_path, BoomExecutor(), clock)
@@ -424,7 +475,7 @@ def test_executor_exception_is_contained_as_unknown(tmp_path):
     clock.t = 0
     assert svc.tick() is True                      # did not raise; dispatch happened
     task = svc.store.get_task(tid)
-    assert task["unresolved_attempt_id"] is not None      # blocked (unknown)
+    assert task["unresolved_attempt_id"] is None          # unknown does not block
     assert task["latest_result_category"] == D.RESULT_UNKNOWN
     entry = svc.get_logs(None, None)[1]["entries"][0]
     assert entry["reason"].startswith("executor_exception")
@@ -471,153 +522,4 @@ def test_post_start_at_target_completes_instead_of_borrowing(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Reconciliation prove pass driven by tick (§5.3)
 # ---------------------------------------------------------------------------
-class ReconcilingExecutor(PaperBorrowExecutor):
-    """PaperBorrowExecutor plus a scripted list of reconcile outcomes."""
-
-    def __init__(self, results, reconcile_outcomes=None):
-        super().__init__(results)
-        self._reconcile = list(reconcile_outcomes or [])
-        self._rindex = 0
-        self.reconcile_calls = 0
-
-    def reconcile(self, task, attempt):
-        self.reconcile_calls += 1
-        if not self._reconcile:
-            return None
-        outcome = self._reconcile[min(self._rindex, len(self._reconcile) - 1)]
-        self._rindex += 1
-        return outcome
-
-
-def test_reconciliation_pass_via_tick_proves_success(tmp_path):
-    # §5.3: a blocked unknown attempt is proven by a later tick's reconcile pass;
-    # before its first due read (+5s) the pass does nothing.
-    clock = FakeClock(0)
-    exe = ReconcilingExecutor([unknown()], [ReconcileOutcome(matched=True, tran_id="777")])
-    svc = _service(tmp_path, exe, clock)
-    svc.put_settings({"interval_seconds": "2"})
-    tid = _create(svc, "BTC", target=2)
-    clock.t = 0
-    svc.tick()                                     # dispatch -> unknown -> blocked
-    task = svc.store.get_task(tid)
-    assert task["latest_result_category"] == D.RESULT_UNKNOWN
-    assert task["unresolved_attempt_id"] is not None
-
-    clock.t = 4_000_000                            # before the +5s read -> not due
-    svc.tick()
-    assert exe.reconcile_calls == 0
-
-    clock.t = 5_000_000                            # first read due -> unique match proves it
-    svc.tick()
-    assert exe.reconcile_calls == 1
-    task = svc.store.get_task(tid)
-    assert task["success_count"] == 1
-    assert task["status"] == D.STATUS_BORROWING    # 1 < target 2
-    assert task["unresolved_attempt_id"] is None   # unblocked
-    entry = svc.get_logs(None, None)[1]["entries"][0]
-    assert entry["reason"] == D.REASON_RECONCILED_UNIQUE_TXID_MATCH
-    svc.close()
-
-
-def test_restart_orphan_reconciles_via_tick_with_no_second_post(tmp_path):
-    # F3 / ADR-006: a crash-orphaned pending attempt (dispatched, the process died
-    # before resolve) is recovered at startup into the bounded reconciliation
-    # schedule. A later tick's _reconcile_pass proves a unique match and credits
-    # success WITHOUT a second executor.execute (POST): the orphan never re-enters
-    # dispatch because the unresolved marker blocks eligibility.
-    clock = FakeClock(0)
-    exe1 = ReconcilingExecutor([])
-    svc1 = _service(tmp_path, exe1, clock)
-    svc1.put_settings({"interval_seconds": "2"})
-    tid = _create(svc1, "BTC", target=2)
-    # Simulate a crash mid-flight: a pending attempt committed, resolve never ran.
-    svc1.store.insert_pending_attempt(tid, "BTC", "1", NOW_US, NOW_US + 1, tid)
-    svc1.close()
-    assert exe1.calls == []                       # we inserted directly — no execute ran
-
-    # Restart: store recovery transitions the orphan to a response-less unknown in
-    # the reconciliation schedule (real recovery clock). Align the fake clock to
-    # that schedule so the next tick's _reconcile_pass (injected wall clock) sees
-    # the orphan due.
-    exe2 = ReconcilingExecutor([], [ReconcileOutcome(matched=True, tran_id="4242")])
-    svc2 = _service(tmp_path, exe2, clock)
-    att_id = svc2.store.get_task(tid)["unresolved_attempt_id"]
-    clock.t = svc2.store.get_attempt(att_id)["reconcile_next_at_us"]
-    svc2.tick()
-    # Zero second POST: reconciled via a loan-record GET, never re-dispatched.
-    assert exe2.calls == []
-    assert exe2.reconcile_calls == 1
-    task = svc2.store.get_task(tid)
-    assert task["success_count"] == 1
-    assert task["status"] == D.STATUS_BORROWING    # 1 < target 2
-    assert task["unresolved_attempt_id"] is None   # unblocked
-    svc2.close()
-
-
-def test_reconciliation_does_not_credit_when_another_task_competes(tmp_path):
-    # §5.3 / risk §11: two tasks with the same asset + exact Decimal amount, both
-    # blocked on unknown. A reconciliation envelope with one CONFIRMED row must
-    # NOT be auto-credited while the other task remains an unresolved competitor.
-    clock = FakeClock(0)
-    exe = ReconcilingExecutor(
-        [unknown(), unknown()],
-        [ReconcileOutcome(matched=True, tran_id="4242")],
-    )
-    svc = _service(tmp_path, exe, clock)
-    svc.put_settings({"interval_seconds": "2"})
-    a = _create(svc, "BTC")  # amount "1"
-    b = _create(svc, "BTC")  # amount "1" — same asset + amount, different task id
-    clock.t = 0
-    svc.tick()                # A -> unknown -> blocked
-    clock.t = 2_000_000
-    svc.tick()                # B -> unknown -> blocked
-    assert svc.store.get_task(a)["unresolved_attempt_id"] is not None
-    assert svc.store.get_task(b)["unresolved_attempt_id"] is not None
-
-    clock.t = 5_000_000       # A's first read due; executor says matched=4242
-    svc.tick()
-    assert exe.reconcile_calls == 1
-    # Ambiguous attribution: B is an unresolved same-asset/amount competitor, so
-    # the single history row is not uniquely A's. A is NOT credited.
-    assert svc.store.get_task(a)["success_count"] == 0
-    assert svc.store.get_task(a)["unresolved_attempt_id"] is not None
-    svc.close()
-
-
-def test_reconciliation_get_418_persists_rearm_until_manual_start(tmp_path):
-    # §5.1: a reconciliation GET that observes a 418 persists requires_rearm;
-    # execution does not auto-resume after the 300s local cooldown — only a
-    # manual Start after expiry re-arms.
-    clock = FakeClock(0)
-    exe = ReconcilingExecutor(
-        [unknown()],
-        [ReconcileOutcome(matched=False, rate_limited=True, requires_rearm=True,
-                          retry_after_seconds=Decimal("300"))],
-    )
-    svc = _service(tmp_path, exe, clock)
-    svc.put_settings({"interval_seconds": "2"})
-    a = _create(svc, "BTC")
-    clock.t = 0
-    svc.tick()                # A -> unknown -> blocked
-    clock.t = 5_000_000
-    svc.tick()                # reconcile GET -> 418 -> rearm + cooldown persisted
-    assert exe.reconcile_calls == 1
-    settings = svc.store.get_settings()
-    assert settings["requires_rearm"] == 1
-    assert settings["global_cooldown_until_us"] is not None
-
-    # Past the 300s local cooldown: still armed (no auto-resume), and the
-    # reconcile pass stays skipped while requires_rearm is set.
-    clock.t = 5_000_000 + 301 * 1_000_000
-    exe._reconcile = [ReconcileOutcome(matched=True, tran_id="4242")]
-    svc.tick()
-    assert svc.store.get_task(a)["success_count"] == 0   # not credited
-    assert svc.store.get_settings()["requires_rearm"] == 1
-
-    # Manual Start after the local cooldown is the single re-arm exit.
-    svc.post_execution_start()
-    assert svc.store.get_settings()["requires_rearm"] == 0
-    assert svc.store.get_settings()["global_cooldown_until_us"] is None
-    svc.close()
