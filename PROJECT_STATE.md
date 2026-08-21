@@ -233,6 +233,32 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Live Risks
 
+- `[OPEN][UI-GAP][2026-08-20]` **被崩溃孤儿卡住的借币任务在界面上没有任何提示，反而显示上一次的失败原因。**
+  事实：`COTI`（attempt `542383`，发出 `2026-08-20 15:35:21 CST`）与 `HOME`（attempt `330073`，
+  发出 `2026-08-16 21:11:44 CST`）两个任务的 `unresolved_attempt_id` 指向
+  `reason=crash_orphan_responseless` 的孤儿尝试，`reconcile_step=5`、`reconcile_exhausted=1`
+  —— 自动对账已耗尽，后端按 ADR-006 fail-closed 永久阻塞其调度（正确行为，防重复借币）。
+  但两卡在页面上仍显示 `borrowing` + 「可贷资产不足，请稍后再试」（`known_rejection:51061`），
+  没有「待对账·暂停调度」徽标，看不出已停摆；`HOME` 至 `2026-08-20` 已静默卡住 4 天。
+  根因两环：① 孤儿恢复只写阻塞标记，**不更新 `borrow_task.latest_result_*` 冗余列**，故
+  `latest_result` 停留在孤儿之前那次尝试（`HOME` 停在 attempt `330025`，`finished_at`
+  `21:11:40` 对得上，孤儿本身完成于 `21:11:52`）；② 前端徽标判据
+  （`frontend/index.html` `renderBorrowTaskCard`）是 `hasUnresolved && latestCat === 'unknown'`，
+  第二个条件读到 `known_rejection` 即为假。该 `&& 'unknown'` 是早先为压掉在途 pending 标记
+  每 tick 闪烁而加的过滤，把真孤儿一并滤掉了。
+  影响：任务静默停摆且**提示是误导性的**（看起来在正常重试）。仅展示层，不影响资金安全——
+  后端阻塞本身正确，不会重复下单。
+  修法（未实施，Human 2026-08-20 决定先做曲线）：后端 `task_to_doc` 增 `reconcile_blocked`
+  布尔字段，判据复用 `store.count_pending_orphan_attempts()` 那条 SQL 的条件
+  （`outcome='pending'` 属在途不算，`reason='crash_orphan_responseless'` 或
+  `result_category='unknown'` 命中）；前端判据改读该字段。约后端 20 行 + 前端 1 行 + 测试 3 条，
+  需重启后端。**不要**改成「有标记就报警」：在途窗口 100–400ms、前端 60s 轮询，撞上概率约
+  0.5%，一次假警报即毁掉该徽标可信度。
+  临时口径：怀疑借币任务停摆时，直接查库
+  `SELECT t.asset, a.reason FROM borrow_task t JOIN borrow_attempt a ON a.id=t.unresolved_attempt_id
+  WHERE a.reason='crash_orphan_responseless';`。解开需人工到币安确认该笔是否已借成，
+  再删除任务重建（代码给的唯一出口）。重开条件：修复上线，或再次出现新的孤儿阻塞。
+
 - `[OPEN][ACCEPTED][REVIEW-2][2026-08-13]` **建卡预检从未成功的 live 平滑任务仍可能按默认值发单（F-A）。**
   事实：缓存未命中/超龄且实时补读失败时，smooth 仍会 `201 paused` 建卡，固化
   `q_common=NULL`、`preflight_snapshot.available=false`；Human Start 后，timeout 或「成交1次」可绕过
