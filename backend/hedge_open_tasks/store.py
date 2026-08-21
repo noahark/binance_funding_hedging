@@ -2580,14 +2580,106 @@ class HedgeOpenStore:
             fee_rows.append(d)
         return FF.usdt_fee_total(fee_rows)
 
-    def list_close_logs(self, limit: int = 100) -> list[dict]:
-        """结算日志，按 closed_at_us 倒序（历史仓位页数据源）。只读。"""
+    def list_open_cycle_fill_pairs(self) -> list[dict]:
+        """**未平仓**周期的成交批次两腿配对，供收益曲线算在持仓的开/平滑点。只读。
+
+        为什么需要它：滑点要的是「单次成交事件里两条腿的价差」。已平仓周期在关闭
+        时把这些数写进 ``hedge_open_cycle_close_log``；在持仓周期那张表还没写，而
+        持仓聚合（``aggregate_positions``）只有跨批次加权均价与剩余净持仓——两条腿
+        数量都可能不同（实测 TSTUSDT 现货 7000 / 合约 6500），相减不对应任何真实
+        事件。逐笔配对是唯一能还原真实价差的路径。
+
+        按 ``attempt`` 配对（同一 attempt 即同一次两腿下单），周期归属走
+        ``hedge_open_attempt.cycle_id``——与 ``_cycle_trading_fee_total`` 同一口径，
+        不用 symbol+时间猜。均价一律 ``cumulative_quote_amt / cumulative_base_qty``
+        现算：现货腿的 ``avg_price`` 列在本地账本里是空的。
+
+        每条返回 ``{cycle_id, direction, kind, spot_avg, perp_avg, qty, at_ms,
+        incomplete}``；两腿缺一（单腿批次）、成交额缺失或数量非正 →
+        ``incomplete=True``，由调用方计数，绝不当 0。
+        """
         with self._lock:
             rows = self._conn.execute(
-                "SELECT * FROM hedge_open_cycle_close_log"
-                " ORDER BY closed_at_us DESC, id DESC LIMIT ?",
-                (limit,),
+                "SELECT a.id AS attempt_id, a.cycle_id, t.direction, t.task_type,"
+                " l.leg, l.cumulative_base_qty AS base, l.cumulative_quote_amt AS quote,"
+                " l.dispatched_at_us"
+                " FROM hedge_open_leg l"
+                " JOIN hedge_open_attempt a ON a.id = l.attempt_id"
+                " JOIN hedge_open_task t ON t.id = a.task_id"
+                " JOIN hedge_open_cycle c ON c.id = a.cycle_id"
+                " WHERE c.closed_at_us IS NULL AND l.terminal = 1"
+                " ORDER BY a.id, l.leg",
             ).fetchall()
+        grouped: dict = {}
+        for r in rows:
+            d = dict(r)
+            key = d["attempt_id"]
+            slot = grouped.setdefault(key, {
+                "cycle_id": d["cycle_id"], "direction": d["direction"],
+                "kind": "close" if d["task_type"] == "close" else "open",
+                "at_ms": None if d["dispatched_at_us"] is None
+                         else int(d["dispatched_at_us"]) // 1000,
+            })
+            slot[d["leg"]] = d
+        out = []
+        for attempt_id, g in grouped.items():
+            spot, perp = g.get("spot"), g.get("perp")
+            avg = self._fill_avg
+            spot_avg = avg(spot) if spot else None
+            perp_avg = avg(perp) if perp else None
+            qty = self._fill_min_qty(spot, perp)
+            out.append({
+                "attempt_id": attempt_id,
+                "cycle_id": g["cycle_id"], "direction": g["direction"],
+                "kind": g["kind"], "at_ms": g["at_ms"],
+                "spot_avg": spot_avg, "perp_avg": perp_avg, "qty": qty,
+                # 单腿批次（一条腿被拒）没有价差可言——不是 0，是不可算
+                "incomplete": spot_avg is None or perp_avg is None or qty is None,
+            })
+        out.sort(key=lambda x: (x["at_ms"] or 0, x["attempt_id"]))
+        return out
+
+    @staticmethod
+    def _fill_avg(leg: dict | None) -> str | None:
+        """成交均价 = 成交额 / 成交量；任一缺失或非正 → None（不可算，不当 0）。"""
+        if not leg:
+            return None
+        try:
+            base = Decimal(str(leg.get("base") or 0))
+            quote = Decimal(str(leg.get("quote") or 0))
+        except (InvalidOperation, ValueError):
+            return None
+        if base <= 0 or quote <= 0:
+            return None
+        return str(quote / base)
+
+    @staticmethod
+    def _fill_min_qty(spot: dict | None, perp: dict | None) -> str | None:
+        """配对数量取两腿较小者：多出的部分没有对手腿，不构成两腿价差。"""
+        if not spot or not perp:
+            return None
+        try:
+            sb = Decimal(str(spot.get("base") or 0))
+            pb = Decimal(str(perp.get("base") or 0))
+        except (InvalidOperation, ValueError):
+            return None
+        smaller = min(sb, pb)
+        return str(smaller) if smaller > 0 else None
+
+    def list_close_logs(self, limit: int | None = 100) -> list[dict]:
+        """结算日志，按 closed_at_us 倒序（历史仓位页数据源）。只读。
+
+        ``limit=None`` 取全量：收益曲线要对**所有**已平仓周期求滑点合计，用历史页
+        的分页上限会在周期数超过它之后悄悄丢掉最早那些周期的开+平滑点，而其资金费
+        / 手续费 / 利息仍在账本里——净收益就会偏高且无从察觉。
+        """
+        sql = "SELECT * FROM hedge_open_cycle_close_log ORDER BY closed_at_us DESC, id DESC"
+        params: tuple = ()
+        if limit is not None:
+            sql += " LIMIT ?"
+            params = (limit,)
+        with self._lock:
+            rows = self._conn.execute(sql, params).fetchall()
             return [dict(r) for r in rows]
 
     def list_logs_for_task_kind(self, task_id: str, kind: str) -> list[dict]:

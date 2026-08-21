@@ -298,3 +298,243 @@ def test_dedup_capital_rows_by_id_keeps_multi_type_same_tranid():
     ]
     out = D.dedup_capital_rows(rows)
     assert [r["id"] for r in out] == ["601", "602"]  # dup dropped, both types kept
+
+
+# --------------------------------------------------------------------------- #
+# 资金费率收益曲线（2026-08-20）
+# --------------------------------------------------------------------------- #
+HOUR = 3_600_000
+_T0 = 1_000 * HOUR
+
+
+def _series(**over):
+    """默认一份四类流水俱全的最小输入；用关键字覆盖单项。"""
+    args = dict(
+        interest_rows=[{"accrued_at_ms": _T0, "asset": "WLD", "interest": "0.5"}],
+        income_rows=[
+            {"time_ms": _T0, "income_type": "FUNDING_FEE", "asset": "USDT", "income": "3"},
+            {"time_ms": _T0, "income_type": "COMMISSION", "asset": "USDT", "income": "-0.4"},
+            {"time_ms": _T0, "income_type": "REALIZED_PNL", "asset": "USDT", "income": "-26"},
+        ],
+        capital_rows=[{"time_ms": _T0, "flow_type": "TRADING_COMMISSION",
+                       "asset": "BNB", "amount": "-0.001"}],
+        close_logs=[],
+        price_map={"WLDUSDT": "2", "BNBUSDT": "600"},
+        start_ms=0, end_ms=_T0 + HOUR, bucket_ms=HOUR,
+    )
+    args.update(over)
+    return D.build_pnl_series(**args)
+
+
+def test_pnl_series_costs_are_negative_and_net_is_their_sum():
+    out = _series()
+    t = out["totals"]
+    assert t["funding"] == "3"
+    assert Decimal(t["fees"]) == Decimal("-1.0")      # -0.4 USDT + (-0.001 BNB × 600)
+    assert Decimal(t["interest"]) == Decimal("-1.0")  # 0.5 WLD × 2，账本正数取负
+    # 净收益就是四项直接相加，不做二次符号翻转
+    assert Decimal(t["net"]) == sum(
+        Decimal(t[k]) for k in ("funding", "fees", "interest", "slippage"))
+    assert Decimal(t["net"]) == Decimal("1.0")
+
+
+def test_pnl_series_realized_pnl_excluded_from_net():
+    """REALIZED_PNL 由现货腿反向盈亏抵消，绝不能混进净收益。"""
+    with_realized = _series()
+    without = _series(income_rows=[
+        {"time_ms": _T0, "income_type": "FUNDING_FEE", "asset": "USDT", "income": "3"},
+        {"time_ms": _T0, "income_type": "COMMISSION", "asset": "USDT", "income": "-0.4"},
+    ])
+    assert with_realized["totals"]["net"] == without["totals"]["net"]
+
+
+def test_pnl_series_unpriced_asset_is_skipped_not_zeroed():
+    """缺价资产必须登记并跳过——当 0 处理会把成本凭空抹掉。"""
+    out = _series(price_map={"BNBUSDT": "600"})       # WLD 无价
+    assert out["unpriced_assets"] == ["WLD"]
+    assert Decimal(out["totals"]["interest"]) == Decimal("0")
+    assert Decimal(out["totals"]["net"]) == Decimal("2.0")   # 少了 1.0 的利息成本
+
+
+def test_pnl_series_starts_at_an_explicit_zero_point():
+    """无零起点时「区间累计 = 末值 − 首值」会把首桶增量当成期初存量扣掉。"""
+    out = _series()
+    first = out["points"][0]
+    assert first[0] == out["points"][1][0] - HOUR
+    assert [Decimal(v) for v in first[1:6]] == [Decimal(0)] * 5
+
+
+def test_pnl_series_marks_points_before_spot_flow_as_partial():
+    """现货流水入库前缺现货手续费与滑点两项，净收益偏高，必须标出来。"""
+    out = _series(
+        interest_rows=[{"accrued_at_ms": _T0 - HOUR, "asset": "WLD", "interest": "0.5"}],
+        capital_rows=[{"time_ms": _T0, "flow_type": "TRADING_COMMISSION",
+                       "asset": "BNB", "amount": "-0.001"}],
+        # 出点节拍是「有资金费结算的小时」，两个待查时刻各补一笔
+        income_rows=[{"time_ms": _T0 - HOUR, "income_type": "FUNDING_FEE", "asset": "USDT", "income": "0"}, {"time_ms": _T0, "income_type": "FUNDING_FEE", "asset": "USDT", "income": "0"}],
+    )
+    assert out["spot_flow_start_ms"] == _T0
+    by_t = {p[0]: p[6] for p in out["points"]}
+    assert by_t[_T0 - HOUR] == 1     # 现货流水之前
+    assert by_t[_T0] == 0            # 起点之后
+
+
+@pytest.mark.parametrize("direction,kind,spot,perp,expected", [
+    # 与前端 computeHedgeSlippagePnl 的四个分支逐一对齐（卖出腿 − 买入腿）
+    ("forward", "open", "10", "11", "10"),    # 卖合约买现货
+    ("reverse", "open", "11", "10", "10"),    # 卖现货买合约
+    ("forward", "close", "11", "10", "10"),   # 平：卖现货买合约
+    ("reverse", "close", "10", "11", "10"),   # 平：卖合约买现货
+])
+def test_slippage_pnl_matches_frontend_branches(direction, kind, spot, perp, expected):
+    got = D.slippage_pnl(direction, kind, spot, perp, "10")
+    assert got == Decimal(expected)
+
+
+@pytest.mark.parametrize("spot,perp,qty", [
+    (None, "10", "1"), ("10", None, "1"), ("10", "10", None),
+    ("0", "10", "1"), ("10", "10", "0"), ("-1", "10", "1"), ("abc", "10", "1"),
+])
+def test_slippage_pnl_missing_or_nonpositive_is_none_not_zero(spot, perp, qty):
+    assert D.slippage_pnl("forward", "open", spot, perp, qty) is None
+
+
+def test_pnl_series_slippage_lands_on_open_and_close_instants():
+    """开单滑点归开仓时刻、平单滑点归平仓时刻——两者可能落在不同的桶。"""
+    out = _series(
+        interest_rows=[], capital_rows=[],
+        income_rows=[{"time_ms": _T0, "income_type": "FUNDING_FEE", "asset": "USDT", "income": "0"}, {"time_ms": _T0 + HOUR, "income_type": "FUNDING_FEE", "asset": "USDT", "income": "0"}],   # 两个待查时刻各补一笔结算才会出点
+        close_logs=[{"direction": "forward",
+                     "spot_open_avg": "10", "open_avg_price": "11", "open_qty": "10",
+                     "spot_close_avg": "11", "close_avg_price": "10", "spot_close_qty": "10",
+                     "opened_at_us": _T0 * 1000, "closed_at_us": (_T0 + HOUR) * 1000}],
+    )
+    by_t = {p[0]: p for p in out["points"]}
+    assert Decimal(by_t[_T0][4]) == Decimal("10")            # 开单 +10
+    assert Decimal(by_t[_T0 + HOUR][4]) == Decimal("20")     # 累计到平单 +10
+
+
+# --- 未平仓周期的开仓滑点（评审 2026-08-20 必改项）---------------------------- #
+def _open_fill(**over):
+    """在持仓周期的一个成交批次（两腿已配对）。"""
+    base = {"direction": "forward", "kind": "open", "spot_avg": "10", "perp_avg": "11",
+            "qty": "10", "at_ms": _T0, "incomplete": False}
+    base.update(over)
+    return base
+
+
+def test_pnl_series_counts_open_cycle_fill_slippage():
+    """持仓期间资金费/手续费/利息已进另外三条线，开/平滑点同样要算——当下收益正来自这些持仓。"""
+    without = _series(close_logs=[], open_cycle_fills=[])
+    with_open = _series(close_logs=[], open_cycle_fills=[_open_fill()])
+    assert Decimal(without["totals"]["slippage"]) == Decimal("0")
+    assert Decimal(with_open["totals"]["slippage"]) == Decimal("10")   # (11−10)×10
+    # 净收益随之下移同样的量，不能只动滑点列
+    assert (Decimal(with_open["totals"]["net"]) - Decimal(without["totals"]["net"])
+            == Decimal("10"))
+
+
+def test_pnl_series_open_cycle_fill_slippage_lands_on_fill_instant():
+    out = _series(close_logs=[], open_cycle_fills=[_open_fill(at_ms=_T0 - HOUR)],
+                  income_rows=[{"time_ms": _T0 - HOUR, "income_type": "FUNDING_FEE", "asset": "USDT", "income": "0"}])   # 待查时刻补一笔结算才会出点
+    by_t = {p[0]: p for p in out["points"]}
+    assert Decimal(by_t[_T0 - HOUR][4]) == Decimal("10")   # 归到开仓那一桶
+
+
+@pytest.mark.parametrize("bad", [
+    {"incomplete": True},              # 均价不全（spot/perp avg incomplete）
+    {"spot_avg": None},                # 缺价
+    {"qty": "0"},                      # 数量非正
+    {"at_ms": None},            # 缺开仓时刻
+])
+def test_pnl_series_unusable_open_cycle_fill_is_flagged_not_zeroed(bad):
+    """算不出就登记 slippage_incomplete_count，绝不当 0——当 0 会把成本抹掉。"""
+    out = _series(close_logs=[], open_cycle_fills=[_open_fill(**bad)])
+    assert out["slippage_incomplete_count"] == 1
+    assert Decimal(out["totals"]["slippage"]) == Decimal("0")
+
+
+def test_pnl_series_open_cycle_fills_absent_keeps_counter_zero():
+    out = _series(close_logs=[], open_cycle_fills=[])
+    assert out["slippage_incomplete_count"] == 0
+
+
+def test_pnl_series_keeps_bucket_overlapping_unaligned_window_start():
+    """窗口起点不落在桶边界时，首个桶不得整桶丢弃（评审 2026-08-20）。"""
+    out = D.build_pnl_series(
+        interest_rows=[], capital_rows=[], close_logs=[], open_cycle_fills=[],
+        income_rows=[{"time_ms": _T0 + 30 * 60_000, "income_type": "FUNDING_FEE",
+                      "asset": "USDT", "income": "7"}],
+        price_map={}, start_ms=_T0 + 15 * 60_000, end_ms=_T0 + 45 * 60_000,
+        bucket_ms=HOUR)
+    assert out["points"], "落在未对齐首桶内的流水被整桶丢掉了"
+    assert Decimal(out["totals"]["funding"]) == Decimal("7")
+
+
+def test_pnl_series_ignores_slippage_events_outside_window():
+    """close-log 是全量传入（不按时间窗读），窗口外的腿绝不能被算进来。"""
+    logs = [{"direction": "forward", "spot_open_avg": "10", "open_avg_price": "11",
+             "open_qty": "10", "spot_close_avg": "11", "close_avg_price": "10",
+             "spot_close_qty": "10",
+             "opened_at_us": (_T0 + 5 * 60_000) * 1000,      # 窗口前
+             "closed_at_us": (_T0 + 50 * 60_000) * 1000}]    # 窗口后
+    out = _series(interest_rows=[], income_rows=[],
+                  capital_rows=[{"time_ms": _T0 + 30 * 60_000, "flow_type": "TRADING_COMMISSION",
+                                 "asset": "USDT", "amount": "-1"}],
+                  close_logs=logs, open_cycle_fills=[],
+                  start_ms=_T0 + 15 * 60_000, end_ms=_T0 + 45 * 60_000)
+    assert Decimal(out["totals"]["slippage"]) == Decimal("0")
+    # 窗口外的腿不算「算不出」——它只是不属于这个区间
+    assert out["slippage_incomplete_count"] == 0
+
+
+def test_pnl_series_flags_close_log_leg_with_missing_fields():
+    """close-log 的价格/数量列允许 NULL：算不出必须留痕，不能静默少计。"""
+    logs = [{"direction": "forward", "spot_open_avg": None, "open_avg_price": "11",
+             "open_qty": "10", "spot_close_avg": "11", "close_avg_price": "10",
+             "spot_close_qty": "10",
+             "opened_at_us": _T0 * 1000, "closed_at_us": _T0 * 1000}]
+    out = _series(close_logs=logs, open_cycle_fills=[])
+    assert out["slippage_incomplete_count"] == 1          # 开仓腿缺现货均价
+    assert Decimal(out["totals"]["slippage"]) == Decimal("10")   # 平仓腿仍计入
+
+
+def test_pnl_series_ignores_open_cycle_fill_outside_window():
+    """窗口外的在持仓批次：既不计入滑点，也不算「算不出」（评审第三轮）。"""
+    out = _series(close_logs=[], open_cycle_fills=[
+        _open_fill(at_ms=_T0 - 5 * HOUR),                    # 窗口外、可算
+        _open_fill(at_ms=_T0 - 5 * HOUR, incomplete=True),   # 窗口外、算不出
+    ], start_ms=_T0 - HOUR, end_ms=_T0 + HOUR)
+    assert Decimal(out["totals"]["slippage"]) == Decimal("0")
+    assert out["slippage_incomplete_count"] == 0
+
+
+def test_pnl_series_close_fill_of_open_cycle_uses_close_branch():
+    """在持仓周期上的部分平仓也要算，且走 close 分支（买卖腿与开仓相反）。"""
+    opened = _series(close_logs=[], open_cycle_fills=[_open_fill(kind="open")])
+    closed = _series(close_logs=[], open_cycle_fills=[_open_fill(kind="close")])
+    # forward: open 卖合约(11)买现货(10)=+10；close 卖现货(10)买合约(11)=-10
+    assert Decimal(opened["totals"]["slippage"]) == Decimal("10")
+    assert Decimal(closed["totals"]["slippage"]) == Decimal("-10")
+
+
+def test_pnl_series_emits_only_on_funding_settlement_hours():
+    """出点节拍 = 有资金费结算的小时（Human 2026-08-20）。两次结算之间的成本
+    不丢，累积到下一个结算点；末桶始终保留，否则末值不含最后一段成本。"""
+    out = _series(
+        income_rows=[
+            {"time_ms": _T0, "income_type": "FUNDING_FEE", "asset": "USDT", "income": "1"},
+            {"time_ms": _T0 + 4 * HOUR, "income_type": "FUNDING_FEE", "asset": "USDT", "income": "1"},
+        ],
+        # 中间那两个小时只有利息，不该单独出点，但金额必须累积进下一个结算点
+        interest_rows=[{"accrued_at_ms": _T0 + HOUR, "asset": "WLD", "interest": "0.5"},
+                       {"accrued_at_ms": _T0 + 2 * HOUR, "asset": "WLD", "interest": "0.5"}],
+        capital_rows=[], close_logs=[], open_cycle_fills=[],
+        start_ms=0, end_ms=_T0 + 10 * HOUR)
+    ts = [p[0] for p in out["points"]]
+    assert _T0 + HOUR not in ts and _T0 + 2 * HOUR not in ts, "无结算的小时不该出点"
+    assert _T0 in ts and _T0 + 4 * HOUR in ts
+    # 两笔利息（0.5 WLD × 2 元 = 1 U 各）累积到第二个结算点
+    by_t = {p[0]: p for p in out["points"]}
+    assert Decimal(by_t[_T0 + 4 * HOUR][3]) == Decimal("-2")
+    assert Decimal(out["totals"]["interest"]) == Decimal("-2")

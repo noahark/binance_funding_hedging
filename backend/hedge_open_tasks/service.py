@@ -1074,9 +1074,16 @@ class HedgeOpenTaskService:
         tasks = [self._doc(t) for t in self._store.list_tasks(status_filter)]
         return 200, {"tasks": tasks}
 
-    def get_close_logs(self) -> tuple[int, dict]:
-        """功能三 ③a：周期结算日志（按 closed_at 倒序），历史仓位页数据源。只读。"""
-        return 200, {"logs": self._store.list_close_logs()}
+    def get_open_cycle_fill_pairs(self) -> tuple[int, dict]:
+        """未平仓周期的成交批次两腿配对（收益曲线算在持仓开/平滑点用）。只读。"""
+        return 200, {"fills": self._store.list_open_cycle_fill_pairs()}
+
+    def get_close_logs(self, limit: int | None = 100) -> tuple[int, dict]:
+        """功能三 ③a：周期结算日志（按 closed_at 倒序），历史仓位页数据源。只读。
+
+        ``limit=None`` 取全量，供收益曲线求全期滑点合计（见 store.list_close_logs）。
+        """
+        return 200, {"logs": self._store.list_close_logs(limit)}
 
     def _get_task_or_404(self, task_id: str) -> dict:
         task = self._store.get_task(task_id)

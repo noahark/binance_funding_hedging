@@ -445,3 +445,209 @@ def validate_window(start_ms: int, end_ms: int) -> Tuple[int, int]:
     if start_ms >= end_ms:
         raise WindowValidationError(f"start_ms ({start_ms}) must be < end_ms ({end_ms})")
     return start_ms, end_ms
+
+
+# --------------------------------------------------------------------------- #
+# 资金费率收益曲线（2026-08-20）：四条构成 + 合成净收益的累计时间序列
+# --------------------------------------------------------------------------- #
+# 口径与持仓级 net_pnl（server.py `_hedge_open_positions`）一致：
+#   净收益 = 资金费 − 手续费 − 借币利息 − 开平滑点
+# 三点约定：
+#   1. 成本在序列里一律记为**负值**，净收益 = 四条直接相加（不再做符号翻转）。
+#   2. 币本位金额（利息、BNB 手续费）按 ``price_map`` 现价折 USDT；缺价资产
+#      不计入并登记在 ``unpriced_assets``——绝不按 0 处理，那会把成本凭空抹掉。
+#   3. 合约 REALIZED_PNL 不进净收益：对冲下它由现货腿反向盈亏抵消，单列供对账。
+
+
+def _dec(value: Any) -> Optional[Decimal]:
+    """宽松解析为 Decimal；None / 空串 / 不可解析 → None（调用方按缺失处理）。"""
+    if value is None or value == "":
+        return None
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return None
+
+
+def slippage_pnl(direction: str, kind: str,
+                 spot_price: Any, perp_price: Any, qty: Any) -> Optional[Decimal]:
+    """开/平单两腿价差折 USDT。
+
+    与前端 ``computeHedgeSlippagePnl``（frontend/index.html）**逐分支等价**，
+    改动必须两处同步：卖出腿均价 − 买入腿均价，再乘该腿成交量。
+      open  + forward → (perp − spot) · qty      open  + reverse → (spot − perp) · qty
+      close + forward → (spot − perp) · qty      close + reverse → (perp − spot) · qty
+    任一价格/数量缺失或非正 → None（该腿不计入，绝不当 0）。
+    """
+    spot, perp, quantity = _dec(spot_price), _dec(perp_price), _dec(qty)
+    if spot is None or perp is None or quantity is None:
+        return None
+    if spot <= 0 or perp <= 0 or quantity <= 0:
+        return None
+    if kind == "open":
+        sell, buy = (perp, spot) if direction == "forward" else (spot, perp)
+    elif kind == "close":
+        sell, buy = (spot, perp) if direction == "forward" else (perp, spot)
+    else:
+        return None
+    return (sell - buy) * quantity
+
+
+def build_pnl_series(*, interest_rows, income_rows, capital_rows, close_logs,
+                     price_map, start_ms, end_ms, bucket_ms,
+                     open_cycle_fills=None) -> Dict[str, Any]:
+    """把四类流水折算并按 ``bucket_ms`` 聚成累计序列。纯函数，零 I/O。
+
+    返回 ``points``：``[bucket_start_ms, 资金费, 手续费, 利息, 滑点, 净收益,
+    partial]``，全部为累计值字符串（成本为负）。``partial=1`` 表示该点早于现货
+    流水入库起点——那之前现货手续费与滑点尚未入库，净收益偏高，前端须显式区分。
+
+    出点节拍是**有资金费结算的桶**（Human 2026-08-20）：没产生费率的小时不出点。
+    累加仍逐桶进行，所以两次结算之间的利息/手续费/滑点不会丢，只是累积到下一个
+    结算点一起体现——曲线画的是前缀和，末值恒等于全部之和。
+
+    ``open_cycle_fills`` 是**未平仓**周期的成交批次两腿配对
+    （``{direction, kind, spot_avg, perp_avg, qty, at_ms, incomplete}``，来自
+    ``HedgeOpenStore.list_open_cycle_fill_pairs``）。必须传：持仓期间它们的资金费/
+    手续费/利息已经进了另外三条线，滑点却锁在 close-log 里（那张表要整周期关闭才
+    写），漏掉净收益就不完整。**不要**改用持仓聚合的加权均价×剩余量——两条腿数量
+    可能不同（实测 TSTUSDT 现货 7000 / 合约 6500），乘出来的数不对应任何真实事件。
+    单腿批次（一条腿被拒）计入 ``slippage_incomplete_count``：它只驱动脚注说明，
+    **不**遮蔽净收益；遮蔽只发生在数据源读失败或缺行情价时。
+    """
+    validate_window(start_ms, end_ms)
+    unpriced: set = set()
+
+    def to_usdt(amount: Any, asset: Optional[str]) -> Optional[Decimal]:
+        """币本位 → USDT。USDT 原样；真零无需价格；其余查 price_map。"""
+        value = _dec(amount)
+        if value is None or not asset:
+            return None
+        if asset == "USDT" or value == 0:
+            return value
+        price = _dec(price_map.get(f"{asset}USDT"))
+        if price is None:
+            unpriced.add(asset)
+            return None
+        return value * price
+
+    def bucket_of(ms: int) -> int:
+        return (int(ms) // bucket_ms) * bucket_ms
+
+    funding: Dict[int, Decimal] = {}
+    fees: Dict[int, Decimal] = {}
+    interest: Dict[int, Decimal] = {}
+    slip: Dict[int, Decimal] = {}
+
+    def add(target: Dict[int, Decimal], ms: Any, value: Optional[Decimal]) -> None:
+        if value is None or ms is None:
+            return
+        # 事件时间必须落在窗口内。流水三表已由查询层按窗口取，但 close_logs /
+        # open_cycle_fills 是**全量**传进来的（按周期读，不按时间窗），只按「桶与
+        # 窗口相交」过滤挡不住桶内、窗口外的事件——那会把窗口外的滑点算进来。
+        if int(ms) < start_ms or int(ms) > end_ms:
+            return
+        key = bucket_of(ms)
+        target[key] = target.get(key, Decimal(0)) + value
+
+    with localcontext() as ctx:
+        ctx.prec = _SUM_PREC
+        for row in income_rows:
+            kind = row.get("income_type")
+            if kind == "FUNDING_FEE":
+                add(funding, row.get("time_ms"), to_usdt(row.get("income"), row.get("asset")))
+            elif kind == "COMMISSION":
+                # 上游 income 已是负数（成本），直接累加保持“成本为负”约定
+                add(fees, row.get("time_ms"), to_usdt(row.get("income"), row.get("asset")))
+        for row in capital_rows:
+            if row.get("flow_type") == "TRADING_COMMISSION":
+                add(fees, row.get("time_ms"), to_usdt(row.get("amount"), row.get("asset")))
+        for row in interest_rows:
+            # 账本把利息记为正数，成本取负
+            value = to_usdt(row.get("interest"), row.get("asset"))
+            add(interest, row.get("accrued_at_ms"), None if value is None else -value)
+
+        # 在持仓周期：逐笔配对补开/平滑点，归到各自成交时刻
+        slippage_incomplete = 0
+        for fill in (open_cycle_fills or []):
+            at_ms = fill.get("at_ms")
+            # 先判窗口：窗口外的批次不属于这个区间，既不计入也不算「算不出」，
+            # 否则脚注会为一笔根本不该出现在本区间的成交提示漏算。
+            if at_ms is not None and not (start_ms <= int(at_ms) <= end_ms):
+                continue
+            value = None if fill.get("incomplete") else slippage_pnl(
+                fill.get("direction"), fill.get("kind"),
+                fill.get("spot_avg"), fill.get("perp_avg"), fill.get("qty"))
+            if value is None or at_ms is None:
+                slippage_incomplete += 1
+                continue
+            add(slip, at_ms, value)
+
+        for log in close_logs:
+            direction = log.get("direction")
+            for kind, at_us, args in (
+                ("open", log.get("opened_at_us"),
+                 (log.get("spot_open_avg"), log.get("open_avg_price"), log.get("open_qty"))),
+                ("close", log.get("closed_at_us"),
+                 (log.get("spot_close_avg"), log.get("close_avg_price"),
+                  log.get("spot_close_qty"))),
+            ):
+                # 同上：时间可知时先判窗口，窗外直接跳过（不计入、不计数）
+                at_ms = None if at_us is None else int(at_us) // 1000
+                if at_ms is not None and not (start_ms <= at_ms <= end_ms):
+                    continue
+                value = slippage_pnl(direction, kind, *args)
+                # close-log 的价格/数量列允许 NULL：算不出就登记，绝不静默跳过——
+                # 少计一条腿的滑点会让净收益偏离且没有任何痕迹。
+                if value is None or at_ms is None:
+                    slippage_incomplete += 1
+                    continue
+                add(slip, at_ms, value)
+
+        buckets = set(funding) | set(fees) | set(interest) | set(slip)
+        # 桶键是桶起点：start_ms 未对齐到桶边界时，首个桶的起点会小于 start_ms，
+        # 用 `start_ms <= b` 会把整桶连同桶内落在窗口里的流水一起丢掉。
+        buckets = {b for b in buckets if b + bucket_ms > start_ms and b <= end_ms}
+        if not buckets:
+            return {"points": [], "bucket_ms": bucket_ms,
+                    "unpriced_assets": sorted(unpriced), "totals": None,
+                    "slippage_incomplete_count": slippage_incomplete}
+
+        lo, hi = min(buckets), max(buckets)
+        # 出点节拍 = 有资金费结算的桶；末桶总是保留，否则最后一次结算之后新增的
+        # 成本不会出现在末值与区间累计里。
+        emit = {b for b in funding if b in buckets} | {hi}
+        # 现货流水（现货手续费与滑点的来源）入库起点：早于它的净收益缺两项成本。
+        capital_times = [int(r["time_ms"]) for r in capital_rows if r.get("time_ms") is not None]
+        spot_start = min(capital_times) if capital_times else None
+
+        # 零起点：不插它，"区间累计 = 末值 − 首值" 会把首桶自身的增量当成期初存量。
+        points = [[lo - bucket_ms, "0", "0", "0", "0", "0", 1]]
+        cum = {"f": Decimal(0), "c": Decimal(0), "i": Decimal(0), "s": Decimal(0)}
+        t = lo
+        while t <= hi:
+            cum["f"] += funding.get(t, Decimal(0))
+            cum["c"] += fees.get(t, Decimal(0))
+            cum["i"] += interest.get(t, Decimal(0))
+            cum["s"] += slip.get(t, Decimal(0))
+            net = cum["f"] + cum["c"] + cum["i"] + cum["s"]
+            if t in emit:
+                points.append([
+                    t, format(cum["f"], "f"), format(cum["c"], "f"), format(cum["i"], "f"),
+                    format(cum["s"], "f"), format(net, "f"),
+                    1 if (spot_start is None or t < spot_start) else 0,
+                ])
+            t += bucket_ms
+
+        last = points[-1]
+        return {
+            "points": points,
+            "bucket_ms": bucket_ms,
+            "spot_flow_start_ms": spot_start,
+            "unpriced_assets": sorted(unpriced),
+            # 算不出的批次数（单腿等）。只驱动脚注说明，**不**遮蔽净收益——
+            # 遮蔽只发生在数据源读失败或缺行情价时，见 docstring。
+            "slippage_incomplete_count": slippage_incomplete,
+            "totals": {"funding": last[1], "fees": last[2], "interest": last[3],
+                       "slippage": last[4], "net": last[5]},
+        }

@@ -163,6 +163,14 @@ function makeElement(id) {
 }
 
 const elements = {};
+
+// 私有账户面板拆成 #private-overview-panel（八张统计卡）与 #private-panel
+// （各账户余额 / 资产互转 / 本地持仓）两块。断言按「面板整体」判定，故合并读取。
+const privateBodyHtml = () => {
+  const read = (id) => (elements[id] ? elements[id].innerHTML : '');
+  return read('private-overview-body') + read('private-panel-body');
+};
+
 const ids = [
   'app-shell', 'app-sidebar', 'sidebar-toggle',
   'market-snapshot-meta', 'data-source-label', 'public-ip-badge', 'sort-basis-badge', 'btn-refresh', 'btn-cache-refresh',
@@ -170,9 +178,15 @@ const ids = [
   'filter-search', 'filter-asset', 'filter-route', 'filter-show-perp-only', 'filter-hide-low-daily-rate',
   'filter-hide-low-net-yield', 'filter-prefer-openable',
   'summary-row', 'status-area', 'market-table-body',
-  'private-panel', 'private-pm-source-time', 'private-panel-body', 'btn-privacy', 'privacy-label', 'privacy-icon-path',
-  // 流水日志（task C + tab-layout-v2）：§13.7 冻结 id + 页内双看板
-  'btn-market-board', 'btn-flow-log', 'market-board', 'flow-log-panel', 'flow-log-status-bar', 'flow-log-coverage-note',
+  // 资金费率收益曲线（2026-08-20）
+  'pnl-curve-panel', 'pnl-curve-body', 'pnl-summary-body', 'pnl-chart', 'pnl-chart-wrap',
+  'pnl-tip', 'pnl-brush', 'pnl-brush-svg', 'pnl-brush-start', 'pnl-brush-end',
+  'pnl-window-label',
+  'pnl-legend', 'pnl-footnote', 'pnl-range-1d', 'pnl-range-3d', 'pnl-range-7d', 'pnl-range-all',
+  'private-panel', 'private-overview-panel', 'private-overview-body',
+  'private-pm-source-time', 'private-panel-body', 'btn-privacy', 'privacy-label', 'privacy-icon-path',
+  // 流水日志：§13.7 冻结 id。双看板按钮已退役，入口改为侧栏 nav-flow-log。
+  'market-board', 'flow-log-panel', 'flow-log-status-bar', 'flow-log-coverage-note',
   'flow-log-range-7d', 'flow-log-range-30d', 'flow-log-range-custom',
   'flow-log-custom-start', 'flow-log-custom-end', 'flow-log-custom-apply',
   'flow-log-refresh', 'flow-log-delta', 'flow-log-delta-interest', 'flow-log-delta-income',
@@ -200,6 +214,7 @@ const ids = [
   'hedge-modal', 'hedge-modal-backdrop', 'hedge-modal-title', 'hedge-modal-body', 'hedge-modal-close',
   'hedge-modal-confirm', 'hedge-modal-cancel', 'hedge-start-gate-toggle',
   // 历史仓位 fake 原型（2026-08 hedge-open-position-cycle-v1）：新增静态元素，须注册。
+  'nav-flow-log',
   'nav-history', 'history-view', 'history-list',
   // 资产互转 fake 预览：随私有面板重渲染的按钮与提示（局部刷新按 id 取用）。
   // transfer-asset：Q4 后 <option> 由 renderTransferAssetOptions 单独重建（可转出额
@@ -561,6 +576,36 @@ let maxWithdrawGetResponse = null;
 // 公网出口 IP（stage 2026-08-12-local-ip-display-v1）：GET /api/system/public-ip 响应槽。
 let publicIpGetResponse = null;
 // 流水日志 private-ledger mock（task C）
+let pnlSeriesGetResponse = null;
+
+// 收益曲线夹具：3 个整点 + 零起点。第 1 个点 partial=1（现货流水入库前），
+// 净收益恒等于四个分项之和——断言据此校验前端不会自行改写合成值。
+function buildMockPnlPayload(overrides) {
+  const H = 3600000;
+  const T = 1785978000000;
+  const base = {
+    schema_version: 'private-ledger-pnl/v1',
+    served_at_ms: T + 3 * H,
+    window: { start_ms: T - H, end_ms: T + 3 * H },
+    bucket_ms: H,
+    spot_flow_start_ms: T + H,
+    points: [
+      [T - H, '0', '0', '0', '0', '0', 1],
+      [T, '1', '-0.2', '-0.1', '0', '0.7', 1],
+      [T + H, '2', '-0.4', '-0.2', '-0.3', '1.1', 0],
+      [T + 2 * H, '3', '-0.6', '-0.3', '-0.4', '1.7', 0],
+    ],
+    totals: { funding: '3', fees: '-0.6', interest: '-0.3', slippage: '-0.4', net: '1.7' },
+    unpriced_assets: [],
+    close_logs_ok: true,
+    open_fills_ok: true,
+    realized_pnl: [{ income_type: 'REALIZED_PNL', asset: 'USDT', income_total: '-26.85' }],
+    coverage: { start_ms: T - H, end_ms: T + 3 * H, complete: true,
+                pending_tail_ms: 0, by_source: {}, gaps: [] },
+  };
+  return Object.assign(base, overrides || {});
+}
+
 let flowLogGetResponse = null;
 let flowLogRefreshResponse = null;
 
@@ -1068,6 +1113,11 @@ global.fetch = async (url, options) => {
       flowLogGetResponse || { status: 200, body: buildMockFlowLogPayload() }
     );
   }
+  if (urlStr.startsWith('/api/private-ledger/pnl-series') && method === 'GET') {
+    return buildFetchResponse(
+      pnlSeriesGetResponse || { status: 200, body: buildMockPnlPayload() }
+    );
+  }
   if (urlStr === '/api/private-ledger/refresh' && method === 'POST') {
     return buildFetchResponse(
       flowLogRefreshResponse || {
@@ -1140,6 +1190,11 @@ global.document = {
 
 // 运行脚本
 eval(script);
+
+// 首屏（IIFE 启动序列）发出的请求快照。页面初始化不走 setActiveView——activeView
+// 默认就是 market——所以进页分支里的加载在首屏拿不到，必须由启动序列自己发一次。
+// 后续测试会切换视图，届时 fetchCallLog 已被污染，只有在这里取才能证明首屏行为。
+const bootFetchUrls = fetchCallLog.map(c => c.url);
 
 function normalizeWhitespace(s) {
   return String(s).replace(/\s+/g, ' ').trim();
@@ -1798,7 +1853,7 @@ setTimeout(async () => {
     if (privatePanel.style.display === 'none') {
       throw new Error('verified=true 时私有面板未显示');
     }
-    const privateBody = elements['private-panel-body'].innerHTML;
+    const privateBody = privateBodyHtml();
     if (!privateBody.includes('总资产估值')) {
       throw new Error('私有面板未渲染总资产估值');
     }
@@ -1826,13 +1881,13 @@ setTimeout(async () => {
         debtFixture.private_account.balances_unified[0].total_balance = '1.5';
         debtFixture.private_account.balances_unified[0].cross_margin_borrowed_value_usdt = '25.00000000';
         helpers.ingestSnapshot(debtFixture);
-        const debtBody = elements['private-panel-body'].innerHTML;
+        const debtBody = privateBodyHtml();
         if (!debtBody.includes('borrowed-debt') || !debtBody.includes('已借:')) {
           throw new Error('已借>0 应使用 borrowed-debt 红色样式: ' + debtBody);
         }
         // 价值断言须在显示态（隐藏态为 ****，不能假阴性）
         if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
-        const shownDebtBody = elements['private-panel-body'].innerHTML;
+        const shownDebtBody = privateBodyHtml();
         const uStart = shownDebtBody.indexOf('统一账户余额');
         const sStart = shownDebtBody.indexOf('现货账户余额');
         const uSec = shownDebtBody.slice(uStart, sStart > uStart ? sStart : undefined);
@@ -1848,7 +1903,7 @@ setTimeout(async () => {
         zeroDebtFixture.private_account.balances_unified[0].cross_margin_borrowed = '0';
         zeroDebtFixture.private_account.balances_unified[0].cross_margin_borrowed_value_usdt = '0.00000000';
         helpers.ingestSnapshot(zeroDebtFixture);
-        const zeroDebtBody = elements['private-panel-body'].innerHTML;
+        const zeroDebtBody = privateBodyHtml();
         const zuStart = zeroDebtBody.indexOf('统一账户余额');
         const zsStart = zeroDebtBody.indexOf('现货账户余额');
         const zeroDebtSec = zeroDebtBody.slice(zuStart, zsStart > zuStart ? zsStart : undefined);
@@ -1879,7 +1934,7 @@ setTimeout(async () => {
       )];
       const lockedSections = (fixture) => {
         helpers.ingestSnapshot(fixture);
-        const body = elements['private-panel-body'].innerHTML;
+        const body = privateBodyHtml();
         const uStart = body.indexOf('统一账户余额');
         const sStart = body.indexOf('现货账户余额');
         const pStart = body.indexOf('对冲开单持仓');
@@ -1973,7 +2028,7 @@ setTimeout(async () => {
     if (helpers.getPrivacyHidden() !== false) {
       throw new Error('点击隐私开关后应进入显示态');
     }
-    const shownBody = elements['private-panel-body'].innerHTML;
+    const shownBody = privateBodyHtml();
     if (shownBody.includes('****')) {
       throw new Error('隐私开关显示态仍包含 **** 占位');
     }
@@ -1991,7 +2046,7 @@ setTimeout(async () => {
     if (elements['private-panel'].style.display === 'none') {
       throw new Error('verified=false disabled 时私有面板不应隐藏');
     }
-    const disabledBody = elements['private-panel-body'].innerHTML;
+    const disabledBody = privateBodyHtml();
     if (!disabledBody.includes('私有账户未读取')) {
       throw new Error('verified=false disabled 未显示占位文案');
     }
@@ -2004,7 +2059,7 @@ setTimeout(async () => {
     const errorFixture = JSON.parse(JSON.stringify(designFixture));
     errorFixture.private_account = designFixture._design_fixture_private_account_states.find(s => s._state === 'verified_false_error');
     helpers.ingestSnapshot(errorFixture);
-    const errorBody = elements['private-panel-body'].innerHTML;
+    const errorBody = privateBodyHtml();
     if (!errorBody.includes('papi_balance_failed:HTTP 401')) {
       throw new Error('verified=false error 未显示错误原因');
     }
@@ -2089,7 +2144,7 @@ setTimeout(async () => {
     if (helpers.getActiveView() === 'market' && elements['private-panel'].style.display === 'none') {
       throw new Error('费率行情页无 private_account 时仍应显示私有面板 header（双看板按钮）');
     }
-    if (elements['private-panel-body'].innerHTML.includes('总资产估值')) {
+    if (privateBodyHtml().includes('总资产估值')) {
       throw new Error('无 private_account 时 body 不应渲染账户估值');
     }
     if (elements['sort-basis-badge'].style.display !== 'none') {
@@ -2184,7 +2239,9 @@ setTimeout(async () => {
 
     // 33c. 最终 15 列（开单 fake 阶段：估算列带「率」，借币后新增两操作列）：严格表头顺序、每行 15 个 td、empty-state colspan=15、合并列结构
     const taskCHeaders = ['标的', '正向开单率', '反向开单率', '资金费率', '结算时间', '日费率', '近 24h', '年化 24h', '年化 7D', '年化 30D', '日净收益', '借贷状态 / 资产', '借币', '正向开单', '反向开单'];
-    const theadBlock = html.slice(html.indexOf('<thead>'), html.indexOf('</thead>') + 8);
+    // 复用上面按 #market-table-body 定位出的市场表 thead：页面里在它之前还有
+    // 收益曲线的汇总表，取第一个 <thead>（本行原来的做法）会抓错表。
+    const theadBlock = marketTheadHtml;
     const renderedHeaders = [...theadBlock.matchAll(/<th[^>]*>([^\u003c]*)<\/th>/g)].map(m => m[1].trim());
     if (renderedHeaders.length !== 15) {
       throw new Error(`表头数量期望 15，实际 ${renderedHeaders.length}: ${JSON.stringify(renderedHeaders)}`);
@@ -2436,7 +2493,7 @@ setTimeout(async () => {
     console.log('[PASS] 负费率状态行感知的六文案派生');
 
     // 35. 余额卡片折算：统一/现货均有持有价值 + 净价值；隐私遮蔽
-    const privateBody2 = elements['private-panel-body'].innerHTML;
+    const privateBody2 = privateBodyHtml();
     if (privateBody2.includes('【:')) {
       throw new Error('余额卡片仍残留旧的行内折算格式 【: ...】');
     }
@@ -2444,7 +2501,7 @@ setTimeout(async () => {
       throw new Error('隐藏态下折算值应被遮蔽为 ≈ **** USDT');
     }
     helpers.togglePrivacy(); // 切换到显示态
-    const shownBody2 = elements['private-panel-body'].innerHTML;
+    const shownBody2 = privateBodyHtml();
     const shownUStart = shownBody2.indexOf('统一账户余额');
     const shownSStart = shownBody2.indexOf('现货账户余额');
     const shownUnified = shownBody2.slice(shownUStart, shownSStart > shownUStart ? shownSStart : undefined);
@@ -2465,7 +2522,7 @@ setTimeout(async () => {
       throw new Error('现货净价值应与冻结行同字体样式 (locked): ' + shownSpot);
     }
     helpers.togglePrivacy(); // 恢复隐藏态
-    const hiddenBody2 = elements['private-panel-body'].innerHTML;
+    const hiddenBody2 = privateBodyHtml();
     if (!hiddenBody2.includes('≈ **** USDT')) {
       throw new Error('恢复隐藏态后折算值应再次被遮蔽');
     }
@@ -2478,7 +2535,7 @@ setTimeout(async () => {
     nullValueFixture.private_account.balances_spot[0].value_usdt = null;
     helpers.ingestSnapshot(nullValueFixture);
     if (helpers.getPrivacyHidden()) helpers.togglePrivacy(); // 确保显示态
-    const nullValueBody = elements['private-panel-body'].innerHTML;
+    const nullValueBody = privateBodyHtml();
     const unifiedSectionStart = nullValueBody.indexOf('统一账户余额');
     const spotSectionStart = nullValueBody.indexOf('现货账户余额');
     const unifiedSection = nullValueBody.slice(unifiedSectionStart, spotSectionStart);
@@ -2497,7 +2554,7 @@ setTimeout(async () => {
     }
     // 隐藏态下 null 折算值应被遮蔽为 ****
     helpers.togglePrivacy();
-    const hiddenNullBody = elements['private-panel-body'].innerHTML;
+    const hiddenNullBody = privateBodyHtml();
     if (!hiddenNullBody.includes('≈ **** USDT')) {
       throw new Error('value_usdt null 隐藏态未遮蔽折算值');
     }
@@ -2513,7 +2570,7 @@ setTimeout(async () => {
     zeroValueFixture.private_account.balances_spot[1].value_usdt = '0.00000000';
     helpers.ingestSnapshot(zeroValueFixture);
     if (helpers.getPrivacyHidden()) helpers.togglePrivacy(); // 确保显示态
-    const zeroValueBody = elements['private-panel-body'].innerHTML;
+    const zeroValueBody = privateBodyHtml();
     const zeroUStart = zeroValueBody.indexOf('统一账户余额');
     const zeroSStart = zeroValueBody.indexOf('现货账户余额');
     const zeroUnified = zeroValueBody.slice(zeroUStart, zeroSStart > zeroUStart ? zeroSStart : undefined);
@@ -2546,7 +2603,7 @@ setTimeout(async () => {
       es.push({ asset: 'ADA', free: '1', locked: '0', value_usdt: '9.99000000' }); // 非固定小额过滤
       helpers.ingestSnapshot(edgeFx);
       if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
-      const edgeBody = elements['private-panel-body'].innerHTML;
+      const edgeBody = privateBodyHtml();
       const euStart = edgeBody.indexOf('统一账户余额');
       const esStart = edgeBody.indexOf('现货账户余额');
       const edgeUnified = edgeBody.slice(euStart, esStart);
@@ -2579,7 +2636,7 @@ setTimeout(async () => {
       bu[1].cross_margin_borrowed_value_usdt = '100.00000000'; // 净 -95、持有 5
       helpers.ingestSnapshot(borrowFx);
       if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
-      const borrowBody = elements['private-panel-body'].innerHTML;
+      const borrowBody = privateBodyHtml();
       const bStart = borrowBody.indexOf('统一账户余额');
       const bEnd = borrowBody.indexOf('现货账户余额');
       const borrowUnified = borrowBody.slice(bStart, bEnd > bStart ? bEnd : undefined);
@@ -2600,7 +2657,7 @@ setTimeout(async () => {
       tu.cross_margin_borrowed = '1.9'; // 已借 > 0（计息中）
       helpers.ingestSnapshot(tinyFx);
       if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
-      const tinyBody = elements['private-panel-body'].innerHTML;
+      const tinyBody = privateBodyHtml();
       const tUnified = tinyBody.slice(tinyBody.indexOf('统一账户余额'), tinyBody.indexOf('现货账户余额'));
       if (!tUnified.includes('<div class="asset">BTC')) {
         throw new Error('小额计息借款（持有 8、净 0、已借 1.9）的统一账户资产卡应展示: ' + tUnified);
@@ -2616,14 +2673,14 @@ setTimeout(async () => {
       ru.cross_margin_borrowed = '0';
       helpers.ingestSnapshot(repayFx);
       if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
-      let repayBodyHtml = elements['private-panel-body'].innerHTML;
+      let repayBodyHtml = privateBodyHtml();
       let noRepayUnified = repayBodyHtml.slice(repayBodyHtml.indexOf('统一账户余额'), repayBodyHtml.indexOf('现货账户余额'));
       if (noRepayUnified.includes('<div class="asset">BTC</div>')) {
         throw new Error('无还款记录时净价值 5（<10）的 BTC 卡应被过滤: ' + noRepayUnified);
       }
       helpers.setMarginRepayPending('BTC', { client_request_id: 'filter-1', asset: 'BTC', amount: '0' });
       helpers.renderPrivatePanel();
-      repayBodyHtml = elements['private-panel-body'].innerHTML;
+      repayBodyHtml = privateBodyHtml();
       const repayUnified = repayBodyHtml.slice(repayBodyHtml.indexOf('统一账户余额'), repayBodyHtml.indexOf('现货账户余额'));
       if (!repayUnified.includes('<div class="asset">BTC</div>')) {
         throw new Error('有还款未决记录的 BTC 卡不应被小额过滤: ' + repayUnified);
@@ -2642,7 +2699,7 @@ setTimeout(async () => {
     amountFixture.private_account.balances_spot[0].free = '123456.07890000';
     helpers.ingestSnapshot(amountFixture);
     if (helpers.getPrivacyHidden()) helpers.togglePrivacy(); // 确保显示态
-    const amountBody = elements['private-panel-body'].innerHTML;
+    const amountBody = privateBodyHtml();
     const unifiedAmtStart = amountBody.indexOf('统一账户余额');
     const spotAmtStart = amountBody.indexOf('现货账户余额');
     const unifiedAmtSection = amountBody.slice(unifiedAmtStart, spotAmtStart);
@@ -2682,7 +2739,7 @@ setTimeout(async () => {
       u0.cross_margin_borrowed_value_usdt = '25.00000000';
       helpers.ingestSnapshot(posFx);
       if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
-      let body = elements['private-panel-body'].innerHTML;
+      let body = privateBodyHtml();
       let uSec = body.slice(body.indexOf('统一账户余额'), body.indexOf('现货账户余额'));
       if (!uSec.includes('≈ 100.00 USDT')) {
         throw new Error('正值示例统一持有价值应为 ≈ 100.00 USDT: ' + uSec);
@@ -2708,7 +2765,7 @@ setTimeout(async () => {
       const zeroNetFx = JSON.parse(JSON.stringify(posFx));
       zeroNetFx.private_account.balances_unified[0].value_usdt = '25.00000000';
       helpers.ingestSnapshot(zeroNetFx);
-      body = elements['private-panel-body'].innerHTML;
+      body = privateBodyHtml();
       uSec = body.slice(body.indexOf('统一账户余额'), body.indexOf('现货账户余额'));
       if (!uSec.includes('class="amount locked value-usdt">净价值 ≈ 0.00 USDT')) {
         throw new Error('零净价值不应使用红色样式: ' + uSec);
@@ -2721,7 +2778,7 @@ setTimeout(async () => {
       nullBFx.private_account.balances_unified[0].cross_margin_borrowed_value_usdt = null;
       helpers.ingestSnapshot(nullBFx);
       if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
-      body = elements['private-panel-body'].innerHTML;
+      body = privateBodyHtml();
       uSec = body.slice(body.indexOf('统一账户余额'), body.indexOf('现货账户余额'));
       if (!uSec.includes('净价值 ≈ — USDT')) {
         throw new Error('B=null 时净价值应为 ≈ — USDT: ' + uSec);
@@ -2737,7 +2794,7 @@ setTimeout(async () => {
       negFx.private_account.balances_unified[0].cross_margin_borrowed_value_usdt = '30.00000000';
       helpers.ingestSnapshot(negFx);
       if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
-      body = elements['private-panel-body'].innerHTML;
+      body = privateBodyHtml();
       uSec = body.slice(body.indexOf('统一账户余额'), body.indexOf('现货账户余额'));
       if (!uSec.includes('净价值 ≈ -20.00 USDT')) {
         throw new Error('负净值应保留负号 ≈ -20.00 USDT: ' + uSec);
@@ -2749,7 +2806,7 @@ setTimeout(async () => {
       // 隐私：正值场景下先切换隐藏，短路不泄露 100/25/75
       helpers.ingestSnapshot(posFx);
       if (!helpers.getPrivacyHidden()) helpers.togglePrivacy();
-      body = elements['private-panel-body'].innerHTML;
+      body = privateBodyHtml();
       uSec = body.slice(body.indexOf('统一账户余额'), body.indexOf('现货账户余额'));
       if (!uSec.includes('≈ **** USDT')) {
         throw new Error('隐私隐藏态统一价值应遮蔽为 ≈ **** USDT');
@@ -4644,8 +4701,10 @@ setTimeout(async () => {
         throw new Error('mock 列表为空时应以后端列表为准（创建返回文档被列表重拉覆盖）');
       }
       // 非法输入 → 行内报错、零 POST
-      const markBad = fetchCallLog.length;
       helpers.setActiveView('market'); // 恢复市场页后再验「失败不跳转」
+      // 进页自身会拉收益曲线序列；基准取在它之后，断言才只盯提交路径。
+      await new Promise(r => setTimeout(r, 0));
+      const markBad = fetchCallLog.length;
       document.getElementById('hedge-amount-forward-AUSDT').value = 'abc';
       const rBad = await helpers.submitHedgeOpen('AUSDT', 'forward', 'immediate');
       if (rBad.ok) throw new Error('非法币量不应创建任务');
@@ -5314,7 +5373,7 @@ setTimeout(async () => {
         throw new Error(`持仓应 GET /api/hedge-open-positions: ${JSON.stringify(posCall)}`);
       }
       helpers.renderPrivatePanel();
-      const privHtml = elements['private-panel-body'].innerHTML;
+      const privHtml = privateBodyHtml();
       for (const piece of ['对冲开单持仓', '币种', '方向', '持仓数量', '现货均价', '合约均价', '开单价差率',
         '价格未实现盈亏', '累计资金费', '净盈亏', 'AUSDT', '正向', '101.3333', '0.06']) {
         if (!privHtml.includes(piece)) throw new Error(`私有面板持仓表缺少「${piece}」`);
@@ -5355,7 +5414,7 @@ setTimeout(async () => {
       // 资金费率列（币种与方向之间）：与市场表同一数据源（snapshot.rows）与 3 位小数格式
       helpers.ingestSnapshot(designFixture);
       helpers.renderPrivatePanel();
-      const privHtmlFr = elements['private-panel-body'].innerHTML;
+      const privHtmlFr = privateBodyHtml();
       if (!privHtmlFr.includes('<th title="本周期实时预估">资金费率</th>')) {
         throw new Error('持仓表缺少「资金费率」列头（本周期实时预估）');
       }
@@ -5378,8 +5437,8 @@ setTimeout(async () => {
       ], account: { verified: true, error: null, checked_at: null } } };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      const mismatchTableHtml = elements['private-panel-body'].innerHTML.slice(
-        elements['private-panel-body'].innerHTML.indexOf('对冲开单持仓')
+      const mismatchTableHtml = privateBodyHtml().slice(
+        privateBodyHtml().indexOf('对冲开单持仓')
       );
       for (const coin of ['AUSDT', 'CUSDT']) {
         if (!getRowCell(mismatchTableHtml, coin, 0).includes(`<span class="negative">${coin}</span>`)) {
@@ -5395,7 +5454,7 @@ setTimeout(async () => {
       hedgePositionsGetResponse = { status: 200, body: { positions: [], account: { verified: true, error: null, checked_at: null } } };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      if (!elements['private-panel-body'].innerHTML.includes('暂无开单持仓')) {
+      if (!privateBodyHtml().includes('暂无开单持仓')) {
         throw new Error('空持仓应渲染空态');
       }
       console.log('[PASS] 持仓表从 GET /api/hedge-open-positions 渲染（§3.4 字段逐字）+ 空态 + 均价精度/方向色/价差率');
@@ -5425,7 +5484,7 @@ setTimeout(async () => {
       ], account: { verified: true, error: null, checked_at: null } } };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      const statsHtml = elements['private-panel-body'].innerHTML;
+      const statsHtml = privateBodyHtml();
       for (const piece of ['0.06', '0.02', '≈ 2.35 U', '-2.29', '统计区间不全', '已完全平仓', '暂无']) {
         if (!statsHtml.includes(piece)) throw new Error(`功能二持仓统计缺少「${piece}」: ` + statsHtml);
       }
@@ -5505,8 +5564,8 @@ setTimeout(async () => {
       helpers.ingestSnapshot(designFixture);
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      const feePosHtml = elements['private-panel-body'].innerHTML.slice(
-        elements['private-panel-body'].innerHTML.indexOf('对冲开单持仓'));
+      const feePosHtml = privateBodyHtml().slice(
+        privateBodyHtml().indexOf('对冲开单持仓'));
       const iBasis = feePosHtml.indexOf('开单价差率');
       const iFee = feePosHtml.indexOf('手续费成本');
       const iFund = feePosHtml.indexOf('累计资金费');
@@ -5649,7 +5708,7 @@ setTimeout(async () => {
       };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      const posHtml = elements['private-panel-body'].innerHTML;
+      const posHtml = privateBodyHtml();
 
       // 验证单元格渲染（列序号 12 为开单价差率）
       // B1: 严格断言副行自身的 class（side-line small positive/negative/muted），避免被 td 上的 class 假阳性满足
@@ -5686,7 +5745,7 @@ setTimeout(async () => {
       // 隐私模式脱敏：金额脱敏为 ****，百分比保留
       helpers.togglePrivacy();
       helpers.renderPrivatePanel();
-      const privMaskHtml = elements['private-panel-body'].innerHTML;
+      const privMaskHtml = privateBodyHtml();
       const cellFwdPMask = getRowCell(privMaskHtml, 'FWDPUSDT', 12);
       if (!cellFwdPMask.includes('+1.0000%') || !cellFwdPMask.includes('****')) {
         throw new Error('隐私模式下开单价差实际盈亏应脱敏为 ****: ' + cellFwdPMask);
@@ -5850,7 +5909,7 @@ setTimeout(async () => {
       }];
       if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
       helpers.ingestSnapshot(interestFixture);
-      const balBody = elements['private-panel-body'].innerHTML;
+      const balBody = privateBodyHtml();
       const uFrom = balBody.indexOf('统一账户余额');
       const uTo = balBody.indexOf('现货账户余额');
       const uCard = balBody.slice(uFrom, uTo > uFrom ? uTo : undefined);
@@ -5872,7 +5931,7 @@ setTimeout(async () => {
       zeroInterest.private_account.balances_unified[0].cross_margin_interest = '0';
       zeroInterest.private_account.balances_unified[0].cross_margin_interest_value_usdt = '0.00000000';
       helpers.ingestSnapshot(zeroInterest);
-      const zBody = elements['private-panel-body'].innerHTML;
+      const zBody = privateBodyHtml();
       const zFrom = zBody.indexOf('统一账户余额');
       const zTo = zBody.indexOf('现货账户余额');
       const zCard = zBody.slice(zFrom, zTo > zFrom ? zTo : undefined);
@@ -5884,7 +5943,7 @@ setTimeout(async () => {
       delete missingInterest.private_account.balances_unified[0].cross_margin_interest;
       delete missingInterest.private_account.balances_unified[0].cross_margin_interest_value_usdt;
       helpers.ingestSnapshot(missingInterest);
-      const mBody = elements['private-panel-body'].innerHTML;
+      const mBody = privateBodyHtml();
       const mFrom = mBody.indexOf('统一账户余额');
       const mTo = mBody.indexOf('现货账户余额');
       if (/(?:^|[^日])利息:/.test(mBody.slice(mFrom, mTo > mFrom ? mTo : undefined))) {
@@ -5892,7 +5951,7 @@ setTimeout(async () => {
       }
       // 净价值把未还利息也减掉（borrowed 与 interest 不重叠，实盘 SNX 已核实）
       helpers.ingestSnapshot(interestFixture);
-      const netBody = elements['private-panel-body'].innerHTML;
+      const netBody = privateBodyHtml();
       const netFrom = netBody.indexOf('统一账户余额');
       const netTo = netBody.indexOf('现货账户余额');
       const netCard = netBody.slice(netFrom, netTo > netFrom ? netTo : undefined);
@@ -5915,7 +5974,7 @@ setTimeout(async () => {
         cross_margin_interest: '0.00001', cross_margin_interest_value_usdt: '0.60000000'
       }];
       helpers.ingestSnapshot(interestOnly);
-      const ioBody = elements['private-panel-body'].innerHTML;
+      const ioBody = privateBodyHtml();
       const ioFrom = ioBody.indexOf('统一账户余额');
       const ioTo = ioBody.indexOf('现货账户余额');
       const ioCard = ioBody.slice(ioFrom, ioTo > ioFrom ? ioTo : undefined);
@@ -5971,7 +6030,7 @@ setTimeout(async () => {
       ib[2].cross_margin_borrowed_value_usdt = '0.00000000';
       ib[2].value_usdt = '30.00000000';
       helpers.ingestSnapshot(idleFx);
-      let body = elements['private-panel-body'].innerHTML;
+      let body = privateBodyHtml();
       let sec = unifiedSec(body);
       let grids = gridSlices(sec);
       if (grids.length !== 2) {
@@ -5997,7 +6056,7 @@ setTimeout(async () => {
       const openedFx = JSON.parse(JSON.stringify(idleFx));
       openedFx.private_account.um_positions = [umPos('SNXUSDT', '-50')];
       helpers.ingestSnapshot(openedFx);
-      body = elements['private-panel-body'].innerHTML;
+      body = privateBodyHtml();
       sec = unifiedSec(body);
       grids = gridSlices(sec);
       if (grids.length !== 1) throw new Error('已开仓后应只剩一行正常网格: ' + sec);
@@ -6010,7 +6069,7 @@ setTimeout(async () => {
       const zeroUmFx = JSON.parse(JSON.stringify(idleFx));
       zeroUmFx.private_account.um_positions = [umPos('SNXUSDT', '0')];
       helpers.ingestSnapshot(zeroUmFx);
-      sec = unifiedSec(elements['private-panel-body'].innerHTML);
+      sec = unifiedSec(privateBodyHtml());
       if (!sec.includes('未开单') || gridSlices(sec).length !== 2) {
         throw new Error('UM 仓量为 0 仍应标未开单并拆行: ' + sec);
       }
@@ -6020,7 +6079,7 @@ setTimeout(async () => {
       multFx.private_account.balances_unified[0].asset = '1000CAT';
       multFx.private_account.um_positions = [umPos('1000CATUSDT', '1000')];
       helpers.ingestSnapshot(multFx);
-      sec = unifiedSec(elements['private-panel-body'].innerHTML);
+      sec = unifiedSec(privateBodyHtml());
       if (sec.includes('未开单')) {
         throw new Error('1000CAT 对上 1000CATUSDT 仓后不得标未开单: ' + sec);
       }
@@ -6030,7 +6089,7 @@ setTimeout(async () => {
       missFx.private_account.unavailable_sources = ['um_positions'];
       missFx.private_account.um_positions = [];
       helpers.ingestSnapshot(missFx);
-      sec = unifiedSec(elements['private-panel-body'].innerHTML);
+      sec = unifiedSec(privateBodyHtml());
       if (sec.includes('未开单')) throw new Error('UM 缺源时不得标未开单: ' + sec);
       if (gridSlices(sec).length !== 1) throw new Error('UM 缺源时应保持单行网格: ' + sec);
       if (!helpers.isIdleBorrowedUnopened(ib[0], idleFx.private_account)) {
@@ -6047,7 +6106,7 @@ setTimeout(async () => {
           match_status: 'no_um', spot_base_asset: 'SNX', um_position_amt: null }
       ], account: { verified: true, error: null, checked_at: null } } };
       await helpers.loadHedgePositions();
-      sec = unifiedSec(elements['private-panel-body'].innerHTML);
+      sec = unifiedSec(privateBodyHtml());
       if (sec.includes('未开单')) {
         throw new Error('本地未平仓周期不得标未开单: ' + sec);
       }
@@ -6059,7 +6118,7 @@ setTimeout(async () => {
           spot_base_asset: 'SNX', um_position_amt: null }
       ], account: { verified: true, error: null, checked_at: null } } };
       await helpers.loadHedgePositions();
-      sec = unifiedSec(elements['private-panel-body'].innerHTML);
+      sec = unifiedSec(privateBodyHtml());
       if (!sec.includes('未开单') || gridSlices(sec).length !== 2) {
         throw new Error('本地已平仓后仍应标未开单: ' + sec);
       }
@@ -6070,7 +6129,7 @@ setTimeout(async () => {
       zeroBorrow.private_account.balances_unified[0].cross_margin_interest = '0.1';
       helpers.resetHedgeStateForTest();
       helpers.ingestSnapshot(zeroBorrow);
-      sec = unifiedSec(elements['private-panel-body'].innerHTML);
+      sec = unifiedSec(privateBodyHtml());
       if (sec.includes('未开单')) throw new Error('已借为 0 即使欠息也不得标未开单: ' + sec);
 
       helpers.resetHedgeStateForTest();
@@ -6109,7 +6168,7 @@ setTimeout(async () => {
         card('BNB', '12.60000000')
       ];
       helpers.ingestSnapshot(pinFx);
-      let sec = spotSec(elements['private-panel-body'].innerHTML);
+      let sec = spotSec(privateBodyHtml());
       let grids = gridSlices(sec);
       if (grids.length !== 2) throw new Error('现货 BNB/USDT 与其他资产须拆成两个 balance-grid: ' + sec);
       const iBnb = grids[0].indexOf('<div class="asset">BNB</div>');
@@ -6135,7 +6194,7 @@ setTimeout(async () => {
       const onlyPin = JSON.parse(JSON.stringify(designFixture));
       onlyPin.private_account.balances_spot = [card('USDT', '20.00000000'), card('BNB', '15.00000000')];
       helpers.ingestSnapshot(onlyPin);
-      sec = spotSec(elements['private-panel-body'].innerHTML);
+      sec = spotSec(privateBodyHtml());
       grids = gridSlices(sec);
       if (grids.length !== 1) throw new Error('仅 BNB/USDT 时应只一行: ' + sec);
       if (sec.indexOf('<div class="asset">BNB</div>') > sec.indexOf('<div class="asset">USDT</div>')) {
@@ -6146,7 +6205,7 @@ setTimeout(async () => {
       const noPin = JSON.parse(JSON.stringify(designFixture));
       noPin.private_account.balances_spot = [card('XVG', '101.00000000')];
       helpers.ingestSnapshot(noPin);
-      sec = spotSec(elements['private-panel-body'].innerHTML);
+      sec = spotSec(privateBodyHtml());
       grids = gridSlices(sec);
       if (grids.length !== 1) throw new Error('无 BNB/USDT 时应只一行其他资产: ' + sec);
       if (sec.includes('<div class="asset">BNB') || sec.includes('<div class="asset">USDT')) {
@@ -6179,7 +6238,7 @@ setTimeout(async () => {
       ];
       helpers.ingestSnapshot(rateFx);
       helpers.renderTable();
-      let sec = uSec(elements['private-panel-body'].innerHTML);
+      let sec = uSec(privateBodyHtml());
       const marketCell = getRowCell(elements['market-table-body'].innerHTML, 'AUSDT', 10);
       if (!sec.includes('日利息: +0.01%')) {
         throw new Error('已借资产卡须展示市场表对应日利息 +0.01%: ' + sec);
@@ -6220,7 +6279,7 @@ setTimeout(async () => {
       vipFx.rows[0].borrow_validation.classic_margin.daily_interest_vip0 = '0.00020000';
       vipFx.rows[0].borrow_rate_source = 'vip0_reference';
       helpers.ingestSnapshot(vipFx);
-      sec = uSec(elements['private-panel-body'].innerHTML);
+      sec = uSec(privateBodyHtml());
       if (!sec.includes('日利息: +0.02%') || !sec.includes('参考')) {
         throw new Error('VIP0 档资产卡须展示日利息参考徽标: ' + sec);
       }
@@ -6230,7 +6289,7 @@ setTimeout(async () => {
       interestOnly.private_account.balances_unified[0].cross_margin_borrowed = '0';
       interestOnly.private_account.balances_unified[0].cross_margin_interest = '0.01';
       helpers.ingestSnapshot(interestOnly);
-      sec = uSec(elements['private-panel-body'].innerHTML);
+      sec = uSec(privateBodyHtml());
       if (sec.includes('日利息:')) {
         throw new Error('本金已还清只欠息时不得展示日利息: ' + sec);
       }
@@ -6242,7 +6301,7 @@ setTimeout(async () => {
       const noNet = JSON.parse(JSON.stringify(rateFx));
       noNet.rows[0].net_daily_yield = null;
       helpers.ingestSnapshot(noNet);
-      sec = uSec(elements['private-panel-body'].innerHTML);
+      sec = uSec(privateBodyHtml());
       if (!sec.includes('实时') || !sec.includes('-0.060%')) {
         throw new Error('无日净时仍须展示实时费率: ' + sec);
       }
@@ -6267,7 +6326,7 @@ setTimeout(async () => {
       ], account: { verified: true, error: null, checked_at: null } } };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      const body = elements['private-panel-body'].innerHTML;
+      const body = privateBodyHtml();
       if (!body.includes('<th') || !body.includes('立即平仓')) {
         throw new Error('持仓表缺少「立即平仓」表头');
       }
@@ -6400,7 +6459,7 @@ setTimeout(async () => {
       helpers.ingestSnapshot(r1Fixture);
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      const r1Body = elements['private-panel-body'].innerHTML;
+      const r1Body = privateBodyHtml();
       if (elements['private-panel'].style.display === 'none') {
         throw new Error('R1: 账户未就绪时私有面板不应隐藏');
       }
@@ -6421,7 +6480,7 @@ setTimeout(async () => {
       helpers.ingestSnapshot(designFixture); // verified=true → verified 块渲染合并表
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      const r2Body = elements['private-panel-body'].innerHTML;
+      const r2Body = privateBodyHtml();
       // 价格未实现盈亏是合并表第 9 列（index 8，资金费率列后为 8）。
       const pnlCell = getRowCell(r2Body, 'BTCUSDT', 8);
       if (!pnlCell.includes('暂无')) {
@@ -6451,7 +6510,7 @@ setTimeout(async () => {
       ], account: { verified: true, error: null, checked_at: null } } };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      let body = elements['private-panel-body'].innerHTML;
+      let body = privateBodyHtml();
       const noTaskSpot = getRowCell(body, 'MUUSDT', 10);
       const noTaskPerp = getRowCell(body, 'MUUSDT', 11);
       const noTaskMark = getRowCell(body, 'MUUSDT', 17);
@@ -6474,7 +6533,7 @@ setTimeout(async () => {
       ], account: { verified: true, error: null, checked_at: null } } };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      body = elements['private-panel-body'].innerHTML;
+      body = privateBodyHtml();
       const noUmMark = getRowCell(body, 'XYZUSDT', 17);
       if (!noUmMark.includes('交易所无仓')) {
         throw new Error('G1: no_um 行应标记「交易所无仓」: ' + noUmMark);
@@ -6490,7 +6549,7 @@ setTimeout(async () => {
       ], account: { verified: true, error: null, checked_at: null } } };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      body = elements['private-panel-body'].innerHTML;
+      body = privateBodyHtml();
       const g5Mark = getRowCell(body, 'RSRUSDT', 17);
       if (!g5Mark.includes('均价不完整')) {
         throw new Error('G5: 不完整均价应显示「均价不完整」标记: ' + g5Mark);
@@ -6521,7 +6580,7 @@ setTimeout(async () => {
       ], account: { verified: true, error: null, checked_at: null } } };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      const nyBody = elements['private-panel-body'].innerHTML;
+      const nyBody = privateBodyHtml();
       const nyCellA = getRowCell(nyBody, 'AUSDT', 1);
       const nyCellD = getRowCell(nyBody, 'DUSDT', 1);
       if (!nyCellA.includes('日净')) {
@@ -7490,10 +7549,10 @@ setTimeout(async () => {
       console.log('[PASS] M-1 start_gate_changed 审计行被 extractHedgeAttempts 忽略（不渲染畸形 attempt）');
     }
 
-    // 98b. 流水日志真实数据源（task C）+ 页内双看板布局（tab-layout-v2）
+    // 98b. 流水日志真实数据源（task C）+ 侧栏一级视图布局（2026-08-20 改造）
     {
       const flowIds = [
-        'btn-market-board', 'btn-flow-log', 'market-board', 'flow-log-view',
+        'nav-flow-log', 'market-board', 'flow-log-view',
         'flow-log-panel', 'flow-log-status-bar', 'flow-log-coverage-note',
         'flow-log-range-7d', 'flow-log-range-30d', 'flow-log-range-custom',
         'flow-log-custom-start', 'flow-log-custom-end', 'flow-log-custom-apply',
@@ -7511,33 +7570,20 @@ setTimeout(async () => {
       for (const id of flowIds) {
         if (!document.getElementById(id)) throw new Error('流水日志 DOM 缺失: ' + id);
       }
-      // 侧栏不得再有流水日志主菜单
-      if (html.includes('id="nav-flow-log"')) {
-        throw new Error('侧栏 #nav-flow-log 必须移除');
+      // 流水日志入口在侧栏，位置在开单任务与历史仓位之间
+      if (!html.includes('id="nav-flow-log"')) {
+        throw new Error('侧栏须有 #nav-flow-log 入口');
       }
-      if (Object.prototype.hasOwnProperty.call(elements, 'nav-flow-log')) {
-        throw new Error('mock 中不应注册 nav-flow-log');
+      const navHedgeIdx = html.indexOf('id="nav-hedge-tasks"');
+      const navFlowIdx = html.indexOf('id="nav-flow-log"');
+      const navHistIdx = html.indexOf('id="nav-history"');
+      if (!(navHedgeIdx >= 0 && navHedgeIdx < navFlowIdx && navFlowIdx < navHistIdx)) {
+        throw new Error('#nav-flow-log 须位于开单任务与历史仓位之间');
       }
-      // 双看板按钮在私有账户 .panel-actions，不在 .badge-row
-      const privatePanelIdx = html.indexOf('id="private-panel"');
-      const privatePanelEnd = html.indexOf('</section>', privatePanelIdx);
-      const privateChunk = privatePanelIdx >= 0 && privatePanelEnd > privatePanelIdx
-        ? html.slice(privatePanelIdx, privatePanelEnd)
-        : '';
-      if (!privateChunk.includes('id="btn-market-board"') || !privateChunk.includes('id="btn-flow-log"')) {
-        throw new Error('费率行情/流水日志按钮须在私有账户面板内');
-      }
-      if (!privateChunk.includes('panel-actions') || !privateChunk.includes('aria-label="费率行情页双看板"')) {
-        throw new Error('双看板按钮须在 .panel-actions（role=tablist）内');
-      }
-      const badgeRowIdx = html.indexOf('class="badge-row"');
-      const badgeRowEnd = html.indexOf('</div>', badgeRowIdx + 1);
-      // badge-row 可能有嵌套 div；取到手动刷新按钮附近即可
-      const badgeSlice = badgeRowIdx >= 0 ? html.slice(badgeRowIdx, badgeRowIdx + 800) : '';
-      if (badgeSlice.includes('id="btn-market-board"') || badgeSlice.includes('id="btn-flow-log"') ||
-          badgeSlice.includes('id="tab-market-board"') || badgeSlice.includes('id="tab-flow-log-board"') ||
-          badgeSlice.includes('id="market-board-tabs"')) {
-        throw new Error('双看板按钮不得放在 .badge-row');
+      // 页内双看板按钮已退役：任何位置都不得再出现
+      if (html.includes('id="btn-market-board"') || html.includes('id="btn-flow-log"') ||
+          html.includes('aria-label="费率行情页双看板"')) {
+        throw new Error('页内双看板按钮须移除（入口已改为侧栏）');
       }
       if (html.includes('演示数据（FAKE）——非真实账户流水')) {
         throw new Error('FAKE 横幅必须删除');
@@ -7561,14 +7607,14 @@ setTimeout(async () => {
       if (incomeColIdx < 0 || filtersIdx < 0 || filtersIdx < incomeColIdx) {
         throw new Error('合约类型筛选 #flow-log-filters 须位于 #flow-log-income-col 内');
       }
-      // 同页双看板：flow-log 内容在 market-view 内
+      // flow-log 已升为一级视图：必须在 market-view 之外，与其余视图平级
       const marketViewStart = html.indexOf('id="market-view"');
       const marketViewClose = html.indexOf('<!-- #market-view -->');
       const marketChunkEnd = marketViewClose > marketViewStart ? marketViewClose : html.length;
       if (marketViewStart === -1) throw new Error('缺少 market-view');
       const marketInner = html.slice(marketViewStart, marketChunkEnd);
-      if (!marketInner.includes('id="flow-log-view"') || !marketInner.includes('id="flow-log-panel"')) {
-        throw new Error('flow-log 看板须在 market-view 内');
+      if (marketInner.includes('id="flow-log-view"')) {
+        throw new Error('flow-log 视图不得再嵌在 market-view 内');
       }
       if (!marketInner.includes('id="market-board"')) {
         throw new Error('market-board 须在 market-view 内');
@@ -7577,52 +7623,43 @@ setTimeout(async () => {
       // 默认费率行情看板：零 private-ledger 请求
       helpers.setActiveView('market');
       await new Promise(r => setTimeout(r, 0));
-      if (helpers.getMarketBoard && helpers.getMarketBoard() !== 'market') {
-        throw new Error('默认 marketBoard 应为 market');
-      }
-      const beforeEnter = fetchCallLog.filter(c => c.url.includes('/api/private-ledger/')).length;
+      if (helpers.getActiveView() !== 'market') throw new Error('默认视图应为 market');
+      // 收窄到 flow-log：收益曲线（pnl-series）本就在费率行情页上、必须拉数据；
+      // 这条守的是「进费率行情页不要顺带拉整个流水日志」。
+      const ledgerFlowGets = () => fetchCallLog.filter(
+        c => c.url.startsWith('/api/private-ledger/flow-log')).length;
+      const beforeEnter = ledgerFlowGets();
       helpers.setActiveView('market');
       await new Promise(r => setTimeout(r, 0));
-      const beforeEnter2 = fetchCallLog.filter(c => c.url.includes('/api/private-ledger/')).length;
-      if (beforeEnter2 !== beforeEnter) throw new Error('费率行情看板不应请求 private-ledger');
-      // 默认按钮高亮
-      const btnM = document.getElementById('btn-market-board');
-      const btnF = document.getElementById('btn-flow-log');
-      if (!btnM.classList.contains('primary') || btnM.getAttribute('aria-selected') !== 'true') {
-        throw new Error('默认应高亮费率行情按钮');
-      }
-      if (btnF.classList.contains('primary') || btnF.getAttribute('aria-selected') === 'true') {
-        throw new Error('默认不应高亮流水日志按钮');
+      const beforeEnter2 = ledgerFlowGets();
+      if (beforeEnter2 !== beforeEnter) throw new Error('费率行情页不应请求 flow-log');
+      // 默认侧栏高亮费率行情，不高亮流水日志
+      const navFlow = document.getElementById('nav-flow-log');
+      if (navFlow.classList.contains('active')) {
+        throw new Error('默认不应高亮 nav-flow-log');
       }
 
       flowLogGetResponse = { status: 200, body: buildMockFlowLogPayload() };
       const mark = fetchCallLog.length;
       const intervalsBefore = intervalCalls.length;
       // 点「流水日志」看板（同页，不隐藏 market-view）
-      helpers.setMarketBoard('flow-log');
+      helpers.setActiveView('flow-log');
       await new Promise(r => setTimeout(r, 0));
       await new Promise(r => setTimeout(r, 0));
-      if (helpers.getActiveView() !== 'market') throw new Error('activeView 应保持 market');
-      if (helpers.getMarketBoard() !== 'flow-log') throw new Error('marketBoard 应为 flow-log');
+      if (helpers.getActiveView() !== 'flow-log') throw new Error('activeView 应为 flow-log');
       if (document.getElementById('flow-log-view').style.display === 'none') {
         throw new Error('flow-log-view 应显示');
       }
-      if (document.getElementById('market-view').style.display === 'none') {
-        throw new Error('market-view 在流水看板时仍应可见');
+      if (document.getElementById('market-view').style.display !== 'none') {
+        throw new Error('流水日志视图下 market-view 应隐藏');
       }
-      if (document.getElementById('market-board').style.display !== 'none') {
-        throw new Error('market-board 在流水看板时应隐藏');
-      }
-      // 侧栏仍高亮费率行情
+      // 侧栏高亮转移到流水日志
       const navM = document.getElementById('nav-market');
-      if (!navM.classList.contains('active') || navM.getAttribute('aria-current') !== 'page') {
-        throw new Error('看板切换后 nav-market 应保持高亮');
+      if (!navFlow.classList.contains('active') || navFlow.getAttribute('aria-current') !== 'page') {
+        throw new Error('流水日志视图应高亮 nav-flow-log');
       }
-      if (!btnF.classList.contains('primary') || btnF.getAttribute('aria-selected') !== 'true') {
-        throw new Error('流水看板应高亮 btn-flow-log');
-      }
-      if (btnM.classList.contains('primary')) {
-        throw new Error('流水看板不应高亮 btn-market-board');
+      if (navM.classList.contains('active')) {
+        throw new Error('流水日志视图不应再高亮 nav-market');
       }
       const ledgerGets = fetchCallLog.slice(mark).filter(c =>
         c.method === 'GET' && c.url.startsWith('/api/private-ledger/flow-log')
@@ -7660,17 +7697,17 @@ setTimeout(async () => {
       if (!dI.includes('HOME') && !dI.includes('利息')) throw new Error('增量利息分组未渲染');
 
       // 切回费率行情看板：清轮询
-      helpers.setMarketBoard('market');
+      helpers.setActiveView('market');
       await new Promise(r => setTimeout(r, 0));
       if (!clearedIntervalIds.has(pollId)) {
         throw new Error('切回费率行情应 clearInterval 轮询 id');
       }
-      if (helpers.getMarketBoard() !== 'market') throw new Error('切回后 marketBoard 应为 market');
+      if (helpers.getActiveView() !== 'market') throw new Error('切回后应为 market 视图');
       if (document.getElementById('flow-log-view').style.display !== 'none') {
         throw new Error('切回后 flow-log-view 应隐藏');
       }
-      if (document.getElementById('market-board').style.display === 'none') {
-        throw new Error('切回后 market-board 应显示');
+      if (document.getElementById('market-view').style.display === 'none') {
+        throw new Error('切回后 market-view 应显示');
       }
       const afterLeave = fetchCallLog.length;
       await new Promise(r => setTimeout(r, 0));
@@ -7680,7 +7717,7 @@ setTimeout(async () => {
 
       // 重复进入不叠加
       const mark2 = fetchCallLog.length;
-      helpers.setMarketBoard('flow-log');
+      helpers.setActiveView('flow-log');
       await new Promise(r => setTimeout(r, 0));
       await new Promise(r => setTimeout(r, 0));
       const pollId2 = helpers.getFlowLogPollId();
@@ -7690,41 +7727,40 @@ setTimeout(async () => {
       );
       if (gets2.length !== 1) throw new Error('再次进入应恰好 1 次 GET，实际 ' + gets2.length);
 
-      // btn-flow-log / btn-market-board 点击
-      helpers.setMarketBoard('market');
+      // 侧栏入口点击：nav-flow-log / nav-market
+      helpers.setActiveView('market');
       await new Promise(r => setTimeout(r, 0));
       const markBtn = fetchCallLog.length;
-      (document.getElementById('btn-flow-log').listeners.click || []).forEach(h => h());
+      (navFlow.listeners.click || []).forEach(h => h());
       await new Promise(r => setTimeout(r, 0));
       await new Promise(r => setTimeout(r, 0));
-      if (helpers.getMarketBoard() !== 'flow-log') throw new Error('btn-flow-log 应切到流水看板');
-      if (helpers.getActiveView() !== 'market') throw new Error('btn-flow-log 后 activeView 仍为 market');
+      if (helpers.getActiveView() !== 'flow-log') throw new Error('nav-flow-log 应切到流水日志视图');
       const getsBtn = fetchCallLog.slice(markBtn).filter(c =>
         c.method === 'GET' && c.url.startsWith('/api/private-ledger/flow-log')
       );
       if (getsBtn.length !== 1) throw new Error('点流水日志应恰好 1 次 GET，实际 ' + getsBtn.length);
       const pollBtn = helpers.getFlowLogPollId();
-      (document.getElementById('btn-market-board').listeners.click || []).forEach(h => h());
+      (document.getElementById('nav-market').listeners.click || []).forEach(h => h());
       await new Promise(r => setTimeout(r, 0));
-      if (helpers.getMarketBoard() !== 'market') throw new Error('btn-market-board 应切回费率行情');
+      if (helpers.getActiveView() !== 'market') throw new Error('nav-market 应切回费率行情');
       if (pollBtn != null && !clearedIntervalIds.has(pollBtn)) {
         throw new Error('点费率行情应清理轮询');
       }
 
-      // 离开费率行情页（借币/开单）清轮询；导航未破坏
-      helpers.setMarketBoard('flow-log');
+      // 离开流水日志页（借币/开单）清轮询；导航未破坏
+      helpers.setActiveView('flow-log');
       await new Promise(r => setTimeout(r, 0));
       const pollLeave = helpers.getFlowLogPollId();
       helpers.setActiveView('borrow-tasks');
       if (helpers.getActiveView() !== 'borrow-tasks') throw new Error('borrow 视图破坏');
       if (pollLeave != null && !clearedIntervalIds.has(pollLeave)) {
-        throw new Error('离开费率行情页应 clearInterval 轮询');
+        throw new Error('离开流水日志页应 clearInterval 轮询');
       }
       helpers.setActiveView('hedge-tasks');
       if (helpers.getActiveView() !== 'hedge-tasks') throw new Error('hedge 视图破坏');
       helpers.setActiveView('market');
       await new Promise(r => setTimeout(r, 0));
-      if (helpers.getMarketBoard() !== 'market') throw new Error('从侧栏回费率行情默认市场看板');
+      if (helpers.getActiveView() !== 'market') throw new Error('从侧栏回费率行情应为 market 视图');
 
       // --- coverage (a) 起点截断 ---
       flowLogGetResponse = {
@@ -7746,7 +7782,7 @@ setTimeout(async () => {
           um_income: { rows: [], summary_by_type_asset: [], row_count: 0, row_limit_applied: false },
         }),
       };
-      helpers.setMarketBoard('flow-log');
+      helpers.setActiveView('flow-log');
       await new Promise(r => setTimeout(r, 0));
       await new Promise(r => setTimeout(r, 0));
       let pageText =
@@ -7881,7 +7917,7 @@ setTimeout(async () => {
           truncated: false,
         },
       };
-      helpers.setMarketBoard('flow-log');
+      helpers.setActiveView('flow-log');
       await new Promise(r => setTimeout(r, 0));
       const markR = fetchCallLog.length;
       await helpers.postFlowLogRefresh();
@@ -7931,7 +7967,7 @@ setTimeout(async () => {
       if (fetchCallLog.length !== markF) throw new Error('筛选不得 fetch');
       helpers.togglePrivacy();
       if (fetchCallLog.length !== markF) throw new Error('隐私切换不得 fetch');
-      helpers.setMarketBoard('flow-log');
+      helpers.setActiveView('flow-log');
       await new Promise(r => setTimeout(r, 0));
       helpers.renderFlowLogPanel();
       const bodyPriv = document.getElementById('flow-log-interest-body').innerHTML;
@@ -7971,7 +8007,7 @@ setTimeout(async () => {
         throw new Error('row_limit_applied 应提示 500: ' + st500);
       }
 
-      helpers.setMarketBoard('market');
+      helpers.setActiveView('market');
       helpers.setActiveView('market');
       console.log('[PASS] 流水日志 C+v2：panel-actions 双看板、侧栏移除、同页切换、GET/POST/轮询/护栏');
     }
@@ -8062,6 +8098,172 @@ setTimeout(async () => {
       }
       helpers.setFlowLogPayload(null);
       console.log('[PASS] review-2 F-1：capital 失败态显示中文（全仓流水拉取失败），不露 snake_case 短码');
+    }
+
+    // 98d. 资金费率收益曲线（2026-08-20）：请求形状、五线渲染、成本不全遮蔽、
+    // 视图隔离、失败态。补此前的守卫缺口——mock 无 pnl-series 分支时请求会撞
+    // Unexpected fetch URL 并被 loadPnlSeries 的 catch 吞掉，自检看似全绿却从未画过曲线。
+    {
+      const seriesGets = () => fetchCallLog.filter(
+        c => c.method === 'GET' && c.url.startsWith('/api/private-ledger/pnl-series')).length;
+      const flowGets = () => fetchCallLog.filter(
+        c => c.url.startsWith('/api/private-ledger/flow-log')).length;
+
+      // 首屏必须自己拉一次：页面初始化不走 setActiveView（activeView 默认即 market），
+      // 把加载只挂在进页分支上会导致首屏空图。
+      const bootSeries = bootFetchUrls.filter(
+        u => u.startsWith('/api/private-ledger/pnl-series')).length;
+      if (bootSeries !== 1) {
+        throw new Error(`启动序列应恰好发起 1 次 pnl-series 请求，实际 ${bootSeries}`);
+      }
+
+      pnlSeriesGetResponse = null;   // 走默认 200 夹具
+      helpers.setActiveView('borrow-tasks');
+      await new Promise(r => setTimeout(r, 0));
+      const mark = seriesGets();
+      const flowMark = flowGets();
+      helpers.setActiveView('market');
+      await new Promise(r => setTimeout(r, 0));
+      await new Promise(r => setTimeout(r, 0));
+      if (seriesGets() - mark !== 1) {
+        throw new Error(`进费率行情应恰好 1 次 pnl-series GET，实际 ${seriesGets() - mark}`);
+      }
+      if (flowGets() !== flowMark) throw new Error('进费率行情不应请求 flow-log');
+      if (document.getElementById('pnl-curve-panel').style.display === 'none') {
+        throw new Error('费率行情页应显示收益曲线面板');
+      }
+
+      // 五条线各出一条 path；净收益线用 is-net 与其余区分
+      const chart = document.getElementById('pnl-chart').innerHTML;
+      const pathCount = (chart.match(/<path/g) || []).length;
+      if (pathCount < 5) throw new Error(`应渲染五条线，实际 ${pathCount} 条 path`);
+      if (!chart.includes('pnl-series is-net')) throw new Error('净收益线应带 is-net 加粗类');
+      // 现货流水入库前那段必须是虚线（漏计现货手续费与滑点，不能画成实线真值）
+      if (!chart.includes('stroke-dasharray')) {
+        throw new Error('partial 段（现货流水入库前）应画虚线');
+      }
+
+      // 汇总表：五行 + 净收益取四项之和，且与夹具 totals 一致
+      const summary = document.getElementById('pnl-summary-body').innerHTML;
+      for (const label of ['费率收益', '手续费', '利息', '滑点', '净收益']) {
+        if (!summary.includes(label)) throw new Error('汇总表缺少构成行: ' + label);
+      }
+      if (!summary.includes('+3.0000') || !summary.includes('-0.6000')) {
+        throw new Error('汇总表未按区间累计渲染分项: ' + summary.slice(0, 300));
+      }
+      if (!summary.includes('+1.7000')) {
+        throw new Error('净收益应为四个分项之和 +1.7000: ' + summary.slice(0, 300));
+      }
+      if (summary.includes('已实现盈亏')) {
+        throw new Error('合约已实现盈亏说明行已按 Human 2026-08-20 要求移除');
+      }
+
+      // 缺价资产 → 成本不全 → 净收益必须「暂无」，绝不显示虚高数字
+      pnlSeriesGetResponse = { status: 200, body: buildMockPnlPayload({ unpriced_assets: ['WLD'] }) };
+      await helpers.loadPnlSeries();
+      await new Promise(r => setTimeout(r, 0));
+      let s2 = document.getElementById('pnl-summary-body').innerHTML;
+      if (!s2.includes('暂无') || s2.includes('+1.7000')) {
+        throw new Error('缺价时净收益应显示「暂无」: ' + s2.slice(0, 300));
+      }
+      if (!document.getElementById('pnl-footnote').innerHTML.includes('WLD')) {
+        throw new Error('脚注应点名缺价资产');
+      }
+
+      // 滑点源读取失败 → 同样遮蔽净收益（成本被低估，净收益会偏高）
+      pnlSeriesGetResponse = { status: 200, body: buildMockPnlPayload({ close_logs_ok: false }) };
+      await helpers.loadPnlSeries();
+      await new Promise(r => setTimeout(r, 0));
+      s2 = document.getElementById('pnl-summary-body').innerHTML;
+      if (!s2.includes('暂无') || s2.includes('+1.7000')) {
+        throw new Error('滑点源失败时净收益应显示「暂无」: ' + s2.slice(0, 300));
+      }
+
+      // 在持仓周期算不出滑点：净收益仍是数字（只脚注说明），这是刻意的展示取舍——
+      // 只要有持仓就遮蔽会让曲线日常不可用。锁住它，免得被"顺手改严"。
+      pnlSeriesGetResponse = { status: 200, body: buildMockPnlPayload({
+        slippage_incomplete_count: 12, open_fills_ok: true }) };
+      await helpers.loadPnlSeries();
+      await new Promise(r => setTimeout(r, 0));
+      const partialSlip = document.getElementById('pnl-summary-body').innerHTML;
+      if (!partialSlip.includes('+1.7000') || partialSlip.includes('暂无')) {
+        throw new Error('在持仓滑点算不出时净收益应照常显示（仅脚注说明）: '
+          + partialSlip.slice(0, 200));
+      }
+      if (!document.getElementById('pnl-footnote').innerHTML.includes('未计入')) {
+        throw new Error('脚注须说明未计入的在持仓滑点笔数');
+      }
+
+      // 持仓源读失败：与 close_logs_ok=false 同级，必须遮蔽
+      pnlSeriesGetResponse = { status: 200, body: buildMockPnlPayload({ open_fills_ok: false }) };
+      await helpers.loadPnlSeries();
+      await new Promise(r => setTimeout(r, 0));
+      if (!document.getElementById('pnl-summary-body').innerHTML.includes('暂无')) {
+        throw new Error('在持仓成交明细读取失败时净收益应显示「暂无」');
+      }
+
+      // lo>0 的窗口：区间累计必须是「末−首」，不能退化成「只取末值」（那会把
+      // 区间之前的存量当成本区间的增量）。夹具 30 个整点，1D 窗口截出后 24 个。
+      const H2 = 3600000, T2 = 1785978000000;
+      const longPoints = [[T2 - H2, '0', '0', '0', '0', '0', 0]];
+      for (let k = 0; k < 30; k++) {
+        const f = k + 1;
+        longPoints.push([T2 + k * H2, String(f), String(-f * 0.2), String(-f * 0.1),
+                         String(-f * 0.1), String(f * 0.6), 0]);
+      }
+      pnlSeriesGetResponse = { status: 200, body: buildMockPnlPayload({
+        points: longPoints,
+        totals: { funding: '30', fees: '-6', interest: '-3', slippage: '-3', net: '18' },
+      }) };
+      await helpers.loadPnlSeries();
+      await new Promise(r => setTimeout(r, 0));
+      helpers.setPnlRange('1');
+      helpers.renderPnlCurve();
+      const windowed = document.getElementById('pnl-summary-body').innerHTML;
+      // 夹具是每小时一点、共 30 点；1D 按时间回溯截出最后 24 小时（lo>0）
+      const mNum = windowed.match(/\+(\d+\.\d{4})/);
+      if (!mNum) throw new Error('1D 窗口未渲染费率收益: ' + windowed.slice(0, 200));
+      const fundingDelta = Number(mNum[1]);
+      if (!(fundingDelta > 0 && fundingDelta < 30)) {
+        throw new Error(`1D 窗口应是区间增量而非全期累计 30，实际 ${fundingDelta}`);
+      }
+      if (windowed.includes('+18.0000')) {
+        throw new Error('净收益不得取末值（全期累计 +18），须为区间增量');
+      }
+      // 净收益必须等于四个分项之和（0.6×费率）
+      if (!windowed.includes('+' + (fundingDelta * 0.6).toFixed(4))) {
+        throw new Error(`净收益应为四项之和 ${(fundingDelta * 0.6).toFixed(4)}: `
+          + windowed.slice(0, 300));
+      }
+      helpers.setPnlRange('all');
+
+      // 离开费率行情页：面板隐藏，不再请求
+      pnlSeriesGetResponse = null;
+      await helpers.loadPnlSeries();
+      await new Promise(r => setTimeout(r, 0));
+      const beforeLeave = seriesGets();
+      helpers.setActiveView('history');
+      await new Promise(r => setTimeout(r, 0));
+      if (document.getElementById('pnl-curve-panel').style.display !== 'none') {
+        throw new Error('离开费率行情页应隐藏收益曲线面板');
+      }
+      if (seriesGets() !== beforeLeave) throw new Error('离开费率行情页不应再请求 pnl-series');
+
+      // 503 且已有缓存：曲线保留，但脚注必须标明「不是最新值」，否则旧图冒充当前值
+      pnlSeriesGetResponse = { status: 503, body: { error: 'pnl_series_unavailable' } };
+      helpers.setActiveView('market');
+      await new Promise(r => setTimeout(r, 0));
+      await new Promise(r => setTimeout(r, 0));
+      const staleNote = document.getElementById('pnl-footnote').innerHTML;
+      if (!staleNote.includes('刷新失败') || !staleNote.includes('不是最新值')) {
+        throw new Error('刷新失败且有缓存时，脚注须标明数据非最新: ' + staleNote.slice(0, 200));
+      }
+      pnlSeriesGetResponse = null;
+      console.log('[PASS] 收益曲线：进页 1 次 GET / 五线+虚线段渲染 / 净收益=四项和 / '
+        + '缺价与滑点源失败遮蔽为「暂无」/ 离页隐藏且停请求');
+      helpers.setActiveView('market');
+      await new Promise(r => setTimeout(r, 0));
+      await new Promise(r => setTimeout(r, 0));
     }
 
     // 98c. Q3 任务卡错误提示入 state：他卡操作 / 60s 自动刷新引发的重渲染不再抹除。
@@ -8413,7 +8615,7 @@ setTimeout(async () => {
       scaFx.private_account.checked_at = '2026-08-03T07:34:50Z';
       delete scaFx.private_account.pm_account;
       helpers.ingestSnapshot(scaFx);
-      const bodySca = elements['private-panel-body'].innerHTML;
+      const bodySca = privateBodyHtml();
       const aggText = elements['account-asset-updated-at'].textContent;
       const aggBj = helpers.formatBeijing(Date.parse('2026-08-03T07:34:50Z'));
       if (!aggText.includes('账户资产更新时间') || !aggText.includes(aggBj)) {
@@ -8441,7 +8643,7 @@ setTimeout(async () => {
       // 缺源：统一账户 null → 未就绪
       scaFx.private_account.source_checked_at.unified_balances = null;
       helpers.ingestSnapshot(scaFx);
-      const bodyMissing = elements['private-panel-body'].innerHTML;
+      const bodyMissing = privateBodyHtml();
       if (!bodyMissing.includes('资产数据未就绪（该账户源未成功读取）')) {
         throw new Error('统一账户缺源须显示未就绪: ' + bodyMissing.slice(0, 400));
       }
@@ -8449,7 +8651,7 @@ setTimeout(async () => {
       scaFx.private_account.source_checked_at.unified_balances = '2026-08-03T07:34:50Z';
       scaFx.private_account.source_checked_at.um_positions = null;
       helpers.ingestSnapshot(scaFx);
-      const bodyUmMissing = elements['private-panel-body'].innerHTML;
+      const bodyUmMissing = privateBodyHtml();
       if (!bodyUmMissing.includes('UM 持仓未成功读取')) {
         throw new Error('对冲持仓缺 UM 须诚实未就绪: ' + bodyUmMissing.slice(0, 400));
       }
@@ -8474,7 +8676,7 @@ setTimeout(async () => {
       if (!helpers.isPrivatePmSourceTimeVisible() || !pmNullText.includes('PM 账户数据源更新时间') || !pmNullText.includes('资产数据未就绪')) {
         throw new Error('PM capability 存在但 null 须在标题下显示未就绪: ' + pmNullText);
       }
-      if (elements['private-panel-body'].innerHTML.includes('PM 账户数据源更新时间')) {
+      if (privateBodyHtml().includes('PM 账户数据源更新时间')) {
         throw new Error('PM 时间不得再出现在概览/面板 body');
       }
       scaFx.private_account.source_checked_at.pm_account = '2026-08-03T07:34:50Z';
@@ -8484,7 +8686,7 @@ setTimeout(async () => {
       if (!pmReadyText.includes('PM 账户数据源更新时间 ' + pmBj)) {
         throw new Error('PM 有时间须在标题下显示北京时间: ' + pmReadyText);
       }
-      if (elements['private-panel-body'].innerHTML.includes('PM 账户数据源更新时间')) {
+      if (privateBodyHtml().includes('PM 账户数据源更新时间')) {
         throw new Error('PM 有时间时也不得重复出现在概览区');
       }
 
@@ -8497,7 +8699,7 @@ setTimeout(async () => {
       scaFx.generated_at = staleIso;
       scaFx.data_time = staleIso;
       helpers.ingestSnapshot(scaFx);
-      if (!elements['private-panel-body'].innerHTML.includes('source-checked-at stale-time')) {
+      if (!privateBodyHtml().includes('source-checked-at stale-time')) {
         throw new Error('超过 90 秒的账户数据源时间须红色加粗');
       }
       if (!String(elements['private-pm-source-time'].className).includes('stale-time')) {
@@ -8511,7 +8713,7 @@ setTimeout(async () => {
       const unreadFx = JSON.parse(JSON.stringify(designFixture));
       unreadFx.private_account = designFixture._design_fixture_private_account_states.find(s => s._state === 'verified_false_disabled');
       helpers.ingestSnapshot(unreadFx);
-      const unreadBody = elements['private-panel-body'].innerHTML;
+      const unreadBody = privateBodyHtml();
       if (!unreadBody.includes('私有账户未读取')) {
         throw new Error('私有账户不可读须在面板内提示');
       }
@@ -8714,7 +8916,7 @@ setTimeout(async () => {
       };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      let posBody = elements['private-panel-body'].innerHTML;
+      let posBody = privateBodyHtml();
       const balCell = getRowCell(posBody, 'BTCUSDT', 9);
       if (!balCell.includes('现货: 0.5') || !balCell.includes('≈ 30500.50 U')) {
         throw new Error('现货行须含 amount 与 2 位估值: ' + balCell);
@@ -8736,7 +8938,7 @@ setTimeout(async () => {
       helpers.ingestSnapshot(snapOnly);
       // loadHedgePositions 后 state 仍是上一轮 positions（未再 mock 新值）
       helpers.renderPrivatePanel();
-      posBody = elements['private-panel-body'].innerHTML;
+      posBody = privateBodyHtml();
       const balCell2 = getRowCell(posBody, 'BTCUSDT', 9);
       if (balCell2.includes('现货: 9') || balCell2.includes('杠杆: 9')) {
         throw new Error('不得从 snapshot 拼接余额覆盖 positions 行字段: ' + balCell2);
@@ -8788,7 +8990,7 @@ setTimeout(async () => {
       };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      const aliasBody = elements['private-panel-body'].innerHTML;
+      const aliasBody = privateBodyHtml();
       const bstockBorrowCell = getRowCell(aliasBody, 'SNXXUSDT', 9);
       const multiplierBorrowCell = getRowCell(aliasBody, '1000BONKUSDT', 9);
       if (!bstockBorrowCell.includes('全仓借款: 1') || !bstockBorrowCell.includes('≈ 42.00 U')) {
@@ -8831,7 +9033,7 @@ setTimeout(async () => {
       };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      let sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'ETHUSDT', 9);
+      let sideCell = getRowCell(privateBodyHtml(), 'ETHUSDT', 9);
       // 2026-08-16：缺失侧整行不渲染（不再画 现货: —），另一侧照常独立展示。
       if (sideCell.includes('现货') || !sideCell.includes('杠杆: 2')) {
         throw new Error('现货缺失时该行须整行省略且杠杆独立: ' + sideCell);
@@ -8852,7 +9054,7 @@ setTimeout(async () => {
       };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'SOLUSDT', 9);
+      sideCell = getRowCell(privateBodyHtml(), 'SOLUSDT', 9);
       if (!sideCell.includes('现货: 3 ≈ — U') || !sideCell.includes('杠杆: 4 ≈ — U')) {
         throw new Error('有 amount 无 value 须 ≈ — U: ' + sideCell);
       }
@@ -8872,7 +9074,7 @@ setTimeout(async () => {
       };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'ZEROUSDT', 9);
+      sideCell = getRowCell(privateBodyHtml(), 'ZEROUSDT', 9);
       // 2026-08-16：真零同样不占行；四行皆空 → 整格 —。
       if (sideCell.includes('现货') || sideCell.includes('杠杆')) {
         throw new Error('真零余额不得占行: ' + sideCell);
@@ -8897,7 +9099,7 @@ setTimeout(async () => {
       };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'NRUSDT', 9);
+      sideCell = getRowCell(privateBodyHtml(), 'NRUSDT', 9);
       if (sideCell.includes('现货') || sideCell.includes('杠杆') || !sideCell.includes('—')) {
         throw new Error('未就绪须整格 —（不逐行画 —）: ' + sideCell);
       }
@@ -8918,7 +9120,7 @@ setTimeout(async () => {
       };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      sideCell = getRowCell(elements['private-panel-body'].innerHTML, 'PRIVUSDT', 9);
+      sideCell = getRowCell(privateBodyHtml(), 'PRIVUSDT', 9);
       if (!sideCell.includes('****') || sideCell.includes('1.5') || sideCell.includes('2.5') || sideCell.includes('100.00')) {
         throw new Error('隐私模式须遮蔽 amount 与估值: ' + sideCell);
       }
@@ -8945,7 +9147,7 @@ setTimeout(async () => {
       };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
-      const emptyPositionBody = elements['private-panel-body'].innerHTML;
+      const emptyPositionBody = privateBodyHtml();
       const emptyPositionSection = emptyPositionBody.slice(emptyPositionBody.indexOf('对冲开单持仓'));
       if (!emptyPositionSection.includes('colspan="18"')
           || (emptyPositionSection.match(/<td[\s>]/g) || []).length !== 1) {
@@ -9051,7 +9253,7 @@ setTimeout(async () => {
       helpers.ingestSnapshot(transferFixture);
       if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
       helpers.renderPrivatePanel();
-      let tBody = elements['private-panel-body'].innerHTML;
+      let tBody = privateBodyHtml();
 
       // 位置：统一账户余额之后、现货账户余额之前
       const idxUnified = tBody.indexOf('统一账户余额');
@@ -9082,7 +9284,7 @@ setTimeout(async () => {
       helpers.swapTransferAccounts();
       if (helpers.getAssetTransfer().from !== 'unified') throw new Error('互换后转出应为统一账户');
       if (helpers.getAssetTransfer().asset !== null) throw new Error('互换后资产应清空');
-      tBody = elements['private-panel-body'].innerHTML;
+      tBody = privateBodyHtml();
       if (!/id="transfer-from"[\s\S]*?<option value="unified" selected>/.test(tBody.slice(tBody.indexOf('资产互转')))) {
         throw new Error('互换后转出下拉应选中统一账户');
       }
@@ -9095,7 +9297,7 @@ setTimeout(async () => {
       helpers.setTransferAsset('USDT');
       helpers.setTransferAmount('42.5');
       helpers.renderPrivatePanel();
-      tBody = elements['private-panel-body'].innerHTML;
+      tBody = privateBodyHtml();
       if (!tBody.includes('USDT · 可用 42.5 ·')) throw new Error('默认应展示现货 USDT 可用');
       if (!tBody.includes('BNB · 可用 1.2 ·')) throw new Error('现货下拉应含 BNB');
       if (tBody.includes('DOGE · 可用')) throw new Error('转出=现货时不应展示统一账户资产');
@@ -9125,7 +9327,7 @@ setTimeout(async () => {
       if (helpers.getAssetTransfer().amount !== '0') {
         throw new Error('现货无 USDT 时默认数量应为 0: ' + helpers.getAssetTransfer().amount);
       }
-      tBody = elements['private-panel-body'].innerHTML;
+      tBody = privateBodyHtml();
       if (!tBody.includes('USDT · 可用 0 ·')) throw new Error('现货无 USDT 时应补零选项: ' + tBody.slice(tBody.indexOf('资产互转'), tBody.indexOf('资产互转') + 900));
       if (helpers.evaluateTransfer().ok) throw new Error('数量 0 不应可提交');
 
@@ -9133,7 +9335,7 @@ setTimeout(async () => {
       helpers.ingestSnapshot(transferFixture);
       helpers.setTransferFrom('unified');
       if (helpers.getAssetTransfer().asset !== null) throw new Error('切换转出账户后资产应清空');
-      tBody = elements['private-panel-body'].innerHTML;
+      tBody = privateBodyHtml();
       // 2026-08-07 晚（Human 定稿）：全部走快照，前端零请求。本 fixture 无 pm_account，
       // 故 USDT 也退回 cross_margin_free 并说「可用」——措辞必须跟着数据来源降级。
       // 有 pm_account 时 USDT 说「可转」的行为由下方 Q4 断言组覆盖。
@@ -9169,7 +9371,7 @@ setTimeout(async () => {
       // 切回现货做二次确认 / POST 形状
       helpers.setTransferFrom('spot');
       if (helpers.getAssetTransfer().asset !== null) throw new Error('切换转出账户后资产应清空');
-      tBody = elements['private-panel-body'].innerHTML;
+      tBody = privateBodyHtml();
       if (!tBody.includes('BNB · 可用 1.2 ·')) throw new Error('转出=现货时应展示现货可用(free)');
       if (tBody.includes('DOGE · 可用')) throw new Error('转出=现货时不应展示统一账户资产');
       if (!/id="transfer-to"[\s\S]*?<option value="unified" selected>/.test(tBody.slice(tBody.indexOf('资产互转')))) {
@@ -9208,7 +9410,7 @@ setTimeout(async () => {
         throw new Error('client_request_id 必须是 UUID（幂等键）: ' + sent.client_request_id);
       }
       // 成功 → 回显含流水号、数量清空、触发快照缓存刷新（否则余额显示 60s 旧值）
-      tBody = elements['private-panel-body'].innerHTML;
+      tBody = privateBodyHtml();
       if (!tBody.includes('划转成功')) throw new Error('缺少成功回显: ' + tBody.slice(tBody.indexOf('资产互转'), tBody.indexOf('资产互转') + 1400));
       if (!tBody.includes('90210')) throw new Error('成功回显应含交易所流水号');
       if (helpers.getAssetTransfer().amount !== '') throw new Error('成功后数量应清空');
@@ -9235,7 +9437,7 @@ setTimeout(async () => {
       } };
       helpers.requestAssetTransferConfirm();
       await helpers.onHedgeModalConfirm();
-      tBody = elements['private-panel-body'].innerHTML;
+      tBody = privateBodyHtml();
       if (!tBody.includes('划转失败')) throw new Error('HTTP 200 + status=failed 必须显示失败');
       if (!tBody.includes('-4015') || !tBody.includes('Insufficient balance')) {
         throw new Error('失败回显应含错误码与交易所原文');
@@ -9252,7 +9454,7 @@ setTimeout(async () => {
       } };
       helpers.requestAssetTransferConfirm();
       await helpers.onHedgeModalConfirm();
-      tBody = elements['private-panel-body'].innerHTML;
+      tBody = privateBodyHtml();
       if (!tBody.includes('结果未知，请勿直接重试')) throw new Error('unknown 必须醒目警示');
       if (!tBody.includes('可能已经执行')) throw new Error('unknown 必须说明钱可能已经转了');
       if (/data-transfer-retry|>重试</.test(tBody)) throw new Error('unknown 绝不能给重试按钮');
@@ -9275,7 +9477,7 @@ setTimeout(async () => {
       } };
       helpers.requestAssetTransferConfirm();
       await helpers.onHedgeModalConfirm();
-      tBody = elements['private-panel-body'].innerHTML;
+      tBody = privateBodyHtml();
       if (!tBody.includes('划转未发出')) throw new Error('请求层失败应显示「划转未发出」');
       if (!tBody.includes('划转通道未配置')) throw new Error('请求层失败应带后端 detail');
 
@@ -9404,7 +9606,7 @@ setTimeout(async () => {
       // -- succeeded + 强制刷新 complete：清除未决、解锁、回显实际偿还资产/数量 --
       // complete 路径内部 loadApi 会把快照换回默认 fixture，先重喂本用例快照再读 DOM。
       helpers.ingestSnapshot(repayFixture);
-      rBody = elements['private-panel-body'].innerHTML;
+      rBody = privateBodyHtml();
       if (!rBody.includes('还款成功')) throw new Error('缺少成功回显');
       if (!rBody.includes('实际偿还 0.5 个 BTC')) throw new Error('成功回显应含实际还款资产/数量: ' + rBody.slice(rBody.indexOf('还款成功') - 200, rBody.indexOf('还款成功') + 600));
       if (!rBody.includes('USDT')) throw new Error('成功回显应含指定偿还资产');
@@ -9425,7 +9627,7 @@ setTimeout(async () => {
       mark = fetchCallLog.length;
       helpers.requestMarginRepayConfirm('BNB');
       await helpers.onHedgeModalConfirm();
-      rBody = elements['private-panel-body'].innerHTML;
+      rBody = privateBodyHtml();
       if (!rBody.includes('还款失败')) throw new Error('HTTP 200 + status=failed 必须显示失败（HTTP 200 不得当成功）');
       if (!rBody.includes('-4015') || !rBody.includes('Insufficient balance')) throw new Error('失败回显应含交易所 code/msg');
       if (helpers.getMarginRepay().pending.BNB) throw new Error('failed 应结束请求并清除未决记录');
@@ -9441,7 +9643,7 @@ setTimeout(async () => {
       mark = fetchCallLog.length;
       helpers.requestMarginRepayConfirm('BNB');
       await helpers.onHedgeModalConfirm();
-      rBody = elements['private-panel-body'].innerHTML;
+      rBody = privateBodyHtml();
       if (!rBody.includes('结果未知，请勿直接重试')) throw new Error('unknown 必须醒目警示');
       if (!rBody.includes('可能已经执行')) throw new Error('unknown 必须说明钱可能已经还了');
       if (/data-repay-retry|>重试</.test(rBody)) throw new Error('unknown 绝不能给重试按钮');
@@ -9498,7 +9700,7 @@ setTimeout(async () => {
       helpers.requestMarginRepayConfirm('BTC');
       await helpers.onHedgeModalConfirm();
       helpers.ingestSnapshot(repayFixture);
-      rBody = elements['private-panel-body'].innerHTML;
+      rBody = privateBodyHtml();
       if (!rBody.includes('还款已成功，但账户快照刷新失败')) throw new Error('部分刷新不得当成功，必须如实提示刷新失败');
       if (!helpers.getMarginRepay().pending.BTC) throw new Error('刷新失败必须保留未决记录（锁）');
       if (!rBody.includes('data-repay-refresh="BTC"')) throw new Error('应提供「再次刷新」恢复路径');
@@ -9514,7 +9716,7 @@ setTimeout(async () => {
       marginRepayPostThrow = new TypeError('fetch failed');
       helpers.requestMarginRepayConfirm('BTC');
       await helpers.onHedgeModalConfirm();
-      rBody = elements['private-panel-body'].innerHTML;
+      rBody = privateBodyHtml();
       if (!helpers.getMarginRepay().pending.BTC) throw new Error('传输错误必须保留未决请求');
       if (!rBody.includes('结果未知，请勿直接重试')) throw new Error('传输错误必须按结果未知提示');
       if (!rBody.includes('data-repay-ack="BTC"') || !rBody.includes('data-repay-recheck="BTC"')) {
@@ -9523,7 +9725,7 @@ setTimeout(async () => {
       // -- GET 404：不得擅自宣称未还款、不得清除未决 ID --
       marginRepayGetResponse = { status: 404, body: { error: 'not_found', detail: '未找到该 client_request_id 的还款记录' } };
       await helpers.recoverMarginRepay('BTC');
-      rBody = elements['private-panel-body'].innerHTML;
+      rBody = privateBodyHtml();
       if (!helpers.getMarginRepay().pending.BTC) throw new Error('GET 404 不得清除未决 ID');
       if (!rBody.includes('恢复查询未完成')) throw new Error('GET 404 应如实提示恢复查询未完成');
       if (rBody.includes('尚未还款') || rBody.includes('未还款成功')) throw new Error('不得擅自宣称未还款');
@@ -9548,7 +9750,7 @@ setTimeout(async () => {
         throw new Error('恢复成功后同样应强制刷新账户快照');
       }
       helpers.ingestSnapshot(repayFixture);
-      rBody = elements['private-panel-body'].innerHTML;
+      rBody = privateBodyHtml();
       if (!rBody.includes('还款成功') || !rBody.includes('实际偿还 0.44 个 BTC')) {
         throw new Error('启动恢复成功应展示实际还款资产/数量');
       }
@@ -9557,7 +9759,7 @@ setTimeout(async () => {
       const mm = helpers.getMarginRepay();
       mm.submitting = true;
       helpers.renderPrivatePanel();
-      rBody = elements['private-panel-body'].innerHTML;
+      rBody = privateBodyHtml();
       if (!/data-repay-preview="BTC" disabled>还款<\/button>/.test(rBody)
           || !/data-repay-preview="BNB" disabled>还款<\/button>/.test(rBody)) {
         throw new Error('提交期间所有还款按钮必须禁用');
@@ -9579,7 +9781,7 @@ setTimeout(async () => {
       } };
       helpers.requestMarginRepayConfirm('BTC');
       await helpers.onHedgeModalConfirm();
-      rBody = elements['private-panel-body'].innerHTML;
+      rBody = privateBodyHtml();
       if (!rBody.includes('还款未发出')) throw new Error('请求层失败应显示「还款未发出」');
       if (!rBody.includes('还款通道未配置')) throw new Error('请求层失败应带后端 detail');
       if (helpers.getMarginRepay().pending.BTC) throw new Error('请求层失败应撤销未决记录');
@@ -9629,6 +9831,8 @@ setTimeout(async () => {
         // dual-ledger flow-log（task C）
         /^\/api\/private-ledger\/flow-log\?/,
         /^\/api\/private-ledger\/refresh$/,
+        // 资金费率收益曲线（2026-08-20）：同源、只读、GET，窗口在前端切片故无参数。
+        /^\/api\/private-ledger\/pnl-series$/,
         // 资产互转（stage 2026-08-06-asset-transfer-live-v1 T2）：同源、POST。
         /^\/api\/asset-transfer$/,
         // 统一账户还款（stage 2026-08-09-pm-margin-repay-v1 T2）：同源、POST；
@@ -9684,6 +9888,8 @@ setTimeout(async () => {
           if (c.method !== 'POST') throw new Error(`cache-refresh 路由非法方法 ${c.method}`);
         } else if (c.url.startsWith('/api/private-ledger/flow-log')) {
           if (c.method !== 'GET') throw new Error(`flow-log 路由非法方法 ${c.method}`);
+        } else if (c.url.startsWith('/api/private-ledger/pnl-series')) {
+          if (c.method !== 'GET') throw new Error(`pnl-series 路由非法方法 ${c.method}`);
         } else if (c.url === '/api/private-ledger/refresh') {
           if (c.method !== 'POST') throw new Error(`flow-log refresh 路由非法方法 ${c.method}`);
         } else if (c.url === '/api/asset-transfer') {
@@ -9788,9 +9994,9 @@ setTimeout(async () => {
       if (fetchCallLog.slice(before).some(c => c.url.includes('max-withdraw'))) {
         throw new Error('可转出额链路不得发起任何请求');
       }
-      let unifiedSection = elements['private-panel-body'].innerHTML.slice(
-        elements['private-panel-body'].innerHTML.indexOf('统一账户余额'),
-        elements['private-panel-body'].innerHTML.indexOf('资产互转')
+      let unifiedSection = privateBodyHtml().slice(
+        privateBodyHtml().indexOf('统一账户余额'),
+        privateBodyHtml().indexOf('资产互转')
       );
       if (!unifiedSection.includes('可转余额: 209.18482141')) {
         throw new Error('统一账户 USDT 资产卡须显示账户级可转余额');
@@ -9823,9 +10029,9 @@ setTimeout(async () => {
       const noPm = JSON.parse(JSON.stringify(mwFixture));
       delete noPm.private_account.pm_account;
       helpers.ingestSnapshot(noPm);
-      unifiedSection = elements['private-panel-body'].innerHTML.slice(
-        elements['private-panel-body'].innerHTML.indexOf('统一账户余额'),
-        elements['private-panel-body'].innerHTML.indexOf('资产互转')
+      unifiedSection = privateBodyHtml().slice(
+        privateBodyHtml().indexOf('统一账户余额'),
+        privateBodyHtml().indexOf('资产互转')
       );
       if (!unifiedSection.includes('可转余额: —')) {
         throw new Error('账户级可转余额缺失时 USDT 资产卡须显示 —');
@@ -9836,9 +10042,9 @@ setTimeout(async () => {
       }
       helpers.ingestSnapshot(mwFixture);
       helpers.togglePrivacy();
-      unifiedSection = elements['private-panel-body'].innerHTML.slice(
-        elements['private-panel-body'].innerHTML.indexOf('统一账户余额'),
-        elements['private-panel-body'].innerHTML.indexOf('资产互转')
+      unifiedSection = privateBodyHtml().slice(
+        privateBodyHtml().indexOf('统一账户余额'),
+        privateBodyHtml().indexOf('资产互转')
       );
       if (!unifiedSection.includes('可转余额: ****') || unifiedSection.includes('209.18482141')) {
         throw new Error('隐私模式须遮蔽 USDT 可转余额');
@@ -9893,7 +10099,7 @@ setTimeout(async () => {
       };
       hedgePositionsGetResponse = { status: 200, body: { positions: [pos], account: { verified: true } } };
       await helpers.loadHedgePositions();
-      const posHtml = elements['private-panel-body'].innerHTML;
+      const posHtml = privateBodyHtml();
       if (!posHtml.includes('SNXXBUSDT')) {
         throw new Error('持仓表应显示现货腿 symbol SNXXBUSDT: ' + posHtml);
       }
@@ -9906,7 +10112,7 @@ setTimeout(async () => {
       hedgePositionsGetResponse = { status: 200, body: {
         positions: [pos], account: { verified: true, unavailable_sources: [] } } };
       await helpers.loadHedgePositions();
-      if (elements['private-panel-body'].innerHTML.includes(NOTICE)) {
+      if (privateBodyHtml().includes(NOTICE)) {
         throw new Error('数据正常时不得提示未获取');
       }
 
@@ -9916,7 +10122,7 @@ setTimeout(async () => {
         positions: [pos],
         account: { verified: true, unavailable_sources: ['um_positions'] } } };
       await helpers.loadHedgePositions();
-      let html = elements['private-panel-body'].innerHTML;
+      let html = privateBodyHtml();
       if (!html.includes(NOTICE)) throw new Error('UM 源读不到时应提示: ' + html);
       if (!html.includes('SNXXUSDT')) throw new Error('提示出现时表格必须保留');
 
@@ -9925,7 +10131,7 @@ setTimeout(async () => {
         positions: [pos],
         account: { verified: true, unavailable_sources: ['spot_balances', 'pm_account'] } } };
       await helpers.loadHedgePositions();
-      if (elements['private-panel-body'].innerHTML.includes(NOTICE)) {
+      if (privateBodyHtml().includes(NOTICE)) {
         throw new Error('非 UM 源不可用不应触发本表提示');
       }
 
@@ -9935,7 +10141,7 @@ setTimeout(async () => {
       hedgePositionsGetResponse = { status: 200, body: {
         positions: [pos], account: { verified: false, unavailable_sources: [] } } };
       await helpers.loadHedgePositions();
-      if (!elements['private-panel-body'].innerHTML.includes(NOTICE)) {
+      if (!privateBodyHtml().includes(NOTICE)) {
         throw new Error('verified=false 时应提示（merge 此时不用 UM 数据）');
       }
 
@@ -9943,7 +10149,7 @@ setTimeout(async () => {
       hedgePositionsGetResponse = { status: 200, body: {
         positions: [pos], account: { verified: true } } };
       await helpers.loadHedgePositions();
-      if (elements['private-panel-body'].innerHTML.includes(NOTICE)) {
+      if (privateBodyHtml().includes(NOTICE)) {
         throw new Error('字段缺失应按全部可用处理，不得误报');
       }
       console.log('[PASS] F4 交易所持仓读不到：标题直说 + 表格保留 / 正常时不误报 / 非 UM 源不触发 / verified=false 触发 / 缺失字段不误报');
@@ -9956,7 +10162,7 @@ setTimeout(async () => {
       hedgePositionsGetResponse = { status: 200, body: {
         positions: [noUmActive], account: { verified: true, unavailable_sources: [] } } };
       await helpers.loadHedgePositions();
-      html = elements['private-panel-body'].innerHTML;
+      html = privateBodyHtml();
       if (!html.includes('交易所无仓')) throw new Error('活跃周期无仓应警示');
       if (html.includes('可能已强平或手工平仓')) {
         throw new Error('旧文案把推测说成结论，应已降调');
@@ -9969,7 +10175,7 @@ setTimeout(async () => {
       hedgePositionsGetResponse = { status: 200, body: {
         positions: [noUmClosed], account: { verified: true, unavailable_sources: [] } } };
       await helpers.loadHedgePositions();
-      html = elements['private-panel-body'].innerHTML;
+      html = privateBodyHtml();
       if (html.includes('交易所无仓')) {
         throw new Error('已平仓周期不该警示「交易所无仓」——它就该没仓');
       }
@@ -10013,7 +10219,7 @@ setTimeout(async () => {
         helpers.ingestSnapshot(mkEquityFx(over));
         if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
         helpers.ingestSnapshot(mkEquityFx(over));
-        return elements['private-panel-body'].innerHTML;
+        return privateBodyHtml();
       };
 
       // 两侧都在：净资产卡取 actualEquity，accountEquity 绝不上屏，总资产不标红。

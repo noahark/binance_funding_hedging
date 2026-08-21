@@ -310,6 +310,91 @@
     .panel-body { padding: var(--space-4); }
 
     /* Dual-ledger flow log (fake prototype + future live) */
+    /* 资金费率收益曲线（2026-08-20）：四条构成 + 合成净收益 */
+    /* 窗口区间说明：贴在 1D/3D/7D 左侧 */
+    #pnl-window-label {
+      font-size: 12px; color: var(--muted); margin-right: var(--space-2);
+      white-space: nowrap;
+    }
+    /* 曲线在左吃掉剩余宽度（minmax(0,1fr) 让 SVG 可以收缩），表格在右按内容自适应 */
+    .pnl-layout {
+      display: grid; grid-template-columns: minmax(0, 1fr) auto;
+      gap: var(--space-6); align-items: start;
+    }
+    .pnl-main { min-width: 0; }
+    .pnl-summary {
+      border-collapse: collapse; width: auto; font-size: 13px; white-space: nowrap;
+      min-width: 0; /* 覆盖全局 table { min-width: 980px }，否则右栏被撑到 980px */
+    }
+    .pnl-summary th, .pnl-summary td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--line); }
+    .pnl-summary th:first-child, .pnl-summary td:first-child { text-align: left; }
+    .pnl-summary thead th {
+      font-size: 11px; color: var(--muted); font-weight: 600; background: var(--surface-2);
+    }
+    .pnl-summary td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+    .pnl-summary tr.total td { font-weight: 700; border-top: 2px solid var(--line-strong); border-bottom: none; }
+    .pnl-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 7px; vertical-align: -1px; }
+    .pnl-chart-wrap { position: relative; }
+    .pnl-chart-wrap svg { display: block; width: 100%; height: auto; }
+    .pnl-grid { stroke: var(--line); stroke-width: 1; }
+    .pnl-zero { stroke: var(--line-strong); stroke-width: 1.5; }
+    .pnl-axis-text { font-size: 10px; fill: var(--faint); font-family: var(--mono); }
+    .pnl-series { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+    .pnl-series.is-net { stroke-width: 3; }
+    .pnl-end-label { font-size: 11px; font-family: var(--mono); font-weight: 600; }
+    .pnl-crosshair { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 3; }
+    /* 悬停读数：每条线各一个贴线小标签（颜色即身份），时间单独落在 X 轴上 */
+    .pnl-tip { position: absolute; inset: 0; pointer-events: none; opacity: 0;
+      transition: opacity .1s; z-index: 2; }
+    .pnl-tip.is-on { opacity: 1; }
+    .pnl-hit-label {
+      position: absolute; transform: translateY(-50%); white-space: nowrap;
+      background: var(--surface); border: 1px solid currentColor; border-radius: 5px;
+      padding: 1px 6px; font-family: var(--mono); font-variant-numeric: tabular-nums;
+      font-size: 11px; font-weight: 600; line-height: 1.5;
+      box-shadow: 0 1px 4px rgba(17, 24, 39, .12);
+    }
+    .pnl-hit-time {
+      position: absolute; transform: translateX(-50%); white-space: nowrap;
+      background: var(--text); color: var(--surface); border-radius: 5px;
+      padding: 2px 7px; font-family: var(--mono); font-size: 11px; line-height: 1.5;
+    }
+    /* 底部缩略图 + 双滑块选区：两个原生 range 叠在缩略图上，thumb 才接收指针事件 */
+    .pnl-brush { margin-top: var(--space-2); position: relative; height: 46px; }
+    /* 必须显式给宽：只设 height 时 SVG 会按 viewBox 的 1000:46 固有比例
+       算出 1000px 固定宽，而叠在上面的 range 滑块是容器宽 → 选区错位 */
+    .pnl-brush svg { position: absolute; inset: 0; width: 100%; height: 46px; }
+    .pnl-brush input {
+      position: absolute; left: 0; width: 100%; top: 0; margin: 0;
+      -webkit-appearance: none; appearance: none; background: none;
+      pointer-events: none; height: 46px; /* 必须与 track、thumb 等高，见下 */
+      /* 覆盖全局 input { min-height: 40px; padding: 0 12px; border: 1px } —— 那条
+         会把轨道撑到 40px，thumb 在其中居中就比缩略图中心低 7px。 */
+      min-height: 0; padding: 0; border: none;
+    }
+    /* Chrome 的 range 在 input 里还有一层 track 伪元素，默认高约 4px 并自行居中；
+       thumb 是相对 track 定位的，于是比缩略图中心低一截。把 track 定成与 input、
+       thumb 等高，三者就只有一个可能的位置，thumb 自然与缩略图同心。 */
+    .pnl-brush input::-webkit-slider-runnable-track {
+      height: 46px; background: none; border: none;
+    }
+    .pnl-brush input::-moz-range-track { height: 46px; background: none; border: none; }
+    .pnl-brush input::-webkit-slider-thumb {
+      -webkit-appearance: none; pointer-events: auto; width: 12px; height: 46px;
+      border-radius: 4px; background: var(--surface); border: 2px solid var(--brand);
+      cursor: ew-resize; box-shadow: 0 1px 4px rgba(17, 24, 39, .2);
+    }
+    .pnl-brush input::-moz-range-thumb {
+      pointer-events: auto; width: 12px; height: 46px; border-radius: 4px;
+      background: var(--surface); border: 2px solid var(--brand); cursor: ew-resize;
+    }
+    .pnl-legend {
+      display: flex; gap: var(--space-5); flex-wrap: wrap;
+      font-size: 12px; color: var(--muted); margin-top: var(--space-3);
+    }
+    .pnl-legend span { display: flex; align-items: center; }
+    .pnl-footnote { margin-top: var(--space-4); font-size: 11.5px; color: var(--muted); line-height: 1.75; }
+    .pnl-empty { padding: var(--space-6); text-align: center; color: var(--muted); font-size: 13px; }
     .flow-log-panel { margin-top: 0; }
     .flow-log-toolbar {
       display: flex;
@@ -1354,6 +1439,12 @@
           开单任务
           <span class="badge compact nav-count" id="hedge-task-count">0</span>
         </button>
+        <button class="nav-button" id="nav-flow-log">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M5 4h11l3 3v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm3 6h8M8 14h8M8 18h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          流水日志
+        </button>
         <button class="nav-button" id="nav-history">
           <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 8v4l3 2M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1394,7 +1485,8 @@
       </header>
 
       <div id="market-view">
-      <section class="panel" id="private-panel" style="display:none;">
+      <!-- 账户概览：标题区 + 八张统计卡，独立于下方各账户余额明细 -->
+      <section class="panel" id="private-overview-panel" style="display:none;">
         <div class="panel-header">
           <div class="panel-title">
             <div class="panel-title-row">
@@ -1408,11 +1500,49 @@
             </div>
             <p class="subtitle source-checked-at" id="private-pm-source-time" style="display:none;"></p>
           </div>
-          <div class="panel-actions" role="tablist" aria-label="费率行情页双看板">
-            <button class="btn compact primary" id="btn-market-board" type="button" role="tab" aria-selected="true" aria-controls="market-board" title="费率行情看板">费率行情</button>
-            <button class="btn compact" id="btn-flow-log" type="button" role="tab" aria-selected="false" aria-controls="flow-log-view" title="流水日志看板">流水日志</button>
+        </div>
+        <div class="panel-body" id="private-overview-body"></div>
+      </section>
+
+      <!-- 资金费率收益曲线：四条构成 + 合成净收益，口径同持仓级 net_pnl -->
+      <section class="panel" id="pnl-curve-panel" style="display:none;">
+        <div class="panel-header">
+          <div class="panel-title">
+            <h2>资金费率收益曲线</h2>
+            <p class="subtitle">按发生时间累计 · 成本记负值 · 净收益 = 费率收益 − 手续费 − 利息 − 滑点</p>
+          </div>
+          <div class="panel-actions" role="group" aria-label="曲线时间窗">
+            <span id="pnl-window-label"></span>
+            <button class="btn compact" id="pnl-range-1d" type="button" data-pnl-range="1" aria-pressed="false">1D</button>
+            <button class="btn compact" id="pnl-range-3d" type="button" data-pnl-range="3" aria-pressed="false">3D</button>
+            <button class="btn compact" id="pnl-range-7d" type="button" data-pnl-range="7" aria-pressed="false">7D</button>
+            <button class="btn compact primary" id="pnl-range-all" type="button" data-pnl-range="all" aria-pressed="true">全部</button>
           </div>
         </div>
+        <div class="panel-body" id="pnl-curve-body">
+          <div class="pnl-layout">
+            <div class="pnl-main">
+              <div class="pnl-chart-wrap" id="pnl-chart-wrap">
+                <svg id="pnl-chart" viewBox="0 0 1000 380" aria-label="收益构成累计曲线"></svg>
+                <div class="pnl-tip" id="pnl-tip"></div>
+              </div>
+              <div class="pnl-brush" id="pnl-brush">
+                <svg id="pnl-brush-svg" viewBox="0 0 1000 46" preserveAspectRatio="none"></svg>
+                <input type="range" id="pnl-brush-start" min="0" value="0" aria-label="曲线起点" />
+                <input type="range" id="pnl-brush-end" min="0" aria-label="曲线终点" />
+              </div>
+            </div>
+            <table class="pnl-summary"><thead><tr>
+              <th>构成</th><th>区间累计 (USDT)</th><th>占费率收益</th>
+            </tr></thead><tbody id="pnl-summary-body"></tbody></table>
+          </div>
+          <div class="pnl-legend" id="pnl-legend"></div>
+          <p class="pnl-footnote" id="pnl-footnote"></p>
+        </div>
+      </section>
+
+      <!-- 各账户余额 / 资产互转 / 本地持仓：交互事件全部委托在 #private-panel-body -->
+      <section class="panel" id="private-panel" style="display:none;">
         <div class="panel-body" id="private-panel-body"></div>
       </section>
 
@@ -1508,91 +1638,6 @@
       </section>
       </div><!-- #market-board -->
 
-      <div id="flow-log-view" style="display:none;" aria-label="流水日志看板">
-      <section class="panel flow-log-panel" id="flow-log-panel" aria-label="流水日志">
-        <div class="panel-header">
-          <div class="panel-title">
-            <h2>流水日志</h2>
-            <p class="subtitle">本地账本只读展示 · 每小时整点后自动刷新</p>
-          </div>
-          <div class="panel-actions">
-            <button class="btn compact" id="flow-log-refresh" type="button">刷新</button>
-          </div>
-        </div>
-        <div class="panel-body">
-          <div class="flow-log-toolbar">
-            <div class="flow-log-range-group" role="group" aria-label="时间窗">
-              <button class="btn compact" id="flow-log-range-7d" type="button" aria-pressed="true">近7天</button>
-              <button class="btn compact" id="flow-log-range-30d" type="button" aria-pressed="false">近30天</button>
-              <button class="btn compact" id="flow-log-range-custom" type="button" aria-pressed="false">自定义</button>
-            </div>
-            <div class="flow-log-custom-range" id="flow-log-custom-wrap">
-              <label>起 <input id="flow-log-custom-start" type="date" /></label>
-              <label>止 <input id="flow-log-custom-end" type="date" /></label>
-              <button class="btn compact" id="flow-log-custom-apply" type="button">应用</button>
-            </div>
-          </div>
-          <p class="flow-log-status-bar" id="flow-log-status-bar"></p>
-          <p class="flow-log-coverage-note" id="flow-log-coverage-note"></p>
-          <div class="flow-log-meta-row" aria-label="本次新增与今日累计">
-            <div class="flow-log-meta-block" id="flow-log-delta">
-              <h3 class="flow-log-delta-heading">本次新增</h3>
-              <p class="meta-note">口径：按入库时间（本次新增）· 与「今日累计 / 区间累计」不得混加</p>
-              <div id="flow-log-delta-interest"></div>
-              <div id="flow-log-delta-income"></div>
-              <div id="flow-log-delta-symbols"></div>
-            </div>
-            <div class="flow-log-meta-block" id="flow-log-today">
-              <h3>今日累计</h3>
-              <p class="meta-note">口径：按发生时间归属北京时间当日 · 非入库时间</p>
-              <div class="flow-log-today-body"></div>
-            </div>
-          </div>
-          <div class="flow-log-columns">
-            <div class="flow-log-col" id="flow-log-interest-col">
-              <div class="flow-log-col-head">
-                <h3>借币利息流水</h3>
-                <p class="flow-log-col-status" id="flow-log-interest-status"></p>
-                <div class="flow-log-summary" id="flow-log-interest-summary"></div>
-              </div>
-              <div class="flow-log-col-body" id="flow-log-interest-body"></div>
-            </div>
-            <div class="flow-log-col" id="flow-log-capital-col">
-              <div class="flow-log-col-head">
-                <h3>全仓杠杆流水</h3>
-                <p class="flow-log-col-status" id="flow-log-capital-status"></p>
-                <div class="flow-log-summary" id="flow-log-capital-summary"></div>
-                <div class="flow-log-col-filters" id="flow-log-capital-filters" role="group" aria-label="全仓杠杆流水类型筛选">
-                  <span>类型：</span>
-                  <label><input type="checkbox" id="flow-log-capital-filter-transfer" checked /> 转账</label>
-                  <label><input type="checkbox" id="flow-log-capital-filter-borrow" checked /> 借款</label>
-                  <label><input type="checkbox" id="flow-log-capital-filter-repay" checked /> 还款</label>
-                  <label><input type="checkbox" id="flow-log-capital-filter-trade" /> 买卖/手续费</label>
-                  <label><input type="checkbox" id="flow-log-capital-filter-other" /> 其他</label>
-                </div>
-              </div>
-              <div class="flow-log-col-body" id="flow-log-capital-body"></div>
-            </div>
-            <div class="flow-log-col" id="flow-log-income-col">
-              <div class="flow-log-col-head">
-                <h3>合约资金流水</h3>
-                <p class="flow-log-col-status" id="flow-log-income-status"></p>
-                <div class="flow-log-summary" id="flow-log-income-summary"></div>
-                <div class="flow-log-col-filters flow-log-filters" id="flow-log-filters" role="group" aria-label="合约流水类型筛选">
-                  <span>类型：</span>
-                  <label><input type="checkbox" id="flow-log-filter-funding" checked /> 资金费</label>
-                  <label><input type="checkbox" id="flow-log-filter-commission" checked /> 手续费</label>
-                  <label><input type="checkbox" id="flow-log-filter-realized" /> 已实现盈亏</label>
-                  <label><input type="checkbox" id="flow-log-filter-transfer" /> 划转</label>
-                  <label><input type="checkbox" id="flow-log-filter-other" /> 其他</label>
-                </div>
-              </div>
-              <div class="flow-log-col-body" id="flow-log-income-body"></div>
-            </div>
-          </div>
-        </div>
-      </section>
-      </div><!-- #flow-log-view -->
 
       </div><!-- #market-view -->
 
@@ -1698,6 +1743,92 @@
            = 周期结算日志 hedge_open_cycle_close_log（GET /api/hedge-open-close-logs）。
            现货买/卖均价与滑点字段本轮无数据源（close_log 无现货列、滑点需盘口参考价），
            显示 —。 -->
+      <div id="flow-log-view" style="display:none;" aria-label="流水日志看板">
+      <section class="panel flow-log-panel" id="flow-log-panel" aria-label="流水日志">
+        <div class="panel-header">
+          <div class="panel-title">
+            <h2>流水日志</h2>
+            <p class="subtitle">本地账本只读展示 · 每小时整点后自动刷新</p>
+          </div>
+          <div class="panel-actions">
+            <button class="btn compact" id="flow-log-refresh" type="button">刷新</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="flow-log-toolbar">
+            <div class="flow-log-range-group" role="group" aria-label="时间窗">
+              <button class="btn compact" id="flow-log-range-7d" type="button" aria-pressed="true">近7天</button>
+              <button class="btn compact" id="flow-log-range-30d" type="button" aria-pressed="false">近30天</button>
+              <button class="btn compact" id="flow-log-range-custom" type="button" aria-pressed="false">自定义</button>
+            </div>
+            <div class="flow-log-custom-range" id="flow-log-custom-wrap">
+              <label>起 <input id="flow-log-custom-start" type="date" /></label>
+              <label>止 <input id="flow-log-custom-end" type="date" /></label>
+              <button class="btn compact" id="flow-log-custom-apply" type="button">应用</button>
+            </div>
+          </div>
+          <p class="flow-log-status-bar" id="flow-log-status-bar"></p>
+          <p class="flow-log-coverage-note" id="flow-log-coverage-note"></p>
+          <div class="flow-log-meta-row" aria-label="本次新增与今日累计">
+            <div class="flow-log-meta-block" id="flow-log-delta">
+              <h3 class="flow-log-delta-heading">本次新增</h3>
+              <p class="meta-note">口径：按入库时间（本次新增）· 与「今日累计 / 区间累计」不得混加</p>
+              <div id="flow-log-delta-interest"></div>
+              <div id="flow-log-delta-income"></div>
+              <div id="flow-log-delta-symbols"></div>
+            </div>
+            <div class="flow-log-meta-block" id="flow-log-today">
+              <h3>今日累计</h3>
+              <p class="meta-note">口径：按发生时间归属北京时间当日 · 非入库时间</p>
+              <div class="flow-log-today-body"></div>
+            </div>
+          </div>
+          <div class="flow-log-columns">
+            <div class="flow-log-col" id="flow-log-interest-col">
+              <div class="flow-log-col-head">
+                <h3>借币利息流水</h3>
+                <p class="flow-log-col-status" id="flow-log-interest-status"></p>
+                <div class="flow-log-summary" id="flow-log-interest-summary"></div>
+              </div>
+              <div class="flow-log-col-body" id="flow-log-interest-body"></div>
+            </div>
+            <div class="flow-log-col" id="flow-log-capital-col">
+              <div class="flow-log-col-head">
+                <h3>全仓杠杆流水</h3>
+                <p class="flow-log-col-status" id="flow-log-capital-status"></p>
+                <div class="flow-log-summary" id="flow-log-capital-summary"></div>
+                <div class="flow-log-col-filters" id="flow-log-capital-filters" role="group" aria-label="全仓杠杆流水类型筛选">
+                  <span>类型：</span>
+                  <label><input type="checkbox" id="flow-log-capital-filter-transfer" checked /> 转账</label>
+                  <label><input type="checkbox" id="flow-log-capital-filter-borrow" checked /> 借款</label>
+                  <label><input type="checkbox" id="flow-log-capital-filter-repay" checked /> 还款</label>
+                  <label><input type="checkbox" id="flow-log-capital-filter-trade" /> 买卖/手续费</label>
+                  <label><input type="checkbox" id="flow-log-capital-filter-other" /> 其他</label>
+                </div>
+              </div>
+              <div class="flow-log-col-body" id="flow-log-capital-body"></div>
+            </div>
+            <div class="flow-log-col" id="flow-log-income-col">
+              <div class="flow-log-col-head">
+                <h3>合约资金流水</h3>
+                <p class="flow-log-col-status" id="flow-log-income-status"></p>
+                <div class="flow-log-summary" id="flow-log-income-summary"></div>
+                <div class="flow-log-col-filters flow-log-filters" id="flow-log-filters" role="group" aria-label="合约流水类型筛选">
+                  <span>类型：</span>
+                  <label><input type="checkbox" id="flow-log-filter-funding" checked /> 资金费</label>
+                  <label><input type="checkbox" id="flow-log-filter-commission" checked /> 手续费</label>
+                  <label><input type="checkbox" id="flow-log-filter-realized" /> 已实现盈亏</label>
+                  <label><input type="checkbox" id="flow-log-filter-transfer" /> 划转</label>
+                  <label><input type="checkbox" id="flow-log-filter-other" /> 其他</label>
+                </div>
+              </div>
+              <div class="flow-log-col-body" id="flow-log-income-body"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+      </div><!-- #flow-log-view -->
+
       <section class="panel" id="history-view" style="display:none;">
         <div class="panel-header">
           <div class="panel-title">
@@ -1863,8 +1994,15 @@
         // C13：smooth close 启动请求进行中，该卡全部操作按钮置灰、启动显示「备料中…」。
         hedgePreparingStartId: null,
         hedgeLiveCardIds: [],
-        // 流水日志真实数据（private-ledger/v2）；页内看板 marketBoard: 'market'|'flow-log'
-        marketBoard: 'market',
+        // 资金费率收益曲线：一次取全量序列，时间窗在本地切片（切窗口零请求）
+        pnlPayload: null,
+        pnlError: null,
+        pnlRange: 'all',
+        pnlLo: null,
+        pnlHi: null,
+        pnlHitGeom: null,
+        // 流水日志真实数据（private-ledger/v2）；流水日志是侧栏一级视图，
+        // activeView === 'flow-log'（原页内看板状态 marketBoard 已退役）。
         flowLogOpen: false,
         flowLogRange: '7d', // '7d' | '30d' | 'custom'
         flowLogPayload: null,
@@ -1921,11 +2059,27 @@
         tableBody: document.getElementById('market-table-body'),
         privatePanel: document.getElementById('private-panel'),
         privatePmSourceTime: document.getElementById('private-pm-source-time'),
+        pnlCurvePanel: document.getElementById('pnl-curve-panel'),
+        pnlSummaryBody: document.getElementById('pnl-summary-body'),
+        pnlChart: document.getElementById('pnl-chart'),
+        pnlChartWrap: document.getElementById('pnl-chart-wrap'),
+        pnlTip: document.getElementById('pnl-tip'),
+        pnlBrushSvg: document.getElementById('pnl-brush-svg'),
+        pnlBrushStart: document.getElementById('pnl-brush-start'),
+        pnlBrushEnd: document.getElementById('pnl-brush-end'),
+        pnlWindowLabel: document.getElementById('pnl-window-label'),
+        pnlLegend: document.getElementById('pnl-legend'),
+        pnlRangeButtons: ['1', '3', '7', 'all'].map(k => ({
+          key: k, el: document.getElementById('pnl-range-' + (k === 'all' ? 'all' : k + 'd')),
+        })),
+        pnlFootnote: document.getElementById('pnl-footnote'),
+        privateOverviewPanel: document.getElementById('private-overview-panel'),
+        privateOverviewBody: document.getElementById('private-overview-body'),
         privatePanelBody: document.getElementById('private-panel-body'),
         btnPrivacy: document.getElementById('btn-privacy'),
         privacyLabel: document.getElementById('privacy-label'),
         privacyIconPath: document.getElementById('privacy-icon-path'),
-        btnFlowLog: document.getElementById('btn-flow-log'),
+
         flowLogPanel: document.getElementById('flow-log-panel'),
         flowLogStatusBar: document.getElementById('flow-log-status-bar'),
         flowLogCoverageNote: document.getElementById('flow-log-coverage-note'),
@@ -1970,8 +2124,6 @@
         navBorrowTasks: document.getElementById('nav-borrow-tasks'),
         borrowTaskCount: document.getElementById('borrow-task-count'),
         marketView: document.getElementById('market-view'),
-        marketBoardEl: document.getElementById('market-board'),
-        btnMarketBoard: document.getElementById('btn-market-board'),
         flowLogView: document.getElementById('flow-log-view'),
         borrowTaskView: document.getElementById('borrow-task-view'),
         borrowTaskList: document.getElementById('borrow-task-list'),
@@ -1997,6 +2149,7 @@
         navHedgeTasks: document.getElementById('nav-hedge-tasks'),
         hedgeTaskCount: document.getElementById('hedge-task-count'),
         hedgeTaskView: document.getElementById('hedge-task-view'),
+        navFlowLog: document.getElementById('nav-flow-log'),
         navHistory: document.getElementById('nav-history'),
         historyView: document.getElementById('history-view'),
         historyList: document.getElementById('history-list'),
@@ -2047,6 +2200,7 @@
         savePrivacyHidden(state.privacyHidden);
         updatePrivacyToggleUi();
         renderPrivatePanel();
+        renderPnlCurve();
         if (state.flowLogOpen) renderFlowLogPanel();
       }
 
@@ -4424,23 +4578,30 @@
         // not verified. Hide the panel only when there is nothing to show at all
         // (no account block AND no local positions); the merged table + a not-ready
         // notice cover the degraded cases below.
-        // 双看板：费率行情页内 .panel-actions 的「费率行情|流水日志」必须可点，
-        // 故在 market 页始终展示私有账户面板 header（无账户数据时 body 可空）。
+        // 「费率行情|流水日志」双看板按钮已移到侧栏（流水日志成为一级视图），
+        // 原先「header 必须常显以承载按钮」的理由不再成立；此处保留 market 页
+        // 常显 header 属既有行为，本次未随之改动。
         const hasPositions = Array.isArray(state.hedgePositions) && state.hedgePositions.length > 0;
+        const showPrivate = (on) => {
+          const v = on ? '' : 'none';
+          if (els.privateOverviewPanel) els.privateOverviewPanel.style.display = v;
+          els.privatePanel.style.display = v;
+        };
         if (!pa && !hasPositions) {
           if (state.activeView === 'market') {
-            els.privatePanel.style.display = '';
+            showPrivate(true);
+            if (els.privateOverviewBody) els.privateOverviewBody.innerHTML = '';
             els.privatePanelBody.innerHTML = '';
             renderAccountAssetUpdatedAt(null);
             renderPrivatePmSourceTime(null);
             return;
           }
-          els.privatePanel.style.display = 'none';
+          showPrivate(false);
           renderAccountAssetUpdatedAt(null);
           renderPrivatePmSourceTime(null);
           return;
         }
-        els.privatePanel.style.display = '';
+        showPrivate(true);
         // Title-area aggregate time (legacy checked_at / priced_at). Not a
         // per-source clock; separate DOM from the in-panel private unread notice.
         renderAccountAssetUpdatedAt(pa || null);
@@ -4449,6 +4610,7 @@
 
         if (!pa || pa.verified !== true) {
           const errorDetail = (pa && pa.error) ? `（${escapeHtml(pa.error)}）` : '';
+          if (els.privateOverviewBody) els.privateOverviewBody.innerHTML = '';
           els.privatePanelBody.innerHTML = `
             <div class="empty-state">
               <strong>私有账户未读取</strong><br/>
@@ -4588,7 +4750,7 @@
         const unifiedTimeLine = formatSingleSourceCheckedLine(sca.unified_balances);
         const spotTimeLine = formatSingleSourceCheckedLine(sca.spot_balances);
 
-        els.privatePanelBody.innerHTML = `
+        if (els.privateOverviewBody) els.privateOverviewBody.innerHTML = `
           <div class="private-overview">
             <div class="overview-card">
               <div class="label">总资产估值 (USDT)</div>
@@ -4633,7 +4795,9 @@
               <div class="hint">账户状态：${statusText}</div>
             </div>
           </div>
+        `;
 
+        els.privatePanelBody.innerHTML = `
           <div class="account-section">
             <h3>统一账户余额</h3>
             ${sourceCheckedAtHtml(unifiedTimeLine)}
@@ -7539,67 +7703,17 @@
         }
       }
 
-      function setMarketBoard(board, opts) {
-        // 页内双看板：'market' | 'flow-log'（不改 activeView / 不隐藏侧栏）
-        const next = board === 'flow-log' ? 'flow-log' : 'market';
-        const prevBoard = state.marketBoard;
-        state.marketBoard = next;
-        state.flowLogOpen = next === 'flow-log';
-        // 市场表看板
-        if (els.marketBoardEl) els.marketBoardEl.style.display = next === 'flow-log' ? 'none' : '';
-        // 私有账户 body：流水看板时隐藏内容，保留 header 上的双按钮
-        if (els.privatePanelBody) {
-          els.privatePanelBody.style.display = next === 'flow-log' ? 'none' : '';
-        }
-        // 私有账户面板：费率行情页内始终可显示 header（按钮所在）
-        if (els.privatePanel && state.activeView === 'market') {
-          els.privatePanel.style.display = '';
-        }
-        if (els.flowLogView) els.flowLogView.style.display = next === 'flow-log' ? '' : 'none';
-        // 按钮互斥高亮
-        if (els.btnMarketBoard) {
-          const on = next === 'market';
-          els.btnMarketBoard.classList.toggle('primary', on);
-          els.btnMarketBoard.setAttribute('aria-selected', String(on));
-          if (on) els.btnMarketBoard.setAttribute('aria-current', 'page');
-          else els.btnMarketBoard.removeAttribute('aria-current');
-        }
-        if (els.btnFlowLog) {
-          const on = next === 'flow-log';
-          els.btnFlowLog.classList.toggle('primary', on);
-          els.btnFlowLog.setAttribute('aria-selected', String(on));
-          if (on) els.btnFlowLog.setAttribute('aria-current', 'page');
-          else els.btnFlowLog.removeAttribute('aria-current');
-        }
-        // 轮询
-        if (prevBoard === 'flow-log' && next !== 'flow-log') stopFlowLogPoll();
-        if (next === 'flow-log' && state.activeView === 'market') {
-          if (state.flowLogPayload) renderFlowLogPanel();
-          if (!(opts && opts.skipLoad)) loadFlowLog();
-          startFlowLogPoll();
-        }
-      }
-
       function setActiveView(view) {
         const prev = state.activeView;
-        // flow-log 不再是整页：映射为 market + 流水看板
-        let target = view;
-        let boardHint = null;
-        if (view === 'flow-log') {
-          target = 'market';
-          boardHint = 'flow-log';
-        } else if (view === 'market') {
-          target = 'market';
-          boardHint = 'market';
-        }
-        const allowed = { 'borrow-tasks': 1, 'hedge-tasks': 1, history: 1, market: 1 };
-        state.activeView = allowed[target] ? target : 'market';
+        const allowed = { 'borrow-tasks': 1, 'hedge-tasks': 1, history: 1, market: 1, 'flow-log': 1 };
+        state.activeView = allowed[view] ? view : 'market';
         const isBorrow = state.activeView === 'borrow-tasks';
         const isHedge = state.activeView === 'hedge-tasks';
         const isHistory = state.activeView === 'history';
+        const isFlowLog = state.activeView === 'flow-log';
         const isMarket = state.activeView === 'market';
-        // market 页始终可见（含双看板）；仅借币/开单/历史隐藏
-        els.marketView.style.display = (isBorrow || isHedge || isHistory) ? 'none' : '';
+        els.marketView.style.display = isMarket ? '' : 'none';
+        if (els.flowLogView) els.flowLogView.style.display = isFlowLog ? '' : 'none';
         els.borrowTaskView.style.display = isBorrow ? '' : 'none';
         els.hedgeTaskView.style.display = isHedge ? '' : 'none';
         els.historyView.style.display = isHistory ? '' : 'none';
@@ -7608,11 +7722,12 @@
         // 底部不可见。统一 scrollTo(0,0) 覆盖全部四个视图（market/借币/开单/历史）。
         // typeof 保护：self-check 的 node 环境无 window，浏览器环境正常滚动。
         if (typeof window !== 'undefined') window.scrollTo(0, 0);
-        // 侧栏四个入口；#nav-market 不随看板切换改变激活态
+        // 侧栏五个入口
         const navEntries = [
           ['market', els.navMarket],
           ['borrow-tasks', els.navBorrowTasks],
           ['hedge-tasks', els.navHedgeTasks],
+          ['flow-log', els.navFlowLog],
           ['history', els.navHistory]
         ];
         for (const [name, btn] of navEntries) {
@@ -7625,10 +7740,15 @@
             btn.removeAttribute('aria-current');
           }
         }
-        if (prev === 'market' && !isMarket) stopFlowLogPoll();
-        if (isMarket) {
-          const board = boardHint || state.marketBoard || 'market';
-          setMarketBoard(board);
+        if (isMarket) loadPnlSeries();
+        else if (els.pnlCurvePanel) els.pnlCurvePanel.style.display = 'none';
+        // 流水日志轮询只在该视图内运行（离开即停，进入即拉一帧 + 起轮询）
+        state.flowLogOpen = isFlowLog;
+        if (prev === 'flow-log' && !isFlowLog) stopFlowLogPoll();
+        if (isFlowLog) {
+          if (state.flowLogPayload) renderFlowLogPanel();
+          loadFlowLog();
+          startFlowLogPoll();
         }
         if (isBorrow) {
           // 进入借币任务：默认选中「借币中」（不是「全部」）。
@@ -7998,27 +8118,18 @@
       function startFlowLogPoll() {
         stopFlowLogPoll();
         flowLogPollId = setInterval(() => {
-          if (state.activeView === 'market' && state.marketBoard === 'flow-log') loadFlowLog();
+          if (state.activeView === 'flow-log') loadFlowLog();
         }, FLOW_LOG_POLL_MS);
       }
 
       function setFlowLogOpen(open) {
-        // 页内看板：不改 activeView 为独立页；必要时先回到费率行情页
-        if (open) {
-          if (state.activeView !== 'market') setActiveView('market');
-          setMarketBoard('flow-log');
-        } else if (state.activeView === 'market') {
-          setMarketBoard('market');
-        }
+        // 流水日志是侧栏一级视图；关闭即退回费率行情页
+        if (open) setActiveView('flow-log');
+        else if (state.activeView === 'flow-log') setActiveView('market');
       }
 
       function toggleFlowLogPanel() {
-        if (state.activeView === 'market' && state.marketBoard === 'flow-log') {
-          setMarketBoard('market');
-        } else {
-          if (state.activeView !== 'market') setActiveView('market');
-          setMarketBoard('flow-log');
-        }
+        setFlowLogOpen(state.activeView !== 'flow-log');
       }
 
       function applyFlowLogRangeMode(mode) {
@@ -8032,7 +8143,7 @@
         if (els.flowLogRange30d) els.flowLogRange30d.setAttribute('aria-pressed', String(mode === '30d'));
         if (els.flowLogRangeCustom) els.flowLogRangeCustom.setAttribute('aria-pressed', String(mode === 'custom'));
         if (mode === 'custom') return; // 等应用
-        if (state.activeView === 'market' && state.marketBoard === 'flow-log') loadFlowLog();
+        if (state.activeView === 'flow-log') loadFlowLog();
       }
 
       function applyFlowLogCustomRange() {
@@ -8044,7 +8155,7 @@
         if (wrap) wrap.classList.add('is-open');
         const win = computeFlowLogWindowMs();
         if (!win) return; // 非法窗：零请求
-        if (state.activeView === 'market' && state.marketBoard === 'flow-log') loadFlowLog();
+        if (state.activeView === 'flow-log') loadFlowLog();
       }
 
       function mapFlowLogGetError(status, body) {
@@ -8687,19 +8798,391 @@
         renderFlowLogIncomeCol(payload);
       }
 
-      function initFlowLogPanel() {
-        if (!els.btnFlowLog || !els.flowLogPanel) return;
-        // 私有账户 .panel-actions 双看板按钮
-        if (els.btnMarketBoard) {
-          els.btnMarketBoard.addEventListener('click', () => {
-            if (state.activeView !== 'market') setActiveView('market');
-            else setMarketBoard('market');
+      // ── 资金费率收益曲线（2026-08-20）─────────────────────────────────
+      // 四条构成 + 合成净收益。数据一次性取全量（GET pnl-series 无窗口参数），
+      // 1D/3D/7D 与拖拽都是在已加载序列上切片——切窗口零请求。
+      // points 每项：[bucket_ms, 费率, 手续费, 利息, 滑点, 净收益, partial]
+      const PNL_SERIES = [
+        { key: 1, name: '费率收益', color: 'var(--success)', cls: '' },
+        { key: 2, name: '手续费',   color: 'var(--danger)',  cls: '' },
+        { key: 3, name: '利息',     color: 'var(--warn)',    cls: '' },
+        { key: 4, name: '滑点',     color: 'var(--accent)',  cls: '' },
+        { key: 5, name: '净收益',   color: 'var(--text)',    cls: 'is-net' },
+      ];
+      const PNL_GEOM = { l: 52, r: 104, t: 16, b: 28, w: 1000, h: 380 };
+
+      // 成本齐不齐：有资产缺行情价（快照未就绪时会整片缺）或滑点源读取失败，
+      // 都意味着成本被低估、净收益虚高。对齐持仓表 net_pnl 的纪律——宁可显示
+      // 「暂无」，也不给一个看起来正常、实际偏高的数。
+      function pnlCostsIncomplete() {
+        const d = state.pnlPayload;
+        if (!d) return false;
+        return ((d.unpriced_assets || []).length > 0)
+          || d.close_logs_ok === false
+          || d.open_fills_ok === false;
+      }
+
+      function pnlNum(v) {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : NaN;
+      }
+      // 金额展示：隐私态一律脱敏；无值 —；否则带符号定点
+      function pnlAmount(v, digits) {
+        if (state.privacyHidden) return '****';
+        const n = pnlNum(v);
+        if (!Number.isFinite(n)) return '—';
+        const d = digits == null ? 4 : digits;
+        return (n > 0 ? '+' : n < 0 ? '-' : '') + Math.abs(n).toFixed(d);
+      }
+      function pnlBeijing(ms) {
+        return formatBeijing(ms);
+      }
+
+      async function loadPnlSeries() {
+        try {
+          const res = await fetch('/api/private-ledger/pnl-series', { cache: 'no-store' });
+          if (!res.ok) throw new Error('http ' + res.status);
+          state.pnlPayload = await res.json();
+          state.pnlError = null;
+        } catch (err) {
+          // 曲线是纯展示，失败不打断页面其余部分；保留上次成功数据
+          state.pnlError = (err && err.message) || '读取失败';
+        }
+        renderPnlCurve();
+      }
+
+      // 当前窗口在 points 上的下标区间；range 为 '1'|'3'|'7'|'all'
+      function pnlWindowIndices(points) {
+        const n = points.length;
+        if (!n) return [0, 0];
+        let lo = state.pnlLo, hi = state.pnlHi;
+        if (lo == null || hi == null || hi >= n || lo >= hi) {
+          hi = n - 1;
+          if (state.pnlRange === 'all') {
+            lo = 0;
+          } else {
+            // 按**时间**回溯，不能按点数：出点节拍是资金费结算时刻（现网 4 小时
+            // 一个），按「24 点 = 1 天」算，1D 会变成 4 天。
+            const cutoff = points[hi][0] - Number(state.pnlRange) * 86400000;
+            lo = 0;
+            for (let k = hi; k >= 0; k--) {
+              if (points[k][0] < cutoff) { lo = k; break; }
+            }
+            if (lo >= hi) lo = Math.max(0, hi - 1);
+          }
+        }
+        return [Math.max(0, lo), Math.min(n - 1, hi)];
+      }
+
+      function renderPnlCurve() {
+        if (!els.pnlCurvePanel) return;
+        const payload = state.pnlPayload;
+        const points = (payload && Array.isArray(payload.points)) ? payload.points : [];
+        // 面板只在费率行情页出现；无数据时收起，不留空壳
+        const visible = state.activeView === 'market' && (points.length > 1 || state.pnlError);
+        els.pnlCurvePanel.style.display = visible ? '' : 'none';
+        if (!visible) return;
+        if (points.length < 2) {
+          els.pnlSummaryBody.innerHTML =
+            `<tr><td colspan="3" class="pnl-empty">${escapeHtml(state.pnlError || '暂无数据')}</td></tr>`;
+          els.pnlChart.innerHTML = '';
+          els.pnlBrushSvg.innerHTML = '';
+          return;
+        }
+        const [lo, hi] = pnlWindowIndices(points);
+        state.pnlLo = lo; state.pnlHi = hi;
+        renderPnlSummary(points, lo, hi);
+        renderPnlChart(points, lo, hi);
+        renderPnlBrush(points, lo, hi);
+        renderPnlFootnote(payload);
+        if (els.pnlWindowLabel) {
+          els.pnlWindowLabel.textContent =
+            `窗口 ${pnlBeijing(points[lo][0])} → ${pnlBeijing(points[hi][0])} · ${hi - lo + 1} 个整点`;
+        }
+        if (els.pnlBrushStart) { els.pnlBrushStart.max = points.length - 1; els.pnlBrushStart.value = lo; }
+        if (els.pnlBrushEnd) { els.pnlBrushEnd.max = points.length - 1; els.pnlBrushEnd.value = hi; }
+      }
+
+      // 区间累计 = 该列末值 − 首值（曲线本身是全局累计值）。净收益列取四个分项
+      // 之和：因为每个点都满足 net = f+c+i+s，两种算法恒等，这里取分项和是为了
+      // 让「表格 = 四行相加」自证。真正要防的是**只取末值**——那会把区间起点之前
+      // 的存量当成本区间的增量（1D 窗口会显示成全期累计）。
+      function pnlDelta(points, lo, hi, key) {
+        const a = pnlNum(points[lo][key]), b = pnlNum(points[hi][key]);
+        return (Number.isFinite(a) && Number.isFinite(b)) ? b - a : NaN;
+      }
+
+      function renderPnlSummary(points, lo, hi) {
+        const deltas = {};
+        for (const s of PNL_SERIES) deltas[s.key] = pnlDelta(points, lo, hi, s.key);
+        const netDelta = [1, 2, 3, 4].reduce(
+          (acc, k) => acc + (Number.isFinite(deltas[k]) ? deltas[k] : 0), 0);
+        const funding = deltas[1];
+        const cls = (v) => (v > 0 ? 'positive' : v < 0 ? 'negative' : 'muted');
+        const share = (v) => (!Number.isFinite(v) || !funding)
+          ? '<span class="muted">—</span>'
+          : (Math.abs(v) / Math.abs(funding) * 100).toFixed(1) + '%';
+        const rows = PNL_SERIES.map((s) => {
+          const isTotal = s.key === 5;
+          const v = isTotal ? netDelta : deltas[s.key];
+          const blocked = isTotal && pnlCostsIncomplete();
+          const tail = blocked
+            ? '<span class="negative">成本不全</span>'
+            : isTotal
+              ? (funding ? `净利率 ${(v / funding * 100).toFixed(1)}%` : '<span class="muted">—</span>')
+              : share(v);
+          const cell = blocked
+            ? '<span class="muted">暂无</span>'
+            : `<span class="${cls(v)}">${pnlAmount(v)}</span>`;
+          return `<tr class="${isTotal ? 'total' : ''}">
+            <td><span class="pnl-swatch" style="background:${s.color}"></span>${s.name}</td>
+            <td class="num">${cell}</td>
+            <td class="num">${tail}</td></tr>`;
+        }).join('');
+        els.pnlSummaryBody.innerHTML = rows;
+      }
+
+      function renderPnlChart(points, lo, hi) {
+        const G = PNL_GEOM;
+        const pw = G.w - G.l - G.r, ph = G.h - G.t - G.b;
+        const vals = [];
+        for (let i = lo; i <= hi; i++) {
+          for (const s of PNL_SERIES) {
+            const v = pnlNum(points[i][s.key]);
+            if (Number.isFinite(v)) vals.push(v);
+          }
+        }
+        let min = Math.min(0, ...vals), max = Math.max(0, ...vals);
+        const pad = (max - min) * 0.08 || 0.1;
+        min -= pad; max += pad;
+        const t0 = points[lo][0], t1 = points[hi][0];
+        const tSpan = Math.max(1, t1 - t0);
+        // 按时间戳定位：出点节拍是资金费结算时刻，不同币种周期不同（1h/4h/8h）时
+        // 点间隔不均匀，按序号等距排会把时间轴画歪。
+        const X = (i) => G.l + (points[i][0] - t0) / tSpan * pw;
+        const Y = (v) => G.t + (max - v) / (max - min) * ph;
+        const span = Math.max(1, hi - lo);
+
+        // Y 轴：约 6 格，步长落在 1/2/2.5/5 × 10^k 上
+        const rawStep = (max - min) / 6;
+        const mag = Math.pow(10, Math.floor(Math.log10(rawStep || 1)));
+        const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(v => v >= rawStep) || mag * 10;
+        let grid = '';
+        for (let v = Math.ceil(min / step) * step; v <= max; v += step) {
+          const y = Y(v).toFixed(1);
+          const isZero = Math.abs(v) < 1e-9;
+          grid += `<line class="${isZero ? 'pnl-zero' : 'pnl-grid'}" x1="${G.l}" y1="${y}" x2="${G.l + pw}" y2="${y}"/>`
+            + `<text class="pnl-axis-text" x="${G.l - 8}" y="${(Y(v) + 3.5).toFixed(1)}" text-anchor="end">`
+            + `${state.privacyHidden ? '****' : v.toFixed(1)}</text>`;
+        }
+        // 刻度按时间等分，与曲线共用同一套映射
+        const tickCount = Math.min(6, hi - lo + 1);
+        let xticks = '';
+        for (let j = 0; j < tickCount; j++) {
+          const tick = t0 + (t1 - t0) * (j / (tickCount - 1 || 1));
+          const tickPx = G.l + (tick - t0) / tSpan * pw;
+          const d = new Date(tick + 8 * 3600e3);
+          xticks += `<text class="pnl-axis-text" x="${tickPx.toFixed(1)}" y="${G.h - 8}" text-anchor="middle">`
+            + `${d.getUTCMonth() + 1}/${d.getUTCDate()}</text>`;
+        }
+
+        const segment = (key, from, to) => {
+          let d = '';
+          for (let i = from; i <= to; i++) {
+            const v = pnlNum(points[i][key]);
+            if (!Number.isFinite(v)) continue;
+            d += (d ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1) + ' ';
+          }
+          return d;
+        };
+        const paths = PNL_SERIES.map((s) => {
+          if (s.key !== 5) {
+            return `<path class="pnl-series" stroke="${s.color}" d="${segment(s.key, lo, hi)}"/>`;
+          }
+          // 净收益：现货流水入库前缺现货手续费与滑点两项 → 该段虚线标记「偏高」，
+          // 但仍从窗口起点画起，断开会让读者以为这条线凭空起跳。
+          let cut = hi;
+          if (!pnlCostsIncomplete()) {
+            for (let i = lo; i <= hi; i++) { if (!points[i][6]) { cut = i; break; } }
+          }
+          const dashed = cut > lo
+            ? `<path class="pnl-series is-net" stroke="${s.color}" stroke-dasharray="5 4"
+                 opacity="0.55" d="${segment(5, lo, cut)}"/>`
+            : '';
+          return dashed + `<path class="pnl-series is-net" stroke="${s.color}" d="${segment(5, cut, hi)}"/>`;
+        }).join('');
+
+        // 末端直接标注：颜色之外的第二重身份编码（红↔绿在色觉缺陷下接近）
+        const costsBad = pnlCostsIncomplete();
+        const ends = PNL_SERIES.map((s) => {
+          const v = pnlNum(points[hi][s.key]);
+          if (!Number.isFinite(v)) return null;
+          return { s, v, y: Y(v), text: (s.key === 5 && costsBad) ? '暂无' : pnlAmount(v, 2) };
+        }).filter(Boolean).sort((a, b) => a.y - b.y);
+        for (let i = 1; i < ends.length; i++) {
+          if (ends[i].y - ends[i - 1].y < 13) ends[i].y = ends[i - 1].y + 13;
+        }
+        const endLabels = ends.map(e =>
+          `<text class="pnl-end-label" fill="${e.s.color}" x="${G.l + pw + 8}"
+             y="${(e.y + 3.5).toFixed(1)}">${e.s.name} ${e.text}</text>`).join('');
+
+        els.pnlChart.innerHTML = grid + xticks + paths + endLabels
+          + `<line id="pnl-crosshair" class="pnl-crosshair" y1="${G.t}" y2="${G.t + ph}" style="display:none"/>`
+          + `<rect id="pnl-hit" x="${G.l}" y="${G.t}" width="${pw}" height="${ph}" fill="transparent"/>`;
+        state.pnlHitGeom = { X, Y, lo, hi, pw, ph, t0, tSpan, plotBottom: G.t + ph };
+      }
+
+      function renderPnlBrush(points, lo, hi) {
+        const n = points.length;
+        const vals = points.map(p => pnlNum(p[5])).filter(Number.isFinite);
+        const min = Math.min(0, ...vals), max = Math.max(0, ...vals);
+        const bt0 = points[0][0];
+        const btSpan = Math.max(1, points[n - 1][0] - bt0);
+        const X = (i) => (points[i][0] - bt0) / btSpan * 1000;
+        const Y = (v) => 6 + (max - v) / ((max - min) || 1) * 34;
+        let d = '';
+        points.forEach((p, i) => {
+          const v = pnlNum(p[5]);
+          if (!Number.isFinite(v)) return;
+          d += (d ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1) + ' ';
+        });
+        els.pnlBrushSvg.innerHTML =
+          `<rect x="0" y="0" width="1000" height="46" fill="var(--surface-2)" rx="4"/>`
+          + `<rect x="${X(lo).toFixed(1)}" y="0" width="${(X(hi) - X(lo)).toFixed(1)}" height="46"
+               fill="var(--brand)" opacity="0.10"/>`
+          + `<path d="${d}" fill="none" stroke="var(--text)" stroke-width="1.5" opacity="0.55"/>`;
+      }
+
+      function renderPnlFootnote(payload) {
+        if (!els.pnlFootnote) return;
+        // 只登异常状态；常态口径说明已按 Human 2026-08-20 要求移除
+        const parts = [];
+        // 有缓存时刷新失败会继续显示上一次的曲线——不标出来就会被当成当前值
+        if (state.pnlError) {
+          parts.push(`<span class="negative">刷新失败（${escapeHtml(state.pnlError)}），`
+            + `以下为上一次成功读取的数据，不是最新值。</span>`);
+        }
+        const unpriced = (payload && payload.unpriced_assets) || [];
+        if (unpriced.length) {
+          parts.push(`<span class="negative">${unpriced.length} 种资产缺行情价未折算：`
+            + `${escapeHtml(unpriced.join(' / '))}——利息成本被低估。</span>`);
+        }
+        if (payload && payload.close_logs_ok === false) {
+          parts.push('<span class="negative">已平仓滑点读取失败，该项少计，净收益偏高。</span>');
+        }
+        if (payload && payload.open_fills_ok === false) {
+          parts.push('<span class="negative">在持仓周期的成交明细读取失败，'
+            + '其开/平滑点未计入，净收益不完整。</span>');
+        }
+        const slipMissing = (payload && payload.slippage_incomplete_count) || 0;
+        if (slipMissing > 0) {
+          parts.push(`${slipMissing} 笔成交批次的滑点未计入`
+            + `（单腿成交等两腿无法配对的情况，没有价差可言）。`);
+        }
+        const cov = payload && payload.coverage;
+        if (cov && cov.complete === false) {
+          parts.push('本地账本在该窗口内不完整（起点截断或有空洞），累计值可能偏低。');
+        }
+        els.pnlFootnote.style.display = parts.length ? '' : 'none';
+        els.pnlFootnote.innerHTML = parts.map(t => '· ' + t).join('<br/>');
+      }
+
+      function bindPnlCurve() {
+        if (!els.pnlCurvePanel) return;
+        els.pnlLegend.innerHTML = PNL_SERIES.map(s =>
+          `<span><span class="pnl-swatch" style="background:${s.color}"></span>${s.name}</span>`).join('');
+
+        const setRangeButtons = (active) => {
+          for (const item of els.pnlRangeButtons) {
+            if (!item.el) continue;
+            const on = item.key === active;
+            item.el.setAttribute('aria-pressed', String(on));
+            item.el.classList.toggle('primary', on);
+          }
+        };
+        for (const item of els.pnlRangeButtons) {
+          if (!item.el) continue;
+          item.el.addEventListener('click', () => {
+            state.pnlRange = item.key;
+            state.pnlLo = null; state.pnlHi = null;   // 交回 pnlWindowIndices 按 range 推
+            setRangeButtons(item.key);
+            renderPnlCurve();
           });
         }
-        els.btnFlowLog.addEventListener('click', () => {
-          if (state.activeView !== 'market') setActiveView('market');
-          setMarketBoard('flow-log');
-        });
+        const clampBrush = (which, raw) => {
+          const points = (state.pnlPayload && state.pnlPayload.points) || [];
+          if (points.length < 2) return;
+          const v = Number(raw);
+          if (which === 'start') state.pnlLo = Math.min(v, state.pnlHi - 1);
+          else state.pnlHi = Math.max(v, state.pnlLo + 1);
+          setRangeButtons(null);
+          state.pnlRange = 'custom';
+          renderPnlCurve();
+        };
+        if (els.pnlBrushStart) {
+          els.pnlBrushStart.addEventListener('input', e => clampBrush('start', e.target.value));
+        }
+        if (els.pnlBrushEnd) {
+          els.pnlBrushEnd.addEventListener('input', e => clampBrush('end', e.target.value));
+        }
+        if (els.pnlChartWrap) {
+          els.pnlChartWrap.addEventListener('mousemove', (ev) => {
+            const geom = state.pnlHitGeom;
+            const points = (state.pnlPayload && state.pnlPayload.points) || [];
+            if (!geom || points.length < 2) return;
+            const rect = els.pnlChart.getBoundingClientRect();
+            if (!rect.width) return;
+            const vx = (ev.clientX - rect.left) / rect.width * PNL_GEOM.w;
+            const ratio = Math.max(0, Math.min(1, (vx - PNL_GEOM.l) / geom.pw));
+            // 点间隔不均匀，按时间就近匹配；按索引插值会在稀疏段选错点
+            const targetT = geom.t0 + ratio * geom.tSpan;
+            let i = geom.lo;
+            for (let k = geom.lo; k <= geom.hi; k++) {
+              if (Math.abs(points[k][0] - targetT) < Math.abs(points[i][0] - targetT)) i = k;
+            }
+            const line = document.getElementById('pnl-crosshair');
+            if (line) {
+              line.setAttribute('x1', geom.X(i)); line.setAttribute('x2', geom.X(i));
+              line.style.display = '';
+            }
+            // viewBox → 实际像素
+            const sx = rect.width / PNL_GEOM.w, sy = rect.height / PNL_GEOM.h;
+            const px = geom.X(i) * sx;
+            const costsBad = pnlCostsIncomplete();
+            // 每条线一个贴线标签；同 x 上多条线可能重合，按 y 排序后向下推挤
+            const labels = PNL_SERIES.map((s) => {
+              const v = pnlNum(points[i][s.key]);
+              if (!Number.isFinite(v)) return null;
+              return {
+                color: s.color, y: geom.Y(v) * sy,
+                text: s.name + '：' + ((s.key === 5 && costsBad) ? '暂无' : pnlAmount(v, 4)),
+              };
+            }).filter(Boolean).sort((a, b) => a.y - b.y);
+            const GAP = 19;
+            for (let k = 1; k < labels.length; k++) {
+              if (labels[k].y - labels[k - 1].y < GAP) labels[k].y = labels[k - 1].y + GAP;
+            }
+            // 贴右侧；靠近右边界时翻到竖线左侧，避免被裁掉
+            const flip = px > rect.width - 170;
+            const html = labels.map(l =>
+              `<span class="pnl-hit-label" style="color:${l.color};left:${
+                (flip ? px - 10 : px + 10).toFixed(1)}px;top:${l.y.toFixed(1)}px;${
+                flip ? 'transform:translate(-100%,-50%);' : ''}">${l.text}</span>`).join('')
+              + `<span class="pnl-hit-time" style="left:${px.toFixed(1)}px;top:${
+                (geom.plotBottom * sy + 4).toFixed(1)}px">${pnlBeijing(points[i][0])}</span>`;
+            els.pnlTip.innerHTML = html;
+            els.pnlTip.classList.add('is-on');
+          });
+          els.pnlChartWrap.addEventListener('mouseleave', () => {
+            els.pnlTip.classList.remove('is-on');
+            const line = document.getElementById('pnl-crosshair');
+            if (line) line.style.display = 'none';
+          });
+        }
+      }
+
+      function initFlowLogPanel() {
+        if (!els.flowLogPanel) return;
         if (els.flowLogRange7d) {
           els.flowLogRange7d.addEventListener('click', () => applyFlowLogRangeMode('7d'));
         }
@@ -8714,13 +9197,12 @@
         }
         if (els.flowLogRefresh) {
           els.flowLogRefresh.addEventListener('click', () => {
-            if (state.activeView === 'market' && state.marketBoard === 'flow-log') {
+            if (state.activeView === 'flow-log') {
               postFlowLogRefresh();
             }
           });
         }
-        const isFlowBoard = () =>
-          state.activeView === 'market' && state.marketBoard === 'flow-log';
+        const isFlowBoard = () => state.activeView === 'flow-log';
         const bindFilter = (el, key) => {
           if (!el) return;
           el.addEventListener('change', () => {
@@ -8758,6 +9240,7 @@
         els.navMarket.addEventListener('click', () => setActiveView('market'));
         els.navBorrowTasks.addEventListener('click', () => setActiveView('borrow-tasks'));
         els.navHedgeTasks.addEventListener('click', () => setActiveView('hedge-tasks'));
+        if (els.navFlowLog) els.navFlowLog.addEventListener('click', () => setActiveView('flow-log'));
         if (els.navHistory) els.navHistory.addEventListener('click', () => setActiveView('history'));
         // 立即平仓列 + 资产互转 + 统一账户还款：私有面板容器事件委托，
         // 60s 自动刷新重建 innerHTML 也不丢绑定。
@@ -8928,6 +9411,7 @@
           if (btn) setBorrowTaskFilter(btn.getAttribute('data-borrow-filter'));
         });
         els.btnPrivacy.addEventListener('click', togglePrivacy);
+        bindPnlCurve();
         initFlowLogPanel();
         els.drawerClose.addEventListener('click', closeDrawer);
         els.drawerBackdrop.addEventListener('click', closeDrawer);
@@ -9016,12 +9500,10 @@
         // flow-log real seams (task C + panel-actions dual board)
         toggleFlowLogPanel,
         setFlowLogOpen,
-        setMarketBoard,
         renderFlowLogPanel,
         loadFlowLog,
         postFlowLogRefresh,
         getFlowLogOpen: () => state.flowLogOpen,
-        getMarketBoard: () => state.marketBoard,
         getFlowLogPayload: () => state.flowLogPayload,
         setFlowLogPayload: (p) => { state.flowLogPayload = p; state.flowLogError = null; },
         renderFlowLogIncomeCol,
@@ -9064,6 +9546,10 @@
         submitBorrowTask,
         getBorrowTasks: () => state.borrowTasks,
         getActiveView: () => state.activeView,
+        loadPnlSeries,
+        getPnlPayload: () => state.pnlPayload,
+        setPnlRange: (r) => { state.pnlRange = r; state.pnlLo = null; state.pnlHi = null; },
+        renderPnlCurve,
         setActiveView,
         pauseBorrowTask,
         startBorrowTask,
@@ -9209,6 +9695,9 @@
 
       bindEvents();
       loadApi();
+      // 收益曲线：启动即拉一次。页面初始化不走 setActiveView（activeView 默认
+      // 就是 market），故进页分支里的那次加载在首屏拿不到。
+      loadPnlSeries();
       // 启动即加载全局调度设置，使行情视图创建前预览的间隔投影可用（失败由进入借币视图重试）。
       loadSchedulerSettings();
       // 启动即拉借币任务列表，使市场页导航「借币任务 N」在未点进视图前即为「借币中」真实数量。

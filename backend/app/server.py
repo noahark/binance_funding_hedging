@@ -41,6 +41,7 @@ from ..config import Config, DEFAULT, from_env
 from ..hedge_open_tasks import HedgeError as HedgeOpenError
 from ..hedge_open_tasks import HedgeOpenTaskService
 from ..hedge_open_tasks import domain as hedge_open_domain
+from ..ledger_flow import domain as ledger_domain
 from ..ledger_flow.domain import WindowValidationError
 from ..ledger_flow.scheduler import LedgerScheduler
 from ..ledger_flow.service import LedgerFlowService
@@ -388,6 +389,9 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/private-ledger/flow-log":
             self._handle_flow_log()
             return
+        if path == "/api/private-ledger/pnl-series":
+            self._handle_pnl_series()
+            return
         if path == "/api/private-account/max-withdraw":
             self._handle_max_withdraw()
             return
@@ -603,6 +607,95 @@ class _Handler(BaseHTTPRequestHandler):
         except WindowValidationError as exc:
             self._send_ledger(400, {"error": "invalid_window", "detail": str(exc)})
             return
+        self._send_ledger(200, payload)
+
+    def _handle_pnl_series(self):
+        """GET /api/private-ledger/pnl-series?start=&end=&bucket= — 资金费率收益
+        曲线（2026-08-20）。四条构成（资金费 / 手续费 / 利息 / 滑点）与合成净收益
+        的累计序列，口径同持仓级 net_pnl。纯读、现算、不写库。
+
+        滑点两个来源：已平仓周期取全量 close-log；在持仓周期按 attempt 逐笔配对
+        成交腿现算（``list_open_cycle_fill_pairs``）——当下的收益正来自这些持仓，
+        漏掉它净收益就不完整。单腿批次（一条腿被拒）算不出，计入
+        ``slippage_incomplete_count`` 供前端在脚注明示，**不**遮蔽净收益；遮蔽只
+        发生在数据源读失败（``*_ok=false``）或缺行情价（``unpriced_assets``）时。
+        """
+        if self.ledger_flow_service is None or self.hedge_open_service is None:
+            self._send_ledger(
+                503, {"error": "pnl_series_unavailable",
+                      "detail": "ledger-flow or hedge-open service not configured"})
+            return
+        query = parse_qs(urlparse(self.path).query)
+        start, end = query.get("start", [None])[0], query.get("end", [None])[0]
+        bucket = query.get("bucket", ["hour"])[0]
+        bucket_ms = {"hour": 3600_000, "day": 86_400_000}.get(bucket)
+        if bucket_ms is None:
+            self._send_ledger(400, {"error": "invalid_bucket",
+                                    "detail": "bucket must be hour or day"})
+            return
+        store = self.ledger_flow_service._store
+        # 窗口可省：默认取本地账本全量。起点必须落在**已覆盖范围的开头**而不是 0
+        # ——从 0 起算会被 coverage 判成「起点截断」，让完整的默认视图永远挂着
+        # 不完整警告，真出现空洞时反而没人再信那条提示。
+        try:
+            end_ms = int(end) if end is not None else _now_ms()
+            if start is not None:
+                start_ms = int(start)
+            else:
+                cov = store.get_coverage()
+                starts = [v for v in (cov.get("interest_start_ms"), cov.get("income_start_ms"))
+                          if v is not None]
+                start_ms = max(starts) if starts else 0
+        except (ValueError, TypeError):
+            self._send_ledger(400, {"error": "invalid_window",
+                                    "detail": "start and end must be integer milliseconds"})
+            return
+        # 折算价与持仓级 net_pnl 同源：公开行情缓存的 opening_quotes（纯读、无请求）。
+        price_map = {}
+        try:
+            snapshot = self.service.get_snapshot()
+        except SnapshotNotReady:
+            snapshot = None
+        if isinstance(snapshot, dict):
+            for row in snapshot.get("rows") or []:
+                quotes = row.get("opening_quotes") or {}
+                if quotes.get("status") == "fresh" and quotes.get("spot_bid_price"):
+                    price_map[row.get("symbol")] = quotes["spot_bid_price"]
+
+        # 全量 close-log：历史页的 limit=100 是分页展示语义，用在这里会在周期数
+        # 超过 100 后悄悄丢掉最早周期的滑点，而其资金费等仍在账本里。
+        status, close_doc = self._safe_hedge(self.hedge_open_service.get_close_logs, None)
+        close_logs = close_doc.get("logs") or [] if status == 200 else []
+        # 在持仓周期：按 attempt 逐笔配对成交腿，均价用 quote/base 现算。
+        # 不能改用 aggregate_positions 的加权均价×剩余净持仓——两条腿数量可能不同
+        # （实测 TSTUSDT 现货 7000 / 合约 6500），乘出来的不是真实两腿价差。
+        pos_status, fills_doc = self._safe_hedge(
+            self.hedge_open_service.get_open_cycle_fill_pairs)
+        open_cycle_fills = fills_doc.get("fills") or [] if pos_status == 200 else []
+
+        try:
+            payload = ledger_domain.build_pnl_series(
+                interest_rows=store.query_interest_rows(start_ms, end_ms),
+                income_rows=store.query_income_rows(start_ms, end_ms),
+                capital_rows=store.query_capital_flow_rows(start_ms, end_ms),
+                close_logs=close_logs,
+                open_cycle_fills=open_cycle_fills,
+                price_map=price_map,
+                start_ms=start_ms, end_ms=end_ms, bucket_ms=bucket_ms,
+            )
+        except WindowValidationError as exc:
+            self._send_ledger(400, {"error": "invalid_window", "detail": str(exc)})
+            return
+        payload["schema_version"] = "private-ledger-pnl/v1"
+        payload["served_at_ms"] = _now_ms()
+        payload["window"] = {"start_ms": start_ms, "end_ms": end_ms}
+        payload["coverage"] = self.ledger_flow_service.coverage_for_window(start_ms, end_ms)
+        # 合约已实现盈亏：对冲下由现货腿反向盈亏抵消，故**不进净收益**，单列供对账。
+        payload["realized_pnl"] = ledger_domain.summarize_income_by_type_asset(
+            [r for r in store.query_income_rows(start_ms, end_ms)
+             if r.get("income_type") == "REALIZED_PNL"])
+        payload["close_logs_ok"] = status == 200
+        payload["open_fills_ok"] = pos_status == 200
         self._send_ledger(200, payload)
 
     def _handle_max_withdraw(self):
