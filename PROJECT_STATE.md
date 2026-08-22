@@ -4,7 +4,7 @@ Cross-stage state, read at startup. Keep under 64 KB. Git history is not a runti
 check. Completed work's trace is git history and archive references (see Update
 Rule); this file records only live risks, open follow-ups, and pointers.
 
-## Current Status (2026-08-21)
+## Current Status (2026-08-22)
 
 - **[2026-08-21 Human 直接驱动，无 stage] 资金费率收益曲线 + 流水日志升为侧栏一级视图：**
   新增 `GET /api/private-ledger/pnl-series` 与纯函数 `ledger_flow.build_pnl_series`，前端手搓
@@ -30,12 +30,6 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   这时若还有借币中任务，侧栏「借币任务」后的数字一并标红。覆盖停止、
   缺凭证、418 速率受限、加载失败等。纯前端，刷页面即可。
   验证：`node frontend/self-check.js`。未授权提交、部署或实盘操作。
-
-- **[LIVE][2026-08-18 11:18:43 CST] 借币 IP 418：** COTI 一次借币 POST 收到
-  HTTP 418（`rate_limited_418_ban`）。本机最低冷却到 **11:23:43 CST**（已过）。
-  `requires_rearm=1` 仍在，借币不会自动再发。币安回包里的「banned until」
-  没有落库、服务日志也没有，**交易所真正解封时间未知**。未授权对币安探测，
-  也未点启动。开单任务侧今天没有 418 记录。
 
 - **[2026-08-18 Human 直接驱动，无 stage] 开单任务卡编号点击复制：**
   卡头 `#id` 可点，写入剪贴板的是裸任务编号（不含 `#`），约 1 秒后文案回到 `#id`。
@@ -346,23 +340,16 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   可用余额后分别放行（本次四笔正是挤在 40 秒内：`09:35:08/19/33/47`），故本条保持 OPEN，
   需后续正式 HIGH_RISK 修复或实盘限制。
 
-- `[RESOLVED-BY-DELIVERY][2026-08-21]` **借币「崩溃孤儿永久卡死任务」已从根上取消（`DEC-2026-08-21-001`）。**
-  原风险：`COTI`/`HOME`/`PROM` 三卡因 `crash_orphan_responseless` 被 ADR-006 fail-closed 永久
-  阻塞调度，页面却仍显示上一次的 `known_rejection:51061`「可贷资产不足，请稍后再试」，看起来像在
-  正常重试；`HOME` 静默停摆 5 天。
-  处置不是补徽标，而是按 Human 裁定改口径：**只有 POST 返回可用 `tranId` 才算借成，其余一律当
-  「没借成」、任务继续跑**。据此删除了整套借币记录对账子系统（`_reconcile_pass`、
-  `advance_reconciliation`、`attribution_is_unique`、`LiveBorrowExecutor.reconcile`、
-  `fetch_loan_records` 与 `GET /papi/v1/margin/marginLoan` 白名单项——借币客户端现在只剩下单
-  POST 一个签名端点）与前端「待对账·暂停调度」徽标，净减约 1400 行。
-  `unresolved_attempt_id` 降级为纯进程内在途锁：每次结算清、开机也清。
-  ⚠️ **开机恢复已改为 owner-gated**（先抢 sidecar 锁再开库）：codex 评审发现非 owner 进程
-  启动会清掉在跑进程的在途标记，随后一次「清空日志」即可删掉它正要结算的那行，**丢掉一笔真实
-  `tranId` 成功**。已修 + 并发回归测试（变异验证改坏即红）。
-  **接受的代价**：每个孤儿最多多借一笔，Human 从币安控制台核对余额收口；「每卡只准释放一次」
-  的闸门经评估后由 Human 否决为过度设计。**不查实际借到的本金**（POST 只回 `tranId`），
-  Human 原话「出了问题再增加查询实际借到的资金量」。
-  三张旧卡**下次重启自愈**（开机清掉残留标记），无需删卡重建、无需数据库手术。
+- `[OPEN][OPERATING][2026-08-22]` **每次重启服务都可能留下一笔「发了但没收到回音」的借币，
+  重启后要去币安核该币余额。** `DEC-2026-08-21-001` 起，只有 POST 返回可用 `tranId` 才算借成，
+  其余（崩溃孤儿 / 畸形 2xx / 5xx / 传输失败）一律当没借成、任务继续跑；借币记录对账子系统已整个
+  删除（`09a4084`，`main`）。代价是**每个孤儿最多多借一笔**，Human 从币安控制台核对余额收口
+  （闸门与「查实际本金」均经评估后由 Human 否决）。
+  实测频率：POST 均耗时 411ms / 派发间隔 1.5s → 每次重启约 27% 命中；`2026-08-21 20:01` 那次重启
+  当场撞到一笔 `HOME 1000`，Human 核对后确认**未借成**，代价为 0。
+  判定口径：启动日志 `borrow_execution_mode` 的 `recovered_orphan_blocker_count` 即本次重启留下的
+  未确认笔数（字段名是历史遗留，不代表有任务被阻塞）；明细查
+  `SELECT asset, requested_amount FROM borrow_attempt WHERE reason='crash_orphan_responseless';`。
   遗留物理列 `reconcile_next_at_us` / `reconcile_step` / `reconcile_exhausted` 仍在旧库中，
   已从 `_SCHEMA` / `_migrate` / 行映射移除，读取不受影响；`DROP COLUMN` 属数据库手术，未做。
 
