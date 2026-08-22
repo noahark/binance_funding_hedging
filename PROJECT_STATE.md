@@ -6,207 +6,14 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-22)
 
-- **[2026-08-21 Human 直接驱动，无 stage] 资金费率收益曲线 + 流水日志升为侧栏一级视图：**
-  新增 `GET /api/private-ledger/pnl-series` 与纯函数 `ledger_flow.build_pnl_series`，前端手搓
-  SVG 绘制五条线（资金费收益 / 手续费 / 利息 / 滑点 / 净收益），左图右表并排、双滑块选区、
-  贴线悬停、1D/3D/7D/全部本地切片零请求、隐私脱敏。口径：**净收益 = 资金费 − 手续费 − 利息
-  − 滑点**，成本在序列中存负值直接相加，与持仓级 `net_pnl`（`4d52c39`）一致；出点节拍为「有
-  资金费结算的小时」（350 → 91 点）；`REALIZED_PNL` 不进净收益（对冲下被现货腿抵消，单列供
-  对账，当前 `-23.54 U`）。同时将流水日志从费率行情页内双看板移到侧栏一级视图，`state.marketBoard`
-  退役；私有账户面板拆为 `#private-overview-panel`（八张统计卡）与 `#private-panel`
-  （余额/互转/持仓）。提交区间 `b0bffaf..f3fe3ba`，经 codex + grok 四轮双评审。
-  已知失真与接受理由见 Live Risks「收益曲线的滑点已统一到 close-log 口径」。
+- **服务在跑**：PID `55973`（`2026-08-21 20:01` 启动），`127.0.0.1:8787`，`readyz` 200，
+  live + `start_gate=true`。手动前台启动（`nohup bash scripts/run-server.sh` + `disown`），
+  日志 `~/Library/Logs/funding-hedging/server.{stdout,stderr}.log`。**非 launchd 托管**；
+  停服务须用 `SIGTERM`（`SIGINT` 杀不掉脱离终端的进程），`readyz` 从 503 转 200 可能要等
+  十几秒到 75 秒，属正常初始化。
 
-- **[2026-08-20 Human 直接驱动，无 stage] 持仓与历史表价差/滑点折算 USDT 实际盈亏第二行：**
-  持仓表「开单价差率」列与历史表「总计开单滑点 %」「总计平单滑点 %」列同步增加第二行折算 USDT 实际盈亏金额。正收益绿（+X.XX U）、负成本红（-X.XX U）、零值与亚分位（<0.005 U 取整 0.00 U）灰（muted）、隐私模式脱敏（****）。四组合买卖腿识别与后端完全对齐。纯前端改动，经 Claude 独立 Fast Review ACCEPT 并由 Human 授权推送至 main 分支（提交区间 `4e9295f..1115fce`）。
-
-- **[STAGE COMPLETED 2026-08-20] 成交手续费冻价成本 V1 (`2026-08-19-hedge-order-fee-cost-v1`)：**
-  表结构四列手续费扩展落库、历史数据回补 268 腿成功落库（待补 269 腿中，132/133 条 UM 路由腿成功回补；仅 1 条约 9.6 天前的历史老单因超出币安合约 7 天查询窗口返回空列表，系统按 D10/D11 宁缺毋滥原则整行安全显示 `—`）、读链路真实折 U 聚合（quote/base 严格均价、不全 None/None/True 安全契约）、平仓结算 `close_log` 全腿现算冻结、实时下单 commit-first 钩子自动拉取写入（D4 实时现价冻结）。
-  双评审闭环（Kimi ACCEPT + Opus 5 ACCEPT）。已合并 main 并重新部署。
-
-
-- **[2026-08-18 Human 直接驱动，无 stage] 非正常借币中标红：**
-  不是「live + 已启动、且没有拦住原因」时，借币页顶上执行状态改红色；
-  这时若还有借币中任务，侧栏「借币任务」后的数字一并标红。覆盖停止、
-  缺凭证、418 速率受限、加载失败等。纯前端，刷页面即可。
-  验证：`node frontend/self-check.js`。未授权提交、部署或实盘操作。
-
-- **[2026-08-18 Human 直接驱动，无 stage] 开单任务卡编号点击复制：**
-  卡头 `#id` 可点，写入剪贴板的是裸任务编号（不含 `#`），约 1 秒后文案回到 `#id`。
-  纯前端，刷页面即可。验证：`node frontend/self-check.js`。未授权提交、部署或实盘操作。
-
-- **[2026-08-18 Human 直接驱动，无 stage] 开单任务两秒刷新只留给执行中的卡：**
-  停在「已暂停 / 已删除 / 已完成」，或「全部」里当前没有执行中任务时，两秒轮询
-  不再重拉任务列表、也不再重画这些终态卡。执行中页整表仍每两秒更新（页上本来
-  都是 running）。「全部」里还有执行中任务时，两秒只替换 running 卡（刚离开
-  执行中的那张补一刀改徽标），旁边的暂停/完成卡不动。点暂停/启动/删除、刚进
-  开单任务页、以及 60 秒市场快照仍整表拉一次。纯前端，刷页面即可。
-  验证：`node frontend/self-check.js`。未授权提交、部署、重启或实盘操作。
-
-- **[2026-08-18 Human 直接驱动，无 stage] 统一账户「已借未开单」资产卡提前一行：**
-  已借本金 > 0、且当前没有对应开单（同快照 UM 仓量为 0、本地也没有未完全平仓周期）
-  的资产卡单独放在统一账户余额第一行，名称后追加红字「未开单」。提醒：借了要么
-  开单要么还掉，利息一直在计。UM 源没读到时不标（不把「没读到」说成「没开」）；
-  只欠息、本金已还清的卡仍走正常行。纯前端，服务不用重启，刷新页面即可。
-  验证：`node frontend/self-check.js` 全绿。当时实盘快照：SNX 已借 50.11 /
-  AVNT 已借 100 无 UM 仓（应上第一行）；INJ 已借 8.00 且有 UM 仓（应留在正常行）。
-  未授权提交、部署、重启或实盘操作。
-  **同日续**：现货账户余额按同一两行格式，第一行固定 BNB → USDT（快照里有才展示，
-  小额不过滤），第二行其他可见资产。快照没这两行时不编造 0 卡。
-  **同日再续**：有已借本金的统一账户卡追加市场表同口径「日利息」；市场表原「日借币」
-  子行同步改名。只欠息、本金已还的卡不展示该行。
-  **同日再续**：上述有借币卡同时展示持仓表资金费率列的「实时」与「日净」（同源
-  `last_funding_rate` / `net_daily_yield`，3 位小数；无日净则不占行）。
-
-- **[2026-08-17 Human 直接驱动，无 stage] PM 权益字段口径修正 + 缺源「部分和标红」规则：**
-  「总资产估值 / 统一账户净资产 / 杠杆率」三张卡由 `accountEquity`（按抵押率折算的风控
-  口径）改取 `actualEquity`（与币安 App 同口径）。`accountEquity` 字段保留在快照里不删。
-  **同轮按 Human 提出的规则统一缺源展示**：能算部分和的卡（总资产）缺源时展示已读到的
-  部分并**标红点名缺了谁**，单值卡（统一账户净资产 / 杠杆率）缺则 `—`；现货卡改为按
-  `unavailable_sources` 判缺（后端求和得 0 与「真的空仓」不可区分）。
-  ⚠️ **两处口径断裂，与本轮之前的历史记录对账会有台阶**：`total_value_usdt`
-  `571.13 → 579.64`（+`8.51`）、`leverage_ratio` `3.07207789 → 2.98142928`。
-  契约已标注日期、方向与量级。
-  ⚠️ **一条既有 test-asserted 契约硬规则被废**：`total_value_usdt = Σ(unified
-  totalWalletBalance priced) + Σ(spot free+locked priced)`（anti-double-count 公式）
-  不再成立——unified 侧改取净值，毛额不再进总额。毛额仍在 `unified_wallet_value_usdt`
-  字段上单独报，原测试的本意（um/cm 不重复计入、`crossMarginFree`/负债不移动毛额）已
-  移到该字段上继续守。
-  **删掉了钱包毛额回退链**：此前统一账户读不到时总额退到毛额。**重启后实测揭穿了一个
-  此前想当然的方向判断**——毛额 `100.68845086` 对净值 `191.41755452`，毛额只有净值的
-  一半多，旧回退会把总资产**少报约 90 USDT**，在页面上读起来像凭空亏了一笔（此前文档
-  一度写成「毛额含借币会报大」，方向是反的，已改）。两者是不同口径的量、差距既不小
-  方向也不固定，互相顶替就是「假声明」（2026-08-07 修过三次的同一形状）。同轮删掉
-  `_project_pm_account_summary` 内那段死的 leverage 计算（唯一调用方传 `total_value=None`，
-  条件恒假，真正生效的是 assemble 里那处）。
-  **评审**：实施前设计评审两家（`grok-4.6` / `claude-glm`，均 headless 只读）结论同为
-  `ACCEPT-WITH-CHANGES`，其引用经本会话逐条复核（grok 有一处函数名指认偏差、一处
-  百分比口径争议，均不影响结论）。两家在「缺失时要不要退回 `accountEquity`」上冲突，
-  按 grok 判不退，Human 随后提出更彻底的部分和规则并据此实施。
-  **这是设计评审，不是正式 Review-1/Review-2——两者本轮都未做。**
-  材料：`docs/planning/pm-equity-field-fix-2026-08-17.review-request.md`。
-  **改动三（交付后评审补入）：现货源缺失时不再给出杠杆率。** 此前那种情况下分子退化成
-  净值本身、比值恒为 `1.00000000`——一个看着完整实则无信息的数字，还紧挨着一张已标红说
-  「缺现货账户」的总资产卡。现在总额只要是部分和就不给比值（前端本就把 null 显示为 `—`，
-  故只改后端一处）。该缺陷由 grok 评审发现并经本会话独立复现。
-  验证：`test_private_account_v1.py` `113 passed`（含新增 4 条）；`node frontend/self-check.js`
-  全绿。新增后端 4 条测试 + 前端 1 个测试块（4 个场景、14 个 throw 点），
-  **9 次变异验证全部改坏即红**。
-  ⚠️ **测试分层边界（勿误读）**：self-check 的杠杆率断言守的是「后端给 null 时卡面渲染成
-  `—`」，其夹具写死 `leverage_ratio: null`——**后端若改回在缺源时算出 `1.0`，self-check
-  照样全绿**。守住那一侧的只有 pytest 的 `test_..._no_leverage_when_total_is_partial`。
-  **服务重启两次**：`36213` → `24679`（口径改动）→ **当前 `45346`**（`22:23:47` 启动，
-  含杠杆率修复；`127.0.0.1:8787`，`readyz` 200，live + `start_gate=true`）。两次重启前
-  均只读确认无 running 任务（40 done / 12 deleted / 1 stopped）、订单腿全
-  `TERMINAL_RECORDED`。
-  **实盘验证只覆盖「源齐全」一条路径**：`45346` 实测
-  `spot 385.95344935 + actual 193.47983513 = total 579.43328448`、`leverage 2.99479935`，
-  两家评审各自独立取数同构。**缺源行为无实盘证据，仅由单测覆盖。**
-  ✅ **Human 已完成「面板 vs 币安 App」人工复对（2026-08-17）：与 App 大致一致，改动达成
-  目标。** 残余细微差异归因于 **USDT/USD 计价波动**（App 侧按 USD 口径，本仓一律折 USDT），
-  属预期噪声，不再追。这同时终结了 claude-glm 提的替代解释——曾担心 App 显示的是钱包毛额，
-  而实测毛额 `100.68845086` 与 `actualEquity` 差近一倍，不可能混淆。
-  ⚠️ 早先记录的 `total 579.45913371` 那组数出自 `24679`，即**修复前**的进程。
-  **注**：`SIGINT` 杀不掉 nohup 脱离终端的服务进程，须用 `SIGTERM`；第二次重启 `readyz`
-  从 503 到 200 等了约 75 秒（首次仅几秒），属正常初始化。
-  **交付后代码评审两轮**（`grok-4.6` + `claude-glm`，均 headless 只读，四份结论全为
-  `ACCEPT-WITH-CHANGES`，引用经本会话逐条复核属实）：
-  round 1 — 两家共同指出两处文档失准（前端注释仍写「毛额会报大」、本条曾写「未重启」），
-  grok 独有发现杠杆率缺陷（已修，见改动三）+ 三处过时注释（已同步）。
-  round 2 — 两家共同指出**契约/schema 的 `leverage_ratio` 描述与实现打架**：原文写
-  「两个操作数为正就相除」，而现货缺源时两者恰恰都为正、代码却故意不出比值；grok 的话是
-  「以后若有人按契约『修』代码，会把 `1.00×` 请回来」。已改两处并加显式禁令。
-  grok 另建议补一条「无关源丢失不该影响杠杆率」的回归测试（防止有人把 `unified_balances`
-  写进完整性判据），已补并变异验证。
-  材料 `docs/planning/pm-equity-field-fix-2026-08-17.review-packet.md`（第 6 节含两轮处置）。
-  **仍未做正式 Review-1/Review-2**（本轮无 stage）。
-
-- **[2026-08-16 Human 直接驱动，无 stage，Human 授权提交推送] 借币利息展示 + 未还利息进快照：**
-  一轮连续的 UI/契约小改，全部直接在 `main` 工作区完成，未走 stage 流程（Human 逐项确认
-  后授权推送）。交付内容见本条下方与 Open Follow-ups 前两条。
-  **事后补做 Review-1（grok-4.6，headless 只读，区间 `75a2e0a..6d5b4fb`）：`ACCEPT`，无
-  REWORK 发现**；两条 in-range 文档发现已修（`snapshot.schema.json` 的 `total_debt_usdt`
-  描述、`_project_pm_account_summary` docstring 仍写「只加本金」）。其引用的每条事实经
-  本会话逐条复核属实。**未做 Review-2**（按 §8 展示/账务口径属 HIGH_RISK，Human 知悉后
-  决定暂不做）。
-  ⚠️ **评审带出的两条检索教训（下次先查再推理）**：
-  (1) `interest_rows` 表有 **`principal` 字段**——币安在每笔计息记录里直接报了计息本金，
-  本会话此前全靠 `borrowed` 与资金流水反推。实值：SNX `2026-08-16 00:00` principal=100、
-  `01:00` principal=50.10709571（还款后），且**还款前从未变成 100.107…**，反证「小时计息
-  不会自动资本化」；XLM 有同形状的 `195.10900819`。这是比本会话原有证据更强的直接证据。
-  (2) `reports/api-samples/2026-08-borrow-interest-history-recon-v1/`（2026-08-04）**早已
-  写明** `crossMarginInterest` = "current outstanding unpaid interest (NOT historical
-  cumulative)" 及「曾还息后与 Σ history 分叉」。本会话 grep 时只扫了 `backend/`/`docs/`/
-  `schemas/`，漏了 `reports/api-samples/`，白推理数轮。
-  验证：后端 `1893 passed`（`test_private_client.py::test_urlopen_only_in_designated_http_clients`
-  为**本轮之前即已存在**的失败，`git stash` 验证过，与本轮无关）；`node frontend/self-check.js`
-  全绿，新增断言均做过变异验证（改坏即红）。
-  **服务由模型按 Human 明确授权重启过两次**（Human 出门期间授权「停旧服务起新服务」）：
-  旧 PID 27940 → 32279 → **当前 36213**，`127.0.0.1:8787`，`readyz` 200，跑的是本轮后端代码。
-  重启前只读确认过无 running 任务（37 done / 11 deleted / 1 paused / 1 stopped）、无在途下单。
-  启动方式改为 `nohup bash scripts/run-server.sh` + `disown`（脱离终端，Human 关终端不受影响），
-  日志在 `~/Library/Logs/funding-hedging/server.{stdout,stderr}.log`。**仍非 launchd 托管。**
-  未授权部署、创建任务或实盘下单。
-  ⚠️ 期间观察到一笔**非本会话发起**的 INJ 还款（`borrowed` 10.0 → 8.00109129），模型未碰任何
-  下单/还款接口，来源未确认（Human 手机操作或自动任务），如非预期需查。
-
-- **[2026-08-15 Human 授权合并并推送] 平滑平仓 V1 (P1+P2) 已合并 `main`：**
-  以 `--ff-only` 合并 `stage/2026-08-14-smooth-close-orders-v1`，`main` 与 stage tip 同为
-  `2cc6cde`；产品 delivery 为 `f95577f`（前端串联）与 `6f6c729`（后端 F1 修复）之上的
-  `7d3fe60..f95577f` 区间。stage 分支与 `main` 均已推送 origin。
-  **评审覆盖的真实情况（合并时具名接受）**：P2 前端串联区间 `6f6c729..f95577f` 有
-  Review-1（gemini-3.1-pro）+ Review-2（opus5）双轮 ACCEPT；**后端 P1 区间
-  `7d3fe60..c4ae93a` 只有一次 Review-1（grok-4.6，结论 REWORK/F1），F1 修复提交
-  `6f6c729` 未经独立评审，后端从未做过 Review-2**。合并前补做过一次非正式初评
-  （gemini 3.7 Flash，纯文本不落档，21 处锚点经 Opus 5 逐条复核属实，无新发现），
-  但它是按清单核对而非开放式勘探。Human 知悉后决定合并。
-  另注：P2 的 Review-1 由本 stage 的 Bookkeeper 会话自行执行并宣布 ACCEPT，与
-  `agents/roles.md` 的「Bookkeeper 不得宣布评审接受」「评审须 fresh read-only session」
-  不符；因该区间随后由 opus5 独立 Review-2 覆盖，未返工。
-  合并时服务仍在运行（PID 38254，127.0.0.1:8787）；**新后端代码要下一次重启才会生效**。
-  未授权部署、由模型启动/重启服务、创建任务或实盘下单。
-
-- **[2026-08-13 Human 授权合并并停服] 平滑开单 V1 已合并本地 `main`，服务等待 Human 手动启动：**
-  `smooth/v1-fullstack` 已以 `--ff-only` 合并，产品 delivery 为 `ad8c631`，完整阶段归档 tip 为
-  `d404e20`。合并前只读确认开单 active=0、未结算 attempt=0、未终态订单腿=0、借币 active/
-  unresolved=0；从 smooth worktree 运行的 PID `23396` 于 `2026-08-13 21:15 CST` 收到 `SIGINT`
-  并走服务清理后退出，`127.0.0.1:8787` 已不再监听。主仓 `.venv` 已有 `ccxt==4.5.64`；下一次服务
-  启动由 Human 在主仓本地执行。fresh Claude-GLM 累计 Review-1 为 ACCEPT；fresh Opus 5 最终
-  Review-2 技术结论为 REWORK，唯一 finding F-A 已复现并由 Human 按下方具名风险接受、本轮不修。
-  未授权 push、部署或由模型启动服务、创建任务、下单。
-
-- **[2026-08-12 Human Fast Direct] 两次直接代码交付已推送：** `31d7ae6` 取消私有读取在 429/-1003 后的 0.5 秒立即重试；`0a0984c` 将空库首次利息/收入流水回补窗口改为 1 天。两项均已通过定向测试，接口/行为文档已同步；下一次从当前 main 启动时会一并加载。
-
-- 当前服务已按 Human 要求停止、仍采用 Human 手动前台启动方式；统一账户手动还款已最终验收，
-  `APP_MARGIN_REPAY_ENABLED` 按 Human 决定保持开启。XLM 指定 5 与 INJ 全部还款各一笔成功；
-  日常操作只用一个标签页，全额还款以刷新后负债为准。归档与操作限制见 Last Completed / Live
-  Risks。实盘库数据自 2026-08-06 清理后从新起点累积（备份
-  `data/*.sqlite3.bak-clean-20260806-120813`）。
-
-- **[2026-08-07 已收口] 展示层诚实性整族修复**（Human 直接驱动，无 stage；交付
-  `d7057e3`/`dd0b3e3`/`184d76e`/`44ab175` 等，细节见 git 历史）：
-  单腿敞口判定（补裸空 + 部分失衡，差额 >1% 容差）、drift 账户口径（两账户求和）、
-  终态任务结算文案（`order_state_unknown_final`）、F4 交易所无仓假声明
-  （`private_account.unavailable_sources` 契约 + 标题红字）。
-  **可复用判断**：修「假声明」要区分「不知道」与「知道没有」，缺省一侧永远倒向
-  「已知」（本轮三次踩到同一形状）。
-  **F4 验证口径（勿误读）**：正常侧（读得到时红字不出现）已经 2026-08-08 实盘
-  验证；「读不到时红字出现」一侧未经实盘触发（需真实 UM 单源故障），目前仅由
-  self-check 的 5 项断言覆盖。
-
-- **[2026-08-07 已收口] 现货腿身份统一 + SPOT_SYMBOL_MAP 纯表**（Human 直接驱动，
-  无 stage；交付 `ee35b5e..be3f583` + `8ee6d3c`，细节见 git 历史）：
-  现货腿身份是任务第一等属性——建任务时由静态表（71 条 = 65 bStock + 6 乘数）
-  解析一次并固化，下单/平单/展示三环只读不算；全部字符串猜测规则已删除
-  （fail-closed：未收录即无现货腿）。实盘闭环：SNXXUSDT 开平仓身份继承无误。
-  维护：`scripts/check-spot-symbol-map.py --verify/--emit`。
-
-- **[2026-08-07 已收口] Q4 统一账户可转出额**：最终形态 = 前端零请求沿用快照
-  （DEC-2026-08-07-004）——USDT 用 `total_available_balance_usdt` 标签「可转」，
-  其余币用 `cross_margin_free` 标签「可用」，措辞跟数据来源走；**严禁把 USDT 的
-  算法推广到其他币**（抵押品折算率约束，self-check 有断言守）。
-  `GET /api/private-account/max-withdraw` 端点留在后端但无前端消费者，已移出前端
-  同源白名单；要精确的 per-asset 可转出额时它是唯一数据源。
+- **实盘库数据自 `2026-08-06` 清理后从新起点累积**，备份
+  `data/*.sqlite3.bak-clean-20260806-120813`。做任何跨期统计前先套这条。
 
 - **[领域事实][Human 2026-08-07]** **bStock 类币没有借币市场，故不存在负费率开单。**
   负费率开单（reverse）= 借币卖现货 + 开多合约，借不到就做不了这条策略。
@@ -214,27 +21,9 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   缺陷而是正确行为；`decide_spot_route` 对 reverse 固定走 `papi_margin` 也因此
   自洽。判断影响面前先套这条（曾有模型缺了它误报 Live Risk）。
 
-- **[2026-08-08 已收口] regular_spot 开仓自动划转 USDT + dispatch 路由核验**（Human
-  直接驱动，无 stage；交付 `fb59c38..c837722`，细节见 git 历史 +
-  `docs/planning/open-spot-usdt-transfer-2026-08-08.review-request.md`）：
-  所有 USDT 默认放统一账户当保证金；`open+forward+regular_spot` 建仓时 `create_task`
-  内一次性划转 `truncate(q×N×price×1.03)` USDT 到现货，失败不建卡 + 前端弹窗
-  （`open_spot_transfer_failed`）；preflight 对 regular_spot forward 余额门放行
-  （不校验、不缓冲）。**dispatch 下单前核验**：`fresh=regular_spot` 时建卡固化的
-  `frozen route` 必须也是 `regular_spot`（即已备款），否则暂停不发单防裸空——覆盖
-  路由变化（建卡 PAPI→下单 regular_spot）与 snapshot None 建卡后恢复 regular_spot 两
-  场景；`frozen=regular_spot` 即"已划转备款"的间接证据，故无需持久化 tranId。开完不
-  自动回流，残余 USDT 人工收尾。实盘验证 TSTUSDT 两腿成交（划转 15.77→现货买 1000 +
-  合约空 1000→done，残余 ~0.81 人工收尾）。
-  **Human 决断（勿议）**：不查统一账户余额（前端/人工已校验）、不做幂等/tranId/恢复
-  链、不自动回流、本轮不做前端防重——均人工收尾。
-  **review**：codex 预提交 review1 `ACCEPT` + Human 特批本次归档。
-  **活文档**：review-request 已入库 docs/planning；PRD/架构/API 公共契约未改（划转为
-  create_task 内部行为，不涉公共市场契约）。
-
-- 挂账 follow-up：close_log 利息 ≈U（价格源注入 service 层）。
-  （本地数量口径 X/Y/Z 已由 Human 2026-08-08 关闭：持仓表数量列以交易所实际持仓
-  为主，读不到时红字提示 + drift 标记已兜底，维持现状不再整改。）
+- **已按 Update Rule 驱逐 `2026-08-07`..`2026-08-21` 的 15 条交付叙事**（完成工作的痕迹留在
+  git 与 commit message，这里只放活风险、未决项和指针）。完整原文
+  `git show 046fff5:PROJECT_STATE.md`。**驱逐时提取出的仍然生效的约束保留在下方 Evicted 段。**
 
 ## Live Risks
 
@@ -578,6 +367,9 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   `total_balance` 可造成 forward 假阳性；原始评审记录由提交 `bbeb130` 引入，早于本阶段
   base `7194876`，因此不阻塞本轮交付。后续与 O-2 一并补齐文档，不改变当前弱告警口径。
 
+- `[OPEN][RESIDUAL]` **`close_log` 的利息仍是约数（≈U）**——精确化需要把价格源注入 service 层。
+  挂账已久，未定优先级。
+
 - `[OPEN][RESIDUAL]` **UM drain 可在 `cumulative_quote` 未知时把 FILLED 腿判为终态。**
   该路径会保留 `avg_price` 但缺 quote，导致该周期的合约均价与开/平滑点显示 `—`；这是
   fail-closed，不影响订单或持仓且不臆造数值。重开条件：出现真实历史周期命中该形态，或 Human
@@ -658,6 +450,53 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 - previous stage: `2026-08-03-harness-task-handoff-evidence-v1`
   (`archive/2026-08-03-harness-task-handoff-evidence-v1`, `0a0b952`)
 - 更早的完结记录见 git 历史与 archive branches/tags。
+
+## Evicted (2026-08-22) — Current Status 交付叙事
+
+按 Update Rule 驱逐了 `2026-08-07`..`2026-08-21` 的 15 条交付叙事（约 19 KB）。完整原文
+`git show 046fff5:PROJECT_STATE.md`。**下列是从中提取的、仍然生效的约束**——它们不是历史，
+只留 git 指针会让后来者误判：
+
+- **修「假声明」的可复用判断**（2026-08-07 一轮里踩到三次同一形状）：要区分「不知道」与
+  「知道没有」，**缺省一侧永远倒向「已知」**。读不到就说读不到，不要渲染成 0 或「没有」。
+- **F4「交易所无仓」红字只验证过一半**：正常侧（读得到时不出现）已 2026-08-08 实盘验证；
+  **「读不到时红字出现」一侧从未实盘触发**，仅由 self-check 5 项断言覆盖。
+- **现货腿身份是任务第一等属性**：建任务时由静态表（71 条 = 65 bStock + 6 乘数）解析一次并
+  固化，下单/平单/展示三环只读不算，字符串猜测规则已全删。**未收录即无现货腿（fail-closed）**。
+  维护：`scripts/check-spot-symbol-map.py --verify/--emit`。
+- **严禁把 USDT 的可转出额算法推广到其他币**（抵押品折算率约束，self-check 有断言守）。
+  USDT 用 `total_available_balance_usdt` 标签「可转」，其余币用 `cross_margin_free` 标签
+  「可用」，措辞跟数据来源走。`GET /api/private-account/max-withdraw` 无前端消费者、已移出
+  前端同源白名单，但**要 per-asset 精确可转出额时它是唯一数据源**。
+- **`regular_spot` 开仓的备款与防裸空**（DEC-2026-08-08）：`open+forward+regular_spot` 建卡时
+  在 `create_task` 内一次性划转 `truncate(q×N×price×1.03)` USDT 到现货，失败不建卡。
+  **dispatch 下单前核验**：`fresh=regular_spot` 时建卡固化的 frozen route 必须也是
+  `regular_spot`（即已备款），否则暂停不发单——这是防裸空的闸门，别当冗余删掉。
+  **开完不自动回流，残余 USDT 人工收尾。**
+  **Human 决断（勿议）**：不查统一账户余额、不做幂等/tranId/恢复链、不自动回流、不做前端防重。
+- **检索教训**：grep 找契约证据时**必须扫 `reports/api-samples/`**。只扫
+  `backend/`/`docs/`/`schemas/` 会漏——2026-08-16 因此白推理数轮，那份 2026-08-04 的采样早已
+  写明 `crossMarginInterest` 是「当前未还」而非「历史累计」。
+- **`interest_rows` 表有 `principal` 字段**：币安在每笔计息记录里直接报了计息本金，不必用
+  `borrowed` 与资金流水反推。实测该字段还反证了**小时计息不会自动资本化**。
+- **平滑平仓 V1 的后端从未做过 Review-2**：后端 P1 区间 `7d3fe60..c4ae93a` 只有一次 Review-1
+  （grok-4.6，REWORK/F1），且 F1 修复提交 `6f6c729` 未经独立评审。Human 合并时具名接受。
+  以后动那段代码前先知道它的保证程度。
+- ⚠️ **`2026-08-17` 有两处口径断裂，与那之前的历史记录对账会有台阶**：
+  `total_value_usdt` `571.13 → 579.64`（+`8.51`）、`leverage_ratio` `3.07207789 → 2.98142928`
+  （三张卡由 `accountEquity` 改取 `actualEquity`）。做跨期对账前先套这条。
+- ⚠️ **一条既有 test-asserted 契约硬规则已被废**：`total_value_usdt = Σ(unified
+  totalWalletBalance priced) + Σ(spot free+locked priced)`（anti-double-count 公式）
+  **不再成立**——unified 侧改取净值，毛额不再进总额。毛额单独报在 `unified_wallet_value_usdt`
+  上，原测试的本意（um/cm 不重复计入、`crossMarginFree`/负债不移动毛额）已移到该字段继续守。
+  别按旧公式「修」代码。
+- ⚠️ **测试分层边界（勿误读）**：`self-check` 的杠杆率断言守的只是「后端给 null 时卡面渲染成
+  `—`」，其夹具写死 `leverage_ratio: null`——**后端若改回在缺源时算出 `1.0`，self-check 照样
+  全绿**。守住那一侧的只有 pytest 的 `test_..._no_leverage_when_total_is_partial`。
+
+- **`APP_MARGIN_REPAY_ENABLED` 按 Human 决定保持开启。**
+- **持仓表数量列以交易所实际持仓为主，维持现状不再整改**（Human `2026-08-08` 关闭本地数量
+  口径 X/Y/Z 的整改）：读不到时红字提示 + drift 标记已兜底。别当缺陷再去"修"。
 
 ## Evicted (2026-08-21)
 
