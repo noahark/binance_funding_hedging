@@ -1,0 +1,23 @@
+{
+  "schema_version": "2",
+  "revision": 1,
+  "stage_id": "2026-08-23-hyperliquid-funding-compare-v1",
+  "bookkeeper": "opus5",
+  "bookkeeper_label": "claude",
+  "phase": "planning",
+  "checkpoint": "design-review-dispatched",
+  "base_sha": "25cc8fe4e31194261dd48415f085bc6f9fda062d",
+  "delivery_sha": null,
+  "ledger_sha": null,
+  "current_task": {
+    "id": "hyperliquid-funding-compare-design-review-codex",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-23-hyperliquid-funding-compare-v1/hyperliquid-funding-compare-design-review-codex.dispatch.md"
+  },
+  "next": {
+    "actor": "codex",
+    "action": "design-review-1"
+  },
+  "rework_count": 0,
+  "blockers": []
+}
