@@ -1,24 +1,36 @@
 {
   "schema_version": "2",
-  "revision": 5,
+  "revision": 6,
   "stage_id": "2026-08-23-hyperliquid-funding-compare-v1",
   "bookkeeper": "opus5",
   "bookkeeper_label": "claude",
-  "phase": "implementation",
-  "checkpoint": "design-accepted-impl-dispatched",
+  "phase": "review",
+  "checkpoint": "review-1-and-review-2-dispatched-in-parallel",
   "base_sha": "25cc8fe4e31194261dd48415f085bc6f9fda062d",
-  "delivery_sha": null,
+  "delivery_sha": "6922bcebb4f18ba824125c46774fc5ad22bab806",
   "ledger_sha": null,
   "current_task": {
-    "id": "hyperliquid-funding-compare-impl-claude-glm",
-    "state": "reported",
-    "dispatch": "reports/agent-runs/2026-08-23-hyperliquid-funding-compare-v1/hyperliquid-funding-compare-impl-claude-glm.dispatch.md"
+    "id": "hyperliquid-funding-compare-review-1-grok",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-23-hyperliquid-funding-compare-v1/hyperliquid-funding-compare-review-1-grok.dispatch.md"
   },
   "next": {
-    "actor": "claude_glm",
-    "action": "implement"
+    "actor": "grok+kimi",
+    "action": "review-1-and-2-parallel"
   },
   "rework_count": 0,
   "blockers": [],
-  "design_sha": "fe91abb69e236e9ef110ca354b8773dfcb042773"
+  "design_sha": "fe91abb69e236e9ef110ca354b8773dfcb042773",
+  "parallel_tasks": [
+    {
+      "id": "hyperliquid-funding-compare-review-1-grok",
+      "model": "grok",
+      "state": "dispatched"
+    },
+    {
+      "id": "hyperliquid-funding-compare-review-2-kimi",
+      "model": "kimi",
+      "state": "dispatched"
+    }
+  ]
 }
