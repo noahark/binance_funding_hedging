@@ -290,6 +290,22 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Open Follow-ups
 
+- `[OPEN][2026-08-23]` **直连 HTTP 守卫白名单漏登记 `public_ip_service.py`，套件长期带一个红。**
+  `backend/tests/test_private_client.py::test_urlopen_only_in_designated_http_clients` 失败：
+  `backend/services/public_ip_service.py:47` 用 `urllib.request.urlopen` 但不在允许集内。
+  **非本 stage 引入**——Bookkeeper 在基线 `dd12833` 独立复现同因。
+  影响：守卫的意义是「没有产品模块能绕过指定客户端直连外部」，漏登记说明白名单与实际已脱节；
+  且长期带红会让后来者误判「本来就红没事」。修法二选一：登记进允许集（若确认该直连合规），
+  或把它改走既有客户端。`2026-08-23-hyperliquid-funding-compare-v1` 已正确登记
+  `hyperliquid_public.py`，未顺手掩盖此项。
+
+- `[OPEN][2026-08-23]` **HL 适配器未捕获 `UnicodeDecodeError`（Review-1 grok 非阻塞观察）。**
+  `backend/adapters/hyperliquid_public.py` 捕获 `URLError/OSError/ValueError`，未含
+  `UnicodeDecodeError`。非 UTF-8 的 HL `/info` 响应会让本轮 compose 被 worker 的 `except: pass`
+  跳过，页面暂留上一份已发布快照。**不构成 success-only 缓存投影**——`hyperliquid_data_time`
+  跟着一起旧，超 90 秒即标红，使用者看得见。无当前证据，故未在本 stage 修。
+  **重开条件**：出现非 UTF-8 的 HL `/info` 响应。
+
 - `[DEFERRED][2026-08-21]` **收益曲线滑点改按「任务卡」分组——已完整评估、数据支持，Human 决定
   暂不做，等实际遇到问题再说。**
   提议（Human）：滑点不按整轮持仓汇总、改按开单任务卡汇总。
