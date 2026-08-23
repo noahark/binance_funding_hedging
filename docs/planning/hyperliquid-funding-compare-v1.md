@@ -4,8 +4,9 @@
 - stage：`2026-08-23-hyperliquid-funding-compare-v1`
 - 角色：Planner（Opus 5）。本文件不授权实现、验收、合并或实盘。
 - base_sha：`25cc8fe4e31194261dd48415f085bc6f9fda062d`
-- 修订：**rev2**，按 Codex 设计评审 `REWORK` 的 F1–F5 最小修订。
-  评审记录：`reports/agent-runs/2026-08-23-hyperliquid-funding-compare-v1/evidence/hyperliquid-funding-compare-design-review-codex.handoff.md`
+- 修订：**rev3**，按 Codex 复评 `REWORK` 的 N1–N3 最小修订。
+  评审记录：`.../evidence/hyperliquid-funding-compare-design-review-codex.handoff.md`（rev1，F1–F5）、
+  `.../evidence/hyperliquid-funding-compare-design-recheck-codex.handoff.md`（rev2，N1–N3）
 - 证据：`reports/agent-runs/2026-08-23-hyperliquid-funding-compare-v1/evidence/`
 
 > **采样时点声明（贯穿全文）**：本文出现的一切市场计数与比例，均为
@@ -119,31 +120,94 @@ hyperliquid: null | {
 
 - 三个数值一律 **decimal string**，与 `schemas/api/public-market/snapshot.schema.json`
   既有 wire 风格一致；禁止 JSON number/float。
-- `null` 的两种成因必须可区分（项目活约束：「读不到」不得假装「知道没有」）：
+- `null` 的两种成因必须可区分（项目活约束：「读不到」不得假装「知道没有」）。
+  **区分手段是 §6 的 `hyperliquid_data_time` 字段，不是 warning 文本**：
   - **无匹配**：该币安标的在 HL 无对手 / 被 DENY / 类别不一致 → `hyperliquid: null`，
-    且本轮 HL 源**成功**。
-  - **源失败**：见 §6 失败语义 → `hyperliquid: null`，且快照带可见 warning。
-- HL 返回的 `funding` 非法（缺字段、非数值、无法转 Decimal）→ **该条 match fail-closed**
-  置 `null`，不影响同批其他标的。
+    **且 `hyperliquid_data_time` 有值**（本轮 HL 源成功）。
+  - **源失败**：→ 全部行 `hyperliquid: null`，**且 `hyperliquid_data_time` 为 `null`**。
+- HL 返回的 `funding` 非法（缺字段、非数值、无法转 Decimal）→ **整源判失败**
+  （rev3 修订，见下），不做单标的放行。
 
-## 6. 刷新与失败语义（rev2 新增，评审 F1）
+**rev3 修订**：rev2 曾规定非法 `funding` 只让该条 match 置 `null`、不影响同批其他标的。
+这与 §6 已定的「main+xyz 原子组」自相矛盾——既然一个 dex 的 POST 失败就整组作废，
+源返回非法值同样说明这一批不可信，没有道理单独放行其余标的。
+统一为**整源失败**后，全部失败态共用一个可观察信号（时间戳），
+不需要维护第二套 warning token 词汇表。
 
-**这是 rev1 最严重的缺口**：现有 Group A/B 是 success-only cache
+## 6. 刷新、失败语义与新鲜度信号（rev3 重写）
+
+**rev1 的最严重缺口**：现有 Group A/B 是 success-only cache
 （`snapshot_service.py:_refresh_due_sources` 原文 "Timestamps advance only on success (FR-2)"），
 `_compose_base_raw` 冷启动等 A+B 都成功才发布。两种朴素实现各违反一条既有约束：
 
 - 把 HL 塞进 premium 源 → HL 失败会让币安冷启动**发不出快照**；
 - 做独立源但沿用 success-only 投影 → HL 失败时展示**无时效标记的旧值**。
 
-**本设计选定**：
+**rev2 的残留缺口**（复评 N1）：rev2 只写「带 warning」。但
+`backend/domain/snapshot.py` 的 `warnings = list(CONTRACT_WARNINGS) + extra` 意味着
+**每份快照的 warnings 数组永远非空**（三条固定契约文本），
+「断言 warnings 非空」在 HL 成功时同样成立，是**假绿断言**；
+且 `frontend/index.html:validateContract` 只校验 `Array.isArray(snapshot.warnings)`，
+**首页从不渲染 warnings 内容**，HL 挂掉在页面上与「HL 没有这个币」完全同形。
+
+### 6.1 刷新契约
 
 1. HL 是**独立 source_id**，60s 组，与 `premium_index` 同频但**独立失败**——
    一方失败不抑制另一方重试，也不阻断快照发布。
-2. **main + xyz 为原子组**：两次 POST 任一失败、或任一返回 shape 非法 →
-   本轮 HL **全部** `null` + 追加可见 warning，**不投影 warm last-good**。
+2. **main + xyz 为原子组**：两次 POST 任一失败、任一返回 shape 非法、
+   或任一标的 `funding` 无法转 Decimal → 本轮 HL **整源失败**。
    （per-dex 部分成功是另一个设计选择，本 rev 明确不做。）
-3. 币安四列首行在任何 HL 失败下**照常显示**。
-4. 冷启动时 HL 未成功过 → 全部 `null` + warning，不阻断发布。
+3. 整源失败时：全部行 `hyperliquid: null`，**不投影 warm last-good**。
+4. 币安四列首行在任何 HL 失败下**照常显示**。
+5. 冷启动时 HL 未成功过 → 全部 `null`，不阻断发布。
+
+### 6.2 新鲜度信号（rev3 新增，替代 warning token）
+
+快照顶层新增**一个字段**：
+
+```
+snapshot.hyperliquid_data_time: null | ISO 8601 字符串
+```
+
+- **有值**：本批 HL 数据的采集时刻，HL 源本轮成功。
+- **`null`**：从未成功过，或本轮整源失败（含 offline，见 §6.3）。
+
+前端在既有 `market-snapshot-meta`（市场表下方「生成时间 · 数据时间」那一行）
+**追加** `· HL 数据时间: <值>`，并**复用既有 `isStaleTime()` 与 `.stale-time` 类**
+（`color: var(--danger); font-weight: 700`，项目已在三处使用）。
+
+三态由此在同一处可见：
+
+| 状态 | 显示 |
+|---|---|
+| 正常 | `HL 数据时间: 11:24:03` |
+| 陈旧（取到了但超过 stale 阈值） | 同行标红 |
+| 从未取到 / 本轮整源失败 | `HL 数据时间: —` 且标红 |
+
+**这是本设计对「无匹配 vs 源失败」的唯一区分手段**：
+
+- 行内 `—` + 时间戳正常 → HL 无此标的；
+- 行内 `—` + 时间戳标红 → HL 源不可用，全表 HL 值均不可信。
+
+选择时间戳而非 warning token 的理由：token 只能表达二元的「挂/没挂」，
+而对 60 秒刷新的费率数据，**「这是什么时候的」与「有没有」同等重要**——
+五分钟前的费率照样会让人做错判断，token 说不出这件事。
+且本方案零新增 UI 组件、零新增词汇表，复用现成机制。
+
+### 6.3 offline 零网络路径（rev3 新增，复评 N2）
+
+`get_snapshot` 的 offline 分支走 `build_snapshot()` 同步 frozen-fixture 组装
+（原文 "Offline synchronous build from frozen fixtures (zero network)"），
+**不经过 `_refresh_due_sources`**，worker 也不启动。故：
+
+- offline 下**零次 HL 网络请求**；
+- 每行 `hyperliquid: null`；
+- `hyperliquid_data_time` 恒为 `null` → 前端显示 `—` 且标红。
+
+**offline 不需要独立信号**：它与「源失败」共用同一个时间戳表达，语义一致
+（都是「当前拿不到 HL 数据」），无需新增 fixture、状态或抽象。
+`hyperliquid` block 在 schema 中**必须可空且非 required**，
+否则既有 offline fixture 会直接打挂 schema 校验。
 
 ## 7. 文件边界
 
@@ -155,7 +219,7 @@ hyperliquid: null | {
 | `backend/services/snapshot_service.py` | 新增独立 HL source_id + 失败语义（§6） |
 | `backend/config.py` | HL base_url、超时 |
 | `schemas/api/public-market/snapshot.schema.json` | 新增 `hyperliquid` block（可空） |
-| `frontend/index.html` | 四个 `<td>` 加第二行 + 开关 |
+| `frontend/index.html` | 四个 `<td>` 加第二行 + 开关 + `market-snapshot-meta` 追加 HL 数据时间（§6.2） |
 | **`frontend/self-check.js`** | **rev2 补入**：现有 `headerCount !== 15` 断言与 161 处市场表回归会因新增 subline 失效，必须同步 |
 | **`docs/api/public-market-contract.md`** | **rev2 补入**：v0.17 as-built 活契约，须登记新 row block、空值与失败语义 |
 | `backend/tests/` | 见 §9 |
@@ -174,10 +238,13 @@ hyperliquid: null | {
 - `[展示]` **表格行高翻倍**。现有表 15 列，四列加第二行后一屏可见标的数减半。
   缓解：默认开的显示开关。
 - `[数据]` HL 标的漂移比币安快（xyz 半年内新增 101、下架 15）。exact + **类别校验**
-  fail-closed，改名或新撞名均静默消失而非显示错值（rev1 仅靠静态 DENY 无法支撑此结论）。
+  fail-closed。**表述收窄（rev3）**：类别校验只自动拦截**跨类别**撞名
+  （xyz 股票 vs 币安加密，即 BB/QNT 那一类）；**同类别同名**的撞名
+  （如 main 新上一个与币安不同资产的同名加密币）**它挡不住**，仍需人工发现后收录 DENY。
+  rev2 曾笼统写「新撞名均静默消失」，不成立。
 - `[成本]` 每次刷新增加 2 个 POST（实测 1.07 秒）。需确认不挤占既有 tick 预算。
 
-## 9. 验收标准（rev2 重写，评审 F2/R7）
+## 9. 验收标准（rev3 修订，评审 F2/R7 + 复评 N1/N2/N3）
 
 **行基底事实**：`build_rows` 只遍历币安 `futures_symbols`。HL 有而币安没有的标的
 （`MNT`/`PURR`/`APEX`/`CASHCAT`/`kNEIRO`，实测币安 UM 均不存在）**根本不产生行**，
@@ -191,16 +258,18 @@ hyperliquid: null | {
 | A4 | 币安侧四列数值与本 stage 前**逐格相同** | 回归 |
 | A5 | 一个 4h 与一个 8h 周期标的的币安年化各自正确，未被统一成 8h | 口径 |
 | A6 | **Binance-only fixture symbol**（HL 侧无此标的）→ `hyperliquid == null`，UI 显示 `—` | **替代 rev1 验收 5** |
-| A7 | HL 源**冷启动失败** → 四列首行照常、第二行 `—`、快照带 warning、不阻断发布 | §6 D-fail |
-| A8 | HL **success → failure** → 第二行转 `—` 且带 warning，**不得显示上一轮旧值** | §6 no-last-good |
-| A9 | HL 返回非法 `funding` → 该标的 `null`，同批其他标的不受影响 | §5 |
+| A7 | HL 源**冷启动失败** → 四列首行照常、第二行 `—`、`hyperliquid_data_time == null`、**页面 HL 数据时间显示 `—` 且带 `stale-time` 类**、不阻断发布 | §6.2 |
+| A8 | HL **success → failure** → 第二行转 `—`、时间戳转 `null` 并标红，**不得显示上一轮旧值也不得保留上一轮时间戳** | §6.1-3 |
+| A9 | HL 返回非法 `funding`（无法转 Decimal）→ **整源失败**，与 A7 同一 oracle（时间戳 `null` + 标红） | §5 rev3 / §6.1-2 |
+| A9b | **反向 oracle**：HL 源成功且仅部分标的无匹配时，`hyperliquid_data_time` **有值且不标红** | 复评 N1-4 |
+| A9c | **offline**（`APP_OFFLINE=true`）：零次 HL 网络请求、每行 `hyperliquid: null`、时间戳 `null` 且标红、schema 校验通过 | §6.3 / 复评 N2 |
 | A10 | 三个数值字段均为 **decimal string**，schema 校验通过 | §5 wire |
 | A11 | 结算时间第二行文案恒为「每小时」，不显示时刻 | **D1** |
 | A12 | 9 个别名 + 5 个乘数币标的第二行为 `—` | **D3** |
-| A13 | adapter 全程仅发出两次 `metaAndAssetCtxs` POST，零次 `predictedFundings` | **D4** |
+| A13 | **一次成功的 HL 刷新恰好发出两次** `metaAndAssetCtxs` POST（`dex=""` 与 `dex="xyz"` 各一次）；任一次刷新**最多**两次；**所有路径** `predictedFundings` 调用为零。首个 POST 失败时第二个**不再发出**（原子组已判失败） | **D4** / 复评 N3 |
 | A14 | 「显示 HL 对比行」默认开；关闭后行高与首行内容恢复本 stage 前状态 | **D5** |
 | A15 | 第二行带 `HL` / `HL·xyz` 来源标签，且不参与筛选/排序/借币/开单 | §1 R1 |
-| A16 | `frontend/self-check.js` 通过（含新增 subline 的 15 列断言修订） | §7 |
+| A16 | `frontend/self-check.js` 通过（含新增 subline 的 15 列断言修订 + HL 数据时间元素断言） | §7 |
 
 ## 10. 决策点（待 Human 确认）
 
@@ -211,9 +280,11 @@ hyperliquid: null | {
 - **D5** 「显示 HL 对比行」开关默认开——§8 / A14。
 - **D6**（rev2 新增）HL 失败采用 **main+xyz 原子组 + 不投影 last-good**，
   而非 per-dex 部分成功——§6 / A7 A8。
-- **D7**（rev2 新增）`HL·xyz` 标签**不加**休市提示语——§1。
+- **D7**（rev2 新增）`HL·xyz` 标签**不加**休市提示语——§1。复评已 `ACCEPT` 该拒绝。
+- **D8**（rev3 新增）失败信号采用 **`hyperliquid_data_time` 时间戳 + 既有 `.stale-time` 红色高亮**，
+  而非 warning token 词汇表；非法 `funding` 归入整源失败而非单标的放行——§5 / §6.2 / A7–A9c。
 
-## 11. rev1 → rev2 修订对照
+## 11. 修订对照
 
 | finding | 修订 |
 |---|---|
@@ -223,4 +294,14 @@ hyperliquid: null | {
 | F4 wire 契约缺失 | 新增 §5；Decimal 字符串、`isDelisted` 过滤、DENY 先于 raw name、非法值 fail-closed |
 | F5 事实标签与文件边界 | §4 分母改 258 样本口径；全文加采样时点声明；§7 补 `self-check.js` 与 `public-market-contract.md` |
 | R2 成本数字 | §2 改为「最坏 +20 请求、总量 10→30」 |
-| F4 附带的休市提示语 | **不采纳**，理由记入 §1 与 D7 |
+| F4 附带的休市提示语 | **不采纳**，理由记入 §1 与 D7（复评已 ACCEPT） |
+
+### rev2 → rev3（复评 N1–N3）
+
+| finding | 修订 |
+|---|---|
+| N1 失败/无匹配/非法值不可区分 | §6.2 新增 `hyperliquid_data_time` 字段 + 复用既有 `.stale-time` 红色高亮，三态同处可见；A7/A8/A9 改为断言时间戳而非 warning 数组；新增反向 oracle A9b。**未采用 warning token 方案**，理由见 §6.2 与 D8 |
+| N1-2 单币非法值专属 token | **简化为整源失败**（§5 rev3 修订）：与「main+xyz 原子组」保持一致，一个机制覆盖全部失败态，不引入第二套词汇表 |
+| N2 offline 无契约 | §6.3 新增；A9c 验收；明确 `hyperliquid` block 在 schema 中非 required |
+| N3 A13 oracle 不唯一 | A13 限定「一次成功刷新恰好两次、任一次刷新最多两次、失败时第二个不再发出」 |
+| 复评提醒：§8「新撞名均」表述过宽 | §8 收窄为「类别校验只拦跨类别撞名，同类别同名仍需人工收录 DENY」 |
