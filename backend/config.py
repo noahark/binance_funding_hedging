@@ -45,6 +45,11 @@ class Config:
     spot_base_url: str = "https://api.binance.com"
     sapi_base_url: str = "https://api.binance.com"
     papi_base_url: str = "https://papi.binance.com"
+    # Hyperliquid 公共行情源（2026-08-23-hyperliquid-funding-compare-v1）：
+    # POST {base_url}/info，独立 source_id、60s 组。base_url 与超时同币安侧
+    # 一样不做环境覆盖（与既有 base_url 字段同一策略）。
+    hyperliquid_base_url: str = "https://api.hyperliquid.xyz"
+    hyperliquid_request_timeout: float = 15.0
     user_agent: str = "funding-hedging-public-market/1.0"
     request_timeout: float = 15.0
     # §1.5: borrow_validation probing cap (neg-funding + MARGIN_SPOT_CANDIDATE +

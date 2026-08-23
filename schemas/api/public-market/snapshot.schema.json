@@ -25,6 +25,11 @@
       "type": "string",
       "format": "date-time"
     },
+    "hyperliquid_data_time": {
+      "description": "Collection time (UTC ISO-8601) of the most recent successful Hyperliquid main+xyz batch (v0.22, stage 2026-08-23-hyperliquid-funding-compare-v1). Optional so pre-v0.22 snapshots still validate; the current producer ALWAYS emits it. null = never succeeded, failed this cycle (atomic main+xyz group), or offline. This timestamp is the ONLY discriminator between row-level hyperliquid:null causes (no HL counterpart vs source unavailable) — no warning token exists. Failure/never-succeeded is never papered over with a warm last-good time.",
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
     "source_sample_id": {
       "type": "string",
       "minLength": 1
@@ -371,6 +376,26 @@
             { "$ref": "#/$defs/decimal_string" },
             { "type": "null" }
           ]
+        },
+        "hyperliquid": {
+          "description": "Read-only Hyperliquid same-口径 funding values for the first four rate columns (v0.22, stage 2026-08-23-hyperliquid-funding-compare-v1). Optional so pre-v0.22/offline rows still validate; the current producer ALWAYS emits the key. null = no HL counterpart (exact-name + category check failed, deny-listed, delisted, alias/multiplier symbol) OR the whole source failed/is offline — distinguish via the top-level hyperliquid_data_time, never via row content. dex: which HL universe the match came from (main / xyz). funding_1h is the raw hourly funding estimate (decimal string, raw precision); daily_rate = funding_1h x 24; annualized_24h = daily_rate x 365 (same Decimal chain as the Binance 24h annualization; HL settles hourly). Pure display projection: no filter/sort/borrow/order logic may read it.",
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["dex", "funding_1h", "daily_rate", "annualized_24h"],
+          "properties": {
+            "dex": {
+              "enum": ["main", "xyz"]
+            },
+            "funding_1h": {
+              "$ref": "#/$defs/decimal_string"
+            },
+            "daily_rate": {
+              "$ref": "#/$defs/decimal_string"
+            },
+            "annualized_24h": {
+              "$ref": "#/$defs/decimal_string"
+            }
+          }
         },
         "borrow_rate_source": {
           "type": ["string", "null"],

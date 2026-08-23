@@ -108,6 +108,15 @@ _QUOTE_ASSET = "USDT"
 SPOT_SYMBOL_DENY = {
     "BUSDT": "BBUSDT 是 BB(BounceBit) 的现货对，与合约 B 无关（2026-08-07 人工确认）",
 }
+
+# Hyperliquid 同名撞名显式拒绝表（stage 2026-08-23-hyperliquid-funding-compare-v1
+# 设计 §3）。键是完整 HL key（含 dex 前缀）。类别校验（main 只配 PERPETUAL、xyz 只配
+# TRADIFI_PERPETUAL）已自动拦截跨类别撞名；本表是已人工确认案例的显式回归防线——
+# 同类别同名撞名类别校验挡不住，仍需人工发现后收录（设计 §8 rev3 表述收窄）。
+HL_SYMBOL_DENY = {
+    "xyz:BB": "币安 BB 是 BounceBit（加密），与黑莓无关",
+    "xyz:QNT": "币安 QNT 是 Quant（加密），xyz:QNT 是股票",
+}
 SPOT_SYMBOL_MAP = {
     # --- bStock：TRADIFI_PERPETUAL，现货/杠杆对带 B 后缀 ---
     "AAOIUSDT":            ("AAOIBUSDT",           SPOT_MATCH_BSTOCK),

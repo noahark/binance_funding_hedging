@@ -11,7 +11,7 @@
   "ledger_sha": null,
   "current_task": {
     "id": "hyperliquid-funding-compare-impl-claude-glm",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-08-23-hyperliquid-funding-compare-v1/hyperliquid-funding-compare-impl-claude-glm.dispatch.md"
   },
   "next": {
