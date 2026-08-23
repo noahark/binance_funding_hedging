@@ -6,7 +6,7 @@
 - target_role: `Reviewer / Design Review-1`
 - target_model: `codex`
 - provider: `openai`
-- status_revision: `1`
+- status_revision: `2`
 - required_skill: `agents/skills/software-architect.md`
 
 ## Goal
@@ -18,14 +18,27 @@
 ## 固定范围与 SHA
 
 - base_sha：`25cc8fe4e31194261dd48415f085bc6f9fda062d`
-- delivery_sha：`6ee75b0c1eb405fa2bf79a0a7aad4814142800d5`
+- **delivery_sha：`6ee75b0c1eb405fa2bf79a0a7aad4814142800d5`**（权威值；与 `status.json.delivery_sha` 一致）
 - 固定 diff：`git diff 25cc8fe4e31194261dd48415f085bc6f9fda062d..6ee75b0c1eb405fa2bf79a0a7aad4814142800d5`
 - 分支：`2026-08-23-hyperliquid-funding-compare-v1`
-- 主评审对象：`docs/planning/hyperliquid-funding-compare-v1.md`
-- 随附证据：`reports/agent-runs/2026-08-23-hyperliquid-funding-compare-v1/evidence/`
-  （`hl-binance-pairing-20260823.json` = 258 个配对的原始采样；`pairing-probe.py` = 生成脚本）
 
-固定 SHA 评审。评审移动中的 `HEAD` 或未提交工作树一律非接受。
+**评审范围恰好三个文件**（该 diff 的其余两项是控制文件，见下）：
+
+| 文件 | 角色 |
+|---|---|
+| `docs/planning/hyperliquid-funding-compare-v1.md` | **主评审对象** |
+| `reports/agent-runs/2026-08-23-hyperliquid-funding-compare-v1/evidence/hl-binance-pairing-20260823.json` | 证据：258 个配对的原始采样 |
+| `reports/agent-runs/2026-08-23-hyperliquid-funding-compare-v1/evidence/pairing-probe.py` | 证据：可重跑的生成脚本 |
+
+**范围外（控制/ledger 提交，针对它们的发现记为范围外）**：
+
+- `reports/agent-runs/.../status.json` 与 `reports/agent-runs/ACTIVE.json`——虽落在上述 diff 内，
+  属 stage 控制文件，不是交付内容。
+- 本 dispatch 文件自身（提交于 `08a657b`，在 delivery_sha **之后**）。
+- 本次 packet 勘误提交（`status.json` revision 1→2 填入 delivery_sha、本节重写），同样在 delivery_sha 之后。
+
+`HEAD` 会因上述控制提交前移，**这是预期的**。评审一律以固定 `delivery_sha` 为准，
+不评审 `HEAD`、不评审未提交工作树。
 
 ## 隔离披露
 
