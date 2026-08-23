@@ -1,22 +1,22 @@
 {
   "schema_version": "2",
-  "revision": 2,
+  "revision": 3,
   "stage_id": "2026-08-23-hyperliquid-funding-compare-v1",
   "bookkeeper": "opus5",
   "bookkeeper_label": "claude",
   "phase": "planning",
-  "checkpoint": "design-review-redispatched-after-packet-erratum",
+  "checkpoint": "design-rev2-recheck-dispatched",
   "base_sha": "25cc8fe4e31194261dd48415f085bc6f9fda062d",
-  "delivery_sha": "6ee75b0c1eb405fa2bf79a0a7aad4814142800d5",
+  "delivery_sha": "2645bb2211895323f72187ff6499af57310192c6",
   "ledger_sha": null,
   "current_task": {
-    "id": "hyperliquid-funding-compare-design-review-codex",
+    "id": "hyperliquid-funding-compare-design-recheck-codex",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-23-hyperliquid-funding-compare-v1/hyperliquid-funding-compare-design-review-codex.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-23-hyperliquid-funding-compare-v1/hyperliquid-funding-compare-design-recheck-codex.dispatch.md"
   },
   "next": {
     "actor": "codex",
-    "action": "design-review-1"
+    "action": "design-recheck-rev2"
   },
   "rework_count": 0,
   "blockers": []
