@@ -1604,6 +1604,12 @@
                 可开优先展示
               </label>
             </div>
+            <div class="control">
+              <label title="前四个费率列每行下方显示 Hyperliquid 同口径数值（main 显示 HL、xyz 显示 HL·xyz；无对手标的显示 —，HL 数据时间见市场表下方）。纯展示，不参与筛选/排序/借币/开单；关闭后行高恢复单行。">
+                <input id="filter-show-hl" type="checkbox" checked />
+                显示 HL 对比行
+              </label>
+            </div>
           </div>
 
           <div class="summary-row" id="summary-row" style="margin-bottom: var(--space-4);"></div>
@@ -1924,7 +1930,10 @@
           hideLowDailyRate: true,
           hideLowNetYield: true,
           // 可开优先展示：默认 on；仅对筛选后的可见集 re-rank，不新增隐藏条件。
-          preferOpenable: true
+          preferOpenable: true,
+          // 显示 HL 对比行：默认 on；只控制前四个费率列第二行的渲染，
+          // 不参与筛选/排序/借币/开单（2026-08-23-hyperliquid-funding-compare-v1 D5）。
+          showHl: true
         },
         privacyHidden: true,
         selectedSymbol: null,
@@ -2054,6 +2063,7 @@
         filterHideLowDailyRate: document.getElementById('filter-hide-low-daily-rate'),
         filterHideLowNetYield: document.getElementById('filter-hide-low-net-yield'),
         filterPreferOpenable: document.getElementById('filter-prefer-openable'),
+        filterShowHl: document.getElementById('filter-show-hl'),
         summaryRow: document.getElementById('summary-row'),
         statusArea: document.getElementById('status-area'),
         tableBody: document.getElementById('market-table-body'),
@@ -3510,11 +3520,35 @@
         restoreMarketOpInputs(savedInputs);
       }
 
+      // HL 对比行第二行（2026-08-23-hyperliquid-funding-compare-v1）：前四个费率列
+      // 的纯展示投影。row.hyperliquid 为 null（无对手 / 源失败 / offline）时四格均
+      // 「—」；源是否可用由市场表下方的「HL 数据时间」独立 span 表达，行内容不携带
+      // 失败语义。开关关闭时不输出任何标记，行高与内容恢复本 stage 前状态（A14）。
+      // 结算时间第二行固定「每小时」，不显示时刻（D1/A11：错拍是必须看见的事实）。
+      function hlSublines(row) {
+        if (!state.filters.showHl) {
+          return { rate: '', time: '', daily: '', ann24: '' };
+        }
+        const hl = row.hyperliquid;
+        if (!hl) {
+          const dash = '<br/><span class="hl-subline small muted">—</span>';
+          return { rate: dash, time: dash, daily: dash, ann24: dash };
+        }
+        const label = hl.dex === 'xyz' ? 'HL·xyz' : 'HL';
+        return {
+          rate: `<br/><span class="hl-subline small ${classForFundingRate(hl.funding_1h)}">${label} ${formatFundingRateFixed(hl.funding_1h, 3)}</span>`,
+          time: `<br/><span class="hl-subline small muted">${label} 每小时</span>`,
+          daily: `<br/><span class="hl-subline small ${classForFundingRate(hl.daily_rate)}">${label} ${formatFundingRateFixed(hl.daily_rate, 3)}</span>`,
+          ann24: `<br/><span class="hl-subline small ${classForFundingRate(hl.annualized_24h)}">${label} ${formatFundingRateFixed(hl.annualized_24h, 2)}</span>`
+        };
+      }
+
       // Single-row HTML used by both renderTable (full) and patchRow (click).
       // Extracted so a symbol-snapshot click can re-render ONLY its <tr> + the
       // drawer without a full table re-render (2026-07-history-background-
       // refresh-v1, breakdown §11.6).
       function renderRowHtml(row, umPositions) {
+        const hlSub = hlSublines(row);
         const isBstock = row.asset_tag === 'BSTOCK';
         const rateClass = classForFundingRate(row.futures.last_funding_rate);
         const rateText = formatFundingRateFixed(row.futures.last_funding_rate, 3);
@@ -3561,11 +3595,11 @@
             <td class="mono">${escapeHtml(row.symbol)}${dirBadge}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span></td>
             ${renderOpeningQuotesCell(row, 'forward')}
             ${renderOpeningQuotesCell(row, 'reverse')}
-            <td class="${rateClass}" title="${escapeHtml(rateTitle)}">${rateText}</td>
-            <td title="${escapeHtml(fullTime)}">${timeText}</td>
-            <td class="${dailyRateClass}">${dailyRateCell}</td>
+            <td class="${rateClass}" title="${escapeHtml(rateTitle)}">${rateText}${hlSub.rate}</td>
+            <td title="${escapeHtml(fullTime)}">${timeText}${hlSub.time}</td>
+            <td class="${dailyRateClass}">${dailyRateCell}${hlSub.daily}</td>
             <td class="${sum24Class}" title="${escapeHtml(sum24Title)}">${sum24Text}</td>
-            <td class="${ann24Class}" title="${escapeHtml(ann24Title)}">${ann24Text}</td>
+            <td class="${ann24Class}" title="${escapeHtml(ann24Title)}">${ann24Text}${hlSub.ann24}</td>
             <td class="${ann7Class}" title="${escapeHtml(ann7Title)}">${ann7Text}</td>
             <td class="${ann30Class}" title="${escapeHtml(ann30Title)}">${ann30Text}</td>
             <td class="net-yield ${netClass}">${netText}${netSource}${borrowSubline}</td>
@@ -4824,6 +4858,9 @@
       }
 
       // Under 「市场表」title: snapshot times in Asia/Shanghai + refresh note.
+      // 「HL 数据时间」是独立 span（2026-08-23-hyperliquid-funding-compare-v1
+      // IC-2）：取不到（字段缺失/null/非法 ISO）与陈旧都标红，且红色只作用于
+      // HL 片段——绝不能给整行加类，否则 HL 挂掉会把仍新鲜的币安时间一起染红。
       function renderMarketSnapshotMeta() {
         if (!els.marketSnapshotMeta) return;
         if (!state.snapshot) {
@@ -4836,10 +4873,19 @@
         const dataTimeMs = Date.parse(String(state.snapshot.data_time));
         const generated = formatSnapshotTimeBeijing(state.snapshot.generated_at);
         const dataTime = formatSnapshotTimeBeijing(state.snapshot.data_time);
+        const hlIso = state.snapshot.hyperliquid_data_time;
+        // isStaleTime(NaN) 恒 false——「取不到」必须显式并入条件，否则最该标红的
+        // 状态反而不红（dispatch IC-2）。
+        const hlMs = hlIso === undefined || hlIso === null || hlIso === ''
+          ? NaN : Date.parse(String(hlIso));
+        const hlText = Number.isFinite(hlMs) ? formatBeijing(hlMs) : '—';
+        const hlStale = !Number.isFinite(hlMs) || isStaleTime(hlMs);
         els.marketSnapshotMeta.className =
           `subtitle${isStaleTime(generatedMs) || isStaleTime(dataTimeMs) ? ' stale-time' : ''}`;
-        els.marketSnapshotMeta.textContent =
-          `生成时间: ${generated} · 数据时间: ${dataTime} · 数据每 60 秒自动刷新（后端缓存 TTL 60 秒）`;
+        els.marketSnapshotMeta.innerHTML =
+          `生成时间: ${generated} · 数据时间: ${dataTime} · `
+          + `<span id="hl-data-time"${hlStale ? ' class="stale-time"' : ''}>HL 数据时间: ${hlText}</span>`
+          + ' · 数据每 60 秒自动刷新（后端缓存 TTL 60 秒）';
       }
 
       // ---- 借币任务（后端权威：任务真相来自同源 API，state.borrowTasks 仅为渲染缓存） ----
@@ -9465,6 +9511,12 @@
         if (els.filterPreferOpenable) {
           els.filterPreferOpenable.addEventListener('change', () => {
             state.filters.preferOpenable = els.filterPreferOpenable.checked;
+            applyFiltersAndRender();
+          });
+        }
+        if (els.filterShowHl) {
+          els.filterShowHl.addEventListener('change', () => {
+            state.filters.showHl = els.filterShowHl.checked;
             applyFiltersAndRender();
           });
         }

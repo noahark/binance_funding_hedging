@@ -176,7 +176,7 @@ const ids = [
   'market-snapshot-meta', 'data-source-label', 'public-ip-badge', 'sort-basis-badge', 'btn-refresh', 'btn-cache-refresh',
   'refresh-countdown', 'account-asset-updated-at',
   'filter-search', 'filter-asset', 'filter-route', 'filter-show-perp-only', 'filter-hide-low-daily-rate',
-  'filter-hide-low-net-yield', 'filter-prefer-openable',
+  'filter-hide-low-net-yield', 'filter-prefer-openable', 'filter-show-hl',
   'summary-row', 'status-area', 'market-table-body',
   // 资金费率收益曲线（2026-08-20）
   'pnl-curve-panel', 'pnl-curve-body', 'pnl-summary-body', 'pnl-chart', 'pnl-chart-wrap',
@@ -1278,7 +1278,9 @@ setTimeout(async () => {
     if (html.includes('id="footer-note"')) {
       throw new Error('页脚 footer-note 应已删除（时间已移到市场表标题下）');
     }
-    const meta = elements['market-snapshot-meta'].textContent;
+    // renderMarketSnapshotMeta 现在写 innerHTML（HL 数据时间是独立 span，IC-2），
+    // mock 元素不镜像 innerHTML→textContent，故此处读 innerHTML。
+    const meta = elements['market-snapshot-meta'].innerHTML;
     if (!meta.includes('生成时间') || !meta.includes('数据时间') || !meta.includes('60 秒')) {
       throw new Error(`市场表标题下元信息缺失: ${meta}`);
     }
@@ -2293,6 +2295,121 @@ setTimeout(async () => {
       throw new Error('AUSDT 日净收益格不应含可借额度: ' + ausdtNet);
     }
     console.log('[PASS] 最终 15 列表头顺序、行单元格数、empty-state colspan 与合并列结构');
+
+    // 33c-hl. HL 对比行（2026-08-23-hyperliquid-funding-compare-v1，A11/A14/A15/A16 +
+    // A7/A8/A9b/A9c 的前端 oracle）：默认开；四列第二行带 HL / HL·xyz 标签；
+    // 无对手（含旧快照缺失 hyperliquid 键）显示 —；近 24h 列无第二行；
+    // 结算时间第二行恒「每小时」不显示时刻；关闭后恢复单行；
+    // 「HL 数据时间」为独立 span，取不到标红、新鲜不红、陈旧标红。
+    {
+      // A14 前半：开关默认 on —— 上面 33c 的 tbody 由 designFixture（无 hyperliquid
+      // 键）渲染，默认状态就应已经出现 — 第二行。
+      if (!tbody.includes('hl-subline')) {
+        throw new Error('开关默认开时，无 HL 数据的行应显示 — 第二行');
+      }
+      const hlFx = JSON.parse(JSON.stringify(designFixture));
+      hlFx.hyperliquid_data_time = null; // 源失败 oracle：null → — 且标红
+      const hlRowMain = hlFx.rows.find(r => r.symbol === 'AUSDT');
+      hlRowMain.hyperliquid = {
+        dex: 'main', funding_1h: '0.00001250',
+        daily_rate: '0.00030000', annualized_24h: '0.10950000'
+      };
+      const hlRowXyz = hlFx.rows.find(r => r.symbol === 'CUSDT');
+      hlRowXyz.hyperliquid = {
+        dex: 'xyz', funding_1h: '-0.00002500',
+        daily_rate: '-0.00060000', annualized_24h: '-0.21900000'
+      };
+      helpers.ingestSnapshot(hlFx);
+      const hlTbody = elements['market-table-body'].innerHTML;
+      // A15：main 标签 HL + 三列数值（3/3/2 位，与首行同格式）
+      const hlRateCell = getRowCell(hlTbody, 'AUSDT', 3);
+      if (!hlRateCell.includes('HL +0.001%')) {
+        throw new Error('AUSDT 资金费率第二行应为 HL 0.001%: ' + hlRateCell);
+      }
+      const hlDailyCell = getRowCell(hlTbody, 'AUSDT', 5);
+      if (!hlDailyCell.includes('HL +0.030%')) {
+        throw new Error('AUSDT 日费率第二行应为 HL 0.030%: ' + hlDailyCell);
+      }
+      const hlAnnCell = getRowCell(hlTbody, 'AUSDT', 7);
+      if (!hlAnnCell.includes('HL +10.95%')) {
+        throw new Error('AUSDT 年化 24h 第二行应为 HL 10.95%: ' + hlAnnCell);
+      }
+      // A15：xyz 标签 HL·xyz（负值原样带号）
+      const xyzRateCell = getRowCell(hlTbody, 'CUSDT', 3);
+      if (!xyzRateCell.includes('HL·xyz -0.003%')) {
+        throw new Error('CUSDT 资金费率第二行应为 HL·xyz -0.003%: ' + xyzRateCell);
+      }
+      // A11：结算时间第二行恒「每小时」，不显示时刻（第二行片段不得含数字）
+      const hlTimeCell = getRowCell(hlTbody, 'AUSDT', 4);
+      const timeSub = hlTimeCell.slice(hlTimeCell.indexOf('<br/>'));
+      if (!timeSub.includes('HL 每小时')) {
+        throw new Error('AUSDT 结算时间第二行应为 HL 每小时: ' + hlTimeCell);
+      }
+      if (/[0-9]/.test(timeSub)) {
+        throw new Error('结算时间第二行不得显示时刻: ' + timeSub);
+      }
+      // 无对手 / 源外标的：第二行 —（BUSDT 未注入 hyperliquid）
+      const nullCell = getRowCell(hlTbody, 'BUSDT', 3);
+      const nullSub = nullCell.slice(nullCell.indexOf('<br/>'));
+      if (!nullSub.includes('hl-subline small muted">—</span>')) {
+        throw new Error('无 HL 对手的行第二行应为 —: ' + nullCell);
+      }
+      // 第二行只进前四个费率列（idx 3/4/5/7）；近 24h（idx 6）无第二行
+      const sum24Cell = getRowCell(hlTbody, 'AUSDT', 6);
+      if (sum24Cell.includes('hl-subline')) {
+        throw new Error('近 24h 列不应有 HL 第二行: ' + sum24Cell);
+      }
+      // A15：第二行不参与筛选——搜索无 HL 数据的 BUSDT 仍可见
+      const savedSearch = elements['filter-search'].value;
+      elements['filter-search'].value = 'BUSDT';
+      (elements['filter-search'].listeners.input || []).forEach(h => h());
+      if (!elements['market-table-body'].innerHTML.includes('data-symbol="BUSDT"')) {
+        throw new Error('无 HL 数据不应影响筛选可见性');
+      }
+      elements['filter-search'].value = savedSearch;
+      (elements['filter-search'].listeners.input || []).forEach(h => h());
+      // A7/A8/A9c 前端 oracle：hyperliquid_data_time null → HL 数据时间 — 且该 span 标红
+      let metaHtml = elements['market-snapshot-meta'].innerHTML;
+      if (!metaHtml.includes('HL 数据时间: —')) {
+        throw new Error('HL 数据时间 null 应显示 —: ' + metaHtml);
+      }
+      if (!metaHtml.includes('id="hl-data-time" class="stale-time"')) {
+        throw new Error('HL 数据时间 null 应标红（unavailable 显式入条件，IC-2）: ' + metaHtml);
+      }
+      // A9b 前端 oracle：源成功（时间戳新鲜）→ 有值不标红
+      hlFx.hyperliquid_data_time = new Date(Date.now() - 5000).toISOString();
+      helpers.ingestSnapshot(hlFx);
+      metaHtml = elements['market-snapshot-meta'].innerHTML;
+      if (!metaHtml.includes('id="hl-data-time">HL 数据时间: ')) {
+        throw new Error('HL 时间戳新鲜时不应标红: ' + metaHtml);
+      }
+      // 陈旧（>90s）→ 标红
+      hlFx.hyperliquid_data_time = new Date(Date.now() - 120000).toISOString();
+      helpers.ingestSnapshot(hlFx);
+      metaHtml = elements['market-snapshot-meta'].innerHTML;
+      if (!metaHtml.includes('id="hl-data-time" class="stale-time"')) {
+        throw new Error('HL 时间戳陈旧应标红: ' + metaHtml);
+      }
+      // IC-2 后半：HL 失败不得染红整行——生成/数据时间新鲜时整行元素类不带 stale-time
+      if (String(elements['market-snapshot-meta'].className).includes('stale-time')) {
+        throw new Error('HL 失败不得把币安生成/数据时间一起染红（IC-2）');
+      }
+      // A14 后半：关闭开关 → 第二行整体消失（恢复本 stage 前状态）
+      elements['filter-show-hl'].checked = false;
+      (elements['filter-show-hl'].listeners.change || []).forEach(h => h());
+      const offTbody = elements['market-table-body'].innerHTML;
+      if (offTbody.includes('hl-subline')) {
+        throw new Error('关闭开关后不应残留 HL 第二行');
+      }
+      elements['filter-show-hl'].checked = true;
+      (elements['filter-show-hl'].listeners.change || []).forEach(h => h());
+      if (!elements['market-table-body'].innerHTML.includes('hl-subline')) {
+        throw new Error('重新打开开关后 HL 第二行应恢复');
+      }
+      // 恢复 fixture，避免影响后续块
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] HL 对比行：默认开/标签/—/每小时/独立 span 三态/开关恢复');
+    }
 
     // 33d. 正向/反向开单列：腿标签、价格、百分比与颜色
     // AUSDT fresh: forward -0.04%, reverse +0.04%

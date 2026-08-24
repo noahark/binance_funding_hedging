@@ -92,7 +92,9 @@ def test_single_hmac_exit_in_product_code():
 def test_urlopen_only_in_designated_http_clients():
     """Direct-HTTP guard: only the designated HTTP clients may call urlopen
     (private_client.py for GET reads, binance_public.py for public market,
-    portfolio_margin_borrow_client.py for the borrow POST, and
+    portfolio_margin_borrow_client.py for the borrow POST,
+    hyperliquid_public.py for the public Hyperliquid funding-compare POSTs
+    (2026-08-23-hyperliquid-funding-compare-v1), and
     the two hedge-open clients — hedge_open_live_client.py for the PAPI margin/UM
     POST+query transport and hedge_preflight_provider.py for the public
     exchangeInfo preflight reads), so no other product module can bypass them to
@@ -101,6 +103,7 @@ def test_urlopen_only_in_designated_http_clients():
         "private_client.py",
         "binance_public.py",
         "portfolio_margin_borrow_client.py",
+        "hyperliquid_public.py",
         "hedge_open_live_client.py",
         "hedge_preflight_provider.py",
     }

@@ -2328,3 +2328,64 @@ stats block); pinned by `backend/tests/test_hedge_api.py`
 
 - **Spot / Margin Trade History** (`GET /api/v3/myTrades`, `GET /papi/v1/margin/myTrades`): Supports `orderId`-based historical trade retrieval without the 7-day restriction.
 - **UM Futures Trade History** (`GET /papi/v1/um/userTrades`): Enforces a **~7-day query window limit** from the current timestamp. Orders older than ~7 days return empty `[]` even when valid `startTime`/`endTime` are passed. System fail-closed behavior safely treats empty trade returns on older orders as incomplete (`trading_fee_incomplete: true`), rendering `—` without data corruption.
+
+## Hyperliquid Funding Compare Amendment (v0.22, stage `2026-08-23-hyperliquid-funding-compare-v1`)
+
+Additive read-only fields putting Hyperliquid same-口径 funding values under the
+first four rate columns of each market row. Design authority:
+`docs/planning/hyperliquid-funding-compare-v1.md` rev3. Pure display projection —
+no filter, sort, borrow, or order logic may read these fields.
+
+### New public source
+
+`POST https://api.hyperliquid.xyz/info` with `{"type": "metaAndAssetCtxs",
+"dex": ""}` and `{"type": "metaAndAssetCtxs", "dex": "xyz"}` — exactly two POSTs
+per successful refresh, an ATOMIC main+xyz group. Any transport failure, shape
+violation (non-2-list payload, missing/empty `universe`, length mismatch,
+missing/non-string `name`), or a `funding` that is not a string parsing to a
+finite Decimal fails the WHOLE source (rev3 D6/D8: no per-dex partial success,
+no per-symbol relief for one bad value). The `predictedFundings` endpoint is
+never called (D4). The source is an independent `source_id` on the 60s Group A
+cadence, same frequency as `premium_index` but failing independently; the
+「更新缓存」 button (`force_account_panels=True`) does NOT force it.
+
+### New row field `hyperliquid`
+
+Optional on the wire (pre-v0.22/offline rows omit it and still validate); the
+current producer ALWAYS emits the key. `null` or
+`{dex: "main"|"xyz", funding_1h, daily_rate, annualized_24h}` — all three values
+decimal strings (never JSON numbers). `funding_1h` is the raw hourly funding
+estimate at raw precision; `daily_rate = funding_1h × 24`;
+`annualized_24h = daily_rate × 365` (same Decimal chain as the Binance 24h
+annualization; HL settles hourly, Binance stays `funding_interval_hours`-driven
+and is unchanged cell-for-cell).
+
+Matching is fail-closed (design §3), in order: full HL key (dex-prefixed, e.g.
+`xyz:BB`) in `backend/domain/normalize.py::HL_SYMBOL_DENY` → `isDelisted` →
+raw-name exact equality with the Binance `baseAsset` (no alias table, no
+multiplier mapping in v1 — those 14 symbols stay `null`) → category check
+(`main` only pairs Binance `PERPETUAL`, `xyz` only `TRADIFI_PERPETUAL`). The
+category check makes cross-category name collisions (the `xyz:BB`/`xyz:QNT`
+family) fail closed without enumeration; DENY remains the explicit regression
+line for same-category collisions.
+
+### New top-level field `hyperliquid_data_time`
+
+`string (UTC ISO-8601) | null`; optional on the wire, ALWAYS emitted by the
+current producer. The collection time of the most recent successful main+xyz
+batch; `null` when the source never succeeded, failed this cycle, or the
+snapshot was built offline. A failure drops the cached batch entirely — rows go
+`hyperliquid: null` and the timestamp goes `null` on the next publication; no
+warm last-good value or timestamp is ever projected (A8). This timestamp is the
+ONLY discriminator between the two `null` causes (no HL counterpart vs source
+unavailable) — there is no warning token for HL; the frontend renders it as an
+independent `HL 数据时间` span in `market-snapshot-meta`, red (`stale-time`)
+when null/stale, never coloring the neighboring Binance times.
+
+### Offline (zero network)
+
+The offline synchronous build never starts the worker and never constructs a
+fetch: zero Hyperliquid requests, every row `hyperliquid: null`,
+`hyperliquid_data_time: null` (design §6.3 / A9c). Both new fields are
+registered in `snapshot.schema.json` but NOT required, so pre-v0.22 fixtures
+keep validating.

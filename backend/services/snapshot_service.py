@@ -37,6 +37,7 @@ import jsonschema
 import referencing
 
 from ..adapters.binance_public import BinancePublicClient
+from ..adapters.hyperliquid_public import HyperliquidPublicClient
 from ..config import GROUP_B_REFRESH_SECONDS, Config, FROZEN_GENERATED_AT, FROZEN_SOURCE_SAMPLE_ID
 from ..domain.normalize import iso_from_ms
 from ..domain.snapshot import (
@@ -45,6 +46,7 @@ from ..domain.snapshot import (
     assemble_borrow_validation,
     assemble_private_account,
     assemble_snapshot,
+    build_hyperliquid_matches,
     build_opening_quotes,
     build_rows,
     compute_net_daily_yield,
@@ -271,6 +273,12 @@ class SnapshotService:
         self._inflight_lock = threading.Lock()  # guards ONLY the _inflight dict
         self._stop_event = threading.Event()
         self._worker_thread: Optional[threading.Thread] = None
+        # Hyperliquid funding-compare client (stage
+        # 2026-08-23-hyperliquid-funding-compare-v1, design §6.1). Built lazily in
+        # start_worker — the ONLY path that ever refreshes the source — so the
+        # offline build and any worker-less composition stay zero-HL-network by
+        # construction (design §6.3 / A9c). Tests inject a stub here directly.
+        self._hl_client: Optional[HyperliquidPublicClient] = None
 
     @property
     def private_client(self) -> PrivateClient:
@@ -539,6 +547,17 @@ class SnapshotService:
             funding_by_sym.update(funding_history_overlay)
         funding_interval_by_sym = base_raw.get("funding_interval_by_sym", {})
         data_time_ms = max((p.get("time", 0) for p in base_raw["premium_index"]), default=0)
+        # HL projection (design §3/§5): pure matching over the cached successful
+        # batch; a missing entry (never succeeded / failed this cycle / offline)
+        # yields an empty map -> every row ``hyperliquid: null``.
+        hl_entry = self._global_source_cache.get("hyperliquid")
+        hyperliquid_by_sym = (
+            build_hyperliquid_matches(
+                hl_entry[1]["main"], hl_entry[1]["xyz"], futures_symbols
+            )
+            if hl_entry is not None
+            else {}
+        )
         rows = build_rows(
             futures_symbols,
             premium_by_sym,
@@ -547,6 +566,7 @@ class SnapshotService:
             funding_interval_by_sym=funding_interval_by_sym,
             t_end_ms=data_time_ms,
             collateral_cap_state=collateral_cap_state,
+            hyperliquid_by_sym=hyperliquid_by_sym,
         )
         return rows, data_time_ms
 
@@ -707,6 +727,11 @@ class SnapshotService:
             + pi["account_warnings"]
             + list(history_warnings or [])
         )
+        # Top-level HL freshness signal (design §6.2): the successful batch's
+        # collection time, None when the source has no current success (never
+        # succeeded / failed this cycle / offline). Reads the SAME cache entry
+        # the row projection above consumed — one source, one truth.
+        hl_entry = self._global_source_cache.get("hyperliquid")
         snapshot = assemble_snapshot(
             rows,
             generated_at=generated_at,
@@ -717,6 +742,7 @@ class SnapshotService:
             private_account=pi["private_account"],
             borrow_validation_summary=borrow_validation_summary,
             extra_warnings=warnings,
+            hyperliquid_data_time=hl_entry[1]["updated_at"] if hl_entry else None,
         )
         return snapshot, data_time_ms, pi
 
@@ -1037,6 +1063,15 @@ class SnapshotService:
         """Idempotent. No-op offline or when the kill switch is off."""
         if self.client.offline or not self.config.background_refresh_enabled:
             return
+        if self._hl_client is None:
+            # Built here (never in __init__) so no composition that does not
+            # start the worker — offline build, kill switch, direct-_scheduled_tick
+            # test stubs — can ever issue a Hyperliquid request.
+            self._hl_client = HyperliquidPublicClient(
+                base_url=self.config.hyperliquid_base_url,
+                user_agent=self.config.user_agent,
+                timeout=self.config.hyperliquid_request_timeout,
+            )
         if self._worker_thread is not None and self._worker_thread.is_alive():
             return
         self._stop_event.clear()
@@ -1378,6 +1413,33 @@ class SnapshotService:
                         "futures": pair["futures"],
                     },
                 )
+        # ---- Hyperliquid funding-compare source (2026-08-23 design §6.1):
+        # INDEPENDENT source_id, Group A cadence, main+xyz atomic group. A
+        # failure is NOT cached and the previous entry is DROPPED — unlike
+        # premium/book_ticker there is NO warm last-good: every row goes
+        # ``hyperliquid: null`` and ``hyperliquid_data_time`` goes ``null`` until
+        # a fresh full success (D6/A8), and being due again next tick means the
+        # failure retries rather than masquerading as fresh. Never part of the
+        # ``force_account_panels`` group: the 「更新缓存」 button does NOT
+        # refresh it. ----
+        if self._hl_client is not None and self._source_due("hyperliquid", now, ttl_a):
+            try:
+                hl = self._hl_client.fetch_funding_compare()
+            except (urllib.error.URLError, OSError, ValueError):
+                hl = None
+            if hl is not None:
+                self._global_source_cache["hyperliquid"] = (
+                    time.monotonic(),
+                    {
+                        "updated_at": datetime.now(timezone.utc).strftime(
+                            "%Y-%m-%dT%H:%M:%SZ"
+                        ),
+                        "main": hl["main"],
+                        "xyz": hl["xyz"],
+                    },
+                )
+            else:
+                self._global_source_cache.pop("hyperliquid", None)
         # ---- restricted-asset display read (decision §E-4 / interface §6):
         # GROUP_B_REFRESH_SECONDS cadence, independent source_id, success-only
         # timestamp advance (FR-2). The read-only client is independent of

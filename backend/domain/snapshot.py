@@ -10,7 +10,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Dict, List, Optional
 
 from .classify import classify_route, negative_funding_status
-from .normalize import asset_tag_for, filter_of, resolve_spot_leg
+from .normalize import HL_SYMBOL_DENY, asset_tag_for, filter_of, resolve_spot_leg
 
 SCHEMA_VERSION = "public-market-snapshot/v1"
 
@@ -100,6 +100,72 @@ CONTRACT_WARNINGS = [
 # leaves those rows visible (a deliberate, tested exception).
 DEFAULT_VIEW_HISTORY_THRESHOLD = Decimal("0.00030000")
 
+# Hyperliquid 对比行（stage 2026-08-23-hyperliquid-funding-compare-v1 设计 §3）：
+# dex -> 唯一允许配对的币安 contractType（类别校验，fail-closed 第 4 步）。
+_HL_DEX_ALLOWED_CONTRACT_TYPE = {
+    "main": "PERPETUAL",
+    "xyz": "TRADIFI_PERPETUAL",
+}
+
+
+def build_hyperliquid_matches(
+    main_entries: List[dict],
+    xyz_entries: List[dict],
+    futures_symbols: List[dict],
+) -> Dict[str, dict]:
+    """HL 条目 -> 币安行号的可配对投影（纯函数，无 IO；设计 §3/§5）。
+
+    匹配顺序（rev2 评审 F3/F4，任一步不满足即丢弃该 HL 条目）：
+    1. 完整 HL key（含 dex 前缀，如 ``xyz:BB``）命中 ``HL_SYMBOL_DENY``；
+    2. ``is_delisted`` 为真；
+    3. raw name（已剥 dex 前缀）与币安 ``baseAsset`` exact 比对（不同名不显示，
+       查不到就是查不到——DEC-2026-08-07-003）；
+    4. 类别校验：main 只配 ``PERPETUAL``，xyz 只配 ``TRADIFI_PERPETUAL``。
+
+    输入条目来自适配器的整源校验（每个 ``funding`` 都是有限 decimal 字符串）。
+    返回 ``{币安 symbol: hyperliquid block}``；block 三个数值走 Decimal 字符串
+    规则：``daily_rate = funding × 24``（复用 :func:`compute_daily_from_hourly`），
+    ``annualized_24h = daily_rate × 365``（复用 :func:`compute_annualized_funding_24h`，
+    与币安 24h 年化同一折算链）。未匹配的币安行由 :func:`build_rows` 落 ``null``。
+    """
+    out: Dict[str, dict] = {}
+    by_base: Dict[str, List[dict]] = {}
+    for obj in futures_symbols:
+        by_base.setdefault(obj.get("baseAsset", ""), []).append(obj)
+    for dex, entries in (("main", main_entries), ("xyz", xyz_entries)):
+        allowed = _HL_DEX_ALLOWED_CONTRACT_TYPE[dex]
+        for entry in entries:
+            if entry.get("key") in HL_SYMBOL_DENY:
+                continue
+            if entry.get("is_delisted"):
+                continue
+            for obj in by_base.get(entry.get("name"), []):
+                if obj.get("contractType") != allowed:
+                    continue
+                sym = obj["symbol"]
+                if sym in out:
+                    continue
+                funding = entry["funding"]
+                daily = compute_daily_from_hourly(funding)
+                annualized = compute_annualized_funding_24h(daily)
+                out[sym] = {
+                    "dex": dex,
+                    "funding_1h": format_decimal_string(funding),
+                    "daily_rate": daily,
+                    "annualized_24h": annualized,
+                }
+    return out
+
+
+def format_decimal_string(raw) -> str:
+    """有限 decimal 原样输出为非科学计数法的字符串（无 float，无重算）。
+
+    HL 侧 ``funding_1h`` 保留原始精度（同币安 ``last_funding_rate`` 直传 raw
+    JSON 字符串的既有 wire 风格），只规范化表示形式。输入已由适配器保证
+    可转有限 Decimal。
+    """
+    return format(Decimal(str(raw)), "f")
+
 
 def default_view_history_symbols(rows: List[dict]) -> List[str]:
     """Default-homepage history prewarm selector (10-design D1).
@@ -144,6 +210,7 @@ def build_rows(
     funding_interval_by_sym: Optional[Dict[str, int]] = None,
     t_end_ms: Optional[int] = None,
     collateral_cap_state: Optional[tuple] = None,
+    hyperliquid_by_sym: Optional[Dict[str, dict]] = None,
 ) -> List[dict]:
     """Build snapshot rows from already-filtered futures symbols.
 
@@ -173,6 +240,14 @@ def build_rows(
     SPOT base asset (the same ``resolve_spot_leg`` record below — single-point
     rule, interface §5); see :func:`collateral_cap_for_row` for the truth table.
     Direction is NOT consulted (decision §E-3: a hit highlights on both signs).
+
+    ``hyperliquid_by_sym`` (stage 2026-08-23-hyperliquid-funding-compare-v1)
+    is the :func:`build_hyperliquid_matches` projection keyed by binance symbol.
+    Every row ALWAYS emits the ``hyperliquid`` key — the matched block or
+    ``None`` (no HL counterpart / source failed / offline); the two ``None``
+    causes are distinguished snapshot-wide by ``hyperliquid_data_time``, never
+    by row content (design §5). Pure display projection: no rate, sort, borrow
+    or order logic reads it.
     """
     interval_map = funding_interval_by_sym or {}
     cc_exceeded, cc_checked_at = (
@@ -268,6 +343,7 @@ def build_rows(
                 "annualized_funding_24h": annualized_24h,
                 "annualized_funding_7d": annualized_7d,
                 "annualized_funding_30d": annualized_30d,
+                "hyperliquid": (hyperliquid_by_sym or {}).get(sym),
                 "ui_flags": ui_flags,
             }
         )
@@ -331,6 +407,7 @@ def assemble_snapshot(
     private_account: Optional[dict] = None,
     borrow_validation_summary: Optional[dict] = None,
     extra_warnings: Optional[List[str]] = None,
+    hyperliquid_data_time: Optional[str] = None,
 ) -> dict:
     """Assemble the full snapshot. ``summary`` is aggregated from ``rows``.
 
@@ -355,6 +432,12 @@ def assemble_snapshot(
     borrowability was not fully probed (``coverage.skipped > 0``) — derived here
     from ``borrow_validation_summary`` so the gap is never silent. Rate coverage
     is unaffected (the borrow rate is still filled for those rows).
+
+    ``hyperliquid_data_time`` (stage 2026-08-23-hyperliquid-funding-compare-v1,
+    design §6.2) is ALWAYS emitted (string or ``None``): the collection time of
+    the most recent successful main+xyz batch, ``None`` when the source never
+    succeeded or failed this cycle (offline included). It is the ONLY
+    no-match-vs-source-failure discriminator — no warning token exists for HL.
     """
     warnings = list(CONTRACT_WARNINGS) + list(extra_warnings or [])
     coverage = (borrow_validation_summary or {}).get("coverage") or {}
@@ -368,6 +451,7 @@ def assemble_snapshot(
         "generated_at": generated_at,
         "data_time": data_time,
         "source_sample_id": source_sample_id,
+        "hyperliquid_data_time": hyperliquid_data_time,
         "private_channel": private_channel_status,
         "summary": {
             "total_rows": len(rows),
