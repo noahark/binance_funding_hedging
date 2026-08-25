@@ -2321,10 +2321,11 @@ setTimeout(async () => {
       };
       helpers.ingestSnapshot(hlFx);
       const hlTbody = elements['market-table-body'].innerHTML;
-      // A15：main 标签 HL + 三列数值（3/3/2 位，与首行同格式）
+      // A15：main 标签 HL。小时费率用原生精度（去尾零、不舍入），日/年化仍 3/2 位。
+      // 0.00001250 -> 0.00125%（旧的固定 3 位会舍成 0.001%，见下方精度回归）。
       const hlRateCell = getRowCell(hlTbody, 'AUSDT', 3);
-      if (!hlRateCell.includes('HL +0.001%')) {
-        throw new Error('AUSDT 资金费率第二行应为 HL 0.001%: ' + hlRateCell);
+      if (!hlRateCell.includes('HL +0.00125%')) {
+        throw new Error('AUSDT 资金费率第二行应为 HL +0.00125%: ' + hlRateCell);
       }
       const hlDailyCell = getRowCell(hlTbody, 'AUSDT', 5);
       if (!hlDailyCell.includes('HL +0.030%')) {
@@ -2336,9 +2337,36 @@ setTimeout(async () => {
       }
       // A15：xyz 标签 HL·xyz（负值原样带号）
       const xyzRateCell = getRowCell(hlTbody, 'CUSDT', 3);
-      if (!xyzRateCell.includes('HL·xyz -0.003%')) {
-        throw new Error('CUSDT 资金费率第二行应为 HL·xyz -0.003%: ' + xyzRateCell);
+      if (!xyzRateCell.includes('HL·xyz -0.0025%')) {
+        throw new Error('CUSDT 资金费率第二行应为 HL·xyz -0.0025%: ' + xyzRateCell);
       }
+      // 小时费率精度回归（2026-08-25 Human 实盘发现）：CRCL 与 INTC 的 HL 小时费率
+      // 真实值差 1.76 倍（0.0000109959 vs 0.00000625），固定 3 位小数会把两者都显示
+      // 成 0.001%，与各自的日费率（0.026% / 0.015%）自相矛盾。原生精度须区分开。
+      const precFx = JSON.parse(JSON.stringify(designFixture));
+      precFx.rows.find(r => r.symbol === 'AUSDT').hyperliquid = {
+        dex: 'main', funding_1h: '0.0000109959',
+        daily_rate: '0.00026390', annualized_24h: '0.09632350'
+      };
+      precFx.rows.find(r => r.symbol === 'CUSDT').hyperliquid = {
+        dex: 'main', funding_1h: '0.00000625',
+        daily_rate: '0.00015000', annualized_24h: '0.05475000'
+      };
+      helpers.ingestSnapshot(precFx);
+      const precTbody = elements['market-table-body'].innerHTML;
+      const precA = getRowCell(precTbody, 'AUSDT', 3);
+      const precC = getRowCell(precTbody, 'CUSDT', 3);
+      if (!precA.includes('HL +0.00109959%')) {
+        throw new Error('CRCL 量级小时费率应原生展示 +0.00109959%: ' + precA);
+      }
+      if (!precC.includes('HL +0.000625%')) {
+        throw new Error('INTC 量级小时费率应原生展示 +0.000625%: ' + precC);
+      }
+      if (precA.slice(precA.indexOf('<br/>')) === precC.slice(precC.indexOf('<br/>'))) {
+        throw new Error('两个不同的小时费率不得渲染成同一字符串');
+      }
+      helpers.ingestSnapshot(hlFx);  // 复位供后续断言
+
       // A11：结算时间第二行恒「每小时」，不显示时刻（第二行片段不得含数字）
       const hlTimeCell = getRowCell(hlTbody, 'AUSDT', 4);
       const timeSub = hlTimeCell.slice(hlTimeCell.indexOf('<br/>'));

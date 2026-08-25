@@ -2655,6 +2655,30 @@
         return `${finalSign}${scaledInt}.${scaledFrac}%`;
       }
 
+      function formatFundingRateExact(str) {
+        // 原生精度百分比：×100 后保留全部有效数字，只去掉小数点后末尾的零。
+        // 供 Hyperliquid 小时费率使用——HL 按小时计费，数值比币安 4h/8h 小一个
+        // 数量级，固定 3 位小数会把有效数字吃掉（0.00109959% 与 0.000625% 都会
+        // 显示成 0.001%，实际差 1.76 倍）。与 formatFundingRateFixed 同样不使用
+        // 二进制浮点：×100 靠字符串移位，不做任何舍入。
+        if (str === undefined || str === null || str === '') return '—';
+        const s = String(str);
+        if (!/^-?\d+\.?\d*$/.test(s)) return '—';
+        const sign = s.startsWith('-') ? '-' : '';
+        const absStr = sign ? s.slice(1) : s;
+        let [intPart, fracPart = ''] = absStr.split('.');
+        intPart = intPart.replace(/^0+/, '') || '0';
+
+        // Multiply by 100: shift decimal point two places to the right.
+        const moveDigits = (fracPart + '00').slice(0, 2);
+        const scaledInt = (intPart + moveDigits).replace(/^0+/, '') || '0';
+        const scaledFrac = fracPart.slice(2).replace(/0+$/, '');
+
+        if (scaledInt === '0' && scaledFrac === '') return '0%';
+        const finalSign = sign ? '-' : '+';
+        return scaledFrac ? `${finalSign}${scaledInt}.${scaledFrac}%` : `${finalSign}${scaledInt}%`;
+      }
+
       function formatPrice(str) {
         if (str === undefined || str === null || str === '') return '—';
         const n = Number(str);
@@ -3536,7 +3560,7 @@
         }
         const label = hl.dex === 'xyz' ? 'HL·xyz' : 'HL';
         return {
-          rate: `<br/><span class="hl-subline small ${classForFundingRate(hl.funding_1h)}">${label} ${formatFundingRateFixed(hl.funding_1h, 3)}</span>`,
+          rate: `<br/><span class="hl-subline small ${classForFundingRate(hl.funding_1h)}">${label} ${formatFundingRateExact(hl.funding_1h)}</span>`,
           time: `<br/><span class="hl-subline small muted">${label} 每小时</span>`,
           daily: `<br/><span class="hl-subline small ${classForFundingRate(hl.daily_rate)}">${label} ${formatFundingRateFixed(hl.daily_rate, 3)}</span>`,
           ann24: `<br/><span class="hl-subline small ${classForFundingRate(hl.annualized_24h)}">${label} ${formatFundingRateFixed(hl.annualized_24h, 2)}</span>`
