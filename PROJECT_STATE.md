@@ -4,7 +4,7 @@ Cross-stage state, read at startup. Keep under 64 KB. Git history is not a runti
 check. Completed work's trace is git history and archive references (see Update
 Rule); this file records only live risks, open follow-ups, and pointers.
 
-## Current Status (2026-08-27)
+## Current Status (2026-08-28)
 
 - **[SECURITY][2026-08-27] 云端访问边界：一个进程只加载一份 `.env` 和一组页面登录凭证。**
   `APP_UI_USERNAME` + `APP_UI_PASSWORD` 使用标准库 HTTP Basic 保护静态页面和全部业务 API；
@@ -35,6 +35,18 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   启用前的超时失败，两腿 `UNKNOWN` 且成交量为 0；启用/重启后未发现新成交，但该任务随时可在阈值
   满足时真实下单。启动恢复还把任务 `6be39068-d125-4154-99da-2a5696f21da2` 的历史未知订单记录为
   `order_state_unknown_final`；这是查询/落盘，不是新订单。
+
+- **[LIVE INCIDENT][2026-08-28] Docker `--env-file` 未展开专用 API Key 引用，所有写通道认证失效。**
+  本地 `.env` 的 `BINANCE_BORROW_API_KEY/SECRET` 与 `BINANCE_HEDGE_API_KEY/SECRET` 使用对通用
+  Key 的 Shell 变量引用；`scripts/run-server.sh` 通过 `source` 会正确展开为 64 字符，但云端 Docker
+  把带引号的 `${…}` 原文作为 20/23 字符环境值。通用只读 Key 仍为正确的 64 字符，因此私有账户
+  读取成功不能验证专用写 Key。JST 全部还款请求 `56b85f2b-4d03-49a5-b9ef-c2b7a9d70174` 已以
+  `-2014 / HTTP 401 / API-key format invalid` 明确 `failed`，没有自动重试；借币、开/平仓、划转和
+  还款均受同一根因影响。XVGUSDT 平滑平仓任务在云端创建 attempt 172 后因
+  `order_state_unknown` 自动暂停：两腿均为 `UNKNOWN_QUERYING`、无 `orderId`、本地累计量 0，但
+  专用 Key 无效使交易所终态不可查询，不能据此断言未下单。修复前禁止重启该任务、重复平仓或重试
+  任何写操作；修复必须把四个专用变量物化为实际值、重启服务，并先让启动恢复按既有 client ID 查询
+  attempt 172 终态，再由 Human 决定后续操作。
 
 - **本机服务已于 2026-08-27 停止**，`127.0.0.1:8787` 无监听；后续运行、开发和验证转到
   AWS `env_aoke` 实例。本地 `.env` 保留作 Human 授权的源配置，权限已收紧为 `0600`；不得再次
