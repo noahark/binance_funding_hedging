@@ -39,12 +39,14 @@ This file is the canonical approved roadmap.
     live-verified, merged to main and deployed 2026-08-20.** Position table renders
     realtime USD-equivalent fee costs and BNB quantity; close cycles freeze total fee costs
     on close; legacy close logs remain immutable.
-12. **Single-instance cloud UI/API login and HTTPS deployment. Done.**
+12. **Single-instance cloud UI/API login, data migration, and HTTPS
+    infrastructure. Done; public proxy security-gated.**
     One `.env` supplies one HTTP Basic username/password; all UI and business
     APIs are protected, health probes remain public, and remote binds fail
     closed without credentials. The first AWS instance runs the reviewed commit
-    behind a loopback-only Docker/systemd boundary and a Caddy-managed HTTPS
-    endpoint. Password hardening remains required before private Binance access.
+    as named profile `env_aoke` behind a loopback-only Docker/systemd boundary;
+    local data and credentials are migrated and private reads verify. The Caddy
+    endpoint remains disabled until the weak UI password is replaced.
 
 
 ## 持仓周期三功能（2026-08 交付，Human 验收通过）

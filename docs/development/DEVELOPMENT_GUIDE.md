@@ -114,6 +114,12 @@ existing launcher:
 ENV_FILE=/etc/funding-hedging/account-a.env scripts/run-server.sh
 ```
 
+Cloud deployment profiles use a stable configuration name as their identity.
+For example, `env_aoke` maps to `/etc/funding-hedging/env_aoke` and
+`/var/lib/funding-hedging/env_aoke/data`. Each machine runs exactly one named
+profile; a second account uses a different machine and configuration name, not
+a second profile in the same process.
+
 Set `APP_BIND_HOST=0.0.0.0`, `APP_UI_USERNAME`, and `APP_UI_PASSWORD` in that
 file. Put the application behind an HTTPS reverse proxy; HTTP Basic transmits a
 reusable credential on every request and is not safe over plaintext HTTP.

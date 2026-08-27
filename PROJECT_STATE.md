@@ -14,18 +14,18 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 - **[DEPLOYMENT][2026-08-27] AWS 日本节点 `18.182.23.47` 已部署提交 `3487820`。**
   Amazon Linux 2 宿主通过 Docker/systemd 运行 Python 3.11 镜像；服务 `active` + `enabled`，
-  `/healthz`、`/readyz` 均为 200，登录后公共行情快照为 200（698 行）。宿主只监听
-  `127.0.0.1:8787`，正式凭据文件为 root:root `0600`；未配置 Binance API 凭据，私有通道、借币、
-  开/平仓、划转和还款能力全部关闭。`https://aoke.kengbi.pro` 已由 Caddy 反向代理上线，HTTP 自动
-  跳转 HTTPS，Let's Encrypt 证书已签发并自动续期；8787 仍不得直接暴露到公网。当前 Human 提供的
-  UI 密码强度较弱，配置任何 Binance API 凭据前必须先更换成长随机密码；应用没有登录限频，公网
-  爆破防护仍依赖密码强度和后续代理层策略。临时部署包和临时凭据副本已从本机及服务器 `/tmp` 清除。
+  `/healthz`、`/readyz` 均为 200。部署身份固定为 `env_aoke`：root:root `0600` 配置位于
+  `/etc/funding-hedging/env_aoke`，独立数据位于 `/var/lib/funding-hedging/env_aoke/data`；后续每台
+  机器仍只运行一个具名配置。2026-08-27 已在本地停服后迁移完整 `.env` 和 `data/`，5 个主库
+  `quick_check=ok`，10 个关键表行数逐项一致，云端私有账户读取 `verified=true`。借币、开/平仓执行器
+  和还款仍强制关闭；资产划转凭据已存在，因此 localhost 上的确认式划转接口具备实盘能力。
+  `aoke.kengbi.pro` 的 Caddy/Let's Encrypt 配置和证书保留，但因当前 UI 密码强度不足，公网代理已
+  停止并取消开机启动；更换强密码并取得 Human 明确授权前不得恢复。8787 始终只绑定
+  `127.0.0.1`。临时部署包和临时凭据副本已从本机及服务器 `/tmp` 清除。
 
-- **服务在跑**：PID `55973`（`2026-08-21 20:01` 启动），`127.0.0.1:8787`，`readyz` 200，
-  live + `start_gate=true`。手动前台启动（`nohup bash scripts/run-server.sh` + `disown`），
-  日志 `~/Library/Logs/funding-hedging/server.{stdout,stderr}.log`。**非 launchd 托管**；
-  停服务须用 `SIGTERM`（`SIGINT` 杀不掉脱离终端的进程），`readyz` 从 503 转 200 可能要等
-  十几秒到 75 秒，属正常初始化。
+- **本机服务已于 2026-08-27 停止**，`127.0.0.1:8787` 无监听；后续运行、开发和验证转到
+  AWS `env_aoke` 实例。本地 `.env` 保留作 Human 授权的源配置，权限已收紧为 `0600`；不得再次
+  启动本机实例与云端实例同时拥有执行权。
 
 - **实盘库数据自 `2026-08-06` 清理后从新起点累积**，备份
   `data/*.sqlite3.bak-clean-20260806-120813`。做任何跨期统计前先套这条。
