@@ -16,8 +16,10 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   Amazon Linux 2 宿主通过 Docker/systemd 运行 Python 3.11 镜像；服务 `active` + `enabled`，
   `/healthz`、`/readyz` 均为 200，登录后公共行情快照为 200（698 行）。宿主只监听
   `127.0.0.1:8787`，正式凭据文件为 root:root `0600`；未配置 Binance API 凭据，私有通道、借币、
-  开/平仓、划转和还款能力全部关闭。二级域名、反向代理 HTTPS 和公网访问尚未配置；在这些完成前
-  不得把 8787 直接暴露到公网。临时部署包和临时凭据副本已从本机及服务器 `/tmp` 清除。
+  开/平仓、划转和还款能力全部关闭。`https://aoke.kengbi.pro` 已由 Caddy 反向代理上线，HTTP 自动
+  跳转 HTTPS，Let's Encrypt 证书已签发并自动续期；8787 仍不得直接暴露到公网。当前 Human 提供的
+  UI 密码强度较弱，配置任何 Binance API 凭据前必须先更换成长随机密码；应用没有登录限频，公网
+  爆破防护仍依赖密码强度和后续代理层策略。临时部署包和临时凭据副本已从本机及服务器 `/tmp` 清除。
 
 - **服务在跑**：PID `55973`（`2026-08-21 20:01` 启动），`127.0.0.1:8787`，`readyz` 200，
   live + `start_gate=true`。手动前台启动（`nohup bash scripts/run-server.sh` + `disown`），
