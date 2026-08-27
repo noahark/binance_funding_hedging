@@ -12,6 +12,23 @@ def test_from_env_defaults_keep_private_channel_disabled():
     assert cfg.bind_host == DEFAULT.bind_host
     assert cfg.bind_port == DEFAULT.bind_port
     assert cfg.offline is DEFAULT.offline
+    assert cfg.ui_username == ""
+    assert cfg.ui_password == ""
+
+
+def test_ui_credentials_are_paired_and_hidden_from_repr():
+    cfg = from_env({"APP_UI_USERNAME": "operator", "APP_UI_PASSWORD": "secret"})
+    assert cfg.ui_username == "operator"
+    assert cfg.ui_password == "secret"
+    assert "operator" not in repr(cfg)
+    assert "secret" not in repr(cfg)
+
+    with pytest.raises(ValueError, match="configured together"):
+        from_env({"APP_UI_USERNAME": "operator"})
+    with pytest.raises(ValueError, match="configured together"):
+        from_env({"APP_UI_PASSWORD": "secret"})
+    with pytest.raises(ValueError, match="must not contain"):
+        from_env({"APP_UI_USERNAME": "bad:name", "APP_UI_PASSWORD": "secret"})
 
 
 def test_from_env_parses_runtime_values():

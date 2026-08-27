@@ -1,7 +1,8 @@
 # Development Guide
 
 Status: as-built hedge execution system with immediate/smooth live order,
-borrow, asset-transfer, and manual margin-repay paths, 2026-08-13. Current runtime state and live risks:
+borrow, asset-transfer, manual margin-repay, and optional UI/API Basic Auth,
+2026-08-27. Current runtime state and live risks:
 `PROJECT_STATE.md`.
 
 This file is the canonical approved development guide for the project.
@@ -37,6 +38,10 @@ Useful environment variables:
 
 - `APP_BIND_HOST` / `FUNDING_HEDGING_BIND_HOST`: server host.
 - `APP_BIND_PORT` / `FUNDING_HEDGING_BIND_PORT`: server port.
+- `APP_UI_USERNAME` and `APP_UI_PASSWORD`: optional together on loopback and
+  mandatory together for any non-loopback bind. They enable one process-wide
+  browser HTTP Basic login for the static UI and all business APIs. The values
+  are omitted from config repr/log output; usernames cannot contain `:`.
 - `APP_OFFLINE` / `FUNDING_HEDGING_OFFLINE`: use frozen public samples instead
   of live public HTTP calls.
 - `APP_OFFLINE_RAW_DIR` / `FUNDING_HEDGING_OFFLINE_RAW_DIR`: fixture directory.
@@ -99,6 +104,23 @@ Useful environment variables:
 The private channel is deny-by-default. API keys may exist in the environment,
 but signed private GET requests are not used unless
 `BINANCE_PRIVATE_CHANNEL_ENABLED=true` or its `FUNDING_HEDGING_` alias is set.
+
+### Cloud login boundary
+
+Run one process per subdomain/account and select its environment file with the
+existing launcher:
+
+```bash
+ENV_FILE=/etc/funding-hedging/account-a.env scripts/run-server.sh
+```
+
+Set `APP_BIND_HOST=0.0.0.0`, `APP_UI_USERNAME`, and `APP_UI_PASSWORD` in that
+file. Put the application behind an HTTPS reverse proxy; HTTP Basic transmits a
+reusable credential on every request and is not safe over plaintext HTTP.
+`/healthz` and `/readyz` intentionally remain unauthenticated for probes. The
+application does not implement logout, registration, roles, or simultaneous
+multi-account switching; changing the account means starting a separate process
+with its own environment and data paths.
 
 ### Manual margin repayment (as of 2026-08-10)
 

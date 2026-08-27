@@ -16,6 +16,7 @@ OS-assigned loopback port (port 0); no real launchd or external dependency.
 """
 from __future__ import annotations
 
+import base64
 import json
 import threading
 import urllib.error
@@ -49,8 +50,8 @@ class _StubService:
 
 
 @contextmanager
-def _server(service):
-    cfg = Config(bind_port=0)
+def _server(service, cfg=None):
+    cfg = cfg or Config(bind_port=0)
     server = build_server(cfg, service)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -68,6 +69,71 @@ def _get(base: str, path: str):
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read()
+
+
+def _request(
+    base: str,
+    path: str,
+    credentials: tuple[str, str] | None = None,
+    *,
+    method: str = "GET",
+):
+    request = urllib.request.Request(base + path, method=method)
+    if credentials is not None:
+        raw_credentials = f"{credentials[0]}:{credentials[1]}".encode()
+        token = base64.b64encode(raw_credentials).decode()
+        request.add_header("Authorization", f"Basic {token}")
+    try:
+        with urllib.request.urlopen(request, timeout=3) as response:
+            return response.status, response.headers, response.read()
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.headers, exc.read()
+
+
+def test_basic_auth_protects_ui_and_api_but_not_health_probes():
+    service = _StubService(snapshot={"rows": []})
+    cfg = Config(
+        bind_port=0, ui_username="operator", ui_password="correct horse"
+    )
+    with _server(service, cfg) as base:
+        status, headers, body = _request(base, "/api/public-market/snapshot")
+        assert status == 401
+        assert headers["WWW-Authenticate"].startswith("Basic ")
+        assert body == b""
+        assert service.get_snapshot_calls == 0
+
+        assert _request(base, "/", ("operator", "wrong"))[0] == 401
+        assert _request(
+            base, "/api/public-market/cache-refresh", method="POST"
+        )[0] == 401
+        assert _request(base, "/", ("operator", "correct horse"))[0] == 200
+        assert _request(
+            base,
+            "/api/public-market/snapshot",
+            ("operator", "correct horse"),
+        )[0] == 200
+        assert _request(base, "/healthz")[0] == 200
+        assert _request(base, "/readyz")[0] == 200
+        assert _request(base, "/healthz", method="POST")[0] == 401
+
+
+def test_non_loopback_bind_requires_basic_auth_credentials():
+    service = _StubService(snapshot={"rows": []})
+    with pytest.raises(ValueError, match="required for a non-loopback bind"):
+        build_server(Config(bind_host="0.0.0.0", bind_port=0), service)
+
+
+@pytest.mark.parametrize(
+    "cfg",
+    [
+        Config(bind_port=0, ui_username="operator"),
+        Config(bind_port=0, ui_password="secret"),
+        Config(bind_port=0, ui_username="bad:name", ui_password="secret"),
+    ],
+)
+def test_build_server_rejects_invalid_basic_auth_config(cfg):
+    with pytest.raises(ValueError):
+        build_server(cfg, _StubService(snapshot={"rows": []}))
 
 
 # =========================================================================

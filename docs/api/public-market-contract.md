@@ -1,6 +1,7 @@
 # Public Market API Contract
 
-Status: contract v0.17 as-built (repay amendment added 2026-08-10). The wire
+Status: contract v0.18 as-built (application access authentication added
+2026-08-27). The wire
 `schema_version` stays `public-market-snapshot/v1`; every addition remains
 backward-compatible. "Read-only" no longer describes the whole surface: since
 v0.10 this document also covers write routes
@@ -33,6 +34,19 @@ findings are recorded below in "Verified Findings" and in
 Owner: Claude-GLM for field verification and backend implementation. Kimi may
 start frontend integration only after this contract and the matching JSON schema
 are frozen for the stage.
+
+## Application Access Authentication (v0.18)
+
+When both `APP_UI_USERNAME` and `APP_UI_PASSWORD` are configured, every static
+UI path and business API method requires a valid HTTP Basic `Authorization`
+header. Missing, malformed, or incorrect credentials return `401`, an empty
+body, `WWW-Authenticate: Basic realm="funding-hedging", charset="UTF-8"`, and
+`Cache-Control: no-store`; the protected handler is not invoked.
+
+`GET /healthz` and `GET /readyz` are the only unauthenticated paths, including
+when login protection is enabled. A non-loopback bind without both credentials
+is a startup error. This is an application boundary, not a Binance credential
+or wire-payload change; remote deployments must provide HTTPS termination.
 
 ## Purpose
 

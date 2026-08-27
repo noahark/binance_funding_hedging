@@ -1,6 +1,6 @@
 # Roadmap
 
-Status: as-built roadmap sync, 2026-08-13. Live detail and acceptance state:
+Status: as-built roadmap sync, 2026-08-27. Live detail and acceptance state:
 `PROJECT_STATE.md`.
 
 This file is the canonical approved roadmap.
@@ -39,6 +39,11 @@ This file is the canonical approved roadmap.
     live-verified, merged to main and deployed 2026-08-20.** Position table renders
     realtime USD-equivalent fee costs and BNB quantity; close cycles freeze total fee costs
     on close; legacy close logs remain immutable.
+12. **Single-instance cloud UI/API login. Done in code, deployment pending.**
+    One `.env` supplies one HTTP Basic username/password; all UI and business
+    APIs are protected, health probes remain public, and remote binds fail
+    closed without credentials. HTTPS, subdomain mapping, and process isolation
+    are deployment responsibilities.
 
 
 ## 持仓周期三功能（2026-08 交付，Human 验收通过）

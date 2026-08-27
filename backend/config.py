@@ -31,6 +31,10 @@ FROZEN_GENERATED_AT = "2026-07-03T05:17:38Z"
 class Config:
     bind_host: str = "127.0.0.1"
     bind_port: int = 8787
+    # Optional single-operator browser authentication. The password is kept out
+    # of Config repr/log output; a non-loopback bind requires both values.
+    ui_username: str = field(default="", repr=False)
+    ui_password: str = field(default="", repr=False)
     cache_ttl_seconds: int = 60
     # Stage 2026-07: dedicated per-symbol successful-result cache for settled
     # /fapi/v1/fundingRate deep history (immutable records -> longer TTL than
@@ -233,9 +237,19 @@ def from_env(environ: Mapping[str, str] | None = None) -> Config:
             f"invalid hedge executor {hedge_executor!r}: only 'disabled' or "
             "'live' is implemented"
         )
+    ui_username = _env(env, "APP_UI_USERNAME", "") or ""
+    ui_password = _env(env, "APP_UI_PASSWORD", "") or ""
+    if bool(ui_username) != bool(ui_password):
+        raise ValueError(
+            "APP_UI_USERNAME and APP_UI_PASSWORD must be configured together"
+        )
+    if ":" in ui_username:
+        raise ValueError("APP_UI_USERNAME must not contain ':'")
     return Config(
         bind_host=_env(env, "APP_BIND_HOST", DEFAULT.bind_host, "FUNDING_HEDGING_BIND_HOST"),
         bind_port=_env_int(env, "APP_BIND_PORT", DEFAULT.bind_port, "FUNDING_HEDGING_BIND_PORT"),
+        ui_username=ui_username,
+        ui_password=ui_password,
         cache_ttl_seconds=_env_int(
             env,
             "APP_CACHE_TTL_SECONDS",

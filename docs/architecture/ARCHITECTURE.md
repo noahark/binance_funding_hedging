@@ -1,6 +1,6 @@
 # Architecture
 
-Status: as-built snapshot, 2026-08-13
+Status: as-built snapshot, 2026-08-27
 
 This document describes an evolving system; where it and the code disagree,
 the code and `PROJECT_STATE.md` are authoritative.
@@ -40,6 +40,10 @@ margin repayment):
    repayment are delivered and human-gated. Automatic task creation and
    automatic repayment remain out of scope. Current gates and live risks:
    `PROJECT_STATE.md`.
+6. One optional process-wide HTTP Basic boundary protects static UI and every
+   business API using `APP_UI_USERNAME` / `APP_UI_PASSWORD`. Exact health probes
+   remain outside that boundary. Non-loopback binds fail closed without both
+   credentials; HTTPS termination belongs to the cloud reverse proxy.
 
 The `/api/public-market/snapshot` route name is historical and
 backward-compatible. The payload now includes additive private read-only fields
@@ -57,6 +61,10 @@ future contract stage.
   views, asset-transfer and margin-repay forms, and contract-driven API
   integration.
 - No frontend component calls Binance directly.
+- Deployment identity is one process = one `.env` = one operator credential
+  pair. The application has no user store, roles, sessions, or account switcher.
+  Browser credentials are accepted only as HTTP Basic over an HTTPS deployment;
+  `/healthz` and `/readyz` remain unauthenticated for load-balancer probes.
 - The private channels are disabled by default and, when enabled, are limited
   to explicit deny-by-default whitelists: signed GETs for reads, plus a small
   set of signed POST write paths — order and borrow behind gated executors,

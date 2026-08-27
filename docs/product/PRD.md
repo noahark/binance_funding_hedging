@@ -2,9 +2,10 @@
 
 Status: current product baseline, reflecting delivered live functionality
 
-Last updated: 2026-08-18
+Last updated: 2026-08-27
 
-> **本次更新（2026-08-18）**：§2.1 补入统一账户「已借未开单」资产卡提前一行 + 红字提醒。
+> **本次更新（2026-08-27）**：§2.1 补入云端单实例、单账号的页面/API
+> HTTP Basic 登录保护；非回环监听无凭证时拒绝启动。
 >
 > **此前复核范围（2026-08-15）**：以 `2026-08-10` 之后触碰生产代码的提交为清单
 > 逐条对照本文，结果——平滑平仓 V1（`2026-08-14`）、资产互转、统一账户还款均已覆盖；
@@ -93,6 +94,12 @@ close, borrow, repay, or transfer assets as a response to an order outcome.
   repayment, transfer, any live gate, or any risk action, and it cannot prove
   the IP Binance actually sees (VPN/proxy/routing may differ).
 - A local Python standard-library HTTP server and vanilla-JS frontend.
+  Optional `APP_UI_USERNAME` + `APP_UI_PASSWORD` protect every UI and business
+  API route with HTTP Basic authentication; `/healthz` and `/readyz` remain
+  public for cloud probes. A non-loopback bind fails startup unless both values
+  are configured, and any remote deployment must terminate HTTPS in front of
+  the app. One process serves one `.env` / operator account; multi-user login,
+  roles, registration, and account switching are out of scope.
   launchd-based service management stopped working 2026-08-03 (TCC
   authorization failure) and, by decision 2026-08-15, is not being repaired:
   locally the service runs as a manually started foreground process via
@@ -140,6 +147,8 @@ credentials, and first use of any new live path remain explicit human actions.
   support in the current immediate-open stage.
 - No backtesting engine, external custody operation, or withdrawal permission.
 - No automatic smooth-task creation or execution before Human Start; smooth-open tasks are created paused.
+- No application user database, registration, password recovery, roles, or
+  multiple Binance accounts inside one process.
 
 ## 5. Operating Assumptions
 

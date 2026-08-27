@@ -16,10 +16,14 @@ only (see 11-adr.md ADR-1).
 """
 from __future__ import annotations
 
+import base64
+import binascii
+import ipaddress
 import json
 import mimetypes
 import os
 import re
+import secrets
 import sys
 import time
 from datetime import datetime, timezone
@@ -352,6 +356,47 @@ class _Handler(BaseHTTPRequestHandler):
     margin_repay_client = None
     frontend_dir = None
     server_version = "funding-hedging-public-market/1.0"
+    ui_username = ""
+    ui_password = ""
+
+    def parse_request(self) -> bool:
+        """Protect every non-probe route with one process-wide Basic login."""
+        if not super().parse_request():
+            return False
+        if self.command == "GET" and urlparse(self.path).path in {
+            "/healthz",
+            "/readyz",
+        }:
+            return True
+        if self._basic_auth_ok():
+            return True
+        self.send_response(401)
+        self.send_header(
+            "WWW-Authenticate", 'Basic realm="funding-hedging", charset="UTF-8"'
+        )
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+        return False
+
+    def _basic_auth_ok(self) -> bool:
+        if not self.ui_username and not self.ui_password:
+            return True
+        scheme, separator, token = self.headers.get("Authorization", "").partition(" ")
+        if not separator or scheme.lower() != "basic":
+            return False
+        try:
+            decoded = base64.b64decode(token.strip(), validate=True)
+            username, password = decoded.split(b":", 1)
+        except (binascii.Error, ValueError):
+            return False
+        username_ok = secrets.compare_digest(
+            username, self.ui_username.encode("utf-8")
+        )
+        password_ok = secrets.compare_digest(
+            password, self.ui_password.encode("utf-8")
+        )
+        return username_ok & password_ok
 
     def log_message(self, fmt, *args):  # silence default stderr access log
         return
@@ -1619,11 +1664,27 @@ def build_server(
     borrow_service: BorrowTaskService | None = None,
     hedge_open_service: HedgeOpenTaskService | None = None,
 ) -> ThreadingHTTPServer:
+    if bool(config.ui_username) != bool(config.ui_password):
+        raise ValueError(
+            "APP_UI_USERNAME and APP_UI_PASSWORD must be configured together"
+        )
+    if ":" in config.ui_username:
+        raise ValueError("APP_UI_USERNAME must not contain ':'")
+    try:
+        loopback_bind = ipaddress.ip_address(config.bind_host).is_loopback
+    except ValueError:
+        loopback_bind = config.bind_host.lower() == "localhost"
+    if not loopback_bind and not config.ui_username:
+        raise ValueError(
+            "APP_UI_USERNAME and APP_UI_PASSWORD are required for a non-loopback bind"
+        )
     _Handler.service = service
     _Handler.borrow_service = borrow_service
     _Handler.hedge_open_service = hedge_open_service
     _Handler.public_ip_service = None  # injected in run() after this returns
     _Handler.frontend_dir = config.frontend_dir
+    _Handler.ui_username = config.ui_username
+    _Handler.ui_password = config.ui_password
     return ThreadingHTTPServer((config.bind_host, config.bind_port), _Handler)
 
 

@@ -4,7 +4,14 @@ Cross-stage state, read at startup. Keep under 64 KB. Git history is not a runti
 check. Completed work's trace is git history and archive references (see Update
 Rule); this file records only live risks, open follow-ups, and pointers.
 
-## Current Status (2026-08-22)
+## Current Status (2026-08-27)
+
+- **[SECURITY][2026-08-27] 云端访问边界：一个进程只加载一份 `.env` 和一组页面登录凭证。**
+  `APP_UI_USERNAME` + `APP_UI_PASSWORD` 使用标准库 HTTP Basic 保护静态页面和全部业务 API；
+  `/healthz`、`/readyz` 仅供云平台探活，保持无认证。非回环监听缺任一凭证即拒绝启动；公网部署
+  必须由反向代理终止 HTTPS，二级域名、证书、限频和进程/数据目录隔离均由部署层承担。应用不提供
+  用户库、注册、找回密码、角色或同进程账号切换。代码交付不等于部署授权；服务重启和云端发布仍需
+  Human 单独决定。
 
 - **服务在跑**：PID `55973`（`2026-08-21 20:01` 启动），`127.0.0.1:8787`，`readyz` 200，
   live + `start_gate=true`。手动前台启动（`nohup bash scripts/run-server.sh` + `disown`），
