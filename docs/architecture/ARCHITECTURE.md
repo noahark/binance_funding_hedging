@@ -1,6 +1,6 @@
 # Architecture
 
-Status: as-built snapshot, 2026-08-27
+Status: as-built snapshot, 2026-08-28
 
 This document describes an evolving system; where it and the code disagree,
 the code and `PROJECT_STATE.md` are authoritative.
@@ -31,6 +31,10 @@ margin repayment):
    `POST /api/margin-repay` uses a separate default-off
    `APP_MARGIN_REPAY_ENABLED` gate, is independent of `APP_HEDGE_EXECUTOR`, and
    hard-codes the Binance `repay-debt` path and USDT fallback repay asset.
+   `BINANCE_API_KEY` / `BINANCE_API_SECRET` is the default pair for all private
+   clients; optional borrow and hedge pairs override it only within their
+   existing execution surfaces. Partial override pairs remain unusable rather
+   than mixing key material.
 3. Backend serves the normalized snapshot from
    `GET /api/public-market/snapshot`.
 4. Frontend consumes only the backend snapshot contract. It does not call

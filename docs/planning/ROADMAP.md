@@ -1,6 +1,6 @@
 # Roadmap
 
-Status: as-built roadmap sync, 2026-08-27. Live detail and acceptance state:
+Status: as-built roadmap sync, 2026-08-28. Live detail and acceptance state:
 `PROJECT_STATE.md`.
 
 This file is the canonical approved roadmap.
@@ -47,6 +47,8 @@ This file is the canonical approved roadmap.
     as named profile `env_aoke` behind a loopback-only Docker/systemd boundary;
     local data and credentials are migrated and private reads verify. The Caddy
     endpoint is active under Human's bounded test-account risk acceptance.
+    Binance private clients now default to the generic API credential pair;
+    dedicated borrow/hedge pairs remain optional deployment overrides.
 
 
 ## 持仓周期三功能（2026-08 交付，Human 验收通过）

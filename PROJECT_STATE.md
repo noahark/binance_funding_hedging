@@ -45,8 +45,9 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   还款均受同一根因影响。XVGUSDT 平滑平仓任务在云端创建 attempt 172 后因
   `order_state_unknown` 自动暂停：两腿均为 `UNKNOWN_QUERYING`、无 `orderId`、本地累计量 0，但
   专用 Key 无效使交易所终态不可查询，不能据此断言未下单。修复前禁止重启该任务、重复平仓或重试
-  任何写操作；修复必须把四个专用变量物化为实际值、重启服务，并先让启动恢复按既有 client ID 查询
-  attempt 172 终态，再由 Human 决定后续操作。
+  任何写操作。Human 已授权的修复口径是：应用统一以 `BINANCE_API_KEY/SECRET` 为默认凭据，专用
+  borrow/hedge 凭据保留为成对可选覆盖；云端 `env_aoke` 删除四个未展开的专用别名并重启，然后先让
+  启动恢复按既有 client ID 查询 attempt 172 终态，再由 Human 决定后续操作。
 
 - **本机服务已于 2026-08-27 停止**，`127.0.0.1:8787` 无监听；后续运行、开发和验证转到
   AWS `env_aoke` 实例。本地 `.env` 保留作 Human 授权的源配置，权限已收紧为 `0600`；不得再次

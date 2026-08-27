@@ -102,8 +102,9 @@ class Config:
     # explicit operator Start). Any other selection is rejected in from_env.
     borrow_executor: str = "disabled"
     borrow_db_path: Path = BORROW_DB_PATH
-    # Dedicated PM borrow credentials (Boundary C). Empty by default. ``live``
-    # mode with empty credentials is a dispatch gate (block_reason
+    # PM borrow credentials (Boundary C). The generic Binance pair is the
+    # default; this dedicated pair is an optional override. ``live`` mode with
+    # empty credentials is a dispatch gate (block_reason
     # ``borrow_credentials_missing``), not a crash. Both are ``repr=False`` so a
     # Config repr/log can never leak the secret.
     binance_borrow_api_key: str = field(default="", repr=False)
@@ -114,10 +115,10 @@ class Config:
     # Start AND a fresh preflight). Mirrors ``borrow_executor``; any other value
     # is rejected in from_env (breakdown §3.9).
     hedge_executor: str = "disabled"
-    # Dedicated hedge-open credentials (distinct auditable surface from the
-    # borrow client). Empty by default; ``live`` mode with empty credentials is
-    # a dispatch gate (the live adapter never POSTs), not a crash. ``repr=False``
-    # so a Config repr/log can never leak the secret.
+    # Hedge-open credentials. The generic Binance pair is the default; this
+    # dedicated pair is an optional override. Empty credentials in ``live`` mode
+    # are a dispatch gate (the live adapter never POSTs), not a crash.
+    # ``repr=False`` keeps credentials out of Config repr/log output.
     binance_hedge_api_key: str = field(default="", repr=False)
     binance_hedge_api_secret: str = field(default="", repr=False)
     # 统一账户全仓杠杆还款（stage 2026-08-09-pm-margin-repay-v1）：独立默认关闭闸门。
@@ -245,6 +246,16 @@ def from_env(environ: Mapping[str, str] | None = None) -> Config:
         )
     if ":" in ui_username:
         raise ValueError("APP_UI_USERNAME must not contain ':'")
+    default_api_key = _env(env, "BINANCE_API_KEY", "") or ""
+    default_api_secret = _env(env, "BINANCE_API_SECRET", "") or ""
+    borrow_api_key = _env(env, "BINANCE_BORROW_API_KEY")
+    borrow_api_secret = _env(env, "BINANCE_BORROW_API_SECRET")
+    if borrow_api_key is None and borrow_api_secret is None:
+        borrow_api_key, borrow_api_secret = default_api_key, default_api_secret
+    hedge_api_key = _env(env, "BINANCE_HEDGE_API_KEY")
+    hedge_api_secret = _env(env, "BINANCE_HEDGE_API_SECRET")
+    if hedge_api_key is None and hedge_api_secret is None:
+        hedge_api_key, hedge_api_secret = default_api_key, default_api_secret
     return Config(
         bind_host=_env(env, "APP_BIND_HOST", DEFAULT.bind_host, "FUNDING_HEDGING_BIND_HOST"),
         bind_port=_env_int(env, "APP_BIND_PORT", DEFAULT.bind_port, "FUNDING_HEDGING_BIND_PORT"),
@@ -337,15 +348,14 @@ def from_env(environ: Mapping[str, str] | None = None) -> Config:
             DEFAULT.borrow_db_path,
             "FUNDING_HEDGING_BORROW_DB_PATH",
         ),
-        # Dedicated PM borrow credentials (Boundary C). Read verbatim from the
-        # environment only; .env itself is never parsed here. Empty unless set.
-        binance_borrow_api_key=_env(env, "BINANCE_BORROW_API_KEY", "") or "",
-        binance_borrow_api_secret=_env(env, "BINANCE_BORROW_API_SECRET", "") or "",
+        # A dedicated pair overrides the generic pair. A partial dedicated pair
+        # stays incomplete so the existing dispatch gate blocks instead of
+        # silently mixing credentials from different API keys.
+        binance_borrow_api_key=borrow_api_key or "",
+        binance_borrow_api_secret=borrow_api_secret or "",
         hedge_executor=hedge_executor,
-        # Dedicated hedge-open credentials (read verbatim; .env never parsed
-        # here). Empty by default — the live adapter refuses to POST without them.
-        binance_hedge_api_key=_env(env, "BINANCE_HEDGE_API_KEY", "") or "",
-        binance_hedge_api_secret=_env(env, "BINANCE_HEDGE_API_SECRET", "") or "",
+        binance_hedge_api_key=hedge_api_key or "",
+        binance_hedge_api_secret=hedge_api_secret or "",
         margin_repay_enabled=_env_bool(
             env,
             "APP_MARGIN_REPAY_ENABLED",

@@ -208,7 +208,7 @@ def test_group_b_refresh_seconds_is_fixed_1800():
     assert GROUP_B_REFRESH_SECONDS == 1800
 
 
-# --- Boundary C: borrow executor mode + dedicated credentials ---
+# --- Boundary C: borrow executor mode + shared/optional dedicated credentials ---
 
 def test_borrow_executor_defaults_disabled():
     assert DEFAULT.borrow_executor == "disabled"
@@ -246,6 +246,51 @@ def test_borrow_credentials_read_from_env():
     })
     assert cfg.binance_borrow_api_key == "borrow-key-xyz"
     assert cfg.binance_borrow_api_secret == "borrow-secret-xyz"
+
+
+def test_write_credentials_fall_back_to_generic_pair():
+    cfg = from_env({
+        "BINANCE_API_KEY": "generic-key-xyz",
+        "BINANCE_API_SECRET": "generic-secret-xyz",
+    })
+    assert cfg.binance_borrow_api_key == "generic-key-xyz"
+    assert cfg.binance_borrow_api_secret == "generic-secret-xyz"
+    assert cfg.binance_hedge_api_key == "generic-key-xyz"
+    assert cfg.binance_hedge_api_secret == "generic-secret-xyz"
+    assert "generic-key-xyz" not in repr(cfg)
+    assert "generic-secret-xyz" not in repr(cfg)
+
+
+@pytest.mark.parametrize("prefix", ["BINANCE_BORROW", "BINANCE_HEDGE"])
+def test_partial_dedicated_credentials_do_not_mix_with_generic_pair(prefix):
+    cfg = from_env({
+        "BINANCE_API_KEY": "generic-key-xyz",
+        "BINANCE_API_SECRET": "generic-secret-xyz",
+        f"{prefix}_API_KEY": "dedicated-key-xyz",
+    })
+    if prefix == "BINANCE_BORROW":
+        assert cfg.binance_borrow_api_key == "dedicated-key-xyz"
+        assert cfg.binance_borrow_api_secret == ""
+    else:
+        assert cfg.binance_hedge_api_key == "dedicated-key-xyz"
+        assert cfg.binance_hedge_api_secret == ""
+
+
+def test_dedicated_pairs_override_generic_credentials():
+    cfg = from_env({
+        "BINANCE_API_KEY": "generic-key-xyz",
+        "BINANCE_API_SECRET": "generic-secret-xyz",
+        "BINANCE_BORROW_API_KEY": "borrow-key-xyz",
+        "BINANCE_BORROW_API_SECRET": "borrow-secret-xyz",
+        "BINANCE_HEDGE_API_KEY": "hedge-key-xyz",
+        "BINANCE_HEDGE_API_SECRET": "hedge-secret-xyz",
+    })
+    assert (cfg.binance_borrow_api_key, cfg.binance_borrow_api_secret) == (
+        "borrow-key-xyz", "borrow-secret-xyz"
+    )
+    assert (cfg.binance_hedge_api_key, cfg.binance_hedge_api_secret) == (
+        "hedge-key-xyz", "hedge-secret-xyz"
+    )
 
 
 def test_borrow_credentials_never_in_repr():

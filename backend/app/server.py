@@ -1761,7 +1761,7 @@ def _build_hedge_service(config: Config) -> HedgeOpenTaskService:
     Executor mode comes from ``config.hedge_executor`` (validated in
     ``config.py`` from ``APP_HEDGE_EXECUTOR``; default ``disabled``). Default
     off: only the dry-run record transport is wired. In ``live`` mode the narrow
-    exact-path PAPI adapter is built from the dedicated hedge credentials and
+    exact-path PAPI adapter is built from the effective hedge credentials and
     injected (with a fresh-preflight provider) — a real POST is still gated
     downstream by the durable Start gate AND a fresh passing preflight AND the
     per-send ``_live_dispatch_capable`` check (ADR-4 / breakdown §3.7). Empty
@@ -1990,7 +1990,7 @@ def run(config: Config = None) -> None:
         start_gate=hedge_open_service.is_start_gate_on(),
     )
     # Distinct sanitized startup event when live mode cannot execute because the
-    # dedicated hedge credentials are missing/empty (breakdown §3.7): the process
+    # effective hedge credentials are missing/empty (breakdown §3.7): the process
     # still starts and serves, emits the frozen blocked marker, and sends zero
     # signed hedge traffic (the live adapter refuses to POST). Credential presence
     # is a boolean here; the value is never logged.
@@ -2015,7 +2015,7 @@ def run(config: Config = None) -> None:
         recovered_orphan_blocker_count=borrow_service.store.count_pending_orphan_attempts(),
     )
     # Distinct sanitized startup event when live mode cannot execute because the
-    # dedicated borrow credentials are missing/empty (§3.4): the process still
+    # effective borrow credentials are missing/empty (§3.4): the process still
     # starts and serves, emits the frozen blocked markers, and sends zero signed
     # borrow traffic. Credential presence is a boolean here; the value is never
     # logged.

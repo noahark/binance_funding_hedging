@@ -187,7 +187,7 @@ class BorrowTaskService:
 
     @property
     def credentials_present(self) -> bool:
-        # Non-secret boolean: whether dedicated borrow credentials are configured.
+        # Non-secret boolean: whether effective borrow credentials are configured.
         # Exposed for sanitized startup lifecycle (the value itself is never logged).
         return self._credentials_present
 

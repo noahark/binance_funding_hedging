@@ -48,8 +48,11 @@ Useful environment variables:
 - `BINANCE_PRIVATE_CHANNEL_ENABLED` /
   `FUNDING_HEDGING_PRIVATE_CHANNEL_ENABLED`: opt-in switch for private
   read-only enrichment.
-- `BINANCE_API_KEY` and `BINANCE_API_SECRET`: required only when the private
-  channel is enabled.
+- `BINANCE_API_KEY` and `BINANCE_API_SECRET`: the default credential pair for
+  the private read channel and every signed write client (borrow, hedge
+  open/close, asset transfer, and margin repayment). Private reads still require
+  their independent enable switch, and writes still require their existing
+  gates.
 - `BINANCE_BORROW_CHECK_MAX_CALLS`: cap for borrow-validation probes.
 - `BINANCE_PRIVATE_CHANNEL_TTL_SECONDS` and
   `BINANCE_PRIVATE_CHANNEL_FAST_TTL_SECONDS`: cache TTLs for private read-only
@@ -70,10 +73,10 @@ Useful environment variables:
 - `APP_BORROW_EXECUTOR` / `FUNDING_HEDGING_BORROW_EXECUTOR`: `disabled` (default,
   no signed borrow POST) or `live` (exact-path PM borrow client). Live mode still
   requires explicit global Start and per-task live authorization.
-- `BINANCE_BORROW_API_KEY` / `BINANCE_BORROW_API_SECRET`: dedicated Portfolio
-  Margin borrow credentials (not interchangeable with the read-only private
-  channel keys unless the operator deliberately reuses them). Empty keys in live
-  mode block dispatch with `borrow_credentials_missing`.
+- `BINANCE_BORROW_API_KEY` / `BINANCE_BORROW_API_SECRET`: optional paired
+  Portfolio Margin borrow override. Omit both to use the generic pair. If only
+  one is configured, the missing half stays empty and live dispatch is blocked
+  with `borrow_credentials_missing`; credentials are never mixed across pairs.
 - `APP_BORROW_DB_PATH` / `FUNDING_HEDGING_BORROW_DB_PATH`: SQLite path for durable
   borrow tasks (default `data/borrow-tasks.sqlite3`).
 - `APP_HEDGE_EXECUTOR` / `FUNDING_HEDGING_HEDGE_EXECUTOR`: `disabled` (default,
@@ -81,9 +84,10 @@ Useful environment variables:
   adapter). Live mode still requires the global Start gate. Immediate attempts
   use fresh preflight; smooth tasks perform one complete create-time preflight,
   persist paused, and reuse the frozen result after Human Start.
-- `BINANCE_HEDGE_API_KEY` / `BINANCE_HEDGE_API_SECRET`: dedicated hedge-open
-  credentials. Empty keys in live mode block dispatch (the live adapter never
-  POSTs).
+- `BINANCE_HEDGE_API_KEY` / `BINANCE_HEDGE_API_SECRET`: optional paired override
+  shared by hedge open/close, asset transfer, and repayment. Omit both to use
+  the generic pair. A partial override remains incomplete and blocks the live
+  adapter.
 - `APP_MARGIN_REPAY_ENABLED` /
   `FUNDING_HEDGING_MARGIN_REPAY_ENABLED`: independent boolean gate for
   `POST /api/margin-repay` (default `false`). A real client is injected only
@@ -91,6 +95,11 @@ Useful environment variables:
   exist. It is independent of `APP_HEDGE_EXECUTOR`. Human final acceptance on
   2026-08-10 keeps this gate enabled in the current manual foreground runtime;
   changing it still requires a service restart.
+
+Docker `--env-file` treats values literally and does not expand shell references.
+Do not configure a dedicated override as `${BINANCE_API_KEY}` or
+`${BINANCE_API_SECRET}`; omit the dedicated pair to activate the generic
+fallback.
 - `APP_CACHE_REFRESH_TIMEOUT_SECONDS` /
   `FUNDING_HEDGING_CACHE_REFRESH_TIMEOUT_SECONDS`: bounded wait for the manual
   「更新缓存」 whole-cycle refresh command (default 20s).

@@ -2,10 +2,13 @@
 
 Status: current product baseline, reflecting delivered live functionality
 
-Last updated: 2026-08-27
+Last updated: 2026-08-28
 
-> **本次更新（2026-08-27）**：§2.1 补入云端单实例、单账号的页面/API
-> HTTP Basic 登录保护；非回环监听无凭证时拒绝启动。
+> **本次更新（2026-08-28）**：§3 明确一个通用 Binance 凭据对默认供全部私有读写
+> 客户端使用，borrow/hedge 专用凭据保留为成对可选覆盖。
+>
+> **此前更新（2026-08-27）**：§2.1 补入云端单实例、单账号的页面/API HTTP Basic
+> 登录保护；非回环监听无凭证时拒绝启动。
 >
 > **此前复核范围（2026-08-15）**：以 `2026-08-10` 之后触碰生产代码的提交为清单
 > 逐条对照本文，结果——平滑平仓 V1（`2026-08-14`）、资产互转、统一账户还款均已覆盖；
@@ -139,6 +142,9 @@ credentials, and first use of any new live path remain explicit human actions.
   outcomes, and accumulated execution data for audit and later improvement.
 - Surface mismatches and unknown results without automatic intervention.
 - Keep trading credentials and signed requests entirely in the backend.
+- Use one backend Binance credential pair by default across private reads and
+  signed writes, with optional paired borrow/hedge overrides for deployments
+  that deliberately separate exchange permissions.
 
 ## 4. Non-Goals
 

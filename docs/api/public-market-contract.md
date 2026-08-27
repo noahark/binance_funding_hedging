@@ -1,7 +1,7 @@
 # Public Market API Contract
 
 Status: contract v0.18 as-built (application access authentication added
-2026-08-27). The wire
+2026-08-27; Binance credential fallback clarified 2026-08-28). The wire
 `schema_version` stays `public-market-snapshot/v1`; every addition remains
 backward-compatible. "Read-only" no longer describes the whole surface: since
 v0.10 this document also covers write routes
@@ -2007,9 +2007,14 @@ weight-3000 endpoint.
 Registered only in `do_POST`. The route has its OWN gate,
 `APP_MARGIN_REPAY_ENABLED` (default OFF), independent of `APP_HEDGE_EXECUTOR`:
 the client is injected only when the gate is on AND the service is not offline
-AND hedge API credentials exist; otherwise the route answers
+AND effective hedge API credentials exist; otherwise the route answers
 `503 margin_repay_unavailable` with zero upstream calls. Startup prints a
 credential-free banner in both branches.
+
+The effective hedge credentials use `BINANCE_API_KEY` /
+`BINANCE_API_SECRET` by default. A complete `BINANCE_HEDGE_API_KEY` /
+`BINANCE_HEDGE_API_SECRET` pair may override them; a partial override never
+mixes with the generic pair and therefore leaves this route unavailable.
 
 Request body — a JSON object with ALL four fields required and NO others:
 
