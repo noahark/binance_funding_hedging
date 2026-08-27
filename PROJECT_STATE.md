@@ -17,15 +17,24 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   `/healthz`、`/readyz` 均为 200。部署身份固定为 `env_aoke`：root:root `0600` 配置位于
   `/etc/funding-hedging/env_aoke`，独立数据位于 `/var/lib/funding-hedging/env_aoke/data`；后续每台
   机器仍只运行一个具名配置。2026-08-27 已在本地停服后迁移完整 `.env` 和 `data/`，5 个主库
-  `quick_check=ok`，10 个关键表行数逐项一致，云端私有账户读取 `verified=true`。借币、开/平仓执行器
-  和还款仍强制关闭；资产划转凭据已存在，因此 localhost 上的确认式划转接口具备实盘能力。
+  `quick_check=ok`，10 个关键表行数逐项一致，云端私有账户读取 `verified=true`。Human 随后明确授权
+  开启全部通道并重启：`APP_BORROW_EXECUTOR=live`、`APP_HEDGE_EXECUTOR=live`、
+  `APP_MARGIN_REPAY_ENABLED=true`，借币全局 `execution_enabled=true/can_execute=true`，开仓与平仓闸门
+  均为 `true`；借币、下单、划转和还款现在都具备真实交易所写入能力。切换前配置备份为
+  `/var/lib/funding-hedging/backups/env_aoke.pre-all-live-20260827T154905Z`。
   `https://aoke.kengbi.pro` 的 Caddy/Let's Encrypt 公网代理为 `active` + `enabled`，8787 始终只
   绑定 `127.0.0.1`。Human 明确说明这是测试账号并选择保留当前弱 UI 密码，以降低登录摩擦；已知
-  影响是猜中密码者可读取账号数据、改动本地任务，且在交易所权限/余额允许时可调用确认式资产划转。
-  临时限制为借币、开/平仓执行器和还款持续关闭，测试账号不得存放生产资金；应用无登录限频，当前
-  仅可从 Caddy/systemd 日志观察异常。若账号转生产、存入有意义资金、准备开启任何执行器/还款、
-  出现凭据泄露或可疑访问，必须先重新评估并更换密码。该接受仅适用于本次测试部署。临时部署包和
-  临时凭据副本已从本机及服务器 `/tmp` 清除。
+  影响现已扩大为猜中密码者可调用所有真实资金/订单 API。Human 仍按测试账号接受该风险；临时限制
+  仅剩测试账号不得存放生产资金，应用无登录限频且当前仅可从 Caddy/systemd 日志观察异常。若账号
+  转生产、存入有意义资金、出现凭据泄露或可疑访问，必须先重新评估并更换密码。该接受仅适用于本次
+  测试部署。临时部署包和临时凭据副本已从本机及服务器 `/tmp` 清除。
+
+- **[LIVE][2026-08-27] 全闸门启用后的活动任务：** 借币无活动任务、无在途尝试；开/平仓有一个
+  `running` 平滑平仓任务 `5fe92653-653a-493e-be7a-0c4a520744a7`（XVGUSDT forward close，
+  每次 5000，目标 10，已成功 5、失败 2）。截至 `2026-08-27T15:52:18Z`，最新 attempt 171 是
+  启用前的超时失败，两腿 `UNKNOWN` 且成交量为 0；启用/重启后未发现新成交，但该任务随时可在阈值
+  满足时真实下单。启动恢复还把任务 `6be39068-d125-4154-99da-2a5696f21da2` 的历史未知订单记录为
+  `order_state_unknown_final`；这是查询/落盘，不是新订单。
 
 - **本机服务已于 2026-08-27 停止**，`127.0.0.1:8787` 无监听；后续运行、开发和验证转到
   AWS `env_aoke` 实例。本地 `.env` 保留作 Human 授权的源配置，权限已收紧为 `0600`；不得再次
