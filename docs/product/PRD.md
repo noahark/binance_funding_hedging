@@ -103,8 +103,9 @@ close, borrow, repay, or transfer assets as a response to an order outcome.
   launchd-based service management stopped working 2026-08-03 (TCC
   authorization failure) and, by decision 2026-08-15, is not being repaired:
   locally the service runs as a manually started foreground process via
-  `scripts/run-server.sh`, and hosting is deferred to a systemd unit at server
-  deployment (see `PROJECT_STATE.md` Live Risks).
+  `scripts/run-server.sh`. The first cloud instance is deployed as a Docker
+  container managed by systemd and remains loopback-only until its subdomain,
+  HTTPS certificate, and reverse proxy are configured (see `PROJECT_STATE.md`).
 
 - Smooth/WebSocket-gated execution (V1 阶段已部分交付：已实现单次尝试、实时盘口同步、固定目标数量的平滑开仓和平滑平仓机制；尚无多轮分批与WebSocket推送，由前端2秒轮询代替)。
 

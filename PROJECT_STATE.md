@@ -10,8 +10,14 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   `APP_UI_USERNAME` + `APP_UI_PASSWORD` 使用标准库 HTTP Basic 保护静态页面和全部业务 API；
   `/healthz`、`/readyz` 仅供云平台探活，保持无认证。非回环监听缺任一凭证即拒绝启动；公网部署
   必须由反向代理终止 HTTPS，二级域名、证书、限频和进程/数据目录隔离均由部署层承担。应用不提供
-  用户库、注册、找回密码、角色或同进程账号切换。代码交付不等于部署授权；服务重启和云端发布仍需
-  Human 单独决定。
+  用户库、注册、找回密码、角色或同进程账号切换。
+
+- **[DEPLOYMENT][2026-08-27] AWS 日本节点 `18.182.23.47` 已部署提交 `3487820`。**
+  Amazon Linux 2 宿主通过 Docker/systemd 运行 Python 3.11 镜像；服务 `active` + `enabled`，
+  `/healthz`、`/readyz` 均为 200，登录后公共行情快照为 200（698 行）。宿主只监听
+  `127.0.0.1:8787`，正式凭据文件为 root:root `0600`；未配置 Binance API 凭据，私有通道、借币、
+  开/平仓、划转和还款能力全部关闭。二级域名、反向代理 HTTPS 和公网访问尚未配置；在这些完成前
+  不得把 8787 直接暴露到公网。临时部署包和临时凭据副本已从本机及服务器 `/tmp` 清除。
 
 - **服务在跑**：PID `55973`（`2026-08-21 20:01` 启动），`127.0.0.1:8787`，`readyz` 200，
   live + `start_gate=true`。手动前台启动（`nohup bash scripts/run-server.sh` + `disown`），

@@ -39,11 +39,13 @@ This file is the canonical approved roadmap.
     live-verified, merged to main and deployed 2026-08-20.** Position table renders
     realtime USD-equivalent fee costs and BNB quantity; close cycles freeze total fee costs
     on close; legacy close logs remain immutable.
-12. **Single-instance cloud UI/API login. Done in code, deployment pending.**
+12. **Single-instance cloud UI/API login. Code and private deployment done;
+    public HTTPS endpoint pending.**
     One `.env` supplies one HTTP Basic username/password; all UI and business
     APIs are protected, health probes remain public, and remote binds fail
-    closed without credentials. HTTPS, subdomain mapping, and process isolation
-    are deployment responsibilities.
+    closed without credentials. The first AWS instance runs the reviewed commit
+    behind a loopback-only Docker/systemd boundary; HTTPS and subdomain mapping
+    remain the next deployment step.
 
 
 ## 持仓周期三功能（2026-08 交付，Human 验收通过）
