@@ -36,7 +36,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   满足时真实下单。启动恢复还把任务 `6be39068-d125-4154-99da-2a5696f21da2` 的历史未知订单记录为
   `order_state_unknown_final`；这是查询/落盘，不是新订单。
 
-- **[LIVE INCIDENT][2026-08-28] Docker `--env-file` 未展开专用 API Key 引用，所有写通道认证失效。**
+- **[RESOLVED][2026-08-28] Docker `--env-file` 未展开专用 API Key 引用，写通道认证已修复。**
   本地 `.env` 的 `BINANCE_BORROW_API_KEY/SECRET` 与 `BINANCE_HEDGE_API_KEY/SECRET` 使用对通用
   Key 的 Shell 变量引用；`scripts/run-server.sh` 通过 `source` 会正确展开为 64 字符，但云端 Docker
   把带引号的 `${…}` 原文作为 20/23 字符环境值。通用只读 Key 仍为正确的 64 字符，因此私有账户
@@ -44,10 +44,17 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   `-2014 / HTTP 401 / API-key format invalid` 明确 `failed`，没有自动重试；借币、开/平仓、划转和
   还款均受同一根因影响。XVGUSDT 平滑平仓任务在云端创建 attempt 172 后因
   `order_state_unknown` 自动暂停：两腿均为 `UNKNOWN_QUERYING`、无 `orderId`、本地累计量 0，但
-  专用 Key 无效使交易所终态不可查询，不能据此断言未下单。修复前禁止重启该任务、重复平仓或重试
-  任何写操作。Human 已授权的修复口径是：应用统一以 `BINANCE_API_KEY/SECRET` 为默认凭据，专用
-  borrow/hedge 凭据保留为成对可选覆盖；云端 `env_aoke` 删除四个未展开的专用别名并重启，然后先让
-  启动恢复按既有 client ID 查询 attempt 172 终态，再由 Human 决定后续操作。
+  专用 Key 无效使交易所终态当时不可查询。修复提交 `7a3bd41` 已通过一次 fresh-context Claude Fast
+  Review（`ACCEPT`）并部署为镜像 `funding-hedging:7a3bd41`：应用以
+  `BINANCE_API_KEY/SECRET` 为默认凭据，专用 borrow/hedge 凭据保留为成对可选覆盖；云端
+  `env_aoke` 的四个未展开专用别名已删除。重启恢复仅按 attempt 172 的既有 client ID 查询，双腿均
+  得到 Binance `-2013 / absent`，已记为 `TERMINAL_RECORDED`、attempt `confirmed_failed`；两腿无
+  `orderId`、累计成交量 0、fill 行数 0，且重启后没有创建 attempt 173。任务继续保持 `paused`，因该
+  失败计入后连续提交失败为 3，机器原因是 `consecutive_submission_failure`；但
+  `pause_reason_zh` 仍保留此前“订单状态不明”的旧说明，前端可能继续显示旧文案，不改变终态或暂停
+  行为。不得由模型替 Human 恢复任务。部署前配置、systemd unit 与数据库备份位于
+  `/var/lib/funding-hedging/backups/deploy-7a3bd41-20260828T003319CST`（数据库
+  `quick_check=ok`）。部署后 health/ready、认证快照与私有账户验证均通过。
 
 - **本机服务已于 2026-08-27 停止**，`127.0.0.1:8787` 无监听；后续运行、开发和验证转到
   AWS `env_aoke` 实例。本地 `.env` 保留作 Human 授权的源配置，权限已收紧为 `0600`；不得再次

@@ -48,7 +48,9 @@ This file is the canonical approved roadmap.
     local data and credentials are migrated and private reads verify. The Caddy
     endpoint is active under Human's bounded test-account risk acceptance.
     Binance private clients now default to the generic API credential pair;
-    dedicated borrow/hedge pairs remain optional deployment overrides.
+    dedicated borrow/hedge pairs remain optional deployment overrides. Reviewed
+    commit `7a3bd41` is deployed to `env_aoke`; credential recovery confirmed
+    the pre-deploy unknown attempt 172 absent without creating another attempt.
 
 
 ## 持仓周期三功能（2026-08 交付，Human 验收通过）
