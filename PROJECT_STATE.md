@@ -29,6 +29,8 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   `unknown`、`failed` 均不锁价，相关累计利息继续按当前价动态折 U。`0 + succeeded` 是明确的
   **产品终态约定**，不再追加实时余额归零网络观测。STORJ 等存量非常规利息事件不建设通用推定、
   K 线回补或兜底引擎，后续以单独 Human 授权、写前备份和审计留痕的人工数据库修正归档。
+  Human 于 `2026-08-28 21:10 CST` 调整本阶段分工：`opus5`/Anthropic 负责把开发方案定档并准备
+  跨 provider 只读计划评审；`claude_glm`/Zhipu 只在定档计划通过后按派单实现，不承担方案定稿。
 
 - **[DEPLOYMENT][2026-08-28 13:20 CST] 生产镜像已升到 `funding-hedging:5021c73`，部署通道固化为
   `scripts/deploy.sh`。** 线上 `47.240.168.162` / `https://aoke.kengbi.pro`，systemd 双单元

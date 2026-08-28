@@ -3,9 +3,9 @@
 Identity:
 - task_id: `P5-repaid-interest-price-plan-simplification`
 - target_role: `Planner`
-- target_model: `claude_glm`
-- provider: `zhipu_glm`
-- status_revision: `10`
+- target_model: `opus5`
+- provider: `anthropic`
+- status_revision: `11`
 - required_skill: `agents/skills/task-planner.md`
 
 Goal:
@@ -38,7 +38,7 @@ Goal:
   between repayment dispatch return and `store.resolve`, including already-fixed
   and deleted sites; give a not-applicable reason for all other reviewed sites.
 - Prepare a separate P6 read-only final plan-review dispatch for
-  `opus5`/Anthropic. No implementation may start before P6 `ACCEPT`.
+  `gpt-5.6-sol`/OpenAI. No implementation may start before P6 `ACCEPT`.
 
 Allowed Files:
 - `reports/agent-runs/2026-08-28-repaid-interest-price-v1/repaid-interest-price.plan.md` (modify)
@@ -104,7 +104,7 @@ Acceptance Checks:
   idempotent. No test scaffolding exists solely for deleted inference machinery.
 - `pass`: The plan contains an exhaustive same-root scan table for root A and
   root B, accounts for every P2/P4 site including deleted F5-F7 machinery, and
-  the P6 packet is read-only, targets `opus5`/Anthropic with one reviewer skill,
+  the P6 packet is read-only, targets `gpt-5.6-sol`/OpenAI with one reviewer skill,
   reserves exact create-only handoff
   `reports/agent-runs/2026-08-28-repaid-interest-price-v1/evidence/P6-repaid-interest-price-plan-final-review.handoff.md`,
   and returns to Bookkeeper `gpt-5.6-sol`/`codex`.
