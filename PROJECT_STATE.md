@@ -6,6 +6,17 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-28)
 
+- **[DEPLOYMENT LIVE][2026-08-28 11:06 CST] Human 授权后 `env_aoke` 已在新主机 `47.240.168.162` 启动并完成恢复。**
+  systemd `active + enabled`（开机自启），镜像 `funding-hedging:7a3bd41`。SHELLUSDT 平滑平仓任务
+  `f44048f4-68df-4666-8dc1-57f8279e9ce9` 按既有恢复链完成第 4 次平仓两腿，终态 `done` 成功 4/4
+  失败 0，无非终态腿与活动平滑门遗留；启动后任务清点无 `running` 任务。公网
+  `https://aoke.kengbi.pro` 认证复核通过（`/healthz`、`/readyz` 200，匿名 401，凭据 200）；私有账户
+  签名读取返回 USDT `max_withdraw=249.07`、error null，证明通用 Key/Secret 在新机生效。启动日志无
+  错误，`recovered_orphan_blocker_count=0`。内存：整机 available 约 500MiB、应用 RSS 约 299MiB
+  （AWS t4g.micro 曾以约 630MiB RSS 触发全局 OOM；新机 1.8GiB 无 swap、无 memory limit，应用内存
+  仍可能随运行增长，未做限制）。AWS 旧实例应用与代理保持停用，本机无监听。迁移与启动全程只有该
+  SHELL 任务进入恢复链，未创建、重试或人工修改任何其他任务。
+
 - **[LIVE INCIDENT][2026-08-28 10:28 CST] AWS 主机端口可建立 TCP，但 HTTP/HTTPS/SSH 均无应用层响应。**
   本机 Surge 把域名解析到 Fake-IP `198.18.4.254`，但强制直连真实 IP 后仍是 TLS/HTTP 超时；独立
   Check-Host 节点从新加坡、欧洲、中东、美国和越南访问 HTTP/HTTPS 也统一约 25 秒超时，排除“仅
