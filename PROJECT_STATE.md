@@ -18,95 +18,22 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   **sshd_config 一行未改，密码通道保留**（`PasswordAuthentication yes`），是密钥丢失时的恢复路径。
   用法见 `docs/development/DEVELOPMENT_GUIDE.md` §Remote deployment。
 
-- **[DEPLOYMENT LIVE][2026-08-28 11:06 CST] Human 授权后 `env_aoke` 已在新主机 `47.240.168.162` 启动并完成恢复。**
-  systemd `active + enabled`（开机自启），镜像 `funding-hedging:7a3bd41`（**该 tag 为当时事实，现值见上一条**）。SHELLUSDT 平滑平仓任务
-  `f44048f4-68df-4666-8dc1-57f8279e9ce9` 按既有恢复链完成第 4 次平仓两腿，终态 `done` 成功 4/4
-  失败 0，无非终态腿与活动平滑门遗留；启动后任务清点无 `running` 任务。公网
-  `https://aoke.kengbi.pro` 认证复核通过（`/healthz`、`/readyz` 200，匿名 401，凭据 200）；私有账户
-  签名读取返回 USDT `max_withdraw=249.07`、error null，证明通用 Key/Secret 在新机生效。启动日志无
-  错误，`recovered_orphan_blocker_count=0`。内存：整机 available 约 500MiB、应用 RSS 约 299MiB
-  （AWS t4g.micro 曾以约 630MiB RSS 触发全局 OOM；新机 1.8GiB 无 swap、无 memory limit，应用内存
-  仍可能随运行增长，未做限制）。AWS 旧实例应用与代理保持停用，本机无监听。迁移与启动全程只有该
-  SHELL 任务进入恢复链，未创建、重试或人工修改任何其他任务。
-
-- **[LIVE INCIDENT][2026-08-28 10:28 CST] AWS 主机端口可建立 TCP，但 HTTP/HTTPS/SSH 均无应用层响应。**
-  本机 Surge 把域名解析到 Fake-IP `198.18.4.254`，但强制直连真实 IP 后仍是 TLS/HTTP 超时；独立
-  Check-Host 节点从新加坡、欧洲、中东、美国和越南访问 HTTP/HTTPS 也统一约 25 秒超时，排除“仅
-  本机代理”与“日本距离稍慢”作为完整解释。独立节点到 `18.182.23.47:443` 的 TCP 建连正常（新加坡
-  约 75ms，欧洲约 220–280ms），ICMP 也可达；本机连接 22 端口成功但 SSH banner 超时。SSH 于
-  `10:29 CST` 自动恢复后已确认根因是 t4g.micro 全局 OOM：主机只有 921MiB、无 swap，应用 Python
-  在 `02:27:57Z` 与 `02:28:09Z` 两次以约 630MiB 匿名内存被内核杀死（exit 137），systemd 随后
-  自动拉起。故障时 load average 最高读到 `9.43/29.81/20.09`；恢复后应用仍占约 474–482MiB，整机
-  available 约 147MiB，容器无 memory limit，存在再次 OOM 风险。三项平滑平仓任务在首次 OOM 前约
-  11 分钟创建，恢复后其中 XVG/SHELL 两项仍 running、INJ 已 done；该时间相关性不是内存根因证明。
-  Human 随后决定迁移机器并授权停止本实例应用，当前停机状态见下一条；未增配、加 swap 或限制容器。
-
-- **[DEPLOYMENT STOPPED][2026-08-28 10:40 CST] Human 已要求停止 AWS 日本节点应用以迁移机器。**
-  停止前仅 SHELLUSDT 平滑平仓任务 `f44048f4-68df-4666-8dc1-57f8279e9ce9` 仍为 `running`
-  （成功 3、失败 0），数据库中所有 running 任务均无非终态订单腿。已执行
-  `systemctl disable --now funding-hedging` 并清除 failed 标记；最终状态 `inactive` + `disabled`，
-  8787 无监听，应用容器已退出。Python 未在 20 秒 stop timeout 内自行退出，Docker 最终 SIGKILL，
-  应用容器 exit 137、`OOMKilled=false`；因停止前无在途腿，本次停止没有制造未知订单。专用 Caddy
-  容器也以 exit 0 退出，公网入口已关闭。释放后主机 available memory 从约 128MiB 回升至 633MiB。
-  SQLite 中 SHELL 任务状态仍是 `running`；把数据部署到新机器前必须由 Human 决定是否让启动恢复
-  继续该任务，模型不得默认启动。服务器上的 FMZ `robot` 进程未触碰。
-
-- **[DEPLOYMENT READY / START BLOCKED][2026-08-28 11:04 CST] `env_aoke` 已迁移到新主机
-  `47.240.168.162`，但应用仍未启动。** Human 已授权通过 root SSH 部署并把 AWS 停机后的配置、API
-  凭据与完整数据迁移到新主机。已安装并启用 Docker，构建提交 `7a3bd41` 的 x86_64 镜像
-  `funding-hedging:7a3bd41`；镜像 revision 和三份关键源码 SHA-256 与本地提交一致。目标配置为
-  root:root `0600`，通用 Key/Secret 均存在且四个专用别名仍为 0；AWS 与目标数据目录的 47 个文件
-  已逐路径、逐 SHA-256 完全比对一致，五个主 SQLite 库均 `quick_check=ok`。域名
-  `aoke.kengbi.pro` 已解析到新 IP，专用 Caddy 服务 `active + enabled`，80 自动跳转 443，Let's
-  Encrypt 证书已签发；8787 不对公网监听。新主机为 1 CPU / 1.8GiB RAM / 无 swap，代理上线后约
-  771MiB available；宿主既有两条 FMZ `robot` 约占 563MiB + 67MiB，未触碰。应用 systemd unit
-  已安装但保持 `inactive + disabled`，所以当前 HTTPS 返回 502。阻塞原因不是部署失败：迁移库仍有
-  SHELLUSDT 平滑平仓任务 `f44048f4-68df-4666-8dc1-57f8279e9ce9` 为 `running`（成功 3、失败 0、
-  无非终态腿），启动会进入既有实盘恢复链。必须先由 Human 明确决定是否允许它在新机恢复；此前
-  不得启动应用。AWS 旧应用和代理继续保持停用。
+- **[SECURITY][2026-08-28 14:55 CST] 本机与云端一度同时持有执行权，已解除。** 为让 Human 查看
+  新功能，`13:11:52` 启动了本机服务；本机 `.env` 与云端同为 `APP_HEDGE_EXECUTOR=live` /
+  `APP_BORROW_EXECUTOR=live` / `APP_MARGIN_REPAY_ENABLED=true` / 私有通道开，且共用同一套币安
+  密钥，违反本文「不得让两个实例同时拥有执行权」的既有约束，窗口约 1 小时 44 分钟。
+  **实际未发生重复执行**：本机无 `running` 任务（16 deleted / 55 done / 1 paused / 1 stopped），
+  `borrow-tasks.sqlite3` 与 `margin-repay.sqlite3` 本轮零写入，`hedge-open-tasks.sqlite3` 仅在启动
+  瞬间写过一次（恢复链清点）。`14:55` 已 SIGTERM 停止本机进程，执行权仅剩云端一处。
+  **教训**：本机 `.env` 是 live 配置，「只是本地看一眼页面」等于起第二个实盘执行者；查看 UI 应优先
+  用云端 `https://aoke.kengbi.pro`，确需本机时先确认执行开关或改用只读配置。另启动时把
+  `nohup` 输出丢进 `/dev/null` 使本轮日志不可查，只能靠数据库修改时间反推——不要这样启动。
 
 - **[SECURITY][2026-08-27] 云端访问边界：一个进程只加载一份 `.env` 和一组页面登录凭证。**
   `APP_UI_USERNAME` + `APP_UI_PASSWORD` 使用标准库 HTTP Basic 保护静态页面和全部业务 API；
   `/healthz`、`/readyz` 仅供云平台探活，保持无认证。非回环监听缺任一凭证即拒绝启动；公网部署
   必须由反向代理终止 HTTPS，二级域名、证书、限频和进程/数据目录隔离均由部署层承担。应用不提供
   用户库、注册、找回密码、角色或同进程账号切换。
-
-- **[DEPLOYMENT][2026-08-27] AWS 日本节点 `18.182.23.47` 曾部署提交 `7a3bd41`，现已停止。**
-  Amazon Linux 2 宿主通过 Docker/systemd 运行 Python 3.11 镜像；停止前 `/healthz`、`/readyz`
-  均为 200，当前服务状态以上方 `DEPLOYMENT STOPPED` 为准。部署身份固定为 `env_aoke`：root:root `0600` 配置位于
-  `/etc/funding-hedging/env_aoke`，独立数据位于 `/var/lib/funding-hedging/env_aoke/data`；后续每台
-  机器仍只运行一个具名配置。2026-08-27 已在本地停服后迁移完整 `.env` 和 `data/`，5 个主库
-  `quick_check=ok`，10 个关键表行数逐项一致，云端私有账户读取 `verified=true`。Human 随后明确授权
-  开启全部通道并重启：`APP_BORROW_EXECUTOR=live`、`APP_HEDGE_EXECUTOR=live`、
-  `APP_MARGIN_REPAY_ENABLED=true`，借币全局 `execution_enabled=true/can_execute=true`，开仓与平仓闸门
-  均为 `true`；借币、下单、划转和还款现在都具备真实交易所写入能力。切换前配置备份为
-  `/var/lib/funding-hedging/backups/env_aoke.pre-all-live-20260827T154905Z`。
-  `https://aoke.kengbi.pro` 曾由 Caddy/Let's Encrypt 提供公网代理，8787 始终只绑定
-  `127.0.0.1`；当前代理已随本次迁移停机。Human 明确说明这是测试账号并选择保留当前弱 UI 密码，以降低登录摩擦；已知
-  影响现已扩大为猜中密码者可调用所有真实资金/订单 API。Human 仍按测试账号接受该风险；临时限制
-  仅剩测试账号不得存放生产资金，应用无登录限频且当前仅可从 Caddy/systemd 日志观察异常。若账号
-  转生产、存入有意义资金、出现凭据泄露或可疑访问，必须先重新评估并更换密码。该接受仅适用于本次
-  测试部署。临时部署包和临时凭据副本已从本机及服务器 `/tmp` 清除。
-
-- **[RESOLVED][2026-08-28] Docker `--env-file` 未展开专用 API Key 引用，写通道认证已修复。**
-  本地 `.env` 的 `BINANCE_BORROW_API_KEY/SECRET` 与 `BINANCE_HEDGE_API_KEY/SECRET` 使用对通用
-  Key 的 Shell 变量引用；`scripts/run-server.sh` 通过 `source` 会正确展开为 64 字符，但云端 Docker
-  把带引号的 `${…}` 原文作为 20/23 字符环境值。通用只读 Key 仍为正确的 64 字符，因此私有账户
-  读取成功不能验证专用写 Key。JST 全部还款请求 `56b85f2b-4d03-49a5-b9ef-c2b7a9d70174` 已以
-  `-2014 / HTTP 401 / API-key format invalid` 明确 `failed`，没有自动重试；借币、开/平仓、划转和
-  还款均受同一根因影响。XVGUSDT 平滑平仓任务在云端创建 attempt 172 后因
-  `order_state_unknown` 自动暂停：两腿均为 `UNKNOWN_QUERYING`、无 `orderId`、本地累计量 0，但
-  专用 Key 无效使交易所终态当时不可查询。修复提交 `7a3bd41` 已通过一次 fresh-context Claude Fast
-  Review（`ACCEPT`）并部署为镜像 `funding-hedging:7a3bd41`：应用以
-  `BINANCE_API_KEY/SECRET` 为默认凭据，专用 borrow/hedge 凭据保留为成对可选覆盖；云端
-  `env_aoke` 的四个未展开专用别名已删除。重启恢复仅按 attempt 172 的既有 client ID 查询，双腿均
-  得到 Binance `-2013 / absent`，已记为 `TERMINAL_RECORDED`、attempt `confirmed_failed`；两腿无
-  `orderId`、累计成交量 0、fill 行数 0，且重启后没有创建 attempt 173。任务继续保持 `paused`，因该
-  失败计入后连续提交失败为 3，机器原因是 `consecutive_submission_failure`；但
-  `pause_reason_zh` 仍保留此前“订单状态不明”的旧说明，前端可能继续显示旧文案，不改变终态或暂停
-  行为。不得由模型替 Human 恢复任务。部署前配置、systemd unit 与数据库备份位于
-  `/var/lib/funding-hedging/backups/deploy-7a3bd41-20260828T003319CST`（数据库
-  `quick_check=ok`）。部署后 health/ready、认证快照与私有账户验证均通过。
 
 - **本机服务已于 2026-08-27 停止**，`127.0.0.1:8787` 无监听；`env_aoke` 已从停用的 AWS 实例
   迁到新主机，但当前仍等待上方 SHELLUSDT 恢复决策。本地 `.env` 保留作 Human 授权的源配置，
@@ -544,58 +471,37 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   `formatFundingRateExact`）。**该缺陷绕过了全部五轮评审**——评审都在查失败语义、撞名、
   schema 兼容与假绿断言，无人核查「显示后还剩几位有效数字」；测试 fixture 用的人造整数值
   舍入后恰好不冲突，只有真实数据能暴露。回归断言已用 CRCL/INTC 真实值补上。
-- stage: `2026-08-19-hedge-order-fee-cost-v1`
-- archive_ref: `archive/2026-08-19-hedge-order-fee-cost-v1`（tip `08fce61`）
-- delivery: `6ba28b0..45eb5ec`；`rework_count` 0。Phase 1/2/3 全部通过双评审（Kimi ACCEPT + Opus 5 ACCEPT）。Human 授权已合并 `main`（`merge: dd736b9`）并重新部署 8787 服务。
-- recorded_completed_at: `2026-08-20`
-- outcome: 成交手续费冻价成本 V1。完成 `hedge_open_leg` 四列手续费字段扩展与回补（268/269 腿成功入库）、`hedge_open_cycle_close_log` 三列历史关仓手续费字段现算聚合、持仓表 `aggregate_positions` 读链路真实折 U 聚合（quote/base 均价、宁缺毋滥 D10/D11 契约）、三处终态 commit-first 实时写入与 D4 现价冻结，实盘验证 `NOMUSDT` 自动落库记账。
-- follow-ups: 币安 UM 合约历史成交受约 7 天接口限制，老单（如 TSTUSDT 9.6 天前合约腿）返回空列表按契约安全显示 `—`。
-- stage: `2026-08-14-smooth-close-orders-v1`
-- archive_ref: `archive/2026-08-14-smooth-close-orders-v1`（tip `f667e6ff8f5fb010d5116563b325bf4384c52caf`）
-- delivery: `6f6c729..f95577f`；`rework_count` 1（P1修复一次）。Review-1 (gemini-3.1-pro) ACCEPT；Review-2 (opus5) ACCEPT。未授权 push/部署或合并。
-- recorded_completed_at: `2026-08-14`
-- outcome: 平滑平仓 V1。实现了以滑点阈值和计划次数自动拆分平仓，保持方向翻转诚实显示，并支持与现货、合约资产的实时盘口对照。
-- follow-ups: 前端现货余额拦截误拦问题已记录，待后续修复。
-- stage: `2026-08-12-smooth-open-orders-v1`
-- archive_ref: `archive/2026-08-12-smooth-open-orders-v1`（tip
-  `d404e204f124fc2f8b11a2634f4d54b1866d1bdc`，完整 planning、dispatch、handoff、status、Review-1/
-  Review-2 与 Human 风险接受记录）
-- delivery: `e955bdd..ad8c631`；`rework_count` 5。累计 Review-1 ACCEPT；最终 Review-2 技术结论
-  REWORK，F-A 经 Bookkeeper 复现后由 Human 接受为本次合并已知风险且决定不修；Human 已授权本地
-  `main` 合并，未授权 push/部署。
-- recorded_completed_at: `2026-08-13`
-- outcome: 平滑开单创建暂停、Human Start 后首轮杠杆前置、spot/perp 一档公共 WS gate、严格阈值与
-  80% 覆盖、timeout/manual 当前轮放行、两腿并发、同次放行快照和分段延迟审计、running 卡统一 2 秒
-  刷新均已交付并经页面/一笔真实订单链验证。
-- follow-ups: F-A、L1/L2/L3 与两位等值展示限制继续按 Live Risks 的临时边界和重开条件管理；服务已停，
-  下一次启动由 Human 本地执行。
-- previous stage: `2026-08-12-local-ip-display-v1` —— 公网出口 IP 展示；归档
-  `archive/2026-08-12-local-ip-display-v1`（tip `15eba3c92251dc5487e2c98f8fe8dbcec396887f`）。
-- earlier previous stage: `2026-08-12-hedge-slippage-spread-v1` —— 历史仓位开/平滑点价差计算；归档 `archive/2026-08-12-hedge-slippage-spread-v1`（tip `ad774315eb56e933ab14615c7a92e0b697f4e5e9`）。
-- earlier previous stage: `2026-08-11-reverse-position-drift-v1` —— 统一账户 reverse 持仓弱告警修复；
-  归档 `archive/2026-08-11-reverse-position-drift-v1`（tip `66135ce8e6529f8f2e13fd57cdaf7f7053a1b81c`）。
-- previous stage: `2026-08-10-cross-margin-flow-log-v1` —— 全仓杠杆流水本地缓存；归档
-  `archive/2026-08-10-cross-margin-flow-log-v1`。
-- previous stage: `2026-08-10-local-net-position-v1` —— 本地净持仓 open−close；归档
-  `archive/2026-08-10-local-net-position-v1`。
-- previous stage: `2026-08-09-pm-margin-repay-v1` —— 统一账户借款资产卡手动还款，XLM 5 与
-  INJ 全部还款实盘成功；归档 `archive/2026-08-09-pm-margin-repay-v1`
-  （`ee0d532..5a81bdc`，archive commit `ee927a1`）。
-- previous stage: `2026-08-09-close-task-preflight-simplification-v1` —— 平仓两段式与派发前
-  安全门，TSTUSDT 实盘闭环；归档
-  `archive/2026-08-09-close-task-preflight-simplification-v1`（`dc356cd..e5f83f1`）。
-- previous stage: `2026-08-06-asset-transfer-live-v1` —— 资产互转真实划转打通，实盘三笔
-  `succeeded`，合并 main（`bb47d02..bbe81b0`）。归档 `archive/2026-08-06-asset-transfer-live-v1`。
-- previous stage: `2026-08-06-hedge-order-close-validation` —— 下单/平仓链路实盘验收
-  通过，合并 main（`f153cdc..64f0051`）。归档 `archive/2026-08-06-hedge-order-close-validation`。
-- previous stage: `2026-08-04-dual-ledger-flow-log-v1` —— 双栏流水日志。归档
-  `archive/2026-08-04-dual-ledger-flow-log-v1`。
-- previous stage: `2026-08-03-hedge-status-account-refresh-v1` —— 账户刷新周期 +
-  `source_checked_at` + 持仓双账户显示。归档
-  `archive/2026-08-03-hedge-status-account-refresh-v1`。
-- previous stage: `2026-08-03-harness-task-handoff-evidence-v1`
-  (`archive/2026-08-03-harness-task-handoff-evidence-v1`, `0a0b952`)
-- 更早的完结记录见 git 历史与 archive branches/tags。
+- 更早的已完成 stage 只留指针（完整记录见 git history 与各自 archive 分支）：
+  `2026-08-19-hedge-order-fee-cost-v1`
+  `2026-08-14-smooth-close-orders-v1`
+  `2026-08-12-smooth-open-orders-v1`
+  原文 `git show 4dcce9f:PROJECT_STATE.md`。
+
+## Evicted (2026-08-28) — AWS→新主机迁移流水账
+
+按 Update Rule 驱逐了 `2026-08-27`..`2026-08-28` 的 6 条迁移事件叙事（约 8.7 KB：新主机启动完成、
+AWS 无响应事件、AWS 停止、迁移就绪/START BLOCKED、AWS 曾部署 `7a3bd41`、`[RESOLVED]` env-file
+修复），以及 3 条较早的已完成 stage 记录。完整原文 `git show 4dcce9f:PROJECT_STATE.md`。
+**下列是从中提取的、仍然生效的约束**——它们不是历史，只留 git 指针会让后来者误判：
+
+- **内存仍无护栏**：AWS `t4g.micro` 只有 921 MiB、无 swap，应用 Python 以约 630 MiB 匿名内存两次
+  被内核 OOM kill（`exit 137`），systemd 自动拉起，故障时 load 峰值 `9.43/29.81/20.09`，且表现为
+  「TCP 能建连但应用层无响应」——排查时容易误判成网络问题。**新主机 1.8 GiB 同样无 swap、容器无
+  memory limit**，应用 RSS 迁移后约 299 MiB 且会随运行增长。再次 OOM 的条件没有被消除，只是余量变大。
+
+- **Docker `--env-file` 不做变量展开**：本地 `.env` 里 `BINANCE_BORROW_API_KEY=${BINANCE_API_KEY}`
+  这类引用，经 `scripts/run-server.sh` 的 `source` 会正确展开，但 Docker 把带引号的 `${…}` **原文**
+  当成环境值（20/23 字符）。后果是通用只读 Key 正常、专用写 Key 全废，而且**私有账户读取成功不能
+  验证写通道**——这正是当时误判的地方。现行修法：应用以 `BINANCE_API_KEY/SECRET` 为默认凭据，
+  专用 borrow/hedge 凭据保留为成对可选覆盖；云端 `env_aoke` 的四个未展开别名已删。配 env 必须逐个
+  核对实际字符长度。
+
+- **XVGUSDT 平滑平仓任务仍 `paused`，前端文案与机器原因不一致**：机器暂停原因是
+  `consecutive_submission_failure`（连续提交失败 3），但 `pause_reason_zh` 仍是此前「订单状态不明」
+  的旧说明，UI 可能持续显示旧文案。不改变终态或暂停行为。**不得由模型替 Human 恢复任务。**
+
+- **部署前备份位置**：`/var/lib/funding-hedging/backups/deploy-7a3bd41-20260828T003319CST`
+  （配置 + systemd unit + 数据库，`quick_check=ok`）。
 
 ## Evicted (2026-08-22) — Current Status 交付叙事
 
