@@ -1,11 +1,11 @@
 {
   "schema_version": "2",
-  "revision": 17,
+  "revision": 18,
   "stage_id": "2026-08-28-repaid-interest-price-v1",
   "bookkeeper": "opus5",
   "bookkeeper_label": "claude",
   "phase": "review",
-  "checkpoint": "p10-delivery-verified-review-1-ready",
+  "checkpoint": "review-2-accept-verified-awaiting-review-1",
   "base_sha": "f4f6c6f60113b15a6b7b84abf1c665d67eb00449",
   "delivery_sha": "d315fbd9e5ac93461ecdbd8a4edd1890e35f7f4e",
   "ledger_sha": "9b12c8e37aa0674315ba6b8e3fb6e6c15e70508a",
@@ -15,8 +15,8 @@
     "dispatch": "reports/agent-runs/2026-08-28-repaid-interest-price-v1/P11-review-1-grok.dispatch.md"
   },
   "next": {
-    "actor": "grok+kimi",
-    "action": "review-1-and-2-parallel"
+    "actor": "grok",
+    "action": "review-1-pending"
   },
   "rework_count": 0,
   "blockers": [],
@@ -34,7 +34,8 @@
     {
       "id": "P11-repaid-interest-price-review-2-kimi",
       "model": "kimi",
-      "state": "dispatched"
+      "state": "verified",
+      "verdict": "ACCEPT"
     }
   ]
 }
