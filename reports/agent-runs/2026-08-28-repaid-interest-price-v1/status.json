@@ -1,14 +1,14 @@
 {
   "schema_version": "2",
-  "revision": 10,
+  "revision": 11,
   "stage_id": "2026-08-28-repaid-interest-price-v1",
   "bookkeeper": "gpt-5.6-sol",
   "bookkeeper_label": "codex",
   "phase": "planning",
-  "checkpoint": "human-simplified-terminal-rule-confirmed-p5-ready",
+  "checkpoint": "human-rerouted-p5-to-opus5-ready",
   "base_sha": "4e6f4909dd17eb43c08f0f393258793df24a6ec7",
   "delivery_sha": null,
-  "ledger_sha": "8f22694954a29a9118e2ade969351b4ee182691d",
+  "ledger_sha": "fb83a9185d31085a5c794ff05e3e6edf67f673ba",
   "current_task": {
     "id": "P5-repaid-interest-price-plan-simplification",
     "state": "dispatched",
