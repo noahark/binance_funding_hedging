@@ -28,6 +28,20 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   SQLite 中 SHELL 任务状态仍是 `running`；把数据部署到新机器前必须由 Human 决定是否让启动恢复
   继续该任务，模型不得默认启动。服务器上的 FMZ `robot` 进程未触碰。
 
+- **[DEPLOYMENT READY / START BLOCKED][2026-08-28 11:04 CST] `env_aoke` 已迁移到新主机
+  `47.240.168.162`，但应用仍未启动。** Human 已授权通过 root SSH 部署并把 AWS 停机后的配置、API
+  凭据与完整数据迁移到新主机。已安装并启用 Docker，构建提交 `7a3bd41` 的 x86_64 镜像
+  `funding-hedging:7a3bd41`；镜像 revision 和三份关键源码 SHA-256 与本地提交一致。目标配置为
+  root:root `0600`，通用 Key/Secret 均存在且四个专用别名仍为 0；AWS 与目标数据目录的 47 个文件
+  已逐路径、逐 SHA-256 完全比对一致，五个主 SQLite 库均 `quick_check=ok`。域名
+  `aoke.kengbi.pro` 已解析到新 IP，专用 Caddy 服务 `active + enabled`，80 自动跳转 443，Let's
+  Encrypt 证书已签发；8787 不对公网监听。新主机为 1 CPU / 1.8GiB RAM / 无 swap，代理上线后约
+  771MiB available；宿主既有两条 FMZ `robot` 约占 563MiB + 67MiB，未触碰。应用 systemd unit
+  已安装但保持 `inactive + disabled`，所以当前 HTTPS 返回 502。阻塞原因不是部署失败：迁移库仍有
+  SHELLUSDT 平滑平仓任务 `f44048f4-68df-4666-8dc1-57f8279e9ce9` 为 `running`（成功 3、失败 0、
+  无非终态腿），启动会进入既有实盘恢复链。必须先由 Human 明确决定是否允许它在新机恢复；此前
+  不得启动应用。AWS 旧应用和代理继续保持停用。
+
 - **[SECURITY][2026-08-27] 云端访问边界：一个进程只加载一份 `.env` 和一组页面登录凭证。**
   `APP_UI_USERNAME` + `APP_UI_PASSWORD` 使用标准库 HTTP Basic 保护静态页面和全部业务 API；
   `/healthz`、`/readyz` 仅供云平台探活，保持无认证。非回环监听缺任一凭证即拒绝启动；公网部署
@@ -71,9 +85,9 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   `/var/lib/funding-hedging/backups/deploy-7a3bd41-20260828T003319CST`（数据库
   `quick_check=ok`）。部署后 health/ready、认证快照与私有账户验证均通过。
 
-- **本机服务已于 2026-08-27 停止**，`127.0.0.1:8787` 无监听；后续运行、开发和验证转到
-  AWS `env_aoke` 实例。本地 `.env` 保留作 Human 授权的源配置，权限已收紧为 `0600`；不得再次
-  启动本机实例与云端实例同时拥有执行权。
+- **本机服务已于 2026-08-27 停止**，`127.0.0.1:8787` 无监听；`env_aoke` 已从停用的 AWS 实例
+  迁到新主机，但当前仍等待上方 SHELLUSDT 恢复决策。本地 `.env` 保留作 Human 授权的源配置，
+  权限已收紧为 `0600`；不得让本机、AWS 与新主机中的两个实例同时拥有执行权。
 
 - **实盘库数据自 `2026-08-06` 清理后从新起点累积**，备份
   `data/*.sqlite3.bak-clean-20260806-120813`。做任何跨期统计前先套这条。
@@ -470,11 +484,12 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 ## Next Priority
 
 - **No active stage.** Current priorities (detail in the sections above):
-  1. 服务器部署（systemd unit）—— 本地已决定不修 launchd，托管需求整体推到这一轮，须 Human 授权后单开。
+  1. Human 决定是否允许新主机启动并恢复仍为 `running` 的 SHELLUSDT 平滑平仓任务；明确授权前
+     应用保持 `inactive + disabled`，仅 HTTPS 代理在线。
   （1000x 腿量换算已于 2026-08-15 封存，不再是优先项——见 Open Follow-ups 的
   `[CLOSED-NOT-DOING]` 条目。）
-- Nothing open authorizes deployment, Start-gate changes, credentials, or live
-  operation. Live actions follow the Live Risks gates above.
+- 本轮迁移授权已执行完毕；它不包含启动并恢复 SHELLUSDT。任何进一步的 Start-gate、凭据或实盘
+  操作仍须遵循上方 Live Risks 闸门并取得 Human 明确授权。
 
 ## Last Completed
 - stage: `2026-08-19-hedge-order-fee-cost-v1`
