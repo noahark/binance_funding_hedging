@@ -596,3 +596,140 @@ def test_pnl_series_emits_only_on_funding_settlement_hours():
     by_t = {p[0]: p for p in out["points"]}
     assert Decimal(by_t[_T0 + 4 * HOUR][3]) == Decimal("-2")
     assert Decimal(out["totals"]["interest"]) == Decimal("-2")
+
+
+# --------------------------------------------------------------------------- #
+# 已还款利息的终态匹配与折算（阶段 2026-08-28-repaid-interest-price-v1，T1-T3/T5/T6/T9）
+# --------------------------------------------------------------------------- #
+
+def _repay(crid, *, asset="WLD", amount="0", status="succeeded",
+           update_time=None, updated_at_us=None, price="5"):
+    rec = {
+        "client_request_id": crid, "asset": asset, "amount": amount,
+        "repay_asset": "USDT", "status": status, "repaid_amount": None,
+        "update_time": update_time, "error_code": None, "error_message": None,
+        "repay_price_usdt": price,
+        "repay_price_source": "snapshot_spot_bid_at_capture" if price is not None else None,
+    }
+    if updated_at_us is not None:
+        rec["updated_at_us"] = updated_at_us
+    return rec
+
+
+def test_partial_repay_keeps_interest_dynamic():
+    """T1：非零部分还款（succeeded）不锁价——利息随当前价变。"""
+    index = D.build_repay_match_index([_repay("a", amount="12.5")])
+    assert D.match_interest_repay("WLD", _T0, index) is None
+    v1 = D.interest_usdt_value("0.5", "WLD", None, {"WLDUSDT": "2"})
+    v2 = D.interest_usdt_value("0.5", "WLD", None, {"WLDUSDT": "3"})
+    assert v1 == Decimal("1.0") and v2 == Decimal("1.5")
+
+
+def test_pending_unknown_failed_never_match():
+    """pending/unknown/failed 一律不构成终态（0 意图也不行）。"""
+    index = D.build_repay_match_index([
+        _repay("a", status="pending"),
+        _repay("b", status="unknown"),
+        _repay("c", status="failed"),
+    ])
+    assert index == {}
+    assert D.match_interest_repay("WLD", _T0, index) is None
+
+
+def test_terminal_predicate_accepts_exact_zero_string_only():
+    """T9：仅精确 ``"0"`` 且 succeeded 构成终态；数值零变体/空/None/非字符串
+    均非终态（异常存量值保持开放暂估）。"""
+    assert D.is_terminal_repay(_repay("a")) is True
+    for bad in ("0.0", "0.00", "00", "", None, 0, "1"):
+        assert D.is_terminal_repay(_repay("a", amount=bad)) is False
+    assert D.is_terminal_repay({"amount": "0", "status": "succeeded"}) is True
+    assert D.is_terminal_repay({"amount": "0"}) is False
+
+
+def test_terminal_switches_prior_interest_to_stored_price():
+    """T2：终态把**之前**的利息行切到存储价——改当前价曲线不再动。"""
+    repay = _repay("a", update_time=str(_T0 + 1000))  # 结算晚于计息
+    fixed = _series(repay_records=[repay], price_map={"WLDUSDT": "2", "BNBUSDT": "600"})
+    moved = _series(repay_records=[repay], price_map={"WLDUSDT": "9", "BNBUSDT": "600"})
+    # 0.5 WLD × 存储价 5 = 2.5，成本取负；当前价从 2 改 9 结果不变
+    assert Decimal(fixed["totals"]["interest"]) == Decimal("-2.5")
+    assert fixed["totals"]["interest"] == moved["totals"]["interest"]
+    assert fixed["unpriced_assets"] == []
+
+
+def test_terminal_after_interest_uses_dynamic_open_bucket():
+    """终态时刻**早于**计息（re-borrow 后的新行）→ 开放桶当前价暂估。"""
+    repay = _repay("a", update_time=str(_T0 - HOUR))  # 结算早于计息，不匹配
+    out = _series(repay_records=[repay], price_map={"WLDUSDT": "2", "BNBUSDT": "600"})
+    assert Decimal(out["totals"]["interest"]) == Decimal("-1.0")  # 0.5 × 当前价 2
+
+
+def test_reborrow_reopens_dynamic_until_next_terminal():
+    """T3：终态后 re-borrow 的新利息行回到动态；下一个终态再次锁定。"""
+    repays = [
+        _repay("a", update_time=str(_T0 + 1000), price="2"),    # 第一轮终态
+        _repay("b", update_time=str(_T0 + 3 * HOUR), price="7"),  # 第二轮终态
+    ]
+    rows = [
+        {"accrued_at_ms": _T0, "asset": "WLD", "interest": "0.5"},          # 第一轮 → 存 2
+        {"accrued_at_ms": _T0 + 2 * HOUR, "asset": "WLD", "interest": "0.5"},  # re-borrow → 存 7
+        {"accrued_at_ms": _T0 + 4 * HOUR, "asset": "WLD", "interest": "0.5"},  # 第二轮后 re-borrow → 当前价
+    ]
+    out = _series(
+        interest_rows=rows, repay_records=repays,
+        price_map={"WLDUSDT": "3", "BNBUSDT": "600"},
+        income_rows=[
+            {"time_ms": _T0, "income_type": "FUNDING_FEE", "asset": "USDT", "income": "3"},
+            {"time_ms": _T0, "income_type": "COMMISSION", "asset": "USDT", "income": "-0.4"},
+        ], capital_rows=[], close_logs=[], end_ms=_T0 + 5 * HOUR)
+    # 0.5×2 + 0.5×7 + 0.5×3（当前价）= 6.0，成本取负
+    assert Decimal(out["totals"]["interest"]) == Decimal("-6.0")
+
+
+def test_terminal_row_without_stored_price_is_fail_closed():
+    """T5：终态行价格 NULL → 该资产进 unpriced_assets、利息不计入（遮蔽净收益）。"""
+    repay = _repay("a", update_time=str(_T0 + 1000), price=None)
+    out = _series(repay_records=[repay], price_map={"WLDUSDT": "2", "BNBUSDT": "600"})
+    assert out["unpriced_assets"] == ["WLD"]
+    assert Decimal(out["totals"]["interest"]) == Decimal("0")  # 不计入 ≠ 按 0 顶替
+
+
+def test_settlement_ordering_tie_break_and_timestamp_fallback():
+    """T6：组内按 (settlement_ms, client_request_id) 确定；update_time 缺失回退
+    updated_at_us // 1000。"""
+    ms = _T0 + 1000
+    index = D.build_repay_match_index([
+        # 同毫秒两条：client_request_id 升序，先匹配 "aaa"
+        _repay("bbb", update_time=str(ms), price="9"),
+        _repay("aaa", update_time=str(ms), price="8"),
+        # update_time 缺失 → 回退 updated_at_us//1000 = 同一毫秒，但 crid 最大
+        _repay("zzz", updated_at_us=ms * 1000, price="7"),
+        # 不可解析 update_time 且无 updated_at_us → 不进索引
+        _repay("nnn", update_time="not-a-number", price="6"),
+    ])
+    matched = D.match_interest_repay("WLD", _T0, index)
+    assert matched["client_request_id"] == "aaa"
+    # 无可用结算时刻的记录绝不匹配（不进索引）
+    only_bad = D.build_repay_match_index(
+        [_repay("nnn", update_time="not-a-number", price="6")])
+    assert only_bad == {}
+    # 回退字段确实可达：仅 updated_at_us 的记录可匹配
+    fallback = D.build_repay_match_index([_repay("zzz", updated_at_us=ms * 1000, price="7")])
+    assert D.match_interest_repay("WLD", _T0, fallback)["repay_price_usdt"] == "7"
+    # 结算时刻必须 >= 计息时刻：早于计息的不匹配
+    earlier = D.build_repay_match_index([_repay("early", update_time=str(_T0 - 1), price="7")])
+    assert D.match_interest_repay("WLD", _T0, earlier) is None
+
+
+def test_interest_usdt_value_usdt_and_true_zero_unchanged():
+    """USDT 本位与真零沿用现有 to_usdt 规则：无需价格、原样返回。"""
+    assert D.interest_usdt_value("0.5", "USDT", None, {}) == Decimal("0.5")
+    assert D.interest_usdt_value("0", "WLD", {"repay_price_usdt": None}, {}) == Decimal("0")
+    assert D.interest_usdt_value(None, "WLD", None, {"WLDUSDT": "2"}) is None
+    assert D.interest_usdt_value("0.5", "WLD", {"repay_price_usdt": None}, {}) is None
+
+
+def test_pnl_series_without_repay_records_keeps_current_behavior():
+    """缺省不传 repay_records = 现行为（全部按当前价），向后兼容。"""
+    out = _series(price_map={"WLDUSDT": "2", "BNBUSDT": "600"})
+    assert Decimal(out["totals"]["interest"]) == Decimal("-1.0")

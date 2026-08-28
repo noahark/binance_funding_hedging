@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from decimal import Decimal
 
 import pytest
 
@@ -643,3 +644,83 @@ def test_flow_log_capital_empty_state_when_never_pulled(tmp_path):
     assert payload["capital_flow"]["rows"] == []
     assert payload["coverage"]["by_source"]["capital_flow"] == {
         "start_ms": NOW - _D, "end_ms": NOW}
+
+
+# --------------------------------------------------------------------------- #
+# 利息折 U 合计（阶段 2026-08-28-repaid-interest-price-v1，T5/T7）
+# --------------------------------------------------------------------------- #
+
+_HOUR = 3_600_000
+
+
+def _seed_interest(svc, rows):
+    run_id = _run(svc._store)  # insert_run 返回 run id
+    svc._store.commit_interest(
+        rows=rows, run_id=run_id, first_seen_at_ms=NOW,
+        coverage_start_ms=0, coverage_end_ms=NOW)
+
+
+def _repay(crid, *, amount="0", status="succeeded", update_time=None,
+           updated_at_us=None, price="5"):
+    rec = {
+        "client_request_id": crid, "asset": "HOME", "amount": amount,
+        "repay_asset": "USDT", "status": status, "repaid_amount": None,
+        "update_time": update_time, "error_code": None, "error_message": None,
+        "repay_price_usdt": price,
+        "repay_price_source": "snapshot_spot_bid_at_capture" if price is not None else None,
+        "updated_at_us": updated_at_us,
+    }
+    return rec
+
+
+def test_sum_interest_usdt_matches_pnl_series_exactly(tmp_path):
+    """T7：同一 (interest_rows, repay_records, price_map) 下，持仓视图的
+    sum_interest_usdt_by_asset 与曲线 build_pnl_series 的利息折算逐位相等。"""
+    t0 = NOW - 10 * _HOUR
+    rows = [
+        _irow("t1", t0, asset="HOME", interest="0.5"),                # 终态前 → 存储价
+        _irow("t2", t0 + _HOUR, asset="HOME", interest="0.25"),       # 终态后 re-borrow → 当前价
+    ]
+    svc = _svc(tmp_path)
+    _seed_interest(svc, rows)
+    repays = [_repay("a", update_time=str(t0 + 1000), price="2")]
+    price_map = {"HOMEUSDT": "3"}
+    # 持仓视图消费者
+    svc_value = svc.sum_interest_usdt_by_asset("HOME", t0, NOW, price_map, repays)
+    assert svc_value == "1.75"  # 0.5×2 + 0.25×3
+    # 曲线消费者（同一 domain 权威）
+    series = domain.build_pnl_series(
+        interest_rows=svc._store.query_interest_rows(t0, NOW, limit=None),
+        income_rows=[{"time_ms": t0, "income_type": "FUNDING_FEE",
+                      "asset": "USDT", "income": "0"}],
+        capital_rows=[], close_logs=[], open_cycle_fills=[],
+        repay_records=repays, price_map=price_map,
+        start_ms=t0, end_ms=NOW, bucket_ms=_HOUR)
+    assert series["unpriced_assets"] == []
+    assert Decimal(series["totals"]["interest"]) == -Decimal(svc_value)
+
+
+def test_sum_interest_usdt_fail_closed_on_missing_stored_price(tmp_path):
+    """T5 service 侧：终态行缺存储价 → 整体 None（绝不部分相加）。"""
+    t0 = NOW - 10 * _HOUR
+    svc = _svc(tmp_path)
+    _seed_interest(svc, [_irow("t1", t0, asset="HOME", interest="0.5")])
+    repays = [_repay("a", update_time=str(t0 + 1000), price=None)]
+    assert svc.sum_interest_usdt_by_asset("HOME", t0, NOW, {"HOMEUSDT": "3"}, repays) is None
+    # 非终态（开放桶）缺当前价同样 fail-closed
+    assert svc.sum_interest_usdt_by_asset("HOME", t0, NOW, {}) is None
+
+
+def test_sum_interest_usdt_zero_rules(tmp_path):
+    """空窗口 → "0"（真零）；USDT 本位无需价格；不可解析 → None。"""
+    t0 = NOW - 10 * _HOUR
+    svc = _svc(tmp_path)
+    _seed_interest(svc, [
+        _irow("t1", t0, asset="USDT", interest="0.5"),
+        _irow("t2", t0, asset="HOME", interest="not-a-number"),
+    ])
+    assert svc.sum_interest_usdt_by_asset("HOME", NOW + _HOUR, NOW + 2 * _HOUR, {}) == "0"
+    assert svc.sum_interest_usdt_by_asset("USDT", t0, NOW, {}) == "0.5"
+    assert svc.sum_interest_usdt_by_asset("HOME", t0, NOW, {"HOMEUSDT": "2"}) is None
+    # 币本位合计不受影响（仍走 sum_interest_by_asset）
+    assert svc.sum_interest_by_asset("HOME", t0, NOW) is None

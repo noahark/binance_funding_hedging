@@ -43,7 +43,9 @@ CREATE TABLE IF NOT EXISTS margin_repay (
     error_code        TEXT,
     error_message     TEXT,
     created_at_us     INTEGER NOT NULL,
-    updated_at_us     INTEGER NOT NULL
+    updated_at_us     INTEGER NOT NULL,
+    repay_price_usdt   TEXT,
+    repay_price_source TEXT
 );
 """
 
@@ -59,6 +61,8 @@ def _row_to_doc(row: sqlite3.Row) -> dict:
         "update_time": row["update_time"],
         "error_code": row["error_code"],
         "error_message": row["error_message"],
+        "repay_price_usdt": row["repay_price_usdt"],
+        "repay_price_source": row["repay_price_source"],
     }
 
 
@@ -72,6 +76,15 @@ class MarginRepayStore:
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
+        # 阶段 2026-08-28-repaid-interest-price-v1：additive 幂等迁移。旧库按
+        # PRAGMA 逐列补齐两列；均为自由 TEXT、无 CHECK/封闭枚举——单独授权的
+        # 人工修正要能写 manual_correction 且与自动值可区分（计划 §3.4）。
+        cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(margin_repay)")}
+        with self._conn:
+            for col in ("repay_price_usdt", "repay_price_source"):
+                if col not in cols:
+                    self._conn.execute(
+                        f"ALTER TABLE margin_repay ADD COLUMN {col} TEXT")
 
     def begin(
         self,
@@ -120,21 +133,47 @@ class MarginRepayStore:
         update_time: Optional[str] = None,
         error_code: Optional[str] = None,
         error_message: Optional[str] = None,
+        repay_price_usdt: Optional[str] = None,
+        repay_price_source: Optional[str] = None,
     ) -> dict:
-        """写入终态（`succeeded` / `failed` / `unknown`）并返回记录。"""
+        """写入终态（`succeeded` / `failed` / `unknown`）并返回记录。
+
+        ``repay_price_*`` 两列为可选附加（阶段 2026-08-28-repaid-interest-price-v1）：
+        仅 Human 约定终态（``amount=="0"`` 且严格 succeeded）的还款由调用方在
+        落库前捕获写入；其余路径不传，两列保持 NULL。
+        """
         with self._lock, self._conn:
             self._conn.execute(
                 "UPDATE margin_repay"
                 " SET status = ?, repaid_amount = ?, update_time = ?,"
-                "     error_code = ?, error_message = ?, updated_at_us = ?"
+                "     error_code = ?, error_message = ?,"
+                "     repay_price_usdt = ?, repay_price_source = ?, updated_at_us = ?"
                 " WHERE client_request_id = ?",
                 (
                     status, repaid_amount, update_time, error_code, error_message,
+                    repay_price_usdt, repay_price_source,
                     now_us, client_request_id,
                 ),
             )
         with self._lock:
             return self._get_locked(client_request_id)
+
+    def list_records(self) -> list[dict]:
+        """全量还款记录按 ``updated_at_us`` 升序（利息终态匹配的确定性读取）。
+
+        返回 :func:`_row_to_doc` 的全部键**外加** ``updated_at_us``（int）——终态
+        结算时刻的回退字段（``update_time`` 缺失时用它 // 1000）只有在这里可达
+        （计划 §3.4，承接 P2 F3）。
+        """
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT * FROM margin_repay ORDER BY updated_at_us, client_request_id")
+            out = []
+            for row in cur.fetchall():
+                doc = _row_to_doc(row)
+                doc["updated_at_us"] = int(row["updated_at_us"])
+                out.append(doc)
+            return out
 
     def get(self, client_request_id: str) -> Optional[dict]:
         with self._lock:

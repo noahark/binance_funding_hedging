@@ -719,6 +719,10 @@ class _Handler(BaseHTTPRequestHandler):
         pos_status, fills_doc = self._safe_hedge(
             self.hedge_open_service.get_open_cycle_slippage_basis)
         open_cycle_fills = fills_doc.get("fills") or [] if pos_status == 200 else []
+        # 全量还款记录（2026-08-28）：利息行按「开放桶当前价暂估 / 终态桶存储价
+        # 固定」折算；还款库未配置（测试/未配置环境）→ 空 = 全部动态暂估（现状）。
+        repay_store = getattr(self, "margin_repay_store", None)
+        repay_records = repay_store.list_records() if repay_store is not None else []
 
         try:
             payload = ledger_domain.build_pnl_series(
@@ -727,6 +731,7 @@ class _Handler(BaseHTTPRequestHandler):
                 capital_rows=store.query_capital_flow_rows(start_ms, end_ms),
                 close_logs=close_logs,
                 open_cycle_fills=open_cycle_fills,
+                repay_records=repay_records,
                 price_map=price_map,
                 start_ms=start_ms, end_ms=end_ms, bucket_ms=bucket_ms,
             )
@@ -1026,8 +1031,21 @@ class _Handler(BaseHTTPRequestHandler):
             self._send_borrow(200, record)
             return
         resolution = self._dispatch_margin_repay(parsed["asset"], parsed["repay_all"], parsed["amount"])
+        # 缝隙内唯一动作（阶段 2026-08-28-repaid-interest-price-v1，计划 §3.2 B3）：
+        # 仅 Human 约定终态（amount=="0" 且严格 succeeded）才做一次 best-effort
+        # 内存快照取价；异常隔离在捕获函数内部（契约：绝不抛出），失败只让两列
+        # NULL。resolve 在异常边界之外、无条件恰好执行一次（B8）——终态落库
+        # 不受取价结果影响。
+        repay_price_usdt = repay_price_source = None
+        if parsed["amount"] == "0" and resolution.get("status") == STATUS_SUCCEEDED:
+            price = self._capture_repay_spot_bid(parsed["asset"])
+            if price is not None:
+                repay_price_usdt = price
+                repay_price_source = "snapshot_spot_bid_at_capture"
         record = self.margin_repay_store.resolve(
-            parsed["client_request_id"], now_us=_now_us(), **resolution
+            parsed["client_request_id"], now_us=_now_us(),
+            repay_price_usdt=repay_price_usdt, repay_price_source=repay_price_source,
+            **resolution,
         )
         self._send_borrow(200, record)
 
@@ -1088,6 +1106,30 @@ class _Handler(BaseHTTPRequestHandler):
             except (ValueError, TypeError):
                 continue
         return borrowed
+
+    def _capture_repay_spot_bid(self, asset: str) -> Optional[str]:
+        """还款终态的捕获价：进程内已发布快照里 ``{asset}USDT`` 的现货买一价
+        （阶段 2026-08-28-repaid-interest-price-v1，计划 §3.2）。
+
+        这是还款派发与终态落库之间缝隙内**唯一**的动作：纯内存读，零网络、
+        零重试、零 sleep、零二次观测。契约是**绝不抛出**——快照未就绪、结构
+        异常或任何其他失败都返回 ``None``，让两列落 NULL（该资产利息按
+        fail-closed 遮蔽），绝不能阻断还款终态落库。名称如实：这是捕获时刻
+        内存快照里的现货买一价（``fresh`` = 缓存年龄 < 2×TTL 且四价归一有效），
+        不是交易所还款的真实成交汇率。
+        """
+        try:
+            snapshot = self.service.get_snapshot()
+            symbol = f"{asset}USDT"
+            for row in (snapshot or {}).get("rows") or []:
+                if row.get("symbol") == symbol:
+                    quotes = row.get("opening_quotes") or {}
+                    if quotes.get("status") == "fresh" and quotes.get("spot_bid_price"):
+                        return quotes["spot_bid_price"]
+                    return None
+            return None
+        except Exception:
+            return None
 
     def _dispatch_margin_repay(self, asset: str, repay_all: bool, amount: str) -> dict:
         """一次性外发并把结果分类成落库字段。
@@ -1571,6 +1613,12 @@ class _Handler(BaseHTTPRequestHandler):
                 _oq = _r.get("opening_quotes") or {}
                 if _oq.get("status") == "fresh" and _oq.get("spot_bid_price"):
                     price_map[_r.get("symbol")] = _oq["spot_bid_price"]
+        # 全量还款记录（2026-08-28）：与曲线同一折算口径——利息行匹配到 Human
+        # 约定终态（amount=="0" + 严格 succeeded）按该次还款捕获的存储价固定，
+        # 其余按当前价动态暂估；还款库未配置（或 handler 测试替身未装配该
+        # 属性）→ 空 = 全部动态暂估（现状）。
+        repay_store = getattr(self, "margin_repay_store", None)
+        repay_records = repay_store.list_records() if repay_store is not None else []
         for row in merged:
             row["stats_incomplete"] = False
             cycle_id = row.get("cycle_id")
@@ -1609,15 +1657,14 @@ class _Handler(BaseHTTPRequestHandler):
             )
             row["accrued_funding"] = funding
             row["borrow_interest"] = interest
-            # 利息币值 → U 值：真零无需价格（0 × 任何 = 0）；非零缺价格 → None（无法换算）。
-            interest_usdt = None
-            if interest is not None:
-                if Decimal(interest) == 0:
-                    interest_usdt = "0"
-                else:
-                    price = price_map.get(f"{base_asset}USDT") if base_asset else None
-                    if price is not None:
-                        interest_usdt = str(Decimal(interest) * Decimal(price))
+            # 利息币值 → U 值（2026-08-28 改走与曲线同一 domain 权威）：开放桶按
+            # 当前价动态暂估、终态桶按还款捕获价固定；真零无需价格，非零缺适用
+            # 价格或不可解析 → None（「暂无」，绝不部分相加）。
+            interest_usdt = (
+                lsvc.sum_interest_usdt_by_asset(
+                    base_asset, start_ms, end_ms, price_map, repay_records)
+                if base_asset else None
+            )
             row["borrow_interest_usdt"] = interest_usdt
             # 单位一致：net_pnl = 资金费(U) − 利息换算(U) − 开仓手续费(U)（利息与
             # 手续费都是成本，账本记正数；2026-08-08 Human 更正利息为减项，

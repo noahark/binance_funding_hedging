@@ -17,6 +17,7 @@ rule 10 / F2) — the store only returns raw run rows.
 from __future__ import annotations
 
 import threading
+from decimal import Decimal, localcontext
 from typing import Any, Callable, Dict, List, Optional
 
 from ..services.private_client import PrivateEndpointError
@@ -483,6 +484,35 @@ class LedgerFlowService:
         ]
         total, unparsed = domain._sum_amounts(amounts)
         return total if unparsed == 0 else None
+
+    def sum_interest_usdt_by_asset(
+        self, asset: str, start_ms: int, end_ms: int, price_map, repay_records=None,
+    ) -> Optional[str]:
+        """窗口内该资产利息逐行折算 USDT 合计（阶段 2026-08-28，与曲线同一权威）。
+
+        每行走 ``domain.interest_usdt_value``：开放桶按当前价动态暂估、匹配到
+        Human 约定终态（``amount=="0"`` + 严格 ``succeeded``）的行按该次还款
+        捕获的存储价固定折算。窗口无行 → ``"0"``（真零）；任一行缺适用价格或
+        不可解析 → 整体 ``None``（绝不部分相加）。币本位合计仍走
+        :meth:`sum_interest_by_asset`，两者并存。
+        """
+        rows = [
+            r for r in self._store.query_interest_rows(start_ms, end_ms, limit=None)
+            if r.get("asset") == asset
+        ]
+        index = domain.build_repay_match_index(repay_records)
+        with localcontext() as ctx:
+            ctx.prec = domain._SUM_PREC
+            total = Decimal(0)
+            for row in rows:
+                value = domain.interest_usdt_value(
+                    row.get("interest"), asset,
+                    domain.match_interest_repay(asset, row.get("accrued_at_ms"), index),
+                    price_map)
+                if value is None:
+                    return None
+                total += value
+            return format(total, "f")
 
     def coverage_for_window(self, start_ms: int, end_ms: int) -> Dict[str, Any]:
         """按窗口调用的公开覆盖率包装（gap-aware 判定权威在 ``_build_coverage``）。

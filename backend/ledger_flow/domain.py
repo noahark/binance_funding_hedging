@@ -493,9 +493,112 @@ def slippage_pnl(direction: str, kind: str,
     return (sell - buy) * quantity
 
 
+# --------------------------------------------------------------------------- #
+# 已还款利息的终态匹配与折算（阶段 2026-08-28-repaid-interest-price-v1，计划 §3.3）
+#
+# 产品口径（Human 约定）：终态前币本位利息按当前缓存价动态暂估；唯一终态事件是
+# 本地还款记录 amount == "0"（全额意图）且 status == "succeeded"，届时此前利息行
+# 一次性切到该次还款捕获的存储价并固定。**这是 Human 约定的产品终态，不是
+# 「交易所债务已归零」的证明**——不得为加强它而加任何余额查询或推断。
+# --------------------------------------------------------------------------- #
+def settlement_ms(record: Dict[str, Any]) -> Optional[int]:
+    """终态记录的结算时刻（毫秒）：``update_time`` 可解析时用它，否则回退
+    ``updated_at_us // 1000``；均缺 → ``None``（该记录不进匹配索引）。
+
+    两个候选都是已存储的本地事实，回退只是字段可用性选择，不对交易所侧
+    状态作任何主张。
+    """
+    raw = record.get("update_time")
+    if raw is not None:
+        try:
+            return int(str(raw).strip())
+        except (TypeError, ValueError):
+            pass
+    us = record.get("updated_at_us")
+    if us is None:
+        return None
+    try:
+        return int(us) // 1000
+    except (TypeError, ValueError):
+        return None
+
+
+def is_terminal_repay(record: Dict[str, Any]) -> bool:
+    """Human 约定的唯一终态谓词：精确 ``"0"`` 全额意图 + 严格 ``succeeded``。
+
+    字符串精确比较、不做数值归一：正常 API 入口已拒绝 ``"0.0"``/``"0.00"``/
+    ``"00"``；异常存量库中的此类值按非终态处理（该资产利息保持开放暂估）。
+    非零部分还款与 ``pending``/``unknown``/``failed`` 一律不锁价。
+    """
+    return record.get("amount") == "0" and record.get("status") == "succeeded"
+
+
+def build_repay_match_index(repay_records: Any) -> Dict[Any, List[Dict[str, Any]]]:
+    """终态还款记录按资产分组，组内按 ``(settlement_ms, client_request_id)``
+    升序——同毫秒多条时匹配结果仍确定。非终态与结算时刻缺失的记录不进索引。
+    """
+    grouped: Dict[Any, List[Tuple[int, Dict[str, Any]]]] = {}
+    for record in repay_records or []:
+        if not isinstance(record, dict) or not is_terminal_repay(record):
+            continue
+        ms = settlement_ms(record)
+        if ms is None:
+            continue
+        grouped.setdefault(record.get("asset"), []).append((ms, record))
+    return {
+        asset: [rec for _, rec in sorted(
+            entries, key=lambda e: (e[0], str(e[1].get("client_request_id") or "")))]
+        for asset, entries in grouped.items()
+    }
+
+
+def match_interest_repay(
+    asset: Optional[str], accrued_at_ms: Optional[int], index: Dict[Any, List[Dict[str, Any]]],
+) -> Optional[Dict[str, Any]]:
+    """同资产终态记录中**结算时刻 ≥ 计息时刻**的第一条；``None`` = 开放桶。
+
+    re-borrow 后的新利息行 ``accrued_at_ms`` 晚于上一终态时刻，自然落入下一轮
+    开放桶——无需数量配对、无需外键。
+    """
+    entries = index.get(asset) if asset is not None else None
+    if not entries or accrued_at_ms is None:
+        return None
+    for record in entries:
+        ms = settlement_ms(record)
+        if ms is not None and ms >= accrued_at_ms:
+            return record
+    return None
+
+
+def interest_usdt_value(
+    interest_amount: Any, asset: Optional[str],
+    matched: Optional[Dict[str, Any]], price_map: Dict[Any, Any],
+) -> Optional[Decimal]:
+    """币本位利息 → USDT 的统一折算权威（两消费者同一算法，零 I/O）。
+
+    ``matched`` 为 ``None``（开放桶）→ 用 ``price_map[f"{asset}USDT"]`` 当前价
+    **动态暂估**；``matched`` 非 ``None``（匹配到 Human 约定终态还款）→ 用该次
+    还款捕获的 ``repay_price_usdt`` 存储价**固定**折算。USDT 本位与真零沿用
+    ``build_pnl_series.to_usdt`` 规则（原样返回，无需价格）。缺适用价格（当前价
+    缺失、或存储价为 NULL/不可解析）→ ``None``，调用方 fail-closed，绝不用
+    另一口径的价格顶替。
+    """
+    value = _dec(interest_amount)
+    if value is None or not asset:
+        return None
+    if asset == "USDT" or value == 0:
+        return value
+    raw = (
+        matched.get("repay_price_usdt")
+        if matched is not None else price_map.get(f"{asset}USDT")
+    )
+    price = _dec(raw)
+    return None if price is None else value * price
+
+
 def build_pnl_series(*, interest_rows, income_rows, capital_rows, close_logs,
                      price_map, start_ms, end_ms, bucket_ms,
-                     open_cycle_fills=None) -> Dict[str, Any]:
+                     open_cycle_fills=None, repay_records=None) -> Dict[str, Any]:
     """把四类流水折算并按 ``bucket_ms`` 聚成累计序列。纯函数，零 I/O。
 
     返回 ``points``：``[bucket_start_ms, 资金费, 手续费, 利息, 滑点, 净收益,
@@ -518,9 +621,16 @@ def build_pnl_series(*, interest_rows, income_rows, capital_rows, close_logs,
     两腿成交量不等的（敞口所致，加权均价推出的价差不对应单次真实成交）计入
     ``slippage_unbalanced_count``，**仍进合计**——不计入就又与历史仓位页分家。
     close-log 只固化了开仓两腿量，故其平仓腿的失衡无从判断，不计入该计数。
+
+    ``repay_records``（阶段 2026-08-28-repaid-interest-price-v1）：全量本地还款
+    记录（``MarginRepayStore.list_records()`` 形状）。利息行匹配到 Human 约定终态
+    （``amount=="0"`` 且严格 ``succeeded``）时改用该次还款捕获的存储价固定折算，
+    不再随当前价重画；缺省空 = 全部按当前价动态暂估（现行为，向后兼容）。终态行
+    缺存储还款价与开放行缺当前价走同一出口：资产进 ``unpriced_assets``、遮蔽净收益。
     """
     validate_window(start_ms, end_ms)
     unpriced: set = set()
+    repay_index = build_repay_match_index(repay_records)
 
     def to_usdt(amount: Any, asset: Optional[str]) -> Optional[Decimal]:
         """币本位 → USDT。USDT 原样；真零无需价格；其余查 price_map。"""
@@ -567,8 +677,17 @@ def build_pnl_series(*, interest_rows, income_rows, capital_rows, close_logs,
             if row.get("flow_type") == "TRADING_COMMISSION":
                 add(fees, row.get("time_ms"), to_usdt(row.get("amount"), row.get("asset")))
         for row in interest_rows:
-            # 账本把利息记为正数，成本取负
-            value = to_usdt(row.get("interest"), row.get("asset"))
+            # 账本把利息记为正数，成本取负。折算走统一权威 interest_usdt_value
+            # （2026-08-28）：开放桶当前价暂估、终态桶还款捕获价固定；金额可解析、
+            # 非 USDT 本位、非真零却折不出 → 缺适用价格，与开放行缺当前价同一出口。
+            asset = row.get("asset")
+            matched = match_interest_repay(asset, row.get("accrued_at_ms"), repay_index)
+            value = interest_usdt_value(row.get("interest"), asset, matched, price_map)
+            if value is None:
+                amount = _dec(row.get("interest"))
+                if (asset and asset != "USDT"
+                        and amount is not None and amount != 0):
+                    unpriced.add(asset)
             add(interest, row.get("accrued_at_ms"), None if value is None else -value)
 
         # 在持仓周期：逐笔配对补开/平滑点，归到各自成交时刻

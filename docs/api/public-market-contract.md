@@ -2408,3 +2408,95 @@ fetch: zero Hyperliquid requests, every row `hyperliquid: null`,
 `hyperliquid_data_time: null` (design §6.3 / A9c). Both new fields are
 registered in `snapshot.schema.json` but NOT required, so pre-v0.22 fixtures
 keep validating.
+
+## Repaid Interest Valuation Amendment (v0.23, stage `2026-08-28-repaid-interest-price-v1`)
+
+Delivered 2026-08-28. Asset-denominated accumulated interest in the net-PnL
+curve (`GET /api/private-ledger/pnl-series`) and the positions view
+(`GET /api/hedge-open-positions`, `borrow_interest_usdt`) now switches between
+two valuation regimes at one local terminal event. Implementation authority:
+`backend/ledger_flow/domain.py` (`settlement_ms`, `is_terminal_repay`,
+`build_repay_match_index`, `match_interest_repay`, `interest_usdt_value` — the
+single conversion authority both consumers share), `backend/ledger_flow/service.py`
+(`sum_interest_usdt_by_asset`), `backend/app/server.py`
+(`_capture_repay_spot_bid`, repayment write path), `backend/margin_repay/store.py`
+(two new columns, `list_records`). Coin-denominated interest totals
+(`borrow_interest`, `close_log` `borrow_interest`) are unchanged; the frontend
+wire shape is unchanged (a missing price still surfaces through
+`unpriced_assets` → 「暂无 / 成本不全」).
+
+### The terminal convention (Human-decided, NOT proof of exchange debt zero)
+
+Before any local terminal event, ALL interest rows of an asset are
+**open/dynamic**: they convert at the current cached spot bid
+(`opening_quotes.spot_bid_price`, `status="fresh"`) and re-value as the price
+moves. The ONLY terminal event is a local asset-card repayment whose stored
+intent is exactly `amount == "0"` (repay-all) AND whose strict conclusion is
+`status == "succeeded"`. At that event, interest rows accrued BEFORE the
+settlement instant switch once to the stored price captured by that repayment
+and stay fixed; post-terminal re-borrowed interest is dynamic again until the
+next terminal.
+
+This `0 + succeeded` rule is a **Human product convention, not evidence that
+the exchange-side debt is zero**. The stored response contains no
+remaining-debt field, and this contract claims no exchange-side fact from it.
+Non-zero partial repayments and `pending` / `unknown` / `failed` conclusions
+never lock a price. Settlement instant = stored `update_time` when parseable,
+else `updated_at_us // 1000` (both are stored local facts; the fallback is a
+field-availability choice, not an inference). Within an asset, terminal
+records order deterministically by `(settlement_ms, client_request_id)`, and
+each interest row matches the FIRST terminal at or after its accrual time.
+
+### New `margin_repay` columns and the two source values
+
+The `margin_repay` table (and every repayment response document) gains two
+nullable TEXT columns, added idempotently for old and new databases:
+
+| field | meaning |
+|---|---|
+| `repay_price_usdt` | the captured conversion price (spot bid string) for a terminal repayment; `null` when capture failed or the record is not terminal |
+| `repay_price_source` | free TEXT naming how the price got there |
+
+`repay_price_source` is deliberately free TEXT with **no CHECK constraint and
+no closed enum**, so two write paths stay distinguishable:
+
+- `snapshot_spot_bid_at_capture` — the ONLY value the normal automatic path
+  writes (together with the price; both `null` on capture failure). It is the
+  spot bid present in the in-memory published snapshot at the moment the
+  repayment response returned. It is **not** the exchange's actual repayment
+  conversion rate, and it can lag the true repayment instant by up to the
+  freshness bound below.
+- `manual_correction` (or another auditable, automatic-distinct manual source
+  name) — reserved for separately Human-authorized historical corrections of
+  pre-existing anomalies (e.g. the STORJ row). Each such write requires its
+  own Human authorization with pre-write backup and audit trail; it is NOT
+  part of the normal program.
+
+Readers must not whitelist-filter on the source value: any non-null
+`repay_price_usdt` is consumed as-is.
+
+### Capture boundary, freshness, and fail-closed
+
+The capture is the single action between repayment dispatch and terminal
+persistence: one best-effort read of the in-memory snapshot, entirely inside
+one exception boundary, with no network request, retry, sleep, second
+observation, or cross-database read. `store.resolve()` runs outside that
+boundary exactly once regardless of capture outcome — a capture failure only
+leaves both fields `null`; it can never delay or block the `succeeded`
+conclusion.
+
+`fresh` means BOTH: the quote-pair cache age is `< 2 × cache_ttl_seconds`
+(the `Config` code default is 60 seconds, so the default bound is about 120
+seconds **only when the deployment has not overridden the setting** — the
+runtime bound is always `< 2 × configured cache_ttl_seconds`, not a fixed
+120 seconds), AND all four opening prices normalize to valid non-null values.
+So a `fresh` price has a definite staleness bound but can still lag the true
+repayment moment.
+
+Valuation is fail-closed per asset: an open row missing the current price, or
+a matched terminal row with `null`/unparseable stored price, removes that
+asset's interest from the totals, lists the asset in `unpriced_assets`, and
+masks the net figure (「暂无」/「成本不全」). The price is never assumed zero,
+never partially added, and never substituted from another regime. There is no
+automatic backfill, K-line fallback, or retry; pre-existing anomalies are
+handled only by the separately authorized manual path above.
