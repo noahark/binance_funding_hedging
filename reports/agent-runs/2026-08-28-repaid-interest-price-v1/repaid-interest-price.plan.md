@@ -1,10 +1,29 @@
-# 已还款利息按还款时价格折算 — 最小开发方案（P5 定档版）
+# 已还款利息按还款时价格折算 — 最小开发方案（P7 契约修复版）
 
 - stage: `2026-08-28-repaid-interest-price-v1`
 - author: Planner `opus5`（anthropic）；P1/P3 作者 `claude_glm`（zhipu_glm）
-- created: 2026-08-28 17:15 CST（P1）→ 18:17 CST（P3）→ **P5 定档 2026-08-28**
-- base_sha: `4e6f4909dd17eb43c08f0f393258793df24a6ec7`
-- 状态: 定档稿待 P6 只读计划复评（`gpt-5.6-sol`/OpenAI）；**本文档不授权任何实现、写库或部署**。
+- created: 2026-08-28 17:15 CST（P1）→ 18:17 CST（P3）→ P5 定档 → **P7 契约修复 2026-08-28**
+- P5 定档 SHA: `4e3fba75a64326a2b57bfe4727b010e7988fef83`（P6 受审对象）
+- 本轮 base_sha: `e93af61630e87a759d8820d33fef61789dac1dcd`
+- 状态: **P7 有界契约修复稿**；待 Bookkeeper（`gpt-5.6-sol`）封存新的固定 commit 并准备
+  新一轮独立计划复评。**本文档不授权任何实现、写库或部署。**
+
+## 0-A. P7 修订记录：F1 有界契约修复（不改架构）
+
+P6 只读复评（`evidence/P6-repaid-interest-price-plan-final-review.handoff.md`）判 `REWORK`，
+**唯一 in-range 发现 F1**，其余 R1-R3 / R5 / R7-R9 全部通过并予保留。本轮**只做 F1 要求的
+三处文字契约修复**，不触碰架构、算法、schema 列数、文件边界、测试机制、STORJ 操作路径与
+§4 同根因扫描拓扑。
+
+| # | F1 子项 | 修改位置 | 本轮处置 |
+|---|---|---|---|
+| 1 | `fresh` 语义误述 | §3.2-5、§9 对照表 | 改为源码可证契约：缓存年龄 `< 2 * cache_ttl_seconds` **且**四价归一后非 None；有时效上界但仍可能滞后；非成交汇率 |
+| 2 | `repay_price_source` 双定义冲突 | §3.4（新增来源契约表）、§3.2-5、§7、§5 | 统一为**单一自由 TEXT 契约**：正常自动路径只写 `snapshot_spot_bid_at_capture` 或 NULL；单独授权的人工修正可写 `manual_correction`；**明令禁止** `CHECK` 或封闭枚举 |
+| 3 | 零字符串措辞不准 | §3.1、§6 T9 | 改为两层事实：正常 API 入口已拒绝 `"0.0"`/`"0.00"`/`"00"`；异常存量值由 matcher 按非终态处理。**终态谓词与 T9 结论不变** |
+
+**P5 的一处自陈错误**：§3.2-5 原写「`fresh` 仅表示四价齐全、无时效含义」，是只读了
+`snapshot.py:805-812` 的 `four_valid` 分支、漏看该分支只在 `usable`（`< 2*ttl`）为真时
+才到达所致。本轮已按完整链路更正。
 
 ## 0. P5 修订记录：从「证明归零」退到「Human 约定终态」
 
@@ -82,8 +101,12 @@ is_terminal(record) := record["amount"] == "0" AND record["status"] == "succeede
 
 - 两个输入都是**本地已存储的确定值**：`amount` 是建单时写入的请求意图，
   `status` 是既有严格终态。**不读响应体推断、不查余额、不看利息行有无。**
-- 字符串精确比较 `== "0"`，不做数值归一（`"0.0"` / `"0.00"` 不是 repay-all 意图，
-  它们是数量为零的异常输入，按非零部分还款处理即不锁价）。由测试固定该边界。
+- 字符串精确比较 `== "0"`，不做数值归一。**两层事实（P7 更正）**：
+  ① **正常 API 已在入口拒绝** `"0.0"` / `"0.00"` / `"00"`——
+  `_parse_margin_repay_request`（`server.py:224-270`）只接受精确 `"0"`（全部）或
+  `Decimal(amount) > 0` 的正数，其余一律 400，故这些值**不可能经正常路径入库**；
+  ② 若**异常存量库**中存在此类历史值，纯 matcher 按**非终态**处理（不等于 `"0"`），
+  该资产利息保持开放暂估。由测试固定该边界。
 - **本谓词是 Human 产品约定**。计划、代码注释、文档三处均须如实表述为
   「Human 约定的终态」，**不得**写成「债务已归零」「已结清」或任何交易所侧事实主张。
 
@@ -121,9 +144,20 @@ is_terminal(record) := record["amount"] == "0" AND record["status"] == "succeede
 4. **仅当** `is_terminal` 成立（`amount=="0"` 且 `status=="succeeded"`）才取价并写列；
    非零部分还款与非 succeeded 终态一律不取价、两列保持 NULL。这使缝隙内动作的触发
    面进一步收窄。
-5. **如实命名**：`repay_price_source = "snapshot_spot_bid_at_capture"`——捕获时刻内存
-   快照里的现货买一价，可能滞后于真实还款时刻（`fresh` 仅表示四价齐全，
-   `backend/domain/snapshot.py:806-812`，无时效含义）。它**不是**币安还款成交汇率。
+5. **如实命名**：正常自动写路径的 `repay_price_source` 只写
+   `"snapshot_spot_bid_at_capture"`（取价失败则与价格一同为 NULL），不写其他值——它是
+   捕获时刻内存快照里的现货买一价。
+
+   **`fresh` 的源码可证契约（P7 更正）**：该状态**同时**要求
+   ① 报价对缓存年龄 `< 2 * cache_ttl_seconds`
+   （`snapshot_service.py:596-607` 的 `usable = (now - success_ts) < 2 * ttl`；
+   当前 `cache_ttl_seconds = 60`，故上界约 120 秒），
+   ② 四个价格经 `_opening_price` 归一后均非 None（无效与零已在该函数内转为 None，
+   `snapshot.py:783-812`）。`usable` 为假时状态是 `stale` / `unavailable`，不是 `fresh`。
+   **所以 `fresh` 有明确的时效上界，但仍可能滞后于真实还款时刻**（滞后量最大接近
+   `2 * cache_ttl_seconds`），且**绝不是**币安还款的真实成交汇率。
+   （P5 曾误述为「仅表示四价齐全、无时效含义」：那是只读了 `snapshot.py:805-812` 的
+   `four_valid` 分支、漏看该分支只在 `usable` 为真时才到达。）
 
 **NULL 的处置**：终态行价格为 NULL → 该资产利息按 §1.7 fail-closed 遮蔽。
 **不设自动回补**：无 K 线脚本、无重试、无二次观测。存量异常走 §7 人工路径。
@@ -171,8 +205,21 @@ def interest_usdt_value(interest_amount, asset, matched, price_map) -> Optional[
 
 ```sql
 ALTER TABLE margin_repay ADD COLUMN repay_price_usdt   TEXT;  -- 捕获的折算价
-ALTER TABLE margin_repay ADD COLUMN repay_price_source TEXT;  -- 恒为 snapshot_spot_bid_at_capture 或 NULL
+ALTER TABLE margin_repay ADD COLUMN repay_price_source TEXT;  -- 自由 TEXT，见下方来源契约，不设 CHECK
 ```
+
+**`repay_price_source` 单一契约（P7 收敛，消除 §3.4 与 §7 的双定义）**：该列是**自由 TEXT**，
+按写入路径划分允许值——
+
+| 写入路径 | 允许值 | 授权 |
+|---|---|---|
+| **正常自动写路径**（§3.2） | 只写 `snapshot_spot_bid_at_capture`；取价失败写 NULL | 本方案实现范围内 |
+| **历史人工修正**（§7） | `manual_correction`（或其他可审计、与自动值可区分的人工来源名） | **每次单独 Human 授权**，不在本方案实现范围内 |
+
+- **禁止**为该列设置数据库 `CHECK` 约束或封闭枚举校验——那会让 §7 的人工修正值被数据库
+  拒绝，或使后续审计无法区分自动捕获与人工修正。
+- 读取侧只做「非 NULL 即取 `repay_price_usdt`」，**不对来源值做白名单判定**。
+- API 文档（§5）须**同时**说明这两个来源值及其区别，不得只写自动值。
 
 - 迁移幂等：`MarginRepayStore.__init__` 建表后按 `PRAGMA table_info(margin_repay)` 逐列
   检查、缺则 `ALTER ADD`（新库直接建全列），与 `backend/hedge_open_tasks/store.py:498`
@@ -250,7 +297,7 @@ ALTER TABLE margin_repay ADD COLUMN repay_price_source TEXT;  -- 恒为 snapshot
 | `backend/tests/test_ledger_flow_domain.py` | §6 匹配/折算/曲线用例 |
 | `backend/tests/test_ledger_flow_service.py` | 新 service 方法用例 |
 | `backend/tests/test_margin_repay.py` | 取价捕获/异常隔离/条件触发/迁移幂等/响应键 |
-| `docs/api/public-market-contract.md` | additive amendment：双口径折算、终态约定（含「非交易所证明」的明确表述）、2 新列、来源语义、fail-closed |
+| `docs/api/public-market-contract.md` | additive amendment：双口径折算、终态约定（含「非交易所证明」的明确表述）、2 新列、**两个来源值（自动 `snapshot_spot_bid_at_capture` / 人工 `manual_correction`）及其区别**、`fresh` 的源码可证语义、fail-closed |
 
 **不新建任何脚本文件。** 前端 `frontend/index.html` / `frontend/self-check.js`
 **预期零改动**：wire 形状不变（缺价仍走 `unpriced_assets` → 「成本不全」遮蔽 + 点名）。
@@ -270,7 +317,7 @@ ALTER TABLE margin_repay ADD COLUMN repay_price_source TEXT;  -- 恒为 snapshot
 | T6 | 终态排序与同毫秒 tie-break | 同 `settlement_ms` 多条按 `client_request_id` 确定；`update_time` 缺失时回退 `updated_at_us//1000` |
 | T7 | 两消费者一致 | 同一 `(interest_rows, repay_records, price_map)` 下曲线与持仓的利息折算值逐位相等 |
 | T8 | additive 迁移幂等 | 旧库 `__init__` 两次 → 列各一份、旧行新列 NULL、旧读路径不受影响 |
-| T9 | 终态谓词边界 | `"0.0"` / `"0.00"` / `""` / `None` 均**不**构成终态；仅精确 `"0"` 且 succeeded 构成 |
+| T9 | 终态谓词边界（matcher 层） | `"0.0"` / `"0.00"` / `"00"` / `""` / `None` 均**不**构成终态；仅精确 `"0"` 且 succeeded 构成。**结论与 P5 一致**；本用例测的是 matcher 对异常存量值的处理，正常 API 已在入口拒绝前三者（§3.1） |
 | T10 | 非终态不取价 | 非零部分还款与 `failed`/`unknown` 记录：两列恒 NULL，取价函数**未被调用** |
 
 **不存在**任何仅为已删除推断机制服务的测试脚手架（P3 测试 8/16 中依赖
@@ -290,7 +337,8 @@ STORJ 那条历史利息行在本方案下的正常表现是：其后的 `0 + su
 3. 独立选定历史价格（人工在交易所或行情源查证），记录来源与取值时刻。
 4. 直接 `UPDATE` 该行的 `repay_price_usdt`，并写入**区别于正常来源**的
    `repay_price_source`（例如 `manual_correction`），使其在数据上永远可与
-   `snapshot_spot_bid_at_capture` 区分。
+   `snapshot_spot_bid_at_capture` 区分。该值由 §3.4 来源契约**显式允许**——该列是自由
+   TEXT、不设 `CHECK` 或封闭枚举，正是为了让这条人工路径可写且可审计。
 5. 回读校验：重新查询该行确认写入值，并确认曲线/持仓两处折算结果符合预期。
 6. 审计留证：操作时间、执行人、SQL 原文、前后值、备份路径一并归档。
 
@@ -312,8 +360,9 @@ STORJ 那条历史利息行在本方案下的正常表现是：其后的 `0 + su
 | P2 F1 结清表述与证据相反 | 整条「证明归零」设计线删除；终态改为 Human 约定并四处如实表述（§1.3/§3.1/A9） |
 | P2 F2 捕获插在写路径无异常保护 | §3.2 硬约束 1-3；缝隙内动作降至 1 个（§4.2 B3） |
 | P2 F3 回退结算时刻字段不可达 | §3.4 `list_records()` 外加 `updated_at_us` |
-| P2 F4 价格定义强于代码可证语义 | §3.2-5 `snapshot_spot_bid_at_capture`，明示 `fresh` 无时效含义 |
+| P2 F4 价格定义强于代码可证语义 | §3.2-5 `snapshot_spot_bid_at_capture`；`fresh` 语义经 P7 更正为源码可证的「缓存年龄 `< 2*ttl` **且**四价归一后非 None」——有时效上界，但仍可能滞后 |
 | P4 F5 签名 GET 插进资金缝隙 | **删除该观测**（§0、§4.2 B2），非缩短超时 |
 | P4 F6 账本无行当无计息、缺覆盖闸门 | **删除整个回补推定**（§0、§4.1 A5），闸门随之无需存在 |
 | P4 F7 推定被表述为可确认、判定点不分推定与观测 | **删除 `debt_cleared()`**（§4.1 A2）；新谓词仅读本地存储意图，无推定成分 |
 | P4 §四 同根因刹车 | §4 两个家族各一次穷举扫描，含已删站点与清单外不适用理由 |
+| P6 F1 价格来源契约的源码误述与内部冲突 | §0-A 三项有界修复：`fresh` 源码可证语义、`repay_price_source` 单一自由 TEXT 契约（禁 CHECK/封闭枚举）、零字符串两层事实。**架构、算法、schema、测试机制、STORJ 路径、§4 扫描拓扑均未改动**；R1-R3/R5/R7-R9 保持满足 |
