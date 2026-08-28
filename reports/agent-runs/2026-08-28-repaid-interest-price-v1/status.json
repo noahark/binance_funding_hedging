@@ -1,25 +1,25 @@
 {
   "schema_version": "2",
-  "revision": 5,
+  "revision": 6,
   "stage_id": "2026-08-28-repaid-interest-price-v1",
   "bookkeeper": "gpt-5.6-sol",
   "bookkeeper_label": "codex",
   "phase": "plan-review",
-  "checkpoint": "human-full-repayment-terminal-confirmed-p2-errata-authorized",
+  "checkpoint": "p2-rework-verified-f1-decided-awaiting-f2",
   "base_sha": "4e6f4909dd17eb43c08f0f393258793df24a6ec7",
   "delivery_sha": null,
-  "ledger_sha": "30f9ce0b16d1779dcdbd1c606966cbd63587bb9b",
+  "ledger_sha": "d41f843615398122fdefb525b002543703cac209",
   "current_task": {
     "id": "P2-repaid-interest-price-plan-review",
-    "state": "reported",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-08-28-repaid-interest-price-v1/P2-repaid-interest-price-plan-review.dispatch.md"
   },
   "next": {
-    "actor": "claude-review",
-    "action": "append-p2-handoff-format-errata-and-return-receipt"
+    "actor": "human_operator",
+    "action": "decide-f2-repayment-price-capture-path"
   },
   "rework_count": 0,
   "blockers": [
-    "P2_HANDOFF_HUMAN_BRIEF_MALFORMED: handoff Human Brief 缺少 TASK_RESULT v2 起止标记；须由原 Reviewer 仅追加格式勘误后重新核验"
+    "HUMAN_DECISION_F2_REPAY_PRICE_CAPTURE: 选择还款成功后异常隔离的快照捕获，或完全移出资金写路径并由幂等历史 K 线任务补价"
   ]
 }
