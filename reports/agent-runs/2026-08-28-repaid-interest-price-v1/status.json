@@ -1,18 +1,18 @@
 {
   "schema_version": "2",
-  "revision": 12,
+  "revision": 13,
   "stage_id": "2026-08-28-repaid-interest-price-v1",
   "bookkeeper": "gpt-5.6-sol",
   "bookkeeper_label": "codex",
   "phase": "planning",
-  "checkpoint": "p5-plan-verified-p6-ready",
+  "checkpoint": "p6-rework-verified-p7-ready",
   "base_sha": "e93af61630e87a759d8820d33fef61789dac1dcd",
   "delivery_sha": "4e3fba75a64326a2b57bfe4727b010e7988fef83",
-  "ledger_sha": "51d41cdcc002e839706e74a673b78534c7740e3b",
+  "ledger_sha": "52aa06a5b71de7dd6e717bc930ae2e234b03d074",
   "current_task": {
-    "id": "P6-repaid-interest-price-plan-final-review",
+    "id": "P7-repaid-interest-price-plan-contract-repair",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-28-repaid-interest-price-v1/P6-repaid-interest-price-plan-final-review.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-08-28-repaid-interest-price-v1/P7-repaid-interest-price-plan-contract-repair.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
