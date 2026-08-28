@@ -10,12 +10,14 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   本机 Surge 把域名解析到 Fake-IP `198.18.4.254`，但强制直连真实 IP 后仍是 TLS/HTTP 超时；独立
   Check-Host 节点从新加坡、欧洲、中东、美国和越南访问 HTTP/HTTPS 也统一约 25 秒超时，排除“仅
   本机代理”与“日本距离稍慢”作为完整解释。独立节点到 `18.182.23.47:443` 的 TCP 建连正常（新加坡
-  约 75ms，欧洲约 220–280ms），ICMP 也可达；本机连接 22 端口成功但 SSH banner 超时。当前证据只
-  能确认实例内核/入口仍接收连接，而 Caddy、sshd 等用户态未及时响应，常见原因是 CPU、内存或 I/O
-  资源耗尽；因 SSH 不可用，尚无主机指标、内核日志或容器状态证据可确定根因。最后一次已验证健康是
-  部署后 `2026-08-28 00:37 CST`：镜像 `7a3bd41`、health/ready 200。未获本轮实例重启授权，未执行
-  AWS 重启。注意 systemd 服务为 enabled 且全部实盘闸门此前已开启，控制台重启会自动恢复服务与
-  Human 授权任务；执行前必须由 Human 明确决定，恢复后先查资源/上次启动日志和任务/资金状态。
+  约 75ms，欧洲约 220–280ms），ICMP 也可达；本机连接 22 端口成功但 SSH banner 超时。SSH 于
+  `10:29 CST` 自动恢复后已确认根因是 t4g.micro 全局 OOM：主机只有 921MiB、无 swap，应用 Python
+  在 `02:27:57Z` 与 `02:28:09Z` 两次以约 630MiB 匿名内存被内核杀死（exit 137），systemd 随后
+  自动拉起。故障时 load average 最高读到 `9.43/29.81/20.09`；恢复后应用仍占约 474–482MiB，整机
+  available 约 147MiB，容器无 memory limit，存在再次 OOM 风险。三项平滑平仓任务在首次 OOM 前约
+  11 分钟创建，恢复后其中 XVG/SHELL 两项仍 running、INJ 已 done；该时间相关性不是内存根因证明，
+  未停止任务或改动任何闸门。当前本机与公网 health 均为 200（公网约 0.24s），HTTPS 已恢复。未获
+  本轮重启、增配、加 swap、限制容器或停止实盘任务授权，均未执行；后续处置必须先由 Human 决定。
 
 - **[SECURITY][2026-08-27] 云端访问边界：一个进程只加载一份 `.env` 和一组页面登录凭证。**
   `APP_UI_USERNAME` + `APP_UI_PASSWORD` 使用标准库 HTTP Basic 保护静态页面和全部业务 API；
