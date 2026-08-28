@@ -6,13 +6,24 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-28)
 
+- **[LIVE INCIDENT][2026-08-28 10:28 CST] AWS 主机端口可建立 TCP，但 HTTP/HTTPS/SSH 均无应用层响应。**
+  本机 Surge 把域名解析到 Fake-IP `198.18.4.254`，但强制直连真实 IP 后仍是 TLS/HTTP 超时；独立
+  Check-Host 节点从新加坡、欧洲、中东、美国和越南访问 HTTP/HTTPS 也统一约 25 秒超时，排除“仅
+  本机代理”与“日本距离稍慢”作为完整解释。独立节点到 `18.182.23.47:443` 的 TCP 建连正常（新加坡
+  约 75ms，欧洲约 220–280ms），ICMP 也可达；本机连接 22 端口成功但 SSH banner 超时。当前证据只
+  能确认实例内核/入口仍接收连接，而 Caddy、sshd 等用户态未及时响应，常见原因是 CPU、内存或 I/O
+  资源耗尽；因 SSH 不可用，尚无主机指标、内核日志或容器状态证据可确定根因。最后一次已验证健康是
+  部署后 `2026-08-28 00:37 CST`：镜像 `7a3bd41`、health/ready 200。未获本轮实例重启授权，未执行
+  AWS 重启。注意 systemd 服务为 enabled 且全部实盘闸门此前已开启，控制台重启会自动恢复服务与
+  Human 授权任务；执行前必须由 Human 明确决定，恢复后先查资源/上次启动日志和任务/资金状态。
+
 - **[SECURITY][2026-08-27] 云端访问边界：一个进程只加载一份 `.env` 和一组页面登录凭证。**
   `APP_UI_USERNAME` + `APP_UI_PASSWORD` 使用标准库 HTTP Basic 保护静态页面和全部业务 API；
   `/healthz`、`/readyz` 仅供云平台探活，保持无认证。非回环监听缺任一凭证即拒绝启动；公网部署
   必须由反向代理终止 HTTPS，二级域名、证书、限频和进程/数据目录隔离均由部署层承担。应用不提供
   用户库、注册、找回密码、角色或同进程账号切换。
 
-- **[DEPLOYMENT][2026-08-27] AWS 日本节点 `18.182.23.47` 已部署提交 `3487820`。**
+- **[DEPLOYMENT][2026-08-27] AWS 日本节点 `18.182.23.47` 已部署提交 `7a3bd41`。**
   Amazon Linux 2 宿主通过 Docker/systemd 运行 Python 3.11 镜像；服务 `active` + `enabled`，
   `/healthz`、`/readyz` 均为 200。部署身份固定为 `env_aoke`：root:root `0600` 配置位于
   `/etc/funding-hedging/env_aoke`，独立数据位于 `/var/lib/funding-hedging/env_aoke/data`；后续每台
