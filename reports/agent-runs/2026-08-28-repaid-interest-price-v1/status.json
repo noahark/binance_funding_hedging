@@ -1,23 +1,25 @@
 {
   "schema_version": "2",
-  "revision": 8,
+  "revision": 9,
   "stage_id": "2026-08-28-repaid-interest-price-v1",
   "bookkeeper": "gpt-5.6-sol",
   "bookkeeper_label": "codex",
   "phase": "plan-review",
-  "checkpoint": "p3-plan-revision-verified-p4-ready",
+  "checkpoint": "p4-rework-verified-awaiting-zero-observation-decision",
   "base_sha": "4e6f4909dd17eb43c08f0f393258793df24a6ec7",
   "delivery_sha": null,
-  "ledger_sha": "a532b3fceb4c41e9e6cebf08a089204618c237d8",
+  "ledger_sha": "23a92ddc76abe2e896c07d973b5316062968835d",
   "current_task": {
     "id": "P4-repaid-interest-price-plan-rereview",
-    "state": "dispatched",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-08-28-repaid-interest-price-v1/P4-repaid-interest-price-plan-rereview.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-task"
+    "action": "decide-realtime-zero-observation-path"
   },
   "rework_count": 0,
-  "blockers": []
+  "blockers": [
+    "HUMAN_DECISION_REALTIME_ZERO_OBSERVATION: 完全取消还款当下的余额归零观测，或保留但移到 store.resolve 之后以 NULL-only 条件补写"
+  ]
 }
