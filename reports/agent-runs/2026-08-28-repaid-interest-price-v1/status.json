@@ -1,25 +1,23 @@
 {
   "schema_version": "2",
-  "revision": 6,
+  "revision": 7,
   "stage_id": "2026-08-28-repaid-interest-price-v1",
   "bookkeeper": "gpt-5.6-sol",
   "bookkeeper_label": "codex",
-  "phase": "plan-review",
-  "checkpoint": "p2-rework-verified-f1-decided-awaiting-f2",
+  "phase": "planning",
+  "checkpoint": "human-f2-guarded-snapshot-confirmed-p3-ready",
   "base_sha": "4e6f4909dd17eb43c08f0f393258793df24a6ec7",
   "delivery_sha": null,
-  "ledger_sha": "d41f843615398122fdefb525b002543703cac209",
+  "ledger_sha": "8a191be1b99e1d65fed5ea79f78e49eda4c96b38",
   "current_task": {
-    "id": "P2-repaid-interest-price-plan-review",
-    "state": "verified",
-    "dispatch": "reports/agent-runs/2026-08-28-repaid-interest-price-v1/P2-repaid-interest-price-plan-review.dispatch.md"
+    "id": "P3-repaid-interest-price-plan-revision",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-08-28-repaid-interest-price-v1/P3-repaid-interest-price-plan-revision.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "decide-f2-repayment-price-capture-path"
+    "action": "start-prepared-task"
   },
   "rework_count": 0,
-  "blockers": [
-    "HUMAN_DECISION_F2_REPAY_PRICE_CAPTURE: 选择还款成功后异常隔离的快照捕获，或完全移出资金写路径并由幂等历史 K 线任务补价"
-  ]
+  "blockers": []
 }
