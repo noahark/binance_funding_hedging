@@ -20,7 +20,11 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   锁价**；只要该资产仍有借款持仓/未偿余额，相关历史利息的 USDT 成本全部继续按当前价动态计算，
   只有可确认借款完全归零时，才按该次完全还款时价格切换为终态固定成本。此前部分还款如何在
   交易所内部归集不作为终态证据。活动 stage：
-  `reports/agent-runs/2026-08-28-repaid-interest-price-v1/`。
+  `reports/agent-runs/2026-08-28-repaid-interest-price-v1/`。Human 于 `2026-08-28 18:07 CST`
+  选择还款时取价路径 A：成功还款返回后立即读取内存行情快照的现货买一价，接受顺时内微小价差；
+  取价整体必须异常隔离，任何未就绪或其他异常只能留下缺价，**绝不能阻断还款成功终态落库**。
+  该值的准确名称是「捕获时刻快照买一价」，不宣称为交易所真实还款成交汇率；缺价仍 fail-closed，
+  并由幂等历史 K 线回补路径恢复。
 
 - **[DEPLOYMENT][2026-08-28 13:20 CST] 生产镜像已升到 `funding-hedging:5021c73`，部署通道固化为
   `scripts/deploy.sh`。** 线上 `47.240.168.162` / `https://aoke.kengbi.pro`，systemd 双单元
