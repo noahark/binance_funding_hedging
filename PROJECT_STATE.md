@@ -31,6 +31,10 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   K 线回补或兜底引擎，后续以单独 Human 授权、写前备份和审计留痕的人工数据库修正归档。
   Human 于 `2026-08-28 21:10 CST` 调整本阶段分工：`opus5`/Anthropic 负责把开发方案定档并准备
   跨 provider 只读计划评审；`claude_glm`/Zhipu 只在定档计划通过后按派单实现，不承担方案定稿。
+  Human 于 `2026-08-28 22:51 CST` 要求停止继续循环计划复评：由 Bookkeeper 直接把 P8 唯一
+  遗留措辞改为「60 秒是代码默认、实际阈值按部署配置的 `2 × TTL` 计算」，并立即启动
+  `claude_glm` 实现。该决定豁免剩余计划复评，不豁免实现后的 Review-1/Review-2，也不授权部署
+  或 STORJ 人工数据库修正。
 
 - **[DEPLOYMENT][2026-08-28 13:20 CST] 生产镜像已升到 `funding-hedging:5021c73`，部署通道固化为
   `scripts/deploy.sh`。** 线上 `47.240.168.162` / `https://aoke.kengbi.pro`，systemd 双单元

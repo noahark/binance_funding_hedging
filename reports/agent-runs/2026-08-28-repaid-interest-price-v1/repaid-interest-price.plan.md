@@ -4,9 +4,9 @@
 - author: Planner `opus5`（anthropic）；P1/P3 作者 `claude_glm`（zhipu_glm）
 - created: 2026-08-28 17:15 CST（P1）→ 18:17 CST（P3）→ P5 定档 → **P7 契约修复 2026-08-28**
 - P5 定档 SHA: `4e3fba75a64326a2b57bfe4727b010e7988fef83`（P6 受审对象）
-- 本轮 base_sha: `e93af61630e87a759d8820d33fef61789dac1dcd`
-- 状态: **P7 有界契约修复稿**；待 Bookkeeper（`gpt-5.6-sol`）封存新的固定 commit 并准备
-  新一轮独立计划复评。**本文档不授权任何实现、写库或部署。**
+- P7 契约修复 SHA: `34ad78db1929716d5860067821b6b349500ac6e7`
+- 状态: Human 于 2026-08-28 22:51 CST 要求直接修正 P8 唯一措辞发现并启动开发，豁免剩余
+  计划复评；**只授权按本文档实现，不授权写生产库或部署。**
 
 ## 0-A. P7 修订记录：F1 有界契约修复（不改架构）
 
@@ -151,7 +151,8 @@ is_terminal(record) := record["amount"] == "0" AND record["status"] == "succeede
    **`fresh` 的源码可证契约（P7 更正）**：该状态**同时**要求
    ① 报价对缓存年龄 `< 2 * cache_ttl_seconds`
    （`snapshot_service.py:596-607` 的 `usable = (now - success_ts) < 2 * ttl`；
-   当前 `cache_ttl_seconds = 60`，故上界约 120 秒），
+   `Config` 的**代码默认值**是 60 秒，只有部署未覆盖该配置时默认阈值才约为 120 秒；
+   实际运行阈值始终是 `< 2 * configured cache_ttl_seconds`，本文档未核实任何部署的配置值），
    ② 四个价格经 `_opening_price` 归一后均非 None（无效与零已在该函数内转为 None，
    `snapshot.py:783-812`）。`usable` 为假时状态是 `stale` / `unavailable`，不是 `fresh`。
    **所以 `fresh` 有明确的时效上界，但仍可能滞后于真实还款时刻**（滞后量最大接近
@@ -297,7 +298,7 @@ ALTER TABLE margin_repay ADD COLUMN repay_price_source TEXT;  -- 自由 TEXT，�
 | `backend/tests/test_ledger_flow_domain.py` | §6 匹配/折算/曲线用例 |
 | `backend/tests/test_ledger_flow_service.py` | 新 service 方法用例 |
 | `backend/tests/test_margin_repay.py` | 取价捕获/异常隔离/条件触发/迁移幂等/响应键 |
-| `docs/api/public-market-contract.md` | additive amendment：双口径折算、终态约定（含「非交易所证明」的明确表述）、2 新列、**两个来源值（自动 `snapshot_spot_bid_at_capture` / 人工 `manual_correction`）及其区别**、`fresh` 的源码可证语义、fail-closed |
+| `docs/api/public-market-contract.md` | additive amendment：双口径折算、终态约定（含「非交易所证明」的明确表述）、2 新列、**两个来源值（自动 `snapshot_spot_bid_at_capture` / 人工 `manual_correction`）及其区别**、`fresh` 的参数化时效语义（不得把默认 120 秒写成运行时保证）、fail-closed |
 
 **不新建任何脚本文件。** 前端 `frontend/index.html` / `frontend/self-check.js`
 **预期零改动**：wire 形状不变（缺价仍走 `unpriced_assets` → 「成本不全」遮蔽 + 点名）。
