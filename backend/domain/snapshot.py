@@ -108,10 +108,24 @@ _HL_DEX_ALLOWED_CONTRACT_TYPE = {
 }
 
 
+def hl_key_for(dex: str, base_asset: str) -> str:
+    """币安行 -> 该行 HL 对手的完整 key（含 dex 前缀）。
+
+    可反推是因为匹配规则就是 exact：HL raw name 必须等于币安 ``baseAsset``
+    才会配上（:func:`build_hyperliquid_matches` 第 3 步）。故 ``main`` 的 key
+    就是 base_asset 本身，``xyz`` 的 key 是 ``xyz:<base_asset>``。历史拉取的
+    游标据此定位 coin，无需在 wire 上多带一个字段。
+    """
+    return f"{dex}:{base_asset}" if dex != "main" else base_asset
+
+
 def build_hyperliquid_matches(
     main_entries: List[dict],
     xyz_entries: List[dict],
     futures_symbols: List[dict],
+    *,
+    history_by_key: Optional[Dict[str, List[dict]]] = None,
+    t_end_ms: Optional[int] = None,
 ) -> Dict[str, dict]:
     """HL 条目 -> 币安行号的可配对投影（纯函数，无 IO；设计 §3/§5）。
 
@@ -148,11 +162,18 @@ def build_hyperliquid_matches(
                 funding = entry["funding"]
                 daily = compute_daily_from_hourly(funding)
                 annualized = compute_annualized_funding_24h(daily)
+                # 历史派生两列（fast/hl-funding-history-24h-7d）。历史是逐标的、
+                # 独立于 main+xyz 原子组的第二维度：拉不到只让这两格为 null，
+                # 前四格照常——与币安侧 funding_sum_24h/annualized_7d 可为 null
+                # 的既有语义一致。窗口口径完全复用币安的两个纯函数。
+                hist = (history_by_key or {}).get(entry.get("key")) or []
                 out[sym] = {
                     "dex": dex,
                     "funding_1h": format_decimal_string(funding),
                     "daily_rate": daily,
                     "annualized_24h": annualized,
+                    "funding_sum_24h": compute_funding_sum_window(hist, t_end_ms, 1),
+                    "annualized_7d": compute_annualized_funding_window(hist, t_end_ms, 7),
                 }
     return out
 

@@ -3551,19 +3551,26 @@
       // 结算时间第二行固定「每小时」，不显示时刻（D1/A11：错拍是必须看见的事实）。
       function hlSublines(row) {
         if (!state.filters.showHl) {
-          return { rate: '', time: '', daily: '', ann24: '' };
+          return { rate: '', time: '', daily: '', sum24: '', ann24: '', ann7: '' };
         }
         const hl = row.hyperliquid;
         if (!hl) {
           const dash = '<br/><span class="hl-subline small muted">—</span>';
-          return { rate: dash, time: dash, daily: dash, ann24: dash };
+          return { rate: dash, time: dash, daily: dash, sum24: dash, ann24: dash, ann7: dash };
         }
         const label = hl.dex === 'xyz' ? 'HL·xyz' : 'HL';
+        // 近 24h / 年化 7D 来自另一条逐标的的历史游标，可能尚未扫到该标的（null）。
+        // 那时只有这两格是 —，前四格照常——与币安侧同名两列可为 null 的语义一致。
+        const hist = (str, decimals) => str === null || str === undefined
+          ? `<br/><span class="hl-subline small muted">${label} —</span>`
+          : `<br/><span class="hl-subline small ${classForFundingRate(str)}">${label} ${formatFundingRateFixed(str, decimals)}</span>`;
         return {
           rate: `<br/><span class="hl-subline small ${classForFundingRate(hl.funding_1h)}">${label} ${formatFundingRateExact(hl.funding_1h)}</span>`,
           time: `<br/><span class="hl-subline small muted">${label} 每小时</span>`,
           daily: `<br/><span class="hl-subline small ${classForFundingRate(hl.daily_rate)}">${label} ${formatFundingRateFixed(hl.daily_rate, 3)}</span>`,
-          ann24: `<br/><span class="hl-subline small ${classForFundingRate(hl.annualized_24h)}">${label} ${formatFundingRateFixed(hl.annualized_24h, 2)}</span>`
+          sum24: hist(hl.funding_sum_24h, 3),
+          ann24: `<br/><span class="hl-subline small ${classForFundingRate(hl.annualized_24h)}">${label} ${formatFundingRateFixed(hl.annualized_24h, 2)}</span>`,
+          ann7: hist(hl.annualized_7d, 2)
         };
       }
 
@@ -3622,9 +3629,9 @@
             <td class="${rateClass}" title="${escapeHtml(rateTitle)}">${rateText}${hlSub.rate}</td>
             <td title="${escapeHtml(fullTime)}">${timeText}${hlSub.time}</td>
             <td class="${dailyRateClass}">${dailyRateCell}${hlSub.daily}</td>
-            <td class="${sum24Class}" title="${escapeHtml(sum24Title)}">${sum24Text}</td>
+            <td class="${sum24Class}" title="${escapeHtml(sum24Title)}">${sum24Text}${hlSub.sum24}</td>
             <td class="${ann24Class}" title="${escapeHtml(ann24Title)}">${ann24Text}${hlSub.ann24}</td>
-            <td class="${ann7Class}" title="${escapeHtml(ann7Title)}">${ann7Text}</td>
+            <td class="${ann7Class}" title="${escapeHtml(ann7Title)}">${ann7Text}${hlSub.ann7}</td>
             <td class="${ann30Class}" title="${escapeHtml(ann30Title)}">${ann30Text}</td>
             <td class="net-yield ${netClass}">${netText}${netSource}${borrowSubline}</td>
             <td>${badgeForNegativeFundingStatus(row)}${capBadge}${maxBorrowLine}<br/>${badgeForAssetTag(row.asset_tag)}</td>

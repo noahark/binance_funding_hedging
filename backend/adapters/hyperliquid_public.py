@@ -123,6 +123,47 @@ class HyperliquidPublicClient:
             )
         return out
 
+    def fetch_funding_history(self, coin: str, start_ms: int) -> List[dict]:
+        """One ``fundingHistory`` POST for a single coin -> normalized entries.
+
+        ``coin`` is the FULL HL key (``BTC`` for main, ``xyz:NVDA`` for xyz).
+        Returns ``[{"funding_time": int_ms, "funding_rate": str}, ...]`` — the
+        same shape Binance history is normalized to, so the domain-layer window
+        helpers (:func:`compute_funding_sum_window` /
+        :func:`compute_annualized_funding_window`) are reused unchanged.
+
+        Per-coin and INDEPENDENT of the atomic main+xyz group: a failure here
+        raises for THIS coin only (the caller degrades that coin's two history
+        cells to null), it never invalidates the funding-compare source. Same
+        Decimal discipline: a non-string / non-finite rate drops that entry
+        rather than poisoning the sum.
+
+        The API caps a time-range response at 500 entries; HL settles hourly, so
+        one call covers 20.8 days — enough for BOTH the 24h and 7D windows
+        (probe 2026-08-28: 24 entries for a 1-day start, 168 for 7 days).
+        """
+        payload = self._http_post_json(
+            {"type": "fundingHistory", "coin": coin, "startTime": int(start_ms)}
+        )
+        self._bump("POST /info fundingHistory")
+        if not isinstance(payload, list):
+            raise ValueError("fundingHistory payload must be a list")
+        out: List[dict] = []
+        for entry in payload:
+            if not isinstance(entry, dict):
+                continue
+            rate = entry.get("fundingRate")
+            t = entry.get("time")
+            if not isinstance(rate, str) or rate == "" or not isinstance(t, int):
+                continue
+            try:
+                if not Decimal(rate).is_finite():
+                    continue
+            except (InvalidOperation, ValueError, TypeError):
+                continue
+            out.append({"funding_time": t, "funding_rate": rate})
+        return out
+
     def fetch_funding_compare(self) -> dict:
         """Atomic main+xyz group: ``{"main": [...], "xyz": [...]}`` or raises.
 
