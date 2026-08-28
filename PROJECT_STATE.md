@@ -15,9 +15,18 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   在 `02:27:57Z` 与 `02:28:09Z` 两次以约 630MiB 匿名内存被内核杀死（exit 137），systemd 随后
   自动拉起。故障时 load average 最高读到 `9.43/29.81/20.09`；恢复后应用仍占约 474–482MiB，整机
   available 约 147MiB，容器无 memory limit，存在再次 OOM 风险。三项平滑平仓任务在首次 OOM 前约
-  11 分钟创建，恢复后其中 XVG/SHELL 两项仍 running、INJ 已 done；该时间相关性不是内存根因证明，
-  未停止任务或改动任何闸门。当前本机与公网 health 均为 200（公网约 0.24s），HTTPS 已恢复。未获
-  本轮重启、增配、加 swap、限制容器或停止实盘任务授权，均未执行；后续处置必须先由 Human 决定。
+  11 分钟创建，恢复后其中 XVG/SHELL 两项仍 running、INJ 已 done；该时间相关性不是内存根因证明。
+  Human 随后决定迁移机器并授权停止本实例应用，当前停机状态见下一条；未增配、加 swap 或限制容器。
+
+- **[DEPLOYMENT STOPPED][2026-08-28 10:40 CST] Human 已要求停止 AWS 日本节点应用以迁移机器。**
+  停止前仅 SHELLUSDT 平滑平仓任务 `f44048f4-68df-4666-8dc1-57f8279e9ce9` 仍为 `running`
+  （成功 3、失败 0），数据库中所有 running 任务均无非终态订单腿。已执行
+  `systemctl disable --now funding-hedging` 并清除 failed 标记；最终状态 `inactive` + `disabled`，
+  8787 无监听，应用容器已退出。Python 未在 20 秒 stop timeout 内自行退出，Docker 最终 SIGKILL，
+  应用容器 exit 137、`OOMKilled=false`；因停止前无在途腿，本次停止没有制造未知订单。专用 Caddy
+  容器也以 exit 0 退出，公网入口已关闭。释放后主机 available memory 从约 128MiB 回升至 633MiB。
+  SQLite 中 SHELL 任务状态仍是 `running`；把数据部署到新机器前必须由 Human 决定是否让启动恢复
+  继续该任务，模型不得默认启动。服务器上的 FMZ `robot` 进程未触碰。
 
 - **[SECURITY][2026-08-27] 云端访问边界：一个进程只加载一份 `.env` 和一组页面登录凭证。**
   `APP_UI_USERNAME` + `APP_UI_PASSWORD` 使用标准库 HTTP Basic 保护静态页面和全部业务 API；
@@ -25,9 +34,9 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   必须由反向代理终止 HTTPS，二级域名、证书、限频和进程/数据目录隔离均由部署层承担。应用不提供
   用户库、注册、找回密码、角色或同进程账号切换。
 
-- **[DEPLOYMENT][2026-08-27] AWS 日本节点 `18.182.23.47` 已部署提交 `7a3bd41`。**
-  Amazon Linux 2 宿主通过 Docker/systemd 运行 Python 3.11 镜像；服务 `active` + `enabled`，
-  `/healthz`、`/readyz` 均为 200。部署身份固定为 `env_aoke`：root:root `0600` 配置位于
+- **[DEPLOYMENT][2026-08-27] AWS 日本节点 `18.182.23.47` 曾部署提交 `7a3bd41`，现已停止。**
+  Amazon Linux 2 宿主通过 Docker/systemd 运行 Python 3.11 镜像；停止前 `/healthz`、`/readyz`
+  均为 200，当前服务状态以上方 `DEPLOYMENT STOPPED` 为准。部署身份固定为 `env_aoke`：root:root `0600` 配置位于
   `/etc/funding-hedging/env_aoke`，独立数据位于 `/var/lib/funding-hedging/env_aoke/data`；后续每台
   机器仍只运行一个具名配置。2026-08-27 已在本地停服后迁移完整 `.env` 和 `data/`，5 个主库
   `quick_check=ok`，10 个关键表行数逐项一致，云端私有账户读取 `verified=true`。Human 随后明确授权
@@ -35,19 +44,12 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   `APP_MARGIN_REPAY_ENABLED=true`，借币全局 `execution_enabled=true/can_execute=true`，开仓与平仓闸门
   均为 `true`；借币、下单、划转和还款现在都具备真实交易所写入能力。切换前配置备份为
   `/var/lib/funding-hedging/backups/env_aoke.pre-all-live-20260827T154905Z`。
-  `https://aoke.kengbi.pro` 的 Caddy/Let's Encrypt 公网代理为 `active` + `enabled`，8787 始终只
-  绑定 `127.0.0.1`。Human 明确说明这是测试账号并选择保留当前弱 UI 密码，以降低登录摩擦；已知
+  `https://aoke.kengbi.pro` 曾由 Caddy/Let's Encrypt 提供公网代理，8787 始终只绑定
+  `127.0.0.1`；当前代理已随本次迁移停机。Human 明确说明这是测试账号并选择保留当前弱 UI 密码，以降低登录摩擦；已知
   影响现已扩大为猜中密码者可调用所有真实资金/订单 API。Human 仍按测试账号接受该风险；临时限制
   仅剩测试账号不得存放生产资金，应用无登录限频且当前仅可从 Caddy/systemd 日志观察异常。若账号
   转生产、存入有意义资金、出现凭据泄露或可疑访问，必须先重新评估并更换密码。该接受仅适用于本次
   测试部署。临时部署包和临时凭据副本已从本机及服务器 `/tmp` 清除。
-
-- **[LIVE][2026-08-27] 全闸门启用后的活动任务：** 借币无活动任务、无在途尝试；开/平仓有一个
-  `running` 平滑平仓任务 `5fe92653-653a-493e-be7a-0c4a520744a7`（XVGUSDT forward close，
-  每次 5000，目标 10，已成功 5、失败 2）。截至 `2026-08-27T15:52:18Z`，最新 attempt 171 是
-  启用前的超时失败，两腿 `UNKNOWN` 且成交量为 0；启用/重启后未发现新成交，但该任务随时可在阈值
-  满足时真实下单。启动恢复还把任务 `6be39068-d125-4154-99da-2a5696f21da2` 的历史未知订单记录为
-  `order_state_unknown_final`；这是查询/落盘，不是新订单。
 
 - **[RESOLVED][2026-08-28] Docker `--env-file` 未展开专用 API Key 引用，写通道认证已修复。**
   本地 `.env` 的 `BINANCE_BORROW_API_KEY/SECRET` 与 `BINANCE_HEDGE_API_KEY/SECRET` 使用对通用
