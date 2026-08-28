@@ -16,7 +16,11 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   还款的利息才继续用当前价暂估；匹配、部分还款、价格证据和历史回补先走 HIGH_RISK 计划评审。
   Human 于 `2026-08-28 17:06 CST` 明确否决「利息发生时即冻价」：未结算借款必须随当前价格动态
   估值，成功还款才把相关利息按还款时价格切换为终态固定成本；还款发生时历史重算一次是预期的
-  结算动作。活动 stage：`reports/agent-runs/2026-08-28-repaid-interest-price-v1/`。
+  结算动作。Human 于 `2026-08-28 17:57 CST` 进一步明确终态判据：**任意一次部分还款不触发
+  锁价**；只要该资产仍有借款持仓/未偿余额，相关历史利息的 USDT 成本全部继续按当前价动态计算，
+  只有可确认借款完全归零时，才按该次完全还款时价格切换为终态固定成本。此前部分还款如何在
+  交易所内部归集不作为终态证据。活动 stage：
+  `reports/agent-runs/2026-08-28-repaid-interest-price-v1/`。
 
 - **[DEPLOYMENT][2026-08-28 13:20 CST] 生产镜像已升到 `funding-hedging:5021c73`，部署通道固化为
   `scripts/deploy.sh`。** 线上 `47.240.168.162` / `https://aoke.kengbi.pro`，systemd 双单元
