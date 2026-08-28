@@ -150,3 +150,48 @@
 [/TASK_RESULT]
 
 <!-- BOOKKEEPER_APPEND_ONLY: all bytes before this marker are the source payload -->
+
+## Bookkeeper Verification (Bookkeeper append-only)
+
+- 核验人：`opus5` / anthropic（窗口 `claude`）。**临时 Bookkeeper**——原 Bookkeeper
+  `gpt-5.6-sol` / `codex` 会话额度耗尽，停在「已写好 P10 派单但未提交未派发」，
+  Human 2026-08-28 授权接管以不中断交付。
+- 源载荷 SHA-256（`BOOKKEEPER_APPEND_ONLY` 标记前 13042 字节）：
+  `7da769688ab4a9986882ea45118692fced4a1eab910e9c7d530efbca60b4090d`
+- `pending` delivery_sha 已由 `git rev-parse` 解析：**`d315fbd`**
+  （`feat: 已还款利息按还款时价格折算（动态暂估 + 终态锁价双口径）`）。
+- 封存交付区间：`f4f6c6f..d315fbd`（`f4f6c6f` 为 P10 派单的控制提交，即本次实现的
+  直接基线；该区间恰为纯实现 diff，不含任何 stage 控制提交）。
+- 本任务 `dispatched → reported` 转换已确认，且未被计入交付提交（工作区 `M`）——符合派单授权边界。
+
+### 独立复现（Bookkeeper 自跑，不采信自述）
+
+| 检查 | 结果 |
+|---|---|
+| `pytest` 目标三文件 | **177 passed**（32.43s） |
+| `pytest backend/tests` 全量 | **2062 passed, 1 failed**（164.99s） |
+| 唯一失败 | `test_urlopen_only_in_designated_http_clients` —— `public_ip_service.py` 未登记直连守卫白名单，属 `PROJECT_STATE.md` Open Follow-ups `[OPEN][2026-08-23]` 既有项，**非本次引入** |
+| `node frontend/self-check.js` | 全部自检通过 |
+| `git diff --check f4f6c6f..d315fbd` | clean |
+| 文件边界 | **零越界**：8 个实现文件 + 本 handoff，与 Allowed Files 精确一致 |
+| 前端改动 | **0 个文件**（wire 形状未变，符合计划预期） |
+
+### 抽查（不只看测试是否通过，看被测逻辑是否真成立）
+
+- **缝隙内动作**（计划 §3.2 / §4.2 B3、B8）：`server.py:1033-1049` 实测——
+  `_dispatch_margin_repay` 返回后仅在 `parsed["amount"] == "0" and
+  resolution.get("status") == STATUS_SUCCEEDED` 时调用一次
+  `_capture_repay_spot_bid`；`store.resolve` 在该条件分支**之外**无条件执行恰一次。
+  缝隙内动作数 **0 → 1**，与计划一致。
+- **异常隔离契约**：`_capture_repay_spot_bid` 全体包在 `try: ... except Exception:
+  return None` 内，纯内存读 `service.get_snapshot()`，**无网络、无重试、无 sleep、
+  无跨库读、无第二次观测**；快照未就绪或结构异常均返回 `None`。契约「绝不抛出」成立。
+- **schema 约束**：`store.py:47-48` 两列为裸 `TEXT`，**无 `CHECK`、无封闭枚举**——
+  §3.4 为 §7 人工 `manual_correction` 预留的写入路径未被堵死。
+- **来源值**：正常自动路径只写 `"snapshot_spot_bid_at_capture"`（`server.py:1044`），
+  取价失败与价格一同为 `None`。
+
+### Verdict
+
+**核验通过，可进入 HIGH_RISK 评审路由。** 本核验不构成评审结论，不授权合并、部署、
+实盘或 §7 的 STORJ 人工数据库修正。
