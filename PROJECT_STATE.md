@@ -6,8 +6,20 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-28)
 
+- **[DEPLOYMENT][2026-08-28 13:20 CST] 生产镜像已升到 `funding-hedging:5021c73`，部署通道固化为
+  `scripts/deploy.sh`。** 线上 `47.240.168.162` / `https://aoke.kengbi.pro`，systemd 双单元
+  （应用 + Caddy）均 `active`，readyz 7 秒转 200，切换期间无告警。
+  **架构事实（判断影响面前先套这条）**：服务器上**没有 git 仓库**，应用跑在 Docker 里，
+  systemd 单元 `ExecStart` 内联镜像 tag 且 **tag 即 commit sha**——单元文件本身就是版本记录。
+  升级 = 重建镜像，**不是 `git pull`**。镜像只含 `backend/frontend/schemas/requirements.txt`，
+  密钥经 `--env-file /etc/funding-hedging/env_aoke` 运行时挂载、不进镜像。
+  部署脚本拒绝脏工作区、**拒绝未推送到 `origin/main` 的 commit**（线上版本必须可追溯），
+  失败自动回滚到旧 tag。SSH 走专用无 passphrase 部署密钥 + `funding-prod` 别名；
+  **sshd_config 一行未改，密码通道保留**（`PasswordAuthentication yes`），是密钥丢失时的恢复路径。
+  用法见 `docs/development/DEVELOPMENT_GUIDE.md` §Remote deployment。
+
 - **[DEPLOYMENT LIVE][2026-08-28 11:06 CST] Human 授权后 `env_aoke` 已在新主机 `47.240.168.162` 启动并完成恢复。**
-  systemd `active + enabled`（开机自启），镜像 `funding-hedging:7a3bd41`。SHELLUSDT 平滑平仓任务
+  systemd `active + enabled`（开机自启），镜像 `funding-hedging:7a3bd41`（**该 tag 为当时事实，现值见上一条**）。SHELLUSDT 平滑平仓任务
   `f44048f4-68df-4666-8dc1-57f8279e9ce9` 按既有恢复链完成第 4 次平仓两腿，终态 `done` 成功 4/4
   失败 0，无非终态腿与活动平滑门遗留；启动后任务清点无 `running` 任务。公网
   `https://aoke.kengbi.pro` 认证复核通过（`/healthz`、`/readyz` 200，匿名 401，凭据 200）；私有账户
@@ -494,15 +506,44 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   replacement is traceable and did not execute, so this is not a merge blocker.
 ## Next Priority
 
-- **No active stage.** Current priorities (detail in the sections above):
-  1. Human 决定是否允许新主机启动并恢复仍为 `running` 的 SHELLUSDT 平滑平仓任务；明确授权前
-     应用保持 `inactive + disabled`，仅 HTTPS 代理在线。
+- **No active stage**（`ACTIVE.json` = null）。迁移与 SHELLUSDT 恢复已于 `2026-08-28 11:06` 执行完毕，
+  该条已不再是优先项。当前待决：
+  1. **近 24h / 年化 7D 两列欠一次独立评审。** 该交付走 Fast Review 授权实现，但 Human
+     `2026-08-28` 指示直接部署，**跳过了 Fast Review 要求的那一次非作者评审**。代码已过
+     2039 项后端测试与全部前端自检并已上线，但无第二双眼睛看过固定 commit `5021c73`。
+     补审随时可做；发现问题重新部署一次即可。
+  2. 两条 `[OPEN][2026-08-23]` 后续项（直连守卫白名单漏登记、HL 适配器未捕获
+     `UnicodeDecodeError`）见 Open Follow-ups，均非阻塞。
+  3. **HL 别名表与乘数币映射仍未做**（设计 D3 非目标）：9 个命名不同的标的
+     （GOLD/SILVER/PLATINUM/PALLADIUM/BRENTOIL/SP500/KR200/SMSN/SKHX）与 5 个乘数币
+     （kPEPE/kSHIB/kBONK/kLUNC/kFLOKI）在 UI 上恒为 `—`。其中 `xyz:SKHX → SKHYNIX`
+     已于 `2026-08-25` 用价格核实（1193.0 vs 1191.67，差 0.11%；`SKHY` 是另一标的，
+     156.51 vs 156.67），要建表时可直接采用。
+  4. 年化 30D 的 HL 侧仍为非目标：HL `fundingHistory` 单次上限 500 条（20.8 天）< 30 天，
+     每标的须翻两页，历史请求量从每轮 20 增至 30。近 24h 与 7D 共用一次请求故已交付。
   （1000x 腿量换算已于 2026-08-15 封存，不再是优先项——见 Open Follow-ups 的
   `[CLOSED-NOT-DOING]` 条目。）
-- 本轮迁移授权已执行完毕；它不包含启动并恢复 SHELLUSDT。任何进一步的 Start-gate、凭据或实盘
-  操作仍须遵循上方 Live Risks 闸门并取得 Human 明确授权。
+- 任何 Start-gate、凭据或实盘操作仍须遵循上方 Live Risks 闸门并取得 Human 明确授权。
 
 ## Last Completed
+- stage: `2026-08-23-hyperliquid-funding-compare-v1`
+- archive_ref: `archive/2026-08-23-hyperliquid-funding-compare-v1`（tip `c7674ef`）
+- delivery: `25cc8fe..6922bce`；`rework_count` 0（三轮设计评审的 REWORK 属实现前计划修订，按 §8 不计数）。
+- recorded_completed_at: `2026-08-24`
+- outcome: 费率行情表前四个费率列内每行增加 Hyperliquid 同口径第二行，市场表下方新增
+  「HL 数据时间」并在不可用/陈旧时红色高亮。696 行中 244 行有 HL 对手（main 166 + xyz 78）。
+  匹配为 exact + 类别校验（main 只配 `PERPETUAL`、xyz 只配 `TRADIFI_PERPETUAL`），
+  `HL_SYMBOL_DENY` 显式拦 `xyz:BB`（黑莓 vs BounceBit）与 `xyz:QNT`。失败语义为 main+xyz
+  原子组：任一 POST/shape/Decimal 失败即整源作废、全行 null、时间戳 null、不投影 last-good，
+  币安四列照常且不阻断发布。
+- 评审: 设计经 Codex 三轮独立跨 provider 评审（rev1 `REWORK` F1–F5、rev2 `REWORK` N1–N3、
+  rev3 `ACCEPT`）；实现经 Review-1(grok) 与 Review-2(kimi) 并行独立评审，双 `ACCEPT`。
+  Human `2026-08-24` 授权合并（`merge: f415848`）并推送。
+- follow-ups: 上线后 Human 实盘发现小时费率固定 3 位小数吃掉有效数字（该列五个标的
+  真实值分布 0.000625%~0.00125% 却全显示 `+0.001%`），已修（`merge: 13fa80c`，新增
+  `formatFundingRateExact`）。**该缺陷绕过了全部五轮评审**——评审都在查失败语义、撞名、
+  schema 兼容与假绿断言，无人核查「显示后还剩几位有效数字」；测试 fixture 用的人造整数值
+  舍入后恰好不冲突，只有真实数据能暴露。回归断言已用 CRCL/INTC 真实值补上。
 - stage: `2026-08-19-hedge-order-fee-cost-v1`
 - archive_ref: `archive/2026-08-19-hedge-order-fee-cost-v1`（tip `08fce61`）
 - delivery: `6ba28b0..45eb5ec`；`rework_count` 0。Phase 1/2/3 全部通过双评审（Kimi ACCEPT + Opus 5 ACCEPT）。Human 授权已合并 `main`（`merge: dd736b9`）并重新部署 8787 服务。

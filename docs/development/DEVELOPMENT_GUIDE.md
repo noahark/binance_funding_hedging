@@ -323,6 +323,82 @@ operator on a stopped server; always take a `.bak` copy first.
   The plist runs `scripts/run-server.sh` with `KeepAlive=true`; `install` and
   `restart` poll `/healthz` and `/readyz` before claiming success.
 
+### Remote deployment (`scripts/deploy.sh`, as of 2026-08-28)
+
+The production host runs the application as a **Docker container managed by
+systemd**, not from a checkout — there is no git repository on the server. The
+image tag IS the commit sha and is written inline in the unit's `ExecStart`, so
+`/etc/systemd/system/funding-hedging.service` is itself the version record.
+A second unit (`funding-hedging-proxy.service`, Caddy) terminates HTTPS in front
+of it. Upgrading therefore means **building a new image**, never `git pull`.
+
+```bash
+scripts/deploy.sh                 # deploy current origin/main
+scripts/deploy.sh <commit-ish>    # deploy a specific commit
+DEPLOY_HOST=root@host scripts/deploy.sh
+```
+
+The script runs on the developer machine and does: refuse a dirty worktree →
+**refuse any commit not on `origin/main`** (the deployed version must stay
+traceable) → `git archive` the four paths the image needs (`backend`,
+`frontend`, `schemas`, `requirements.txt`) → build remotely over stdin → `sed`
+the new tag into the unit → `daemon-reload` + `restart` → poll `/readyz` until
+200 → **roll back to the previous tag automatically on any failure** → prune old
+images keeping the last `KEEP_IMAGES` (default 3).
+
+Secrets never enter the image: `--env-file /etc/funding-hedging/env_aoke` is
+mounted at run time, and the data volume lives at
+`/var/lib/funding-hedging/<profile>/data`.
+
+#### SSH access
+
+Authentication uses a **dedicated deployment key** with no passphrase, so the
+script runs unattended. It is deliberately NOT the developer's personal or
+GitHub key: revoking it later is one line in `authorized_keys` and touches
+nothing else.
+
+```
+~/.ssh/id_ed25519_funding_deploy        # private, chmod 600, no passphrase
+~/.ssh/id_ed25519_funding_deploy.pub    # appended to the server's authorized_keys
+```
+
+`~/.ssh/config` carries the alias the script defaults to:
+
+```
+Host funding-prod
+    HostName 47.240.168.162
+    User root
+    IdentityFile ~/.ssh/id_ed25519_funding_deploy
+    IdentitiesOnly yes
+```
+
+`IdentitiesOnly yes` matters: without it ssh offers every loaded key in turn and
+can exhaust the server's auth-attempt limit before reaching the right one.
+
+To provision the key on a new host (idempotent; re-running adds nothing):
+
+```bash
+PUB="$(cat ~/.ssh/id_ed25519_funding_deploy.pub)"
+ssh root@<host> "mkdir -p ~/.ssh && chmod 700 ~/.ssh
+  touch ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys
+  grep -qF '$PUB' ~/.ssh/authorized_keys || echo '$PUB' >> ~/.ssh/authorized_keys
+  command -v restorecon >/dev/null && restorecon -R ~/.ssh 2>/dev/null || true"
+```
+
+`restorecon` is there for CentOS/RHEL: SELinux otherwise mislabels a freshly
+created `~/.ssh` and sshd silently ignores the key.
+
+**Password login stays available.** Adding the key does not touch
+`/etc/ssh/sshd_config`; `PasswordAuthentication yes` and `PermitRootLogin yes`
+remain as they were, which is the recovery path if the key is ever lost. On a
+machine without the key, the script accepts a password through the `SSHPASS`
+environment variable (requires `sshpass`); the password is never written to the
+script, a file, a log, or the server.
+
+```bash
+SSHPASS='...' scripts/deploy.sh    # fallback only
+```
+
 No project-wide lint or typecheck command is currently defined.
 
 ## Coding Rules
