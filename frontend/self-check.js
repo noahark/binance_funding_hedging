@@ -2340,6 +2340,25 @@ setTimeout(async () => {
       if (!xyzRateCell.includes('HL·xyz -0.0025%')) {
         throw new Error('CUSDT 资金费率第二行应为 HL·xyz -0.0025%: ' + xyzRateCell);
       }
+      // 历史两列有值时的正向 oracle：近 24h 用 3 位、年化 7D 用 2 位（与币安首行同精度）
+      const histFx = JSON.parse(JSON.stringify(designFixture));
+      histFx.rows.find(r => r.symbol === 'AUSDT').hyperliquid = {
+        dex: 'main', funding_1h: '0.00001250',
+        daily_rate: '0.00030000', annualized_24h: '0.10950000',
+        funding_sum_24h: '0.00042000', annualized_7d: '0.15600000'
+      };
+      helpers.ingestSnapshot(histFx);
+      const histTbody = elements['market-table-body'].innerHTML;
+      const histSum = getRowCell(histTbody, 'AUSDT', 6);
+      if (!histSum.includes('HL +0.042%')) {
+        throw new Error('近 24h 第二行应为 HL +0.042%: ' + histSum);
+      }
+      const histAnn7 = getRowCell(histTbody, 'AUSDT', 8);
+      if (!histAnn7.includes('HL +15.60%')) {
+        throw new Error('年化 7D 第二行应为 HL +15.60%: ' + histAnn7);
+      }
+      helpers.ingestSnapshot(hlFx);  // 复位
+
       // 小时费率精度回归（2026-08-25 Human 实盘发现）：CRCL 与 INTC 的 HL 小时费率
       // 真实值差 1.76 倍（0.0000109959 vs 0.00000625），固定 3 位小数会把两者都显示
       // 成 0.001%，与各自的日费率（0.026% / 0.015%）自相矛盾。原生精度须区分开。
@@ -2382,10 +2401,20 @@ setTimeout(async () => {
       if (!nullSub.includes('hl-subline small muted">—</span>')) {
         throw new Error('无 HL 对手的行第二行应为 —: ' + nullCell);
       }
-      // 第二行只进前四个费率列（idx 3/4/5/7）；近 24h（idx 6）无第二行
+      // 第二行进前六个费率列（idx 3/4/5/6/7/8）；年化 30D（idx 9）仍无第二行。
+      // 近 24h / 年化 7D 由逐标的历史游标供数，未扫到时为「HL —」（本 fixture 未注入
+      // funding_sum_24h / annualized_7d，正好覆盖该降级态）。
       const sum24Cell = getRowCell(hlTbody, 'AUSDT', 6);
-      if (sum24Cell.includes('hl-subline')) {
-        throw new Error('近 24h 列不应有 HL 第二行: ' + sum24Cell);
+      if (!sum24Cell.includes('hl-subline small muted">HL —</span>')) {
+        throw new Error('近 24h 列历史未扫到时应为 HL —: ' + sum24Cell);
+      }
+      const ann7Cell = getRowCell(hlTbody, 'AUSDT', 8);
+      if (!ann7Cell.includes('hl-subline small muted">HL —</span>')) {
+        throw new Error('年化 7D 列历史未扫到时应为 HL —: ' + ann7Cell);
+      }
+      const ann30Cell = getRowCell(hlTbody, 'AUSDT', 9);
+      if (ann30Cell.includes('hl-subline')) {
+        throw new Error('年化 30D 列不应有 HL 第二行: ' + ann30Cell);
       }
       // A15：第二行不参与筛选——搜索无 HL 数据的 BUSDT 仍可见
       const savedSearch = elements['filter-search'].value;

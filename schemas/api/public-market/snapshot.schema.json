@@ -378,7 +378,7 @@
           ]
         },
         "hyperliquid": {
-          "description": "Read-only Hyperliquid same-口径 funding values for the first four rate columns (v0.22, stage 2026-08-23-hyperliquid-funding-compare-v1). Optional so pre-v0.22/offline rows still validate; the current producer ALWAYS emits the key. null = no HL counterpart (exact-name + category check failed, deny-listed, delisted, alias/multiplier symbol) OR the whole source failed/is offline — distinguish via the top-level hyperliquid_data_time, never via row content. dex: which HL universe the match came from (main / xyz). funding_1h is the raw hourly funding estimate (decimal string, raw precision); daily_rate = funding_1h x 24; annualized_24h = daily_rate x 365 (same Decimal chain as the Binance 24h annualization; HL settles hourly). Pure display projection: no filter/sort/borrow/order logic may read it.",
+          "description": "Read-only Hyperliquid same-口径 funding values for the first four rate columns (v0.22, stage 2026-08-23-hyperliquid-funding-compare-v1). Optional so pre-v0.22/offline rows still validate; the current producer ALWAYS emits the key. null = no HL counterpart (exact-name + category check failed, deny-listed, delisted, alias/multiplier symbol) OR the whole source failed/is offline — distinguish via the top-level hyperliquid_data_time, never via row content. dex: which HL universe the match came from (main / xyz). funding_1h is the raw hourly funding estimate (decimal string, raw precision); daily_rate = funding_1h x 24; annualized_24h = daily_rate x 365 (same Decimal chain as the Binance 24h annualization; HL settles hourly). funding_sum_24h / annualized_7d come from a SEPARATE per-coin fundingHistory sweep (same cursor/TTL as the Binance history component) and stay null until that cursor reaches the coin. Pure display projection: no filter/sort/borrow/order logic may read it.",
           "type": ["object", "null"],
           "additionalProperties": false,
           "required": ["dex", "funding_1h", "daily_rate", "annualized_24h"],
@@ -394,6 +394,20 @@
             },
             "annualized_24h": {
               "$ref": "#/$defs/decimal_string"
+            },
+            "funding_sum_24h": {
+              "description": "Sum of settled HL funding in the inclusive 24h window ending at data_time (not annualized) — same window helper as the Binance 近 24h column. null when the rolling history cursor has not covered this coin yet, or its per-coin fetch failed; the first four HL cells are unaffected (history is a second, per-coin dimension independent of the atomic main+xyz group).",
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "annualized_7d": {
+              "description": "Settled 7-day calendar-window annualization of HL funding (sum x 365/7) — same helper and denominator as the Binance 年化 7D column. null under the same conditions as funding_sum_24h.",
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
             }
           }
         },

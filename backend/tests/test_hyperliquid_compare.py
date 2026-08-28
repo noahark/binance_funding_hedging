@@ -22,6 +22,7 @@ from backend.config import Config
 from backend.domain.snapshot import (
     assemble_snapshot,
     build_hyperliquid_matches,
+    hl_key_for,
     build_rows,
 )
 from backend.services.snapshot_service import SnapshotService
@@ -109,17 +110,27 @@ class _StubPrivate:
 class _StubHL:
     """HL 客户端 stub：可注入批次数据，可切换失败。"""
 
-    def __init__(self, main=(), xyz=()):
+    def __init__(self, main=(), xyz=(), history=None):
         self._main = list(main)
         self._xyz = list(xyz)
         self.calls = 0
         self.fail = False
+        # 逐标的历史：HL key -> entries；未登记的 key 视为拉取失败。
+        self.history = dict(history or {})
+        self.history_calls = []
+        self.history_fail = False
 
     def fetch_funding_compare(self):
         self.calls += 1
         if self.fail:
             raise OSError("hyperliquid upstream down")
         return {"main": self._main, "xyz": self._xyz}
+
+    def fetch_funding_history(self, coin, start_ms):
+        self.history_calls.append((coin, start_ms))
+        if self.history_fail or coin not in self.history:
+            raise OSError(f"hyperliquid history down for {coin}")
+        return list(self.history[coin])
 
 
 def _service(raw, hl=None):
@@ -188,9 +199,17 @@ def test_a3_hype_row_and_decimal_string_wire():
         "funding_1h": "0.00001250",
         "daily_rate": "0.00030000",       # ×24
         "annualized_24h": "0.10950000",   # daily × 365
+        # 历史两列：本用例未注入 history_by_key，故为 null（前四格不受影响）
+        "funding_sum_24h": None,
+        "annualized_7d": None,
     }
-    for v in block.values():
-        assert isinstance(v, str)  # A10: decimal string，禁 JSON number
+    # A10: decimal string，禁 JSON number。历史两列可为 null（游标未扫到），
+    # 但一旦有值仍须是字符串——放宽只放宽到 null，不放宽到 float。
+    for k, v in block.items():
+        if k in ("funding_sum_24h", "annualized_7d"):
+            assert v is None or isinstance(v, str), k
+        else:
+            assert isinstance(v, str), k
 
 
 def test_a10_vectors_negative_scientific_zero():
@@ -488,3 +507,97 @@ def test_assemble_snapshot_always_emits_hl_data_time():
     )
     assert "hyperliquid_data_time" in snap and snap["hyperliquid_data_time"] is None
     _validate(snap)
+
+
+# ---------------------------------------------------------------- 历史两列
+# fast/hl-funding-history-24h-7d：近 24h 与年化 7D 走逐标的 fundingHistory 游标，
+# 与 main+xyz 原子组无关；未扫到/拉取失败只让这两格为 null。
+
+def _hl_hist(t_end_ms, hours, rate="0.00001000"):
+    """从 t_end 往回每小时一条，共 hours 条。"""
+    return [{"funding_time": t_end_ms - i * 3_600_000, "funding_rate": rate}
+            for i in range(hours)]
+
+
+def test_hl_history_windows_reuse_binance_helpers():
+    """近 24h = 窗口内求和；年化 7D = 求和 × 365/7。与币安同一对纯函数。"""
+    t_end = 1_787_000_000_000
+    hist = {"BTC": _hl_hist(t_end, 168, "0.00001000")}   # 7 天整，每小时 0.00001
+    matches = build_hyperliquid_matches(
+        [_hl("BTC", "0.00001250")], [], [_sym("BTCUSDT", "BTC")],
+        history_by_key=hist, t_end_ms=t_end,
+    )
+    blk = matches["BTCUSDT"]
+    # 24h 窗口含两端 -> 25 条 × 0.00001 = 0.00025
+    assert blk["funding_sum_24h"] == "0.00025000"
+    # 7D 窗口 168 条 × 0.00001 = 0.00168，年化 ×365/7
+    assert blk["annualized_7d"] == "0.08760000"
+    # 前四格不受历史影响
+    assert blk["funding_1h"] == "0.00001250"
+    assert blk["daily_rate"] == "0.00030000"
+
+
+def test_hl_history_absent_leaves_first_four_cells_intact():
+    """历史未扫到：两格 null，前四格照常（降级不扩散）。"""
+    matches = build_hyperliquid_matches(
+        [_hl("BTC", "0.00001250")], [], [_sym("BTCUSDT", "BTC")],
+        history_by_key={}, t_end_ms=1_787_000_000_000,
+    )
+    blk = matches["BTCUSDT"]
+    assert blk["funding_sum_24h"] is None
+    assert blk["annualized_7d"] is None
+    assert blk["annualized_24h"] == "0.10950000"
+
+
+def test_hl_key_reverse_derivation():
+    """游标据 dex+base_asset 反推 HL key —— 匹配是 exact，故可反推。"""
+    assert hl_key_for("main", "BTC") == "BTC"
+    assert hl_key_for("xyz", "NVDA") == "xyz:NVDA"
+
+
+def test_sweep_fetches_hl_history_only_for_rows_with_counterpart():
+    """游标只对有 HL 对手的行发历史请求；无对手的行零请求。
+
+    费率须高于 default-view 阈值（0.0003，严格大于）才进历史候选集，否则整批
+    候选为空、断言会被空集假通过 —— 这正是本测试第一版踩过的坑。
+    """
+    fut = _FUT + [_sym("ZKUSDT", "ZK")]
+    hl = _StubHL(_MAIN, _XYZ, history={"BTC": [], "HYPE": [], "xyz:TSLA": []})
+    service = _service(_raw(fut, rate="0.00050000"), hl)
+    service._scheduled_tick()
+    coins = [c for c, _ in hl.history_calls]
+    assert coins, "候选集为空则本断言无意义（费率须高于 default-view 阈值）"
+    assert "ZK" not in coins and "ZKUSDT" not in coins
+    assert set(coins) <= {"BTC", "HYPE", "xyz:TSLA"}
+
+
+def test_hl_history_failure_is_per_coin_not_whole_source(monkeypatch):
+    """单币历史失败不影响主源：时间戳仍有值，前四格仍在，只两格为 null。"""
+    clock = {"t": 1000.0}
+    monkeypatch.setattr("time.monotonic", lambda: clock["t"])
+    hl = _StubHL(_MAIN, _XYZ)
+    hl.history_fail = True
+    service = _service(_raw(_FUT, rate="0.00050000"), hl)
+    service._scheduled_tick()
+    snap = service.get_snapshot()
+    assert snap["hyperliquid_data_time"] is not None       # 主源没被拖累
+    row = {r["symbol"]: r for r in snap["rows"]}["BTCUSDT"]
+    assert row["hyperliquid"]["annualized_24h"] == "0.10950000"
+    assert row["hyperliquid"]["funding_sum_24h"] is None
+    assert row["hyperliquid"]["annualized_7d"] is None
+
+
+def test_hl_history_success_only_cache(monkeypatch):
+    """成功写缓存、失败不擦既有窗口（FR-2，与币安历史组件同语义）。"""
+    clock = {"t": 1000.0}
+    monkeypatch.setattr("time.monotonic", lambda: clock["t"])
+    t_end = 1_787_000_000_000
+    hl = _StubHL(_MAIN, _XYZ, history={"BTC": _hl_hist(t_end, 168)})
+    service = _service(_raw(_FUT, rate="0.00050000"), hl)
+    service._scheduled_tick()
+    assert "BTC" in service._hl_history_cache
+    before = service._hl_history_cache["BTC"][1]
+    hl.history_fail = True
+    clock["t"] += 3600.0                       # 跨过 1800s TTL，触发重取并失败
+    service._scheduled_tick()
+    assert service._hl_history_cache["BTC"][1] == before   # 失败不擦

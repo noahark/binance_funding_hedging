@@ -47,6 +47,7 @@ from ..domain.snapshot import (
     assemble_private_account,
     assemble_snapshot,
     build_hyperliquid_matches,
+    hl_key_for,
     build_opening_quotes,
     build_rows,
     compute_net_daily_yield,
@@ -196,6 +197,9 @@ class SnapshotService:
         # Failed requests are NOT cached so they retry on the next worker tick
         # instead of locking the symbol out for a TTL. Worker-only write.
         self._funding_history_cache: dict = {}  # symbol -> (monotonic, raw entries)
+        # HL 逐标的历史：完整 HL key -> (monotonic, normalized entries)。与币安
+        # 历史同一 TTL、同一游标批次，但独立成表（真值源不同、key 空间不同）。
+        self._hl_history_cache: dict = {}
         self._data_time_ms = 0
         self._funding_history_schema = None  # lazily loaded on first endpoint use
         self._symbol_snapshot_schema = None  # lazily loaded on first endpoint use
@@ -553,7 +557,13 @@ class SnapshotService:
         hl_entry = self._global_source_cache.get("hyperliquid")
         hyperliquid_by_sym = (
             build_hyperliquid_matches(
-                hl_entry[1]["main"], hl_entry[1]["xyz"], futures_symbols
+                hl_entry[1]["main"],
+                hl_entry[1]["xyz"],
+                futures_symbols,
+                # 逐标的历史（近 24h / 年化 7D）。与主源无关：没扫到的 key
+                # 缺项即那两格为 null，前四格照常。
+                history_by_key={k: v[1] for k, v in self._hl_history_cache.items()},
+                t_end_ms=data_time_ms,
             )
             if hl_entry is not None
             else {}
@@ -1584,6 +1594,29 @@ class SnapshotService:
             out.append(base)
         return out
 
+    def _hl_history_is_fresh(self, hl_key: str, now: float, ttl: float) -> bool:
+        cached = self._hl_history_cache.get(hl_key)
+        return cached is not None and (now - cached[0]) < ttl
+
+    def _fetch_hl_history_for(self, hl_key: str, data_time_ms: int):
+        """One HL ``fundingHistory`` POST for a single coin; None on failure.
+
+        Success-only cache write (FR-2, same as the Binance history component):
+        a failure leaves any previous entry untouched rather than blanking a
+        still-usable window. Per-coin failure never touches the atomic
+        main+xyz funding-compare source.
+        """
+        if self._hl_client is None:
+            return None
+        # 7 天窗口需要 168 个小时点；多取一天余量吸收 data_time 与结算点的错拍。
+        start_ms = int(data_time_ms) - 8 * 86_400_000
+        try:
+            entries = self._hl_client.fetch_funding_history(hl_key, start_ms)
+        except (urllib.error.URLError, OSError, ValueError):
+            return None
+        self._hl_history_cache[hl_key] = (time.monotonic(), entries)
+        return entries
+
     def _sweep_group_c(
         self,
         candidates: List[str],
@@ -1621,6 +1654,15 @@ class SnapshotService:
                 entries = self._fetch_history_for(sym, data_time_ms)
                 if entries is None:
                     warnings.append(f"funding_history_unavailable:{sym}")
+            # HL history component — same cursor/batch/TTL, only for rows that
+            # actually have an HL counterpart (fast/hl-funding-history-24h-7d).
+            hl_row = rows_by_symbol.get(sym)
+            hl_block = hl_row.get("hyperliquid") if hl_row else None
+            if hl_block:
+                hl_key = hl_key_for(hl_block["dex"], hl_row.get("base_asset", ""))
+                if not self._hl_history_is_fresh(hl_key, now, component_ttl):
+                    if self._fetch_hl_history_for(hl_key, data_time_ms) is None:
+                        warnings.append(f"hyperliquid_history_unavailable:{hl_key}")
             # borrow components — FR-4 universe only
             row = rows_by_symbol.get(sym)
             if row and self._is_scheduled_borrow_candidate(row, classic_ref):
