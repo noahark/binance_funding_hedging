@@ -326,3 +326,96 @@ grep -n "SnapshotNotReady" backend/app/server.py -> 505 / 704 / 842 / 1506 均�
   `P2_HANDOFF_HUMAN_BRIEF_MALFORMED`。Reviewer 只能在本文件 `## Errata` 后追加格式勘误，
   不得改写 marker 前的作者原文；勘误不得改变既有 `REWORK` verdict、发现、检查状态或修复要求。
 - rework_count_effect: `0`（仅格式勘误，不改变交付效果或评审结论；计划评审本身也不计正式返工轮次）。
+
+## Errata — 格式勘误（2026-08-28 17:58:58 CST，作者：Reviewer `opus5` / anthropic）
+
+### 勘误性质与范围
+
+本条为**纯格式勘误**，依据 `agents/roles.md` Shared Rules 勘误判据与 Task Handoff Evidence
+Contract 的 Errata 规则，仅以追加方式补入一份合规的 `[TASK_RESULT v2]` … `[/TASK_RESULT]`
+回执块。
+
+**改动原因**：Bookkeeper `gpt-5.6-sol`（label `codex`）于 `2026-08-28 17:51:11 CST` 追加的
+拒收核验块指出，本文件 `## Human Brief / Console Receipt Source` 区块内的回执字段以逐行
+条目形式书写，缺少 `[TASK_RESULT v2]` 起始标记与 `[/TASK_RESULT]` 最终闭合标记，因而不构成
+仓库内正式回执来源。该判定成立：控制台当时输出的回执是合规的，但仓库内 handoff 的对应区块
+不是，二者不能互相替代。
+
+**不改变的事实**（更正前后完全一致）：
+
+- 评审结论仍为 `REWORK`，不变。
+- 四条发现 F1 / F2 / F3 / F4 的事实、范围三分类（均为 `in-range`）、证据锚点与修复要求，
+  逐字不变。
+- 三条非阻塞观察 O1 / O2 / O3 不变。
+- P1 dispatch 八条 Acceptance Checks 的逐项裁定（5 项 `pass`、2 项 `fail`、1 项 `pass` 带
+  观察）不变。
+- 计划 §8 五个风险焦点的五条裁定不变。
+- `问题记录` 与 `修复要求` 指向的路径不变。
+- marker 之前的 `## Source Report`（含 `### Required Reading for the Next Task`）与
+  `## Human Brief / Console Receipt Source` 作者原文**一个字节未改**；既有
+  `## Bookkeeper Verification` 拒收块**一个字节未改**。
+- 本次勘误不重跑评审、不新增或撤回任何发现、不触碰代码、测试、schema、`status.json`、
+  `PROJECT_STATE.md`、其他文档、提交或生产环境。
+- `rework_count` 不受影响（与 Bookkeeper 拒收块 `rework_count_effect: 0` 的判定一致）。
+
+下方补入的回执块，内容与本任务此前控制台输出的回执一致。
+
+### 记录：评审后的 Human 决定（不改写原评审结论）
+
+Human 在本评审交付**之后**就 F1 作出明确产品口径决定，现记录于此以便后续任务读取：
+
+> 任意**部分还款不触发锁价**；只要该资产仍有借款持仓 / 未偿余额，相关历史利息的 USDT 成本
+> **全部继续按当前价动态计算**；只有可确认借款**完全归零**时，才按该次完全还款时的价格切换
+> 为终态固定成本。此前部分还款在交易所内部如何归集（即本报告 F1 所述"资本化"行为），
+> **不作为终态证据**。
+
+该决定的性质与边界：
+
+- 它是 **post-review Human decision**，时间上晚于本评审的产出，**不改写**本文件 marker 前的
+  原评审结论、F1 的原始表述、原修复要求或原回执。F1 作为一条 `REWORK` 发现依然成立——它
+  指出的正是"计划所引证据不支持其结论"这一事实，Human 的决定是对该缺口的口径裁定，而非对
+  该发现的否定。
+- 它落在 F1 修复要求第 2 步所列的两条路径中偏 (b) 的一侧（把终态锁价限定为可证清偿），但
+  用词是 Human 的原话，不由本勘误代为归类或改写；Planner 修订计划 §3.1 / §8.1 / §5 测试 3
+  时应以 Human 原话为准。
+- 它同时意味着 F1 中"系统无法从 `status` + `asset` + 结算时刻区分全额与部分还款"这一约束
+  变为计划必须正面解决的实现问题（如何"可确认借款完全归零"），而不再是可以绕开的口径歧义。
+  本勘误不为该实现问题提出方案。
+
+**F2 的 (a) / (b) 路径 Human 尚未选择**，本勘误不代为决定，亦不表达倾向；F2 依然是需要
+Human 拍板后 Planner 才能修订的具名决策项。F3、F4 的修复要求不受上述决定影响。
+
+### 合规回执（本勘误补入；内容与此前控制台回执一致）
+
+[TASK_RESULT v2]
+任务 ID: P2-repaid-interest-price-plan-review
+执行结果: completed（完成）
+结果摘要: 计划评审返工。两处地基不成立：§3.1 称成功还款结清已计提利息，但所引 PROJECT_STATE 371-380 证据证明的是资本化（SNX 还 50 后 0.107 仍欠），且规则无法区分全额与部分还款，违反 P1 验收检查 1；§3.2 价格捕获插在还款与落终态之间且未防异常，get_snapshot 可抛 SnapshotNotReady，会造成钱已还但无终态记录且永久 pending。另有 2 条小发现、3 条非阻塞观察。全部修复要求在 Human 固定口径之内。
+产物: [reports/agent-runs/2026-08-28-repaid-interest-price-v1/evidence/P2-repaid-interest-price-plan-review.handoff.md]
+检查结果: [只读全新会话、唯一写入为 create-only handoff、结构含 Source Report/Required Reading/Human Brief 与 BOOKKEEPER_APPEND_ONLY 标记 — pass; verdict 明确、4 条 REWORK 发现均标注 in-range 并附可追溯证据锚点、修复要求落到计划 §3.1/§3.2/§3.4/§8.1/§5 具体章节 — pass; 逐项裁定 P1 八条 Acceptance Checks（5 pass、2 fail、1 pass 带观察，见 handoff 表） — pass; 对计划 §8 五个风险焦点逐条给出同意/反对与理由，§8.1 领域证据判为不充分并给出反证原文行号 — pass; 回执含评审结论/问题记录/修复要求，下一步任务用读取/执行/关卡形式，handoff 引用的 8 条路径已逐一 test -e 存在 — pass; 独立复核而非沿用旧咨询，Reviewer 设计参与已在 handoff 披露 — pass; 计划「_finalize_close_task 不触碰」声明经 hedge_open_tasks/service.py:2779-2801 核实为真 — pass; 零源码/状态/生产改动，git status --short 仅显示新建 handoff — pass]
+阻塞项: [none（评审已完成；F1 第 2 步 a/b 与 F2 的 a/b 两处路径选择须 Human 决定后 Planner 才能修订）]
+评审结论: REWORK（返工）
+问题记录: reports/agent-runs/2026-08-28-repaid-interest-price-v1/evidence/P2-repaid-interest-price-plan-review.handoff.md
+修复要求: reports/agent-runs/2026-08-28-repaid-interest-price-v1/evidence/P2-repaid-interest-price-plan-review.handoff.md
+本地北京时间: 2026-08-28 17:43:34 CST
+下一步模型: Bookkeeper gpt-5.6-sol（label codex）——评审者交回，由其核验后返给 Planner
+下一步任务: 读取：reports/agent-runs/2026-08-28-repaid-interest-price-v1/evidence/P2-repaid-interest-price-plan-review.handoff.md；reports/agent-runs/2026-08-28-repaid-interest-price-v1/repaid-interest-price.plan.md；reports/agent-runs/2026-08-28-repaid-interest-price-v1/P1-repaid-interest-price-plan.dispatch.md；执行：核验本交接件与 status.json revision 3 一致后把 REWORK 返回 Planner claude_glm，并把 F1 第 2 步与 F2 的路径二选一作为具名 Human 决策项上交；关卡：Human 定下两处路径后 Planner 修订计划，修订稿须重新通过实现前计划评审才可进入实现 dispatch
+[/TASK_RESULT]
+
+## Bookkeeper Verification (erratum confirmation; 2026-08-28 18:01:33 CST)
+
+- source_sha256: `9de6abb6fe3a9125cb4d8c87557ff86c7314bad009492bd4d23f828bcff7e6f4`
+  （`BOOKKEEPER_APPEND_ONLY` marker 之前的原始作者区；该区未被勘误改写）
+- errata_sha256: `e940dfccb998c0b6c1f18aaada90d826aa61c4a64dd6a892bbeb81beffc99ac1`
+  （上一提交 `c372906bedd28dd29510d0a326fc05ad520dc715` 后 Reviewer 的纯追加字节）
+- status_revision_checked: 原派单 `3`；当前 Bookkeeper 状态 `5`
+- append_only_check: `pass`（工作树文件以 `git show HEAD:<handoff>` 全字节为前缀，仅尾部追加）
+- receipt_check: `pass`（最后一个 `[TASK_RESULT v2]` 区块结构完整、摘要 240 字符、8 项检查、
+  明确 `REWORK`、问题记录/修复要求/读取执行关卡均存在）
+- human_decision_check: `pass`（部分还款不锁价；借款未归零时全部相关利息按当前价动态折 U；
+  可确认完全归零时才按完全还款时价格切终态；F2 仍待 Human 选择）
+- scope_check: `pass`（相对上一提交仅本 handoff 发生尾部追加；未改代码、测试、schema、状态、
+  PROJECT_STATE、其他文档或生产环境）
+- result: `verified_rework`；解除 `P2_HANDOFF_HUMAN_BRIEF_MALFORMED` blocker，
+  `status.json.current_task.state` 可推进为 `verified`。
+- rework_count_effect: `0`（计划评审 `REWORK` 与本次纯格式勘误均不计正式交付返工轮次）。
