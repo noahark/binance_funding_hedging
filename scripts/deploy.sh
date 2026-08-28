@@ -11,11 +11,12 @@
 #   scripts/deploy.sh <commit-ish>    # 部署指定 commit
 #   DEPLOY_HOST=root@1.2.3.4 scripts/deploy.sh
 #
-# 认证走 SSH key。没配 key 时可临时 export SSHPASS=... 用密码（需要 sshpass）；
+# 认证走 SSH key（~/.ssh/config 的 funding-prod 别名 + 专用部署密钥）。未配置密钥的
+# 机器上可临时 export SSHPASS=... 走密码通道（需要 sshpass，服务器端该通道保留）；
 # 密码只经环境变量传递，绝不写入本文件、日志或服务器。
 set -euo pipefail
 
-HOST="${DEPLOY_HOST:-root@47.240.168.162}"
+HOST="${DEPLOY_HOST:-funding-prod}"
 UNIT="funding-hedging.service"
 IMAGE="funding-hedging"
 HEALTH_URL="http://127.0.0.1:8787/readyz"
