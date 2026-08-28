@@ -14,7 +14,9 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   `SETTLING` 后 STORJ 被当前可交易快照排除，故缺价并遮蔽全部净收益。实际订单与资金不受影响，
   但历史成本会随币价重画。Human 决定：已匹配成功还款的利息固定使用还款时价格，未匹配成功
   还款的利息才继续用当前价暂估；匹配、部分还款、价格证据和历史回补先走 HIGH_RISK 计划评审。
-  活动 stage：`reports/agent-runs/2026-08-28-repaid-interest-price-v1/`。
+  Human 于 `2026-08-28 17:06 CST` 明确否决「利息发生时即冻价」：未结算借款必须随当前价格动态
+  估值，成功还款才把相关利息按还款时价格切换为终态固定成本；还款发生时历史重算一次是预期的
+  结算动作。活动 stage：`reports/agent-runs/2026-08-28-repaid-interest-price-v1/`。
 
 - **[DEPLOYMENT][2026-08-28 13:20 CST] 生产镜像已升到 `funding-hedging:5021c73`，部署通道固化为
   `scripts/deploy.sh`。** 线上 `47.240.168.162` / `https://aoke.kengbi.pro`，systemd 双单元

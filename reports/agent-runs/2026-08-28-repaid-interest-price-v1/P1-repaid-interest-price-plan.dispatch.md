@@ -5,7 +5,7 @@ Identity:
 - target_role: `Planner`
 - target_model: `claude_glm`
 - provider: `zhipu_glm`
-- status_revision: `1`
+- status_revision: `2`
 - required_skill: `agents/skills/task-planner.md`
 
 Goal:
@@ -15,6 +15,12 @@ Goal:
   matched successful repayment remains an open-loan estimate using the current
   price. The plan must resolve, rather than assume, the matching and price
   evidence needed to make this deterministic and auditable.
+- Human explicitly rejected freezing every interest row at its accrual-time
+  price. While borrowing remains unsettled, its USDT cost must move with the
+  current price. A repayment is the terminal settlement event: the settled
+  interest switches once to the repayment-time price and remains fixed after
+  that. The one-time historical change at repayment is intended product
+  behavior, not an instability to eliminate.
 - Preserve fail-closed behavior: no reliable applicable price means net profit
   remains unavailable. Do not fabricate a close-order relationship for assets
   such as STORJ that have borrowing and repayment records but no hedge cycle.
@@ -55,6 +61,10 @@ Current verified evidence and fixed premises:
   borrowing; the PnL curve consumes all interest rows in its window.
 - `margin_repay` currently stores no repayment-time price and has no direct
   foreign key to `interest_rows`.
+- Anthropic Claude's informal consultation recommended accrual-time freezing;
+  Human rejected that alternative on 2026-08-28. It is not an allowed default
+  or fallback. The plan may cite its technical observations, but must implement
+  the Human-approved open-dynamic / repaid-terminal model.
 - Human selected Bookkeeper `gpt-5.6-sol`, label `codex`. Planned formal routing:
   pre-development plan review by `opus5`/Anthropic; implementation by
   `claude_glm`/Zhipu; final Review-1 by Grok 4.6/XAI and Review-2 by
@@ -70,8 +80,10 @@ Acceptance Checks:
   including STORJ, obtain auditable historical evidence. It names what happens
   when the price cannot be obtained.
 - `pass`: Plan keeps historical converted costs stable after repayment and keeps
-  open borrowing explicitly estimated; both the positions view and PnL curve use
-  one detailed authority rather than independent algorithms.
+  open borrowing explicitly estimated from the current price. It explicitly
+  treats the one-time change at repayment as the transition from estimate to
+  terminal cost; both the positions view and PnL curve use one detailed authority
+  rather than independent algorithms.
 - `pass`: Plan names the minimal schema/data migration, backfill, idempotency,
   rollback, and production verification steps. No live write is authorized by
   this planning task.
@@ -79,6 +91,9 @@ Acceptance Checks:
   tests for matching, partial repayment, repeated loans, missing/unknown/failed
   repayment, missing price, historical stability, STORJ, and unchanged open-loan
   behavior. It rejects speculative abstractions.
+- `pass`: Tests prove an unsettled interest row changes when current price
+  changes, then switches exactly once to the matched repayment-time price and
+  remains unchanged across later current-price changes.
 - `pass`: The prepared plan-review dispatch is read-only, targets `opus5`
   (`anthropic`), uses at most one required reviewer skill, names the fixed plan
   artifact and raw evidence, and returns to Bookkeeper `gpt-5.6-sol` / `codex`.
