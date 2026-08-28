@@ -6,6 +6,16 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-08-28)
 
+- **[OPEN][MONEY][PNL][2026-08-28 16:11 CST] 已还款利息仍按实时价折 U，STORJ 使净收益曲线
+  fail-closed 显示「暂无 / 成本不全」。** 生产只读核验：账本有一条 STORJ `ON_BORROW`
+  利息（本金 `200`、利息 `0.0130242 STORJ`、`2026-08-20 14:00 CST`），还款库有其后
+  `amount=0` / `succeeded` 记录（`14:31:03.837 CST`），但对冲库无 STORJ 任务、周期或平仓
+  订单。当前持仓统计与收益曲线都以公开行情快照的**当前**现货买一价折算币本位利息；合约进入
+  `SETTLING` 后 STORJ 被当前可交易快照排除，故缺价并遮蔽全部净收益。实际订单与资金不受影响，
+  但历史成本会随币价重画。Human 决定：已匹配成功还款的利息固定使用还款时价格，未匹配成功
+  还款的利息才继续用当前价暂估；匹配、部分还款、价格证据和历史回补先走 HIGH_RISK 计划评审。
+  活动 stage：`reports/agent-runs/2026-08-28-repaid-interest-price-v1/`。
+
 - **[DEPLOYMENT][2026-08-28 13:20 CST] 生产镜像已升到 `funding-hedging:5021c73`，部署通道固化为
   `scripts/deploy.sh`。** 线上 `47.240.168.162` / `https://aoke.kengbi.pro`，systemd 双单元
   （应用 + Caddy）均 `active`，readyz 7 秒转 200，切换期间无告警。
