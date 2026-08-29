@@ -1,8 +1,8 @@
 # Development Guide
 
 Status: as-built hedge execution system with immediate/smooth live order,
-borrow, asset-transfer, manual margin-repay, and optional UI/API Basic Auth,
-2026-08-27. Current runtime state and live risks:
+borrow, asset-transfer, manual margin-repay, PnL series curve, bidirectional navigation,
+and optional UI/API Basic Auth, 2026-08-30. Current runtime state and live risks:
 `PROJECT_STATE.md`.
 
 This file is the canonical approved development guide for the project.

@@ -1,6 +1,6 @@
 # Architecture
 
-Status: as-built snapshot, 2026-08-28
+Status: as-built snapshot, 2026-08-30
 
 This document describes an evolving system; where it and the code disagree,
 the code and `PROJECT_STATE.md` are authoritative.
@@ -107,6 +107,11 @@ future contract stage.
   if any participating leg is incomplete, returns `incomplete=True` and `None` (fail-closed,
   displaying `—`). Close cycles freeze aggregated fees into `close_log` upon close; historical
   close logs remain immutable audit records.
+- PnL series and income ledgers (`backend/ledger_flow/`): computes funding fee,
+  commission, realized PnL, borrow interest, and synthetic net PnL series across
+  configurable time windows with repaid interest price locking (`repay_price_usdt`/
+  `repay_price_source`), served via `GET /api/private-ledger/pnl-series` and rendered
+  by the frontend PnL curve panel.
 
 ## Data Flow
 

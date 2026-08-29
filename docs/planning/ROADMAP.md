@@ -1,6 +1,6 @@
 # Roadmap
 
-Status: as-built roadmap sync, 2026-08-28. Live detail and acceptance state:
+Status: as-built roadmap sync, 2026-08-30. Live detail and acceptance state:
 `PROJECT_STATE.md`.
 
 This file is the canonical approved roadmap.
@@ -40,17 +40,22 @@ This file is the canonical approved roadmap.
     realtime USD-equivalent fee costs and BNB quantity; close cycles freeze total fee costs
     on close; legacy close logs remain immutable.
 12. **Single-instance cloud UI/API login, data migration, and HTTPS endpoint.
-    Done.**
+    Done — 2026-08-27.**
     One `.env` supplies one HTTP Basic username/password; all UI and business
     APIs are protected, health probes remain public, and remote binds fail
-    closed without credentials. The first AWS instance runs the reviewed commit
-    as named profile `env_aoke` behind a loopback-only Docker/systemd boundary;
-    local data and credentials are migrated and private reads verify. The Caddy
-    endpoint is active under Human's bounded test-account risk acceptance.
-    Binance private clients now default to the generic API credential pair;
-    dedicated borrow/hedge pairs remain optional deployment overrides. Reviewed
-    commit `7a3bd41` is deployed to `env_aoke`; credential recovery confirmed
-    the pre-deploy unknown attempt 172 absent without creating another attempt.
+    closed without credentials. Profile `env_aoke` deployed behind Docker/systemd/Caddy.
+13. **资金费率收益曲线面板（PnL Series Curve Panel V1）.
+    Done — 2026-08-20.**
+    市场表顶部提供收益构成累计曲线（费率收益、手续费、利息、滑点与合成净收益五线展示）；
+    支持 1D/3D/7D/全部 时间窗切换与 Brush 刷选；提供收益构成累计金额与占比汇总表。
+14. **已还利息按还款时价格折算（Repaid Interest Price Freezing）.
+    Done — 2026-08-28.**
+    借币利息未结清前按当前行情缓存价动态折 U；借币债务结清触发成功终态（`amount=="0"` 且 `status=="succeeded"`）
+    时一次性捕获并永久固定还款时的币种价格，准确沉淀历史利息成本。
+15. **市场表与借币任务卡双向互跳导航（Market-Borrow Bidirectional Navigation）.
+    Done — 2026-08-29.**
+    市场表借币列「查看借币」定位到借币任务卡，借币任务卡「`行情 ↗`」智能解阻 6 项筛选并平滑居中定位至行情行；
+    伴随两侧立体竖边框高亮脉冲，并具备切入时同步预渲染消除 Layout Shift 位移。
 
 
 ## 持仓周期三功能（2026-08 交付，Human 验收通过）
