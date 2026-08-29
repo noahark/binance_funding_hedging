@@ -1,11 +1,11 @@
 {
   "schema_version": "2",
-  "revision": 3,
+  "revision": 4,
   "stage_id": "2026-08-29-market-row-focus-style-v1",
   "bookkeeper": "gemini-3.7-flash",
   "bookkeeper_label": "agy",
-  "phase": "completed",
-  "checkpoint": "both_reviews_verified_accept",
+  "phase": "closed",
+  "checkpoint": "stage_closed_and_deployed",
   "base_sha": "2417b92219d442e2085a17e70f9734ab753809b0",
   "delivery_sha": "e449c9d7e9d25371c43bf2a3ffa1cf7857bfbaf5",
   "ledger_sha": "e449c9d7e9d25371c43bf2a3ffa1cf7857bfbaf5",
@@ -36,7 +36,7 @@
   ],
   "next": {
     "actor": "human_operator",
-    "action": "human-decision-on-merge-and-deploy"
+    "action": "stage-archived-no-active-work"
   },
   "rework_count": 0,
   "blockers": []

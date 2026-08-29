@@ -548,6 +548,15 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 - 任何 Start-gate、凭据或实盘操作仍须遵循上方 Live Risks 闸门并取得 Human 明确授权。
 
 ## Last Completed
+- stage: `2026-08-29-market-row-focus-style-v1`
+- delivery: `2417b92..e449c9d`（实现），`rework_count` 0。
+- recorded_completed_at: `2026-08-29`
+- outcome: 行情行聚焦高亮样式优化：将动画拆分为 -bg/-left/-right 三组，内部 td 仅应用背景脉冲（无阴影/无 inset），
+  左右竖条高亮仅应用于 td:first-child（inset 4px 0 0）与 td:last-child（inset -4px 0 0），彻底消除了内部各列的
+  竖向绿线分割；reduced-motion 同步拆分。
+- 评审: Kimi (`kimi`) 前端实现与自检（185 pass, 0 fail）；Grok (Review-1) 与 Claude-GLM (Review-2) 并行独立只读评审双 `ACCEPT`。
+- 部署: Human 2026-08-29 授权部署并在线上 `https://aoke.kengbi.pro` 验收（镜像 `funding-hedging:ceff2b4`）。
+- 流程偏差（据实记录）: 无。
 - stage: `2026-08-29-borrow-card-market-nav-v1`
 - delivery: `341aef6..1de9186`（实现），计划固定于 `cc87b1e`；`rework_count` 0。
 - recorded_completed_at: `2026-08-29`
