@@ -4251,7 +4251,9 @@ setTimeout(async () => {
       }
       const rmIdx = html.indexOf('@media (prefers-reduced-motion: reduce)');
       if (rmIdx === -1) throw new Error('缺少 prefers-reduced-motion 规则');
-      const rmBlock = html.slice(rmIdx, rmIdx + 400);
+      // 窗口 400→800：market-row-focus 拆分首/末格竖条后该 media 块变长，
+      // borrow-task-focus 规则被推出旧窗口；被测规则本身未变。
+      const rmBlock = html.slice(rmIdx, rmIdx + 800);
       if (!rmBlock.includes('.borrow-task-card.borrow-task-focus') || !rmBlock.includes('outline')) {
         throw new Error('reduced-motion 下应保留静态 outline 反馈');
       }
@@ -4527,12 +4529,27 @@ setTimeout(async () => {
     }
 
     // 62d-8. 聚焦生命周期：1.5s 动画/reduced-motion 静态反馈/重绘保持/重复导航末次为准/定时清理
+    // （2026-08-29-market-row-focus-style-v1：动画/阴影拆分——内部格仅背景脉冲，竖条只在首/末格）
     {
-      if (!html.includes('@keyframes market-row-focus-pulse')) {
-        throw new Error('缺少 market-row-focus-pulse keyframes');
+      for (const kf of ['market-row-focus-bg', 'market-row-focus-left', 'market-row-focus-right']) {
+        if (!html.includes('@keyframes ' + kf)) throw new Error('缺少 ' + kf + ' keyframes');
       }
-      if (!/tbody tr\.market-row-focus > td\s*\{[^}]*animation:\s*market-row-focus-pulse\s+1\.5s/.test(html)) {
-        throw new Error('市场行聚焦动画须为 1.5 秒');
+      if (!/tbody tr\.market-row-focus > td\s*\{[^}]*animation:\s*market-row-focus-bg\s+1\.5s/.test(html)) {
+        throw new Error('市场行聚焦背景脉冲动画须为 1.5 秒');
+      }
+      if (!/tbody tr\.market-row-focus > td:first-child\s*\{[^}]*animation:\s*market-row-focus-left\s+1\.5s/.test(html)) {
+        throw new Error('首格应有左竖条高亮动画 market-row-focus-left 1.5s');
+      }
+      if (!/tbody tr\.market-row-focus > td:last-child\s*\{[^}]*animation:\s*market-row-focus-right\s+1\.5s/.test(html)) {
+        throw new Error('末格应有右竖条高亮动画 market-row-focus-right 1.5s');
+      }
+      // 内部格不得再带 inset 竖线（回归守卫：旧实现对所有 td 加 inset 3px 0 0，每列都有竖线）
+      const bgRule = html.match(/tbody tr\.market-row-focus > td\s*\{[^}]*\}/)[0];
+      if (bgRule.includes('box-shadow')) throw new Error('内部格不应再有 box-shadow 竖线: ' + bgRule);
+      const bgKf = html.match(/@keyframes market-row-focus-bg\s*\{[\s\S]*?\n    \}/)[0];
+      if (bgKf.includes('inset')) throw new Error('背景脉冲 keyframes 不应含 inset 阴影');
+      if (!html.includes('inset 4px 0 0 var(--brand)') || !html.includes('inset -4px 0 0 var(--brand)')) {
+        throw new Error('首/末格竖条应为 inset ±4px 0 0 var(--brand)');
       }
       const rmNeedle = '@media (prefers-reduced-motion: reduce)';
       let rmPos = -1;
@@ -4540,8 +4557,12 @@ setTimeout(async () => {
         if (html.slice(i, i + 500).includes('market-row-focus')) { rmPos = i; break; }
       }
       if (rmPos === -1) throw new Error('缺少 market-row-focus 的 prefers-reduced-motion 规则');
-      if (!html.slice(rmPos, rmPos + 500).includes('outline')) {
-        throw new Error('reduced-motion 下市场行应保留静态 outline 反馈');
+      const rmSeg = html.slice(rmPos, rmPos + 700);
+      if (!rmSeg.includes('animation: none') || !rmSeg.includes('background: var(--brand-soft)')) {
+        throw new Error('reduced-motion 下市场行应保留静态背景反馈: ' + rmSeg.slice(0, 300));
+      }
+      if (!rmSeg.includes('inset 4px 0 0 var(--brand)') || !rmSeg.includes('inset -4px 0 0 var(--brand)')) {
+        throw new Error('reduced-motion 下首/末格应保留静态竖条高亮: ' + rmSeg.slice(0, 300));
       }
 
       helpers.setActiveView('market');

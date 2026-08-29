@@ -1093,14 +1093,29 @@
       box-shadow: inset 3px 0 0 var(--brand);
     }
     /* 借币卡「行情 ↗」跳转后的目标行聚焦：约 1.5 秒脉冲后回到原行视觉，
-       清理由 JS 定时器移除 market-row-focus 类完成；不覆盖持久 .selected 语义。 */
-    @keyframes market-row-focus-pulse {
-      0% { background: var(--brand-soft); box-shadow: inset 3px 0 0 var(--brand); }
-      70% { background: var(--brand-soft); box-shadow: inset 3px 0 0 var(--brand); }
+       清理由 JS 定时器移除 market-row-focus 类完成；不覆盖持久 .selected 语义。
+       2026-08-29-market-row-focus-style-v1：动画与阴影拆分——所有 td 仅背景脉冲，
+       竖条高亮只落在首/末格，避免旧实现对所有 td 加 inset 导致每列都有内部竖线。 */
+    @keyframes market-row-focus-bg {
+      0%, 70% { background: var(--brand-soft); }
+      100% { background: transparent; }
+    }
+    @keyframes market-row-focus-left {
+      0%, 70% { background: var(--brand-soft); box-shadow: inset 4px 0 0 var(--brand); }
+      100% { background: transparent; box-shadow: none; }
+    }
+    @keyframes market-row-focus-right {
+      0%, 70% { background: var(--brand-soft); box-shadow: inset -4px 0 0 var(--brand); }
       100% { background: transparent; box-shadow: none; }
     }
     tbody tr.market-row-focus > td {
-      animation: market-row-focus-pulse 1.5s ease-out;
+      animation: market-row-focus-bg 1.5s ease-out;
+    }
+    tbody tr.market-row-focus > td:first-child {
+      animation: market-row-focus-left 1.5s ease-out;
+    }
+    tbody tr.market-row-focus > td:last-child {
+      animation: market-row-focus-right 1.5s ease-out;
     }
     /* 持仓表资金费率格：点开与市场表同一个历史抽屉（快照覆盖该币时才可点） */
     td.symbol-link {
@@ -1256,8 +1271,14 @@
         animation: none;
         background: var(--brand-soft);
       }
+      tbody tr.market-row-focus > td:first-child {
+        box-shadow: inset 4px 0 0 var(--brand);
+      }
+      tbody tr.market-row-focus > td:last-child {
+        box-shadow: inset -4px 0 0 var(--brand);
+      }
       tbody tr.market-row-focus {
-        outline: 2px solid var(--brand);
+        outline: none;
       }
       .borrow-task-card.borrow-task-focus {
         animation: none;
