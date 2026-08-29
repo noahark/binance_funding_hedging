@@ -1,22 +1,42 @@
 {
   "schema_version": "2",
-  "revision": 3,
+  "revision": 6,
   "stage_id": "2026-08-29-market-borrow-view-button-v1",
   "bookkeeper": "gemini-3.7-flash",
   "bookkeeper_label": "agy",
-  "phase": "implementation",
-  "checkpoint": "p2_plan_reviewed_accept",
+  "phase": "completed",
+  "checkpoint": "both_reviews_verified_accept",
   "base_sha": "7bb70a74e4e97a5c0b136bc6146167a360f0debb",
-  "delivery_sha": null,
-  "ledger_sha": "7bb70a74e4e97a5c0b136bc6146167a360f0debb",
+  "delivery_sha": "89ab96d70c1a04ee120ff6ee6f2b22d6ab58420a",
+  "ledger_sha": "89ab96d70c1a04ee120ff6ee6f2b22d6ab58420a",
   "current_task": {
-    "id": "P3-market-borrow-view-implementation",
-    "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-08-29-market-borrow-view-button-v1/P3-market-borrow-view-implementation.dispatch.md"
+    "id": "P4-market-borrow-view-review-1-grok",
+    "state": "verified",
+    "dispatch": "reports/agent-runs/2026-08-29-market-borrow-view-button-v1/P4-review-1-grok.dispatch.md"
   },
+  "parallel_tasks": [
+    {
+      "id": "P4-market-borrow-view-review-1-grok",
+      "model": "grok",
+      "window": "grok-review",
+      "role": "Review-1",
+      "dispatch": "reports/agent-runs/2026-08-29-market-borrow-view-button-v1/P4-review-1-grok.dispatch.md",
+      "state": "verified",
+      "verdict": "ACCEPT"
+    },
+    {
+      "id": "P4-market-borrow-view-review-2-claude-glm",
+      "model": "claude_glm",
+      "window": "claude-glm-review",
+      "role": "Review-2",
+      "dispatch": "reports/agent-runs/2026-08-29-market-borrow-view-button-v1/P4-review-2-claude-glm.dispatch.md",
+      "state": "verified",
+      "verdict": "ACCEPT"
+    }
+  ],
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-task"
+    "action": "human-decision-on-merge-and-deploy"
   },
   "rework_count": 0,
   "blockers": []

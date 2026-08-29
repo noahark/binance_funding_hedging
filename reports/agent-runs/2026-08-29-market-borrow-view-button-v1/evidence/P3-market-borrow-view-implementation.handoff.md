@@ -83,8 +83,21 @@
 
 ## Bookkeeper Verification (Bookkeeper append-only)
 
-（待 Bookkeeper 核验后追加）
+- verified_at: `2026-08-29 19:16:23 CST`
+- verifier: `gemini-3.7-flash` (Bookkeeper, `agy` window)
+- source_sha256: `31f8e5231c5ceb1e68ec991cfb48c7b83a06f6ea27c595e4ea58f09518b1c244`
+- matched_status_revision: `3`
+- next_status_revision: `4`
+- base_sha: `7bb70a74e4e97a5c0b136bc6146167a360f0debb`
+- resolved_delivery_sha: `89ab96d70c1a04ee120ff6ee6f2b22d6ab58420a`
+- verification_verdict: `VERIFIED_PASS`
+- checks:
+  1. Base SHA `7bb70a74e4e97a5c0b136bc6146167a360f0debb` verified against git history.
+  2. Delivery SHA resolved as `89ab96d70c1a04ee120ff6ee6f2b22d6ab58420a` via direct git rev-parse.
+  3. Product changes strictly confined to dispatch-authorized `frontend/index.html` and `frontend/self-check.js`.
+  4. Executed `node frontend/self-check.js` independently and confirmed 176 PASS, 0 FAIL.
+  5. Handoff file verified at deterministic path with valid marker and complete receipt structure.
 
 ## Errata (append-only)
 
-None at task end.
+None at task verification.
