@@ -1,0 +1,43 @@
+{
+  "schema_version": "2",
+  "revision": 6,
+  "stage_id": "2026-08-29-borrow-card-market-nav-v1",
+  "bookkeeper": "gemini-3.7-flash",
+  "bookkeeper_label": "agy",
+  "phase": "completed",
+  "checkpoint": "both_reviews_verified_accept",
+  "base_sha": "341aef6aeab417b3d2e83bd6f5ec1bed90b048b0",
+  "delivery_sha": "1de91864ab2446f51668b0c356d17da1a6575de6",
+  "ledger_sha": "1de91864ab2446f51668b0c356d17da1a6575de6",
+  "current_task": {
+    "id": "P4-borrow-card-market-nav-review-2-claude-glm",
+    "state": "verified",
+    "dispatch": "reports/agent-runs/2026-08-29-borrow-card-market-nav-v1/P4-review-2-claude-glm.dispatch.md"
+  },
+  "parallel_tasks": [
+    {
+      "id": "P4-borrow-card-market-nav-review-1-grok",
+      "model": "grok",
+      "window": "grok-review",
+      "role": "Review-1",
+      "dispatch": "reports/agent-runs/2026-08-29-borrow-card-market-nav-v1/P4-review-1-grok.dispatch.md",
+      "state": "verified",
+      "verdict": "ACCEPT"
+    },
+    {
+      "id": "P4-borrow-card-market-nav-review-2-claude-glm",
+      "model": "claude_glm",
+      "window": "claude-glm-review",
+      "role": "Review-2",
+      "dispatch": "reports/agent-runs/2026-08-29-borrow-card-market-nav-v1/P4-review-2-claude-glm.dispatch.md",
+      "state": "verified",
+      "verdict": "ACCEPT"
+    }
+  ],
+  "next": {
+    "actor": "human_operator",
+    "action": "human-decision-on-merge-and-deploy"
+  },
+  "rework_count": 0,
+  "blockers": []
+}
