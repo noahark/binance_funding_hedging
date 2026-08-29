@@ -548,6 +548,17 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 - 任何 Start-gate、凭据或实盘操作仍须遵循上方 Live Risks 闸门并取得 Human 明确授权。
 
 ## Last Completed
+- stage: `2026-08-29-borrow-card-market-nav-v1`
+- delivery: `341aef6..1de9186`（实现），计划固定于 `cc87b1e`；`rework_count` 0。
+- recorded_completed_at: `2026-08-29`
+- outcome: 借币卡右上角增加「行情 ↗」反向定位按钮，严格 `base_asset` 解析与无匹配 disabled+title 降级；
+  已可见时完整保留所有筛选与控件不重绘，被筛掉时放开 6 项条件（含 `showPerpOnly=true` 保底）并同步 DOM
+  控件后单次重绘；切市场视图平滑滚动定位并伴随 1.5 秒聚焦高亮脉冲（支持 `prefers-reduced-motion` 静态反馈）；
+  按钮事件完全隔离。
+- 评审: Codex (`gpt-5.6-sol`) 方案设计；Claude (`opus5`) 设计前只读评审 `ACCEPT`；Kimi (`kimi`)
+  前端实现与自检（184 pass, 0 fail）；Grok (Review-1) 与 Claude-GLM (Review-2) 并行独立只读评审双 `ACCEPT`。
+- 部署: Human 2026-08-29 授权部署并在线上 `https://aoke.kengbi.pro` 实测验收（镜像 `funding-hedging:a4003e4`）。
+- 流程偏差（据实记录）: 无。
 - stage: `2026-08-29-market-borrow-view-button-v1`
 - delivery: `7bb70a7..89ab96d`（实现），计划固定于 `eeea31b`；`rework_count` 0。
 - recorded_completed_at: `2026-08-29`
