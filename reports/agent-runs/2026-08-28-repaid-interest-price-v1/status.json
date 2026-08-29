@@ -1,11 +1,11 @@
 {
   "schema_version": "2",
-  "revision": 19,
+  "revision": 20,
   "stage_id": "2026-08-28-repaid-interest-price-v1",
   "bookkeeper": "opus5",
   "bookkeeper_label": "claude",
-  "phase": "awaiting-human-decision",
-  "checkpoint": "review-1-and-review-2-both-accept-verified",
+  "phase": "closed",
+  "checkpoint": "completed",
   "base_sha": "f4f6c6f60113b15a6b7b84abf1c665d67eb00449",
   "delivery_sha": "d315fbd9e5ac93461ecdbd8a4edd1890e35f7f4e",
   "ledger_sha": "9b12c8e37aa0674315ba6b8e3fb6e6c15e70508a",
@@ -16,14 +16,16 @@
   },
   "next": {
     "actor": "human_operator",
-    "action": "decide-merge"
+    "action": "stage-archived-no-active-work"
   },
   "rework_count": 0,
   "blockers": [],
   "notes": [
     "P9-repaid-interest-price-plan-runtime-default-scan 未执行即作废：Human 2026-08-28 明示跳过剩余计划复评直接进入开发（『能否你直接改，然后启动开发。走流程太耽误事情了』）。P8 唯一 in-range 发现（TTL 默认值被写成运行时保证）已由前任 Bookkeeper gpt-5.6-sol 直接修复并封存于 e37d45a。",
     "Bookkeeper 于 revision 16 由 gpt-5.6-sol/codex 临时移交 opus5/claude：codex 会话额度耗尽，停在『已写好 P10 派单但未提交未派发』。移交仅为不中断交付，实现完成后的 Review-1/Review-2 仍按 HIGH_RISK 路由执行。",
-    "P10 dispatch 的 reply_to 由 codex 改为 claude，原因同上。"
+    "P10 dispatch 的 reply_to 由 codex 改为 claude，原因同上。",
+    "Human 2026-08-29 授权合并并部署（镜像 funding-hedging:3856137，readyz 9s）。",
+    "上线后暴露存量数据回归：11 条历史 0+succeeded 还款无价格列导致 7 资产 fail-closed 遮蔽；连同 STORJ 共 12 条经 Human 逐次授权人工补录 manual_correction 价格，审计见 PROJECT_STATE Current Status。该缺陷由 Human 在页面发现，六道评审关卡均未发现。"
   ],
   "parallel_tasks": [
     {

@@ -4,7 +4,43 @@ Cross-stage state, read at startup. Keep under 64 KB. Git history is not a runti
 check. Completed work's trace is git history and archive references (see Update
 Rule); this file records only live risks, open follow-ups, and pointers.
 
-## Current Status (2026-08-28)
+## Current Status (2026-08-29)
+
+- **[DATA-CORRECTION][2026-08-29 00:31–01:25 CST] 12 条历史还款补录还款时价格，净收益曲线已恢复展示。**
+  生产库 `/var/lib/funding-hedging/env_aoke/data/margin-repay.sqlite3`，Human 逐次授权执行。
+  **备份**：`margin-repay.sqlite3.bak-storj-20260829-002721`（STORJ 单条前）与
+  `margin-repay.sqlite3.bak-histprice-20260829-0040`（其余 11 条前，SQLite `.backup`），
+  两份 `quick_check: ok`。**改动**：12 行，每条 `changes()=1`，均带 `repay_price_usdt IS NULL`
+  幂等谓词（复跑实测影响 0 行）。**价格口径**：各自 `update_time` 所在那一分钟的币安公共
+  1m K 线**收盘价**（`GET /api/v3/klines`，无签名只读）。**来源标记全部 `manual_correction`**，
+  与自动路径的 `snapshot_spot_bid_at_capture` 永久可区分。
+  **校验**：仍缺价终态还款 0 / 人工修正 12 / 自动捕获 0 / 总行 24 / `quick_check: ok`；
+  线上容器内以空 `price_map` 实测 1638 条利息行中 1592 条已锁定且全部算得出，
+  剩 46 条为未还清的开放行。Human 已在页面确认「成本不全」消失、净收益有数。
+
+  | 资产 | 时刻(CST) | 价格 | | 资产 | 时刻(CST) | 价格 |
+  |---|---|---|---|---|---|---|
+  | INJ | 08-10 00:39 | 4.44200000 | | STORJ | 08-20 14:31 | 0.04090000 |
+  | XLM | 08-10 11:00 | 0.16320000 | | SNX | 08-27 19:54 | 0.22600000 |
+  | WLD | 08-10 13:50 | 0.33400000 | | WLD | 08-27 19:55 | 0.40130000 |
+  | JST | 08-12 15:36 | 0.10224000 | | WLD | 08-27 22:00 | 0.40650000 |
+  | MANA | 08-17 00:17 | 0.06400000 | | JST | 08-28 10:15 | 0.09785000 |
+  | AVNT | 08-18 12:10 | 0.09160000 | | INJ | 08-28 11:22 | 5.33000000 |
+
+- **[教训][2026-08-29] 新功能改变存量数据的解释方式时，上线前必须先数存量分布——本轮全流程漏掉了。**
+  `2026-08-28-repaid-interest-price-v1` 上线后，净收益曲线对 7 个资产（INJ/XLM/WLD/JST/
+  MANA/AVNT/SNX）显示「成本不全」，**且这是上线引入的回归**：上线前它们按当前价正常显示。
+  根因是新逻辑「利息行匹配到 `0+succeeded` 即改用该记录的存储价」，而这 11 条历史还款
+  发生在功能上线之前、当时根本没有价格列，存的是 NULL → fail-closed 遮蔽。
+  **代码与计划都没错**——两轮代码评审审的是「实现是否忠实于计划」，忠实。
+  **错在没有任何环节去数 `margin_repay` 里有多少条历史 `0+succeeded` 记录**：计划 §2 只统计了
+  `interest_rows`（确实只有 STORJ 一条），就据此认为影响面是一条；而真正决定影响面的是
+  *另一张表*的历史分布——11 条历史终态还款去匹配了 1636 条利息行。
+  P5 定档、P7 修复、P6/P8 计划复评、P11 双代码评审、Bookkeeper 核验，六道关卡无一发问
+  「上线后存量数据会变成什么样」。**可复用判断**：凡是新增「按某条历史记录的存储值改变
+  既有数据解释」的功能，上线前必须查那张历史表的行数与取值分布，而不是只查被解释的那张表。
+
+## Current Status (2026-08-28，以下为前日条目)
 
 - **[OPEN][MONEY][PNL][2026-08-28 16:11 CST] 已还款利息仍按实时价折 U，STORJ 使净收益曲线
   fail-closed 显示「暂无 / 成本不全」。** 生产只读核验：账本有一条 STORJ `ON_BORROW`
@@ -465,6 +501,8 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 - **No active stage**（`ACTIVE.json` = null）。迁移与 SHELLUSDT 恢复已于 `2026-08-28 11:06` 执行完毕，
   该条已不再是优先项。当前待决：
+  0. **`2026-08-28-repaid-interest-price-v1` 已完成并上线**（见 Last Completed）；其上线后
+     的存量数据回归已修复，无遗留。
   1. **近 24h / 年化 7D 两列欠一次独立评审。** 该交付走 Fast Review 授权实现，但 Human
      `2026-08-28` 指示直接部署，**跳过了 Fast Review 要求的那一次非作者评审**。代码已过
      2039 项后端测试与全部前端自检并已上线，但无第二双眼睛看过固定 commit `5021c73`。
@@ -483,6 +521,25 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 - 任何 Start-gate、凭据或实盘操作仍须遵循上方 Live Risks 闸门并取得 Human 明确授权。
 
 ## Last Completed
+- stage: `2026-08-28-repaid-interest-price-v1`
+- delivery: `f4f6c6f..d315fbd`（实现），计划固定于 `e37d45a`；`rework_count` 0。
+- recorded_completed_at: `2026-08-29`
+- outcome: 已还款利息按还款时价格折算。未出现本地终态事件前，币本位累计利息按当前缓存价
+  动态折 U；唯一终态是**存储意图** `amount=="0"` 且严格 `status=="succeeded"`，届时此前利息行
+  一次性切到捕获价并固定；非零部分还款与 `pending`/`unknown`/`failed` 不锁价；终态后
+  re-borrow 重新开放。`margin_repay` 增 `repay_price_usdt`/`repay_price_source` 两个 nullable
+  TEXT（**无 CHECK/枚举**，为人工 `manual_correction` 保留写入路径）。还款派发与 `store.resolve`
+  之间只增一个 best-effort 内存取价（异常隔离、失败两列 NULL、`resolve` 在边界外恰一次）。
+- 评审: 计划经 P6/P8 两轮独立跨 provider 复评（均 `REWORK` 后 `ACCEPT`）；Human 豁免剩余
+  计划复评轮直接开发；实现经 Review-1(grok) 与 Review-2(kimi) 并行独立评审，双 `ACCEPT`。
+  Human 2026-08-29 授权合并并部署（镜像 `funding-hedging:3856137`）。
+- 流程偏差（据实记录）: ① 本 stage **全程直接在 `main` 提交、未建 stage 分支**，与
+  `DEC-2026-07-05-001` 分支制不符；② Bookkeeper 于 revision 16 由 `gpt-5.6-sol`/codex
+  临时移交 `opus5`/claude（codex 会话额度耗尽），而 opus5 同时是计划作者——该非常规状态
+  已在两份评审派单中显式披露并要求 Reviewer 独立复核；③ P9 计划扫描任务未执行即作废
+  （Human 明示跳过剩余计划复评）。
+- follow-ups: 上线后暴露存量数据回归，12 条历史还款经 Human 逐次授权人工补录价格
+  （见 Current Status 数据修正条与教训条）。**该缺陷由 Human 在页面上发现，不是任何评审发现的。**
 - stage: `2026-08-23-hyperliquid-funding-compare-v1`
 - archive_ref: `archive/2026-08-23-hyperliquid-funding-compare-v1`（tip `c7674ef`）
 - delivery: `25cc8fe..6922bce`；`rework_count` 0（三轮设计评审的 REWORK 属实现前计划修订，按 §8 不计数）。
