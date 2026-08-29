@@ -157,6 +157,8 @@ function makeElement(id) {
       if (sel === 'tr.selectable') return _trRows();
       // 「查看借币」跳转定位目标卡：解析任务列表 innerHTML 中的卡片（属性比对查找）。
       if (sel === '.borrow-task-card[data-task-id]') return _borrowTaskCards(this.innerHTML);
+      // 借币卡「行情 ↗」按钮：解析任务列表 innerHTML，注册最新一次渲染的绑定。
+      if (sel === '[data-borrow-market-asset]') return _borrowMarketNavButtons(this.innerHTML);
       return [];
     }
   };
@@ -259,6 +261,37 @@ function _borrowTaskCards(listHtml) {
   return cards;
 }
 
+// 借币卡「行情 ↗」mock 注册表（2026-08-29-borrow-card-market-nav-v1）：
+// marketRowFocusRegistry 承载市场行的聚焦 class 与 scrollIntoView 参数（按 symbol，
+// 跨 _makeTrEl 新建对象保持一致）；borrowMarketNavBindings 由任务列表
+// querySelectorAll('[data-borrow-market-asset]') 每次重建，供事件隔离用例调用真实 handler。
+const marketRowFocusRegistry = {}; // symbol -> { classes: Set, scrollArgs }
+const borrowMarketNavBindings = { current: {} }; // asset -> { asset, listeners }
+
+function _rowFocusFx(symbol) {
+  if (!marketRowFocusRegistry[symbol]) {
+    marketRowFocusRegistry[symbol] = { classes: new Set(), scrollArgs: null };
+  }
+  return marketRowFocusRegistry[symbol];
+}
+
+function _borrowMarketNavButtons(listHtml) {
+  const bindings = {};
+  const re = /data-borrow-market-asset="([^"]+)"/g;
+  let m;
+  while ((m = re.exec(listHtml)) !== null) {
+    const asset = m[1];
+    if (!bindings[asset]) bindings[asset] = { asset, listeners: {} };
+  }
+  borrowMarketNavBindings.current = bindings;
+  return Object.values(bindings).map(reg => ({
+    getAttribute: (name) => (name === 'data-borrow-market-asset' ? reg.asset : null),
+    addEventListener: (type, handler) => {
+      (reg.listeners[type] = reg.listeners[type] || []).push(handler);
+    }
+  }));
+}
+
 // Parse the current market-table-body innerHTML into mock <tr> row elements so
 // patchRow (querySelector tr.selectable[data-symbol="X"]) and bindRowSelection
 // (querySelectorAll tr.selectable) operate on the rendered table. Each element
@@ -299,6 +332,17 @@ function _makeTrEl(symbol, bound) {
     removeAttribute() {},
     addEventListener() {},
     listeners: {},
+    // 「行情 ↗」导航的目标行聚焦/滚动记录：classList 与 scrollIntoView 按 symbol
+    // 落到 marketRowFocusRegistry，跨 _makeTrEl 新建对象保持一致。
+    get classList() {
+      const fx = _rowFocusFx(this._symbol);
+      return {
+        add: (c) => { fx.classes.add(c); },
+        remove: (c) => { fx.classes.delete(c); },
+        contains: (c) => fx.classes.has(c)
+      };
+    },
+    scrollIntoView(args) { _rowFocusFx(this._symbol).scrollArgs = args; },
     // attachRowHandlers 的真实 DOM 分支：mock 仅识别 [data-borrow-view-task]
     // （返回带监听器注册的按钮，供事件隔离用例调用真实 handler）；
     // 其余选择器（.borrow-op-cell / [data-borrow-confirm] / 输入框 id）返回 null。
@@ -4244,6 +4288,305 @@ setTimeout(async () => {
       await loadBorrowViewTasks([]);
       helpers.setActiveView('market');
       await new Promise(r => setTimeout(r, 0));
+    }
+
+    // ---- 借币卡「行情 ↗」反向定位（2026-08-29-borrow-card-market-nav-v1，计划 §5 用例 1-8） ----
+    const mkNavTask = (asset, status, id) => deepCopy(MOCK_TASK_HOME, { asset, status, id });
+    const loadNavTasks = async (tasks) => {
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc(tasks) };
+      await helpers.loadBorrowTasks();
+    };
+    const navCardHtml = (id) => getTaskCardHtml(elements['borrow-task-list'].innerHTML, id);
+    const marketTbody = () => elements['market-table-body'].innerHTML;
+    const marketRowTag = (sym) => {
+      const m = marketTbody().match(new RegExp(`<tr[^>]*data-symbol="${sym}"[^>]*>`));
+      return m ? m[0] : '';
+    };
+    const setFilter = (id, prop, value, evt) => {
+      elements[`filter-${id}`][prop] = value;
+      (elements[`filter-${id}`].listeners[evt] || []).forEach(h => h());
+    };
+    const navDomSnapshot = () => JSON.stringify([
+      elements['filter-search'].value, elements['filter-asset'].value, elements['filter-route'].value,
+      elements['filter-show-perp-only'].checked, elements['filter-hide-low-daily-rate'].checked,
+      elements['filter-hide-low-net-yield'].checked, elements['filter-prefer-openable'].checked,
+      elements['filter-show-hl'].checked
+    ]);
+    // 进入本块前的 ambient 筛选快照：既有测试并非全部复位，块尾必须恢复到该状态，
+    // 不能按初始默认值硬恢复（下游用例依赖 ambient）。
+    const navAmbientFilters = JSON.parse(JSON.stringify(helpers.getMarketFilters()));
+
+    // 62d-1. DOM/布局：按钮在徽标之后、class/文本/属性/aria 正确；无匹配时 disabled + 说明
+    {
+      await loadNavTasks([
+        mkNavTask('A', 'borrowing', 'nav-dom-1'),
+        mkNavTask('ZZZ', 'borrowing', 'nav-dom-2')
+      ]);
+      helpers.setActiveView('borrow-tasks');
+      await new Promise(r => setTimeout(r, 0));
+      const card = navCardHtml('nav-dom-1');
+      if (!card.includes('btn compact borrow-market-nav')) {
+        throw new Error('任务卡缺少 borrow-market-nav 按钮: ' + card);
+      }
+      if (!card.includes('data-borrow-market-asset="A"')) throw new Error('按钮缺少资产属性: ' + card);
+      if (!card.includes('aria-label="查看 A 行情"')) throw new Error('按钮缺少可访问名称: ' + card);
+      if (!card.includes('行情 ↗')) throw new Error('按钮文本应为「行情 ↗」: ' + card);
+      if (card.indexOf('badge') === -1 || card.indexOf('badge') > card.indexOf('borrow-market-nav')) {
+        throw new Error('按钮应位于徽标之后: ' + card);
+      }
+      const btn1 = card.match(/<button[^>]*borrow-market-nav[^>]*>/)[0];
+      if (/\sdisabled/.test(btn1)) throw new Error('有匹配市场行时按钮不应 disabled: ' + btn1);
+      const btn2 = navCardHtml('nav-dom-2').match(/<button[^>]*borrow-market-nav[^>]*>/)[0];
+      if (!/\sdisabled/.test(btn2) || !btn2.includes('aria-disabled="true"')) {
+        throw new Error('无匹配市场行时按钮应 disabled + aria-disabled: ' + btn2);
+      }
+      if (!btn2.includes('title="当前行情快照无对应币种"')) {
+        throw new Error('disabled 按钮应有原因说明: ' + btn2);
+      }
+      // CSS：右对齐用后代选择器，不改共享的 .borrow-task-head（观察 C）
+      const navCssIdx = html.indexOf('.borrow-task-head .borrow-market-nav');
+      if (navCssIdx === -1 || !html.slice(navCssIdx, navCssIdx + 200).includes('margin-left: auto')) {
+        throw new Error('缺少 .borrow-task-head .borrow-market-nav { margin-left: auto } 样式');
+      }
+      console.log('[PASS] 行情 ↗ 按钮 DOM/布局：徽标之后右上角、aria/title 正确、无匹配 disabled 降级');
+    }
+
+    // 62d-2. 资产解析：严格 base_asset 匹配；异资产 null；同资产多行取快照第一行
+    {
+      const hit = helpers.marketRowForBorrowAsset('A');
+      if (!hit || hit.symbol !== 'AUSDT') throw new Error('A 应解析到 AUSDT');
+      if (helpers.marketRowForBorrowAsset('ZZZ') !== null) throw new Error('异资产应返回 null');
+      const dupFx = JSON.parse(JSON.stringify(designFixture));
+      const dupRow = JSON.parse(JSON.stringify(dupFx.rows[0]));
+      dupRow.symbol = 'ADUPUSDT';
+      dupFx.rows.push(dupRow);
+      helpers.ingestSnapshot(dupFx);
+      const first = helpers.marketRowForBorrowAsset('A');
+      if (!first || first.symbol !== 'AUSDT') throw new Error('同资产多行应取快照第一行');
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] 行情 ↗ 资产解析：严格 base_asset 匹配、异资产 null、同资产多行取首行');
+    }
+
+    // 62d-3. 已可见保持：非默认但目标仍可见的筛选组合，导航后 state 与 DOM 控件逐项不变、不重绘
+    {
+      setFilter('search', 'value', 'A', 'input');
+      setFilter('asset', 'value', 'CRYPTO', 'change');
+      setFilter('route', 'value', 'MARGIN_SPOT_CANDIDATE', 'change');
+      setFilter('show-perp-only', 'checked', false, 'change');
+      setFilter('hide-low-daily-rate', 'checked', true, 'change');
+      setFilter('hide-low-net-yield', 'checked', true, 'change');
+      setFilter('prefer-openable', 'checked', false, 'change');
+      setFilter('show-hl', 'checked', false, 'change');
+      if (!marketTbody().includes('data-symbol="AUSDT"')) {
+        throw new Error('前置：AUSDT 在该非默认筛选组合下应仍可见');
+      }
+      // 观察 A 回归断言：处于借币视图时市场表 DOM 仍已含目标行（renderTable 视图无关前提）
+      helpers.setActiveView('borrow-tasks');
+      await new Promise(r => setTimeout(r, 0));
+      if (!marketTbody().includes('data-symbol="AUSDT"')) {
+        throw new Error('处于借币视图时市场表 DOM 应已渲染目标行');
+      }
+      const filtersBefore = JSON.stringify(helpers.getMarketFilters());
+      const domBefore = navDomSnapshot();
+      const tbodyBefore = marketTbody();
+      const res = helpers.viewBorrowAssetInMarket('A');
+      if (!res.ok || res.alreadyVisible !== true) {
+        throw new Error('目标已可见时应走 alreadyVisible 分支: ' + JSON.stringify(res));
+      }
+      if (helpers.getActiveView() !== 'market') throw new Error('导航后应切到市场视图');
+      if (JSON.stringify(helpers.getMarketFilters()) !== filtersBefore) {
+        throw new Error('已可见路径不得修改任何 state.filters');
+      }
+      if (navDomSnapshot() !== domBefore) {
+        throw new Error('已可见路径不得修改任何筛选 DOM 控件');
+      }
+      if (marketTbody() !== tbodyBefore) throw new Error('已可见路径不得重绘市场表');
+      const fx = marketRowFocusRegistry['AUSDT'];
+      if (!fx || !fx.scrollArgs || fx.scrollArgs.behavior !== 'smooth' || fx.scrollArgs.block !== 'center') {
+        throw new Error('目标行应收到 scrollIntoView({behavior:smooth, block:center})');
+      }
+      if (!fx.classes.has('market-row-focus')) throw new Error('已可见路径应显式给目标行加聚焦类');
+      if (helpers.getMarketRowFocusSymbol() !== 'AUSDT') throw new Error('焦点 symbol 应记录为 AUSDT');
+      console.log('[PASS] 行情 ↗ 已可见保持：筛选 state/DOM 逐项不变、不重绘、滚动居中聚焦');
+    }
+
+    // 62d-4. 隐藏行放开：搜索/下拉/低值隐藏遮住目标 → 六项 state 与 DOM 同步为冻结值，目标进 DOM
+    {
+      setFilter('search', 'value', 'ZZZ', 'input');
+      setFilter('asset', 'value', 'BSTOCK', 'change');
+      setFilter('route', 'value', 'SPOT_ONLY_CANDIDATE', 'change');
+      setFilter('show-perp-only', 'checked', false, 'change');
+      setFilter('hide-low-daily-rate', 'checked', true, 'change');
+      setFilter('hide-low-net-yield', 'checked', true, 'change');
+      if (marketTbody().includes('data-symbol="AUSDT"')) throw new Error('前置：目标应被遮住');
+      const res = helpers.viewBorrowAssetInMarket('A');
+      if (!res.ok || res.alreadyVisible !== false) {
+        throw new Error('目标被筛掉时应走放开分支: ' + JSON.stringify(res));
+      }
+      const F = helpers.getMarketFilters();
+      const syncPairs = [
+        ['search', F.search, elements['filter-search'].value, ''],
+        ['assetTag', F.assetTag, elements['filter-asset'].value, ''],
+        ['routeClass', F.routeClass, elements['filter-route'].value, ''],
+        ['showPerpOnly', F.showPerpOnly, elements['filter-show-perp-only'].checked, true],
+        ['hideLowDailyRate', F.hideLowDailyRate, elements['filter-hide-low-daily-rate'].checked, false],
+        ['hideLowNetYield', F.hideLowNetYield, elements['filter-hide-low-net-yield'].checked, false]
+      ];
+      for (const [name, st, dom, expected] of syncPairs) {
+        if (st !== expected || dom !== expected) {
+          throw new Error(`放开后 ${name} 应为 ${expected} 且 state/DOM 同步，实际 state=${st} dom=${dom}`);
+        }
+      }
+      if (F.preferOpenable !== false || F.showHl !== false) {
+        throw new Error('preferOpenable/showHl 只重排/管子行，必须原样保留');
+      }
+      if (!marketTbody().includes('data-symbol="AUSDT"')) throw new Error('放开后目标行应进入 DOM');
+      const fx = marketRowFocusRegistry['AUSDT'];
+      if (!fx.scrollArgs || fx.scrollArgs.block !== 'center') throw new Error('放开后目标行应滚动居中');
+      console.log('[PASS] 行情 ↗ 隐藏行放开：六项隐藏条件 state/DOM 同步冻结值（含 showPerpOnly=true），目标进 DOM');
+    }
+
+    // 62d-5. PERP-only 保底：目标 PERP_ONLY_EXCLUDED 且 showPerpOnly=false → 转 true 且行真实渲染
+    {
+      const perpFx = JSON.parse(JSON.stringify(designFixture));
+      perpFx.rows.find(r => r.symbol === 'AUSDT').route_class = 'PERP_ONLY_EXCLUDED';
+      helpers.ingestSnapshot(perpFx);
+      setFilter('search', 'value', '', 'input');
+      setFilter('asset', 'value', '', 'change');
+      setFilter('route', 'value', '', 'change');
+      setFilter('hide-low-daily-rate', 'checked', false, 'change');
+      setFilter('hide-low-net-yield', 'checked', false, 'change');
+      setFilter('show-perp-only', 'checked', false, 'change');
+      if (marketTbody().includes('data-symbol="AUSDT"')) {
+        throw new Error('前置：PERP-only 目标应被 showPerpOnly=false 遮住');
+      }
+      const res = helpers.viewBorrowAssetInMarket('A');
+      if (!res.ok || res.alreadyVisible !== false) throw new Error('PERP-only 目标应走放开分支');
+      if (helpers.getMarketFilters().showPerpOnly !== true || elements['filter-show-perp-only'].checked !== true) {
+        throw new Error('showPerpOnly 必须转为 true（state 与 checkbox 同步）');
+      }
+      if (!marketTbody().includes('data-symbol="AUSDT"')) {
+        throw new Error('PERP-only 保底后目标行应真实渲染（排除只清搜索的假绿）');
+      }
+      if (!marketRowFocusRegistry['AUSDT'].scrollArgs) throw new Error('PERP-only 目标应滚动');
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] 行情 ↗ PERP-only 保底：showPerpOnly 转 true 且目标行真实渲染滚动');
+    }
+
+    // 62d-6. 缺失目标 fail-closed：不抛错、不切视图、不改筛选、不动焦点
+    {
+      setFilter('search', 'value', 'ZZZ', 'input');
+      const viewBefore = helpers.getActiveView();
+      const filtersBefore = JSON.stringify(helpers.getMarketFilters());
+      const focusBefore = helpers.getMarketRowFocusSymbol();
+      const res = helpers.viewBorrowAssetInMarket('NO_SUCH_ASSET');
+      if (!res || res.ok !== false || res.reason !== 'market_row_not_found') {
+        throw new Error('无匹配市场行应 fail-closed 返回: ' + JSON.stringify(res));
+      }
+      if (helpers.getActiveView() !== viewBefore) throw new Error('缺失目标不得切换视图');
+      if (JSON.stringify(helpers.getMarketFilters()) !== filtersBefore) throw new Error('缺失目标不得修改筛选');
+      if (helpers.getMarketRowFocusSymbol() !== focusBefore) throw new Error('缺失目标不得改动焦点');
+      console.log('[PASS] 行情 ↗ 缺失目标 fail-closed：不切视图/不改筛选/不动焦点');
+    }
+
+    // 62d-7. 事件隔离与零副作用：真实 click/keydown handler stopPropagation、无 preventDefault、零写请求
+    {
+      setFilter('search', 'value', '', 'input');
+      await loadNavTasks([mkNavTask('A', 'borrowing', 'nav-iso-1')]);
+      helpers.setActiveView('borrow-tasks');
+      await new Promise(r => setTimeout(r, 0));
+      const reg = borrowMarketNavBindings.current['A'];
+      if (!reg) throw new Error('行情 ↗ 按钮未在任务卡绑定');
+      if (!reg.listeners.click || !reg.listeners.click.length) throw new Error('缺少 click handler');
+      if (!reg.listeners.keydown || !reg.listeners.keydown.length) throw new Error('缺少 keydown handler');
+      const fetchBefore = fetchCallLog.length;
+      const drawerBefore = helpers.isDrawerOpen();
+      let stopClick = false;
+      reg.listeners.click[reg.listeners.click.length - 1]({
+        stopPropagation: () => { stopClick = true; },
+        preventDefault: () => { throw new Error('click 不应 preventDefault'); }
+      });
+      if (!stopClick) throw new Error('click handler 应调用 stopPropagation');
+      let stopKey = false, preventKey = false;
+      reg.listeners.keydown[reg.listeners.keydown.length - 1]({
+        key: 'Enter',
+        stopPropagation: () => { stopKey = true; },
+        preventDefault: () => { preventKey = true; }
+      });
+      if (!stopKey) throw new Error('keydown handler 应 stopPropagation');
+      if (preventKey) throw new Error('keydown 不得 preventDefault（保留原生 Enter/Space 激活）');
+      if (helpers.isDrawerOpen() !== drawerBefore) throw new Error('导航不得改变行抽屉状态');
+      const news = fetchCallLog.slice(fetchBefore);
+      if (news.some(c => c.method === 'POST')) {
+        throw new Error('导航不得产生任何 POST: ' + JSON.stringify(news));
+      }
+      if (news.some(c => c.url.startsWith('/api/borrow'))) {
+        throw new Error('导航不得产生 borrow 请求: ' + JSON.stringify(news));
+      }
+      console.log('[PASS] 行情 ↗ 事件隔离与零副作用：click/keydown stopPropagation、无 preventDefault、零 POST/零 borrow 请求、不开抽屉');
+    }
+
+    // 62d-8. 聚焦生命周期：1.5s 动画/reduced-motion 静态反馈/重绘保持/重复导航末次为准/定时清理
+    {
+      if (!html.includes('@keyframes market-row-focus-pulse')) {
+        throw new Error('缺少 market-row-focus-pulse keyframes');
+      }
+      if (!/tbody tr\.market-row-focus > td\s*\{[^}]*animation:\s*market-row-focus-pulse\s+1\.5s/.test(html)) {
+        throw new Error('市场行聚焦动画须为 1.5 秒');
+      }
+      const rmNeedle = '@media (prefers-reduced-motion: reduce)';
+      let rmPos = -1;
+      for (let i = html.indexOf(rmNeedle); i !== -1; i = html.indexOf(rmNeedle, i + rmNeedle.length)) {
+        if (html.slice(i, i + 500).includes('market-row-focus')) { rmPos = i; break; }
+      }
+      if (rmPos === -1) throw new Error('缺少 market-row-focus 的 prefers-reduced-motion 规则');
+      if (!html.slice(rmPos, rmPos + 500).includes('outline')) {
+        throw new Error('reduced-motion 下市场行应保留静态 outline 反馈');
+      }
+
+      helpers.setActiveView('market');
+      helpers.viewBorrowAssetInMarket('A');
+      if (helpers.getMarketRowFocusSymbol() !== 'AUSDT') throw new Error('焦点 symbol 应为 AUSDT');
+      // 重绘保持：renderTable 后行 HTML 仍带聚焦类
+      helpers.renderTable();
+      if (!marketRowTag('AUSDT').includes('market-row-focus')) {
+        throw new Error('重绘后目标行应仍带聚焦类');
+      }
+      // 重复导航以末次为准
+      helpers.viewBorrowAssetInMarket('A');
+      helpers.viewBorrowAssetInMarket('B');
+      if (helpers.getMarketRowFocusSymbol() !== 'BUSDT') throw new Error('重复导航应以后一次目标为准');
+      helpers.renderTable();
+      if (marketRowTag('AUSDT').includes('market-row-focus')) {
+        throw new Error('旧目标行重绘后不应残留聚焦类');
+      }
+      if (!marketRowTag('BUSDT').includes('market-row-focus')) {
+        throw new Error('新目标行重绘后应带聚焦类');
+      }
+      // 1500ms 定时清理：焦点字段与当前行类均消失
+      await new Promise(r => setTimeout(r, 1700));
+      if (helpers.getMarketRowFocusSymbol() !== null) throw new Error('聚焦清理后焦点字段应为 null');
+      if (marketRowFocusRegistry['BUSDT'].classes.has('market-row-focus')) {
+        throw new Error('聚焦清理后目标行聚焦类应被移除');
+      }
+      helpers.renderTable();
+      if (marketRowTag('BUSDT').includes('market-row-focus')) {
+        throw new Error('清理后重绘不应再带聚焦类');
+      }
+      // 还原现场：恢复到进入本块前的 ambient 筛选与 fixture
+      setFilter('search', 'value', navAmbientFilters.search, 'input');
+      setFilter('asset', 'value', navAmbientFilters.assetTag, 'change');
+      setFilter('route', 'value', navAmbientFilters.routeClass, 'change');
+      setFilter('show-perp-only', 'checked', navAmbientFilters.showPerpOnly, 'change');
+      setFilter('hide-low-daily-rate', 'checked', navAmbientFilters.hideLowDailyRate, 'change');
+      setFilter('hide-low-net-yield', 'checked', navAmbientFilters.hideLowNetYield, 'change');
+      setFilter('prefer-openable', 'checked', navAmbientFilters.preferOpenable, 'change');
+      setFilter('show-hl', 'checked', navAmbientFilters.showHl, 'change');
+      helpers.ingestSnapshot(designFixture);
+      await loadNavTasks([]);
+      helpers.setActiveView('market');
+      await new Promise(r => setTimeout(r, 0));
+      console.log('[PASS] 行情 ↗ 聚焦生命周期：1.5s 动画/reduced-motion 静态反馈/重绘保持/末次为准/定时清理');
     }
 
     // ---- 借币任务后端权威迁移（Task B；全部 API 交互走 §3 冻结形状的 mock） ----

@@ -1092,6 +1092,16 @@
       background: #e4f4f1 !important;
       box-shadow: inset 3px 0 0 var(--brand);
     }
+    /* 借币卡「行情 ↗」跳转后的目标行聚焦：约 1.5 秒脉冲后回到原行视觉，
+       清理由 JS 定时器移除 market-row-focus 类完成；不覆盖持久 .selected 语义。 */
+    @keyframes market-row-focus-pulse {
+      0% { background: var(--brand-soft); box-shadow: inset 3px 0 0 var(--brand); }
+      70% { background: var(--brand-soft); box-shadow: inset 3px 0 0 var(--brand); }
+      100% { background: transparent; box-shadow: none; }
+    }
+    tbody tr.market-row-focus > td {
+      animation: market-row-focus-pulse 1.5s ease-out;
+    }
     /* 持仓表资金费率格：点开与市场表同一个历史抽屉（快照覆盖该币时才可点） */
     td.symbol-link {
       cursor: pointer;
@@ -1242,6 +1252,13 @@
       animation: borrow-task-focus-pulse 1.5s ease-out;
     }
     @media (prefers-reduced-motion: reduce) {
+      tbody tr.market-row-focus > td {
+        animation: none;
+        background: var(--brand-soft);
+      }
+      tbody tr.market-row-focus {
+        outline: 2px solid var(--brand);
+      }
       .borrow-task-card.borrow-task-focus {
         animation: none;
         outline: 2px solid var(--brand);
@@ -1251,6 +1268,12 @@
       display: flex;
       align-items: center;
       gap: var(--space-2);
+    }
+    /* 「行情 ↗」按钮推到任务卡头最右；作用域限定按钮本身，不改共享的
+       .borrow-task-head（开单卡复用同一 class）。 */
+    .borrow-task-head .borrow-market-nav {
+      margin-left: auto;
+      flex: 0 0 auto;
     }
     button.hedge-task-id-copy {
       border: 0;
@@ -1988,6 +2011,9 @@
         // 市场行「查看借币」跳转后的短生命周期聚焦目标（任务 ID 字符串）；
         // 由模块级 borrowTaskFocusTimer 在 1500ms 后清除。
         borrowTaskFocusId: null,
+        // 借币卡「行情 ↗」反向定位的短生命周期聚焦目标（市场行 symbol）；
+        // 由模块级 marketRowFocusTimer 在 1500ms 后清除。
+        marketRowFocusSymbol: null,
         // 开单任务（2026-07-hedge-open-live-v1，第一轮）：后端 SQLite 是唯一权威；
         // state.hedgeTasks 只是最近一次 GET /api/hedge-open-tasks?status=all 的渲染缓存，
         // hedgePositions / hedgeSettings 分别为 positions / settings 端点缓存。
@@ -3656,8 +3682,12 @@
         // v4.1 §9.1: collateral-cap badge lives on the same-row「借贷状态 / 资产」
         // cell only (not the symbol cell). Still one badge; zero sort/filter/button impact.
         const capBadge = renderCollateralCapBadge(row);
+        // 借币卡「行情 ↗」聚焦：焦点 symbol 匹配时根 <tr> 追加 market-row-focus，
+        // 使 60s 快照刷新等既有重绘发生在反馈窗口内时焦点不丢（清理由导航定时器负责）。
+        const rowFocusClass = state.marketRowFocusSymbol !== null && String(row.symbol) === state.marketRowFocusSymbol
+          ? ' market-row-focus' : '';
         return `
-          <tr class="${isBstock ? 'bstock' : ''} selectable" data-symbol="${escapeHtml(row.symbol)}" tabindex="0" role="button" aria-label="查看 ${escapeHtml(row.symbol)} 的年化与已结算历史">
+          <tr class="${isBstock ? 'bstock' : ''} selectable${rowFocusClass}" data-symbol="${escapeHtml(row.symbol)}" tabindex="0" role="button" aria-label="查看 ${escapeHtml(row.symbol)} 的年化与已结算历史">
             <td class="mono">${escapeHtml(row.symbol)}${dirBadge}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span></td>
             ${renderOpeningQuotesCell(row, 'forward')}
             ${renderOpeningQuotesCell(row, 'reverse')}
@@ -5507,12 +5537,19 @@
         // 重建卡片后焦点仍保留（清理由 viewBorrowTask 的定时器负责）。
         const focusClass = state.borrowTaskFocusId !== null && String(task.id) === state.borrowTaskFocusId
           ? ' borrow-task-focus' : '';
+        // 「行情 ↗」反向定位（D2）：点击时按资产从当前快照重新解析，避免闭包持有旧
+        // symbol；无匹配市场行时保留同位置 disabled 按钮并说明原因（graceful 降级，
+        // 复用既有 .btn:disabled 样式），用户能看到能力但不会跳到错误位置。
+        const marketNavBtn = marketRowForBorrowAsset(task.asset)
+          ? `<button class="btn compact borrow-market-nav" type="button" data-borrow-market-asset="${asset}" aria-label="查看 ${asset} 行情">行情 ↗</button>`
+          : `<button class="btn compact borrow-market-nav" type="button" data-borrow-market-asset="${asset}" aria-label="查看 ${asset} 行情" disabled aria-disabled="true" title="当前行情快照无对应币种">行情 ↗</button>`;
         return `
           <div class="borrow-task-card${focusClass}" data-task-id="${idAttr}">
             <div class="borrow-task-head">
               <h3>${asset}</h3>
               <span class="badge ${statusBadge}">${statusLabel}</span>
               ${latestBadge}
+              ${marketNavBtn}
             </div>
             <div class="borrow-task-lines">
               <div>单次数量：<strong>${amountText} ${asset}/次</strong></div>
@@ -5546,8 +5583,9 @@
           </div>`;
       }
 
-      // 列表按钮绑定（真实 DOM）；mock DOM 的 querySelectorAll 对任务选择器返回
-      // 空数组，自检经 __appHelpers 直测 API 动作路径。
+      // 列表按钮绑定（真实 DOM）；mock DOM 的 querySelectorAll 仅识别
+      // .borrow-task-card[data-task-id]（定位）与 [data-borrow-market-asset]
+      // （事件隔离用例），其余任务选择器返回空数组，自检经 __appHelpers 直测。
       function bindBorrowTaskControls() {
         if (typeof els.borrowTaskList.querySelectorAll !== 'function') return;
         els.borrowTaskList.querySelectorAll('[data-task-action]').forEach(btn => {
@@ -5564,6 +5602,17 @@
         els.borrowTaskList.querySelectorAll('[data-task-edit-confirm]').forEach(btn => {
           btn.addEventListener('click', () => {
             submitBorrowTaskEdit(btn.getAttribute('data-task-edit-confirm'));
+          });
+        });
+        // 「行情 ↗」：click 首句 stopPropagation 后按资产重新解析并导航；keydown 对
+        // 所有按键 stopPropagation，不 preventDefault，保留原生 Enter/Space 激活。
+        els.borrowTaskList.querySelectorAll('[data-borrow-market-asset]').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            viewBorrowAssetInMarket(btn.getAttribute('data-borrow-market-asset'));
+          });
+          btn.addEventListener('keydown', (e) => {
+            e.stopPropagation();
           });
         });
       }
@@ -5760,6 +5809,75 @@
             el.classList.remove('borrow-task-focus');
           }
         }, 1500);
+      }
+
+      // ---- 借币卡「行情 ↗」反向定位（2026-08-29-borrow-card-market-nav-v1 D1/D3/D4） ----
+      // 唯一市场行聚焦清理定时器：重复导航先取消旧定时器，只有最后一次导航控制焦点。
+      let marketRowFocusTimer = null;
+
+      // 资产到市场行的唯一解析：严格 row.base_asset === asset，无大小写归一、无 symbol
+      // 拼接、无别名推断；同资产多行按快照当前顺序取第一行（Array.find 确定性结果）。
+      function marketRowForBorrowAsset(asset) {
+        return (state.snapshot && Array.isArray(state.snapshot.rows)
+          ? state.snapshot.rows : []).find(row => row && row.base_asset === asset) || null;
+      }
+
+      // 市场行安全查询：CSS.escape 转义 symbol，沿用 patchRow 已证明的同形选择器。
+      function marketRowElForSymbol(symbol) {
+        if (!els.tableBody || typeof els.tableBody.querySelector !== 'function') return null;
+        return els.tableBody.querySelector(`tr.selectable[data-symbol="${CSS.escape(symbol)}"]`);
+      }
+
+      // 固定顺序（D3）：解析目标（无匹配 fail-closed 不切视图不改筛选）→ 任何修改前
+      // 计算可见性 → 记录焦点并清旧定时器 → 切市场视图 → 已可见则完整保留筛选与控件、
+      // 不重绘；被筛掉则一次性放开全部六项实际隐藏条件并同步控件后单次重绘 →
+      // 安全查行、显式加聚焦类、平滑滚动居中 → 1500ms 后按同一安全 selector 清理。
+      function viewBorrowAssetInMarket(asset) {
+        const targetRow = marketRowForBorrowAsset(asset);
+        if (!targetRow) return { ok: false, reason: 'market_row_not_found' };
+        const targetSymbol = String(targetRow.symbol);
+        const alreadyVisible = displayRows().some(row => row.symbol === targetSymbol);
+        state.marketRowFocusSymbol = targetSymbol;
+        if (marketRowFocusTimer) {
+          clearTimeout(marketRowFocusTimer);
+          marketRowFocusTimer = null;
+        }
+        setActiveView('market');
+        if (!alreadyVisible) {
+          // showPerpOnly=true 是保底 100% 可见的必要部分（false 会排除 PERP_ONLY_EXCLUDED）；
+          // preferOpenable 只重排、showHl 只管子行显示，均不新增隐藏条件，必须保留。
+          state.filters.search = '';
+          els.filterSearch.value = '';
+          state.filters.assetTag = '';
+          els.filterAsset.value = '';
+          state.filters.routeClass = '';
+          els.filterRoute.value = '';
+          state.filters.showPerpOnly = true;
+          els.filterShowPerpOnly.checked = true;
+          state.filters.hideLowDailyRate = false;
+          els.filterHideLowDailyRate.checked = false;
+          state.filters.hideLowNetYield = false;
+          els.filterHideLowNetYield.checked = false;
+          renderTable();
+        }
+        const tr = marketRowElForSymbol(targetSymbol);
+        if (tr) {
+          // 显式加类覆盖 already-visible 未重绘路径；重绘路径由 renderRowHtml 带类。
+          if (tr.classList && typeof tr.classList.add === 'function') tr.classList.add('market-row-focus');
+          if (typeof tr.scrollIntoView === 'function') {
+            tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+        marketRowFocusTimer = setTimeout(() => {
+          marketRowFocusTimer = null;
+          if (state.marketRowFocusSymbol !== targetSymbol) return;
+          state.marketRowFocusSymbol = null;
+          const el = marketRowElForSymbol(targetSymbol);
+          if (el && el.classList && typeof el.classList.remove === 'function') {
+            el.classList.remove('market-row-focus');
+          }
+        }, 1500);
+        return { ok: true, symbol: targetSymbol, alreadyVisible };
       }
 
       // ==================== 对冲开单（2026-07-hedge-open-live-v1，第一轮：立即开单） ====================
@@ -9789,6 +9907,11 @@
         latestActiveBorrowTaskForAsset,
         viewBorrowTask,
         getBorrowTaskFocusId: () => state.borrowTaskFocusId,
+        // 借币卡「行情 ↗」反向定位（2026-08-29-borrow-card-market-nav-v1）：自检最小接缝。
+        marketRowForBorrowAsset,
+        viewBorrowAssetInMarket,
+        getMarketRowFocusSymbol: () => state.marketRowFocusSymbol,
+        getMarketFilters: () => state.filters,
         loadBorrowTasks,
         renderExecutionStatus,
         loadSchedulerSettings,
