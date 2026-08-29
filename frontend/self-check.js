@@ -10526,6 +10526,69 @@ setTimeout(async () => {
       console.log('[PASS] pm-equity-field-fix：净资产取 actualEquity / accountEquity 不上屏 / 缺源部分和标红点名 / 不回退毛额');
     }
 
+    // 77. 除 BNB 估值（2026-08-29）：只展示后端字段，绝不在前端补算；null 必须
+    // 显示 —，尤其不得回退成总资产本身——少减一笔的余额恰好偏高那一笔，对账会
+    // 读成凭空多赚，方向相反的错误结论。
+    {
+      const mkBnbFx = (exBnb) => {
+        const fx = JSON.parse(JSON.stringify(designFixture));
+        fx.private_account = {
+          verified: true,
+          balances_unified: [],
+          balances_spot: [],
+          um_positions: [],
+          total_value_usdt: '580.11521541',
+          total_value_excluding_bnb_usdt: exBnb,
+          spot_value_usdt: '385.70000000',
+          unified_wallet_value_usdt: '200.00000000',
+          pm_account: {
+            source: 'papi_v1_account',
+            account_equity_usdt: '185.91000000',
+            actual_equity_usdt: '194.41521541',
+            total_available_balance_usdt: null,
+            account_initial_margin_usdt: null,
+            account_maint_margin_usdt: null,
+            uni_mmr: null,
+            account_status: null,
+            total_debt_usdt: null,
+            leverage_ratio: '2.98389822'
+          },
+          valuation: { price_source: 'binance_spot_ticker', priced_at: '2026-08-29T00:00:00Z' },
+          checked_at: '2026-08-29T00:00:00Z',
+          unavailable_sources: [],
+          error: null
+        };
+        return fx;
+      };
+      const renderBnb = (exBnb) => {
+        helpers.ingestSnapshot(mkBnbFx(exBnb));
+        if (helpers.getPrivacyHidden()) helpers.togglePrivacy();
+        helpers.ingestSnapshot(mkBnbFx(exBnb));
+        return privateBodyHtml();
+      };
+      const subCell = (html) => {
+        const m = html.match(/<div class="value-sub"[^>]*>除 BNB ([^<]*)<\/div>/);
+        return m ? m[1].trim() : null;
+      };
+
+      const okHtml = renderBnb('545.97521541');
+      if (subCell(okHtml) !== '545.97521541') {
+        throw new Error('除 BNB 估值须原样展示后端字段，实际: ' + subCell(okHtml));
+      }
+      if (!okHtml.includes('580.11521541')) {
+        throw new Error('除 BNB 行不得取代总资产估值，两者须同时在卡内');
+      }
+
+      const nullHtml = renderBnb(null);
+      if (subCell(nullHtml) !== '—') {
+        throw new Error('除 BNB 估值缺失须显示 —，实际: ' + subCell(nullHtml));
+      }
+      if (subCell(nullHtml) === '580.11521541') {
+        throw new Error('除 BNB 估值为 null 时回退成了总资产，对账会读成凭空多赚');
+      }
+      console.log('[PASS] 除 BNB 估值：原样取后端字段 / 不取代总资产 / null 显示 — 且不回退成总资产');
+    }
+
     console.log('\n全部自检通过');
     process.exit(0);
   } catch (err) {

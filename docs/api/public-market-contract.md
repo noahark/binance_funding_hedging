@@ -878,6 +878,40 @@ read" (and covers an upstream field rename too); the spot side is a sum where
 `unified_wallet_value_usdt` remains `Σ(unified totalWalletBalance priced)` as its
 own field and does **not** enter `total_value_usdt`.
 
+#### `total_value_excluding_bnb_usdt` (additive, 2026-08-29)
+
+```text
+total_value_excluding_bnb_usdt = total_value_usdt
+                               − Σ(spot BNB value_usdt)
+                               − Σ(unified BNB value_usdt
+                                   − cross_margin_borrowed_value_usdt
+                                   − cross_margin_interest_value_usdt)
+```
+
+Why it exists: BNB is held **only to pay fees**, which makes it the one long in
+the account with no futures leg against it. Its price move therefore enters
+`total_value_usdt` undamped, while every hedged asset contributes only basis
+drift. At the measured size (~34 USDT on 2026-08-29) a 2% BNB day is ±0.68
+USDT against a daily arbitrage yield around 0.2 USDT — the noise is several
+times the signal, which is why the total could not be reconciled against the
+funding-PnL curve by eye. This field is the one to reconcile.
+
+**Fail-closed, and more strictly than the total itself.** An incomplete
+`total_value_usdt` is still published (a partial sum the frontend flags red)
+because a missing source is visible as missing. Here a BNB component that
+fails to subtract leaves the remainder **high by exactly that component**,
+which reconciles as profit that was never earned — a wrong answer pointing the
+wrong way. So the field is `null` whenever `total_value_usdt` is a partial sum
+**or** any BNB component is missing/unparseable. An account holding no BNB is a
+real zero, not an unknown: the field publishes and equals `total_value_usdt`.
+
+Unified BNB is netted against its borrowed and interest values, so a borrowed
+position is not excluded as if it were owned. The frontend displays the field
+verbatim under the total and must never re-derive it (`self-check` 77).
+
+Note the line also drifts slowly downward as BNB is consumed paying fees. That
+is spend, not loss, and it is expected in the series.
+
 ⚠️ **`totalWalletBalance` does NOT cover the um/cm sub-accounts** — settled
 2026-08-17, overturning a long-standing claim in this document. Proof by
 contradiction from one live snapshot, no new endpoint needed:

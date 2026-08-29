@@ -1103,6 +1103,50 @@ def _balance_sort_key(row_with_index):
     return (0, -abs(net), asset, idx)
 
 
+_BNB_LIABILITY_VALUE_KEYS = (
+    "cross_margin_borrowed_value_usdt",
+    "cross_margin_interest_value_usdt",
+)
+
+
+def _bnb_net_value(rows) -> Optional[Decimal]:
+    """Σ net USDT value of the BNB rows in one balance list.
+
+    Net = ``value_usdt`` − borrowed value − interest value. Spot rows carry
+    neither liability key and therefore net to ``value_usdt`` (same convention
+    as :func:`_balance_net_value_for_sort`, which additionally ignores interest
+    because it only orders cards and never feeds a headline number).
+
+    Returns ``Decimal(0)`` when the list holds no BNB — a real zero, not an
+    unknown — and ``None`` when a BNB row exists but any component is missing or
+    unparseable. The caller must then publish null: subtracting only the part it
+    could read overstates the remainder by exactly the part it could not.
+    """
+    total = Decimal(0)
+    for row in rows:
+        if str(row.get("asset") or "") != "BNB":
+            continue
+        raw_value = row.get("value_usdt")
+        if raw_value is None or raw_value == "":
+            return None
+        try:
+            net = Decimal(str(raw_value))
+        except (InvalidOperation, ValueError, TypeError):
+            return None
+        for key in _BNB_LIABILITY_VALUE_KEYS:
+            if key not in row:
+                continue
+            raw = row.get(key)
+            if raw is None or raw == "":
+                return None
+            try:
+                net -= Decimal(str(raw))
+            except (InvalidOperation, ValueError, TypeError):
+                return None
+        total += net
+    return total
+
+
 def _infer_position_side(position_amt) -> Optional[str]:
     """§2.A.3 E4 open item: papi positionRisk has no positionSide field; infer
     from positionAmt sign (LONG>0 / SHORT<0 / None when flat). To be re-verified
@@ -1347,6 +1391,7 @@ def assemble_private_account(
                 "balances_spot": [],
                 "um_positions": [],
                 "total_value_usdt": None,
+                "total_value_excluding_bnb_usdt": None,
                 "spot_value_usdt": None,
                 "unified_wallet_value_usdt": None,
                 "pm_account": _empty_pm_account_summary(),
@@ -1507,6 +1552,25 @@ def assemble_private_account(
     total_complete = spot is not None and unified_net is not None
     if total_complete and unified_net > 0 and total.is_finite():
         pm_summary["leverage_ratio"] = _quantize_rate(total / unified_net)
+    # Total minus BNB (Human 2026-08-29). BNB is held only to pay fees, which
+    # makes it the one long in this account with no futures leg against it: its
+    # price move lands in ``total_value_usdt`` undamped, and at the measured
+    # size (~34 USDT, so ~±0.68 USDT on a 2% day) it is several times the daily
+    # arbitrage yield it would otherwise be read against. Excluding it is what
+    # lets this line be reconciled with the funding-PnL curve.
+    #
+    # Fail-closed, and more strictly than the total itself: a total missing a
+    # source is a partial sum the frontend flags red, still meaningful. Here a
+    # BNB component that fails to subtract leaves the remainder HIGH by exactly
+    # that component, which reconciles as unearned profit — a wrong conclusion
+    # pointing the wrong way, worse than showing nothing. Any unknown -> null.
+    spot_bnb = _bnb_net_value(spot_out)
+    unified_bnb = _bnb_net_value(unified_out)
+    total_excluding_bnb = (
+        total - spot_bnb - unified_bnb
+        if total_complete and spot_bnb is not None and unified_bnb is not None
+        else None
+    )
     return (
         {
             "verified": True,
@@ -1514,6 +1578,11 @@ def assemble_private_account(
             "balances_spot": spot_out,
             "um_positions": um_out,
             "total_value_usdt": _quantize_rate(total),
+            "total_value_excluding_bnb_usdt": (
+                _quantize_rate(total_excluding_bnb)
+                if total_excluding_bnb is not None
+                else None
+            ),
             "spot_value_usdt": _quantize_rate(spot_value),
             "unified_wallet_value_usdt": _quantize_rate(unified_wallet),
             "pm_account": pm_summary,

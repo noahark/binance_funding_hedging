@@ -681,6 +681,13 @@
             { "type": "null" }
           ]
         },
+        "total_value_excluding_bnb_usdt": {
+          "description": "total_value_usdt minus the net BNB held on both sides (spot value_usdt, plus unified value_usdt less its borrowed and interest values). Additive/optional: frozen pre-2026-08-29 samples omit it. BNB is held only to pay fees and carries no futures leg, so its price move enters the total undamped and swamps the daily arbitrage yield; this figure is the one to reconcile against the funding-PnL curve. Null whenever total_value_usdt is a partial sum OR any BNB component is missing/unparseable — a short subtraction would leave the remainder high by exactly the part it failed to subtract, which reads as unearned profit. No BNB in the account is a real zero, not an unknown, and yields total_value_usdt unchanged. Note it also drifts slowly down as BNB is consumed paying fees; that is spend, not loss.",
+          "anyOf": [
+            { "$ref": "#/$defs/decimal_string" },
+            { "type": "null" }
+          ]
+        },
         "spot_value_usdt": {
           "description": "Σ(spot free+locked priced in USDT).",
           "anyOf": [

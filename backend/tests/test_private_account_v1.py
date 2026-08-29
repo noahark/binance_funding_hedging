@@ -1896,3 +1896,85 @@ def test_borrow_validation_verified_branch_missing_price_value_null():
     assert set(pa) == _PA_KEYS
     assert pa["max_borrowable"] == "1.5"
     assert pa["max_borrowable_value_usdt"] is None
+
+
+# ── total_value_excluding_bnb_usdt (Human 2026-08-29) ──────────────────────
+# BNB is held only to pay fees, so it is the one long with no futures leg
+# against it and its price move lands in the total undamped. These lock the
+# subtraction and, more importantly, the fail-closed rule: a component that
+# cannot be subtracted must null the whole figure, never leave it high.
+
+def _bnb_inputs(*, unified_extra=None, spot_bnb=True, price=True):
+    unified = [{"asset": "USDT", "totalWalletBalance": "500"}]
+    bnb_row = {"asset": "BNB", "totalWalletBalance": "0.03"}
+    bnb_row.update(unified_extra or {})
+    unified.append(bnb_row)
+    spot = [{"asset": "USDT", "free": "50", "locked": "0"}]
+    if spot_bnb:
+        spot.append({"asset": "BNB", "free": "0.02", "locked": "0"})
+    price_map = {"BNBUSDT": "700"} if price else {}
+    pm = {"actualEquity": "397.5"}
+    return unified, spot, price_map, pm
+
+
+def test_total_excluding_bnb_subtracts_both_sides():
+    unified, spot, price_map, pm = _bnb_inputs()
+    block, _ = assemble_private_account(
+        unified, spot, [], price_map, checked_at="t", error=None, pm_account=pm,
+    )
+    # spot 50 USDT + 14 BNB = 64; total = 64 + actualEquity 397.5 = 461.5
+    assert block["spot_value_usdt"] == "64.00000000"
+    assert block["total_value_usdt"] == "461.50000000"
+    # minus spot BNB 14 and unified BNB 21
+    assert block["total_value_excluding_bnb_usdt"] == "426.50000000"
+
+
+def test_total_excluding_bnb_uses_unified_net_not_gross():
+    """Borrowed and accrued interest come off the unified BNB before it does.
+
+    Holding 0.03 BNB against 0.01 borrowed is 0.02 BNB of one's own; excluding
+    the gross 21 would remove borrowed value that the equity never counted.
+    """
+    unified, spot, price_map, pm = _bnb_inputs(
+        unified_extra={"crossMarginBorrowed": "0.01"},
+    )
+    block, _ = assemble_private_account(
+        unified, spot, [], price_map, checked_at="t", error=None, pm_account=pm,
+    )
+    assert block["total_value_usdt"] == "461.50000000"
+    # unified BNB net = 21 − 7 = 14; spot BNB 14; 461.5 − 28 = 433.5
+    assert block["total_value_excluding_bnb_usdt"] == "433.50000000"
+
+
+def test_total_excluding_bnb_null_when_bnb_price_missing():
+    """No price -> value_usdt null -> the whole figure nulls, never a short sub.
+
+    Subtracting only the side it could read would leave the remainder high by
+    exactly the side it could not, which reconciles as profit never earned.
+    """
+    unified, spot, price_map, pm = _bnb_inputs(price=False)
+    block, _ = assemble_private_account(
+        unified, spot, [], price_map, checked_at="t", error=None, pm_account=pm,
+    )
+    assert block["total_value_excluding_bnb_usdt"] is None
+
+
+def test_total_excluding_bnb_null_when_total_is_partial():
+    """A partial total (no equity read) cannot carry a meaningful exclusion."""
+    unified, spot, price_map, _ = _bnb_inputs()
+    block, _ = assemble_private_account(
+        unified, spot, [], price_map, checked_at="t", error=None, pm_account=None,
+    )
+    assert block["total_value_usdt"] is not None  # partial sum still published
+    assert block["total_value_excluding_bnb_usdt"] is None
+
+
+def test_total_excluding_bnb_equals_total_when_no_bnb_held():
+    """No BNB is a real zero, not an unknown — the figure still publishes."""
+    block, _ = assemble_private_account(
+        [{"asset": "USDT", "totalWalletBalance": "500"}],
+        [{"asset": "USDT", "free": "50", "locked": "0"}],
+        [], {}, checked_at="t", error=None, pm_account={"actualEquity": "397.5"},
+    )
+    assert block["total_value_excluding_bnb_usdt"] == block["total_value_usdt"]
+    assert block["total_value_excluding_bnb_usdt"] == "447.50000000"
