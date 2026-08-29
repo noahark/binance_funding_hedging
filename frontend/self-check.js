@@ -343,6 +343,10 @@ function _makeTrEl(symbol, bound) {
       };
     },
     scrollIntoView(args) { _rowFocusFx(this._symbol).scrollArgs = args; },
+    // 视口数学居中（2026-08-29-market-nav-center-scroll-v1）：getBoundingClientRect
+    // 由 marketRowFocusRegistry[symbol].rect 供给；rect 为 null 时返回零矩形，数学路径
+    // 仅在测试临时安装 window mock 时被走到（无 window 时助手降级 scrollIntoView）。
+    getBoundingClientRect() { return _rowFocusFx(this._symbol).rect || { top: 0, height: 0 }; },
     // attachRowHandlers 的真实 DOM 分支：mock 仅识别 [data-borrow-view-task]
     // （返回带监听器注册的按钮，供事件隔离用例调用真实 handler）；
     // 其余选择器（.borrow-op-cell / [data-borrow-confirm] / 输入框 id）返回 null。
@@ -1288,6 +1292,8 @@ global.document = {
   body: {
     style: {}
   },
+  // 视口数学居中助手的 currentY 回退项（window.pageYOffset 为 0/缺失时读取）。
+  documentElement: { scrollTop: 0 },
   addEventListener(type, handler) {
     (this._listeners = this._listeners || {})[type] = handler;
   }
@@ -4587,6 +4593,107 @@ setTimeout(async () => {
       helpers.setActiveView('market');
       await new Promise(r => setTimeout(r, 0));
       console.log('[PASS] 行情 ↗ 聚焦生命周期：1.5s 动画/reduced-motion 静态反馈/重绘保持/末次为准/定时清理');
+    }
+
+    // 62e. 视口数学居中滚动（2026-08-29-market-nav-center-scroll-v1）：
+    // rAF 内按 targetY = currentY + rect.top - innerHeight/2 + rect.height/2 计算并
+    // window.scrollTo 平滑滚动；rAF 缺失退回 setTimeout(0)；node/mock 缺 window 时
+    // 降级 scrollIntoView({behavior:smooth, block:center})。
+    {
+      const navAmbient62e = JSON.parse(JSON.stringify(helpers.getMarketFilters()));
+      const scrollToLog = [];
+      global.window = {
+        pageYOffset: 1000,
+        innerHeight: 800,
+        scrollTo(...args) { scrollToLog.push(args.length === 1 ? args[0] : args); }
+      };
+      global.requestAnimationFrame = (cb) => { cb(); return 1; };
+      try {
+        // 62e-1. 集成：viewBorrowAssetInMarket 走数学路径，目标行收到精确居中滚动，
+        // 且发生在 setActiveView 的 scrollTo(0,0) 之后（rAF 延迟到布局稳定后）。
+        _rowFocusFx('AUSDT').rect = { top: 500, height: 40 };
+        _rowFocusFx('AUSDT').scrollArgs = null;
+        scrollToLog.length = 0;
+        helpers.setActiveView('market');
+        const navResult = helpers.viewBorrowAssetInMarket('A');
+        if (!navResult || navResult.ok !== true) {
+          throw new Error('导航应成功: ' + JSON.stringify(navResult));
+        }
+        const expectedTop = 1000 + 500 - 800 / 2 + 40 / 2; // 1120
+        const lastScroll = scrollToLog[scrollToLog.length - 1];
+        if (!lastScroll || lastScroll.top !== expectedTop || lastScroll.behavior !== 'smooth') {
+          throw new Error(`应收到 scrollTo({top:${expectedTop}, behavior:'smooth'}): ` + JSON.stringify(scrollToLog));
+        }
+        if (_rowFocusFx('AUSDT').scrollArgs !== null) {
+          throw new Error('数学路径不应再调用 scrollIntoView: ' + JSON.stringify(_rowFocusFx('AUSDT').scrollArgs));
+        }
+        const resetFirst = scrollToLog.findIndex(a => Array.isArray(a) && a[0] === 0 && a[1] === 0);
+        if (resetFirst === -1 || resetFirst > scrollToLog.length - 2) {
+          throw new Error('setActiveView 的 scrollTo(0,0) 应先于数学居中: ' + JSON.stringify(scrollToLog));
+        }
+        // 聚焦定时器清理，避免残留焦点影响下游用例
+        await new Promise(r => setTimeout(r, 1700));
+        if (helpers.getMarketRowFocusSymbol() !== null) throw new Error('聚焦清理后焦点字段应为 null');
+
+        // 62e-2. rAF 缺失时退回 setTimeout(0)：同帧不滚、下一 tick 后才滚
+        delete global.requestAnimationFrame;
+        scrollToLog.length = 0;
+        const fakeEl = {
+          rect: { top: 300, height: 20 },
+          getBoundingClientRect() { return this.rect; },
+          scrollIntoView() { throw new Error('具备数学能力时不应走 scrollIntoView'); }
+        };
+        helpers.scrollElementToCenter(fakeEl);
+        if (scrollToLog.length !== 0) throw new Error('rAF 缺失时应经 setTimeout 延迟，同帧不应滚动');
+        await new Promise(r => setTimeout(r, 0));
+        const expected2 = 1000 + 300 - 800 / 2 + 20 / 2; // 910
+        const second = scrollToLog[scrollToLog.length - 1];
+        if (!second || second.top !== expected2 || second.behavior !== 'smooth') {
+          throw new Error(`setTimeout 回退路径应算出 top=${expected2}: ` + JSON.stringify(scrollToLog));
+        }
+
+        // 62e-3. 目标行远高于视口时负 targetY 经 Math.max clamp 为 0
+        scrollToLog.length = 0;
+        fakeEl.rect = { top: -2000, height: 40 };
+        global.requestAnimationFrame = (cb) => { cb(); return 1; };
+        helpers.scrollElementToCenter(fakeEl);
+        const clamped = scrollToLog[scrollToLog.length - 1];
+        if (!clamped || clamped.top !== 0 || clamped.behavior !== 'smooth') {
+          throw new Error('负 targetY 应 clamp 为 0: ' + JSON.stringify(scrollToLog));
+        }
+      } finally {
+        delete global.window;
+        delete global.requestAnimationFrame;
+        delete _rowFocusFx('AUSDT').rect;
+      }
+
+      // 62e-4. 降级路径：无 window 时回退 scrollIntoView 居中；null 元素安全无操作
+      {
+        const fallbackEl = {
+          scrollArgs: null,
+          getBoundingClientRect() { return { top: 1, height: 1 }; },
+          scrollIntoView(args) { this.scrollArgs = args; }
+        };
+        helpers.scrollElementToCenter(fallbackEl);
+        if (!fallbackEl.scrollArgs || fallbackEl.scrollArgs.behavior !== 'smooth' || fallbackEl.scrollArgs.block !== 'center') {
+          throw new Error('无 window 时应降级 scrollIntoView 居中: ' + JSON.stringify(fallbackEl.scrollArgs));
+        }
+        helpers.scrollElementToCenter(null);
+      }
+
+      // 还原现场：恢复到进入本块前的 ambient 筛选与 fixture
+      setFilter('search', 'value', navAmbient62e.search, 'input');
+      setFilter('asset', 'value', navAmbient62e.assetTag, 'change');
+      setFilter('route', 'value', navAmbient62e.routeClass, 'change');
+      setFilter('show-perp-only', 'checked', navAmbient62e.showPerpOnly, 'change');
+      setFilter('hide-low-daily-rate', 'checked', navAmbient62e.hideLowDailyRate, 'change');
+      setFilter('hide-low-net-yield', 'checked', navAmbient62e.hideLowNetYield, 'change');
+      setFilter('prefer-openable', 'checked', navAmbient62e.preferOpenable, 'change');
+      setFilter('show-hl', 'checked', navAmbient62e.showHl, 'change');
+      helpers.ingestSnapshot(designFixture);
+      helpers.setActiveView('market');
+      await new Promise(r => setTimeout(r, 0));
+      console.log('[PASS] 视口数学居中：rAF+数学坐标精确居中、scrollTo(0,0) 次序、setTimeout/scrollIntoView 双降级、负值 clamp');
     }
 
     // ---- 借币任务后端权威迁移（Task B；全部 API 交互走 §3 冻结形状的 mock） ----
