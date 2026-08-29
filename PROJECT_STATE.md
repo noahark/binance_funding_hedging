@@ -582,7 +582,7 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 - 部署: Human 2026-08-29 授权部署并在线上 `https://aoke.kengbi.pro` 实测验收通过（镜像
   `funding-hedging:9c8842a`，readyz 10s 转 200）。
 - 流程偏差（据实记录）: 无。
-- follow-ups: 待开展反向导航功能（借币卡右上角增加跳转回市场表对应币种数据行）。
+- follow-ups: 反向导航功能已于 `2026-08-29-borrow-card-market-nav-v1` 与 `2026-08-29-market-row-focus-style-v1` 完整交付闭环。
 - stage: `2026-08-28-repaid-interest-price-v1`
 - delivery: `f4f6c6f..d315fbd`（实现），计划固定于 `e37d45a`；`rework_count` 0。
 - recorded_completed_at: `2026-08-29`
