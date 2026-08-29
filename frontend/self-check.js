@@ -4589,6 +4589,73 @@ setTimeout(async () => {
       console.log('[PASS] 行情 ↗ 聚焦生命周期：1.5s 动画/reduced-motion 静态反馈/重绘保持/末次为准/定时清理');
     }
 
+    // 62e. Layout Shift 修复（2026-08-29-market-nav-layout-shift-v1）：
+    // setActiveView 同步预渲染 renderPnlCurve（有缓存即同步展开/收起），renderPnlCurve
+    // 展开后在行导航焦点激活时瞬时再居中（behavior 'auto'）。
+    {
+      const navAmbient62e = JSON.parse(JSON.stringify(helpers.getMarketFilters()));
+      const pnlGets = () => fetchCallLog.filter(
+        c => c.method === 'GET' && c.url.startsWith('/api/private-ledger/pnl-series')).length;
+
+      // 前提：保证 pnlPayload 有缓存（默认 200 夹具）
+      pnlSeriesGetResponse = null;
+      await helpers.loadPnlSeries();
+
+      // 62e-1. setActiveView('market') 同步预渲染：切出时面板同步收起、进 market 时
+      // 不等异步 loadPnlSeries 完成即同步展开（Layout Shift 修复核心），异步 GET 仍恰好 1 次
+      helpers.setActiveView('borrow-tasks');
+      await new Promise(r => setTimeout(r, 0));
+      if (document.getElementById('pnl-curve-panel').style.display !== 'none') {
+        throw new Error('切出 market 后 renderPnlCurve guard 应同步收起面板');
+      }
+      const pnlMark = pnlGets();
+      helpers.setActiveView('market');
+      // 不 await：同步预渲染必须已经展开面板
+      if (document.getElementById('pnl-curve-panel').style.display === 'none') {
+        throw new Error('setActiveView(market) 应同步展开收益曲线面板（不等异步 loadPnlSeries）');
+      }
+      await new Promise(r => setTimeout(r, 0));
+      if (pnlGets() - pnlMark !== 1) {
+        throw new Error(`进 market 仍应恰好 1 次异步 pnl-series GET，实际 ${pnlGets() - pnlMark}`);
+      }
+
+      // 62e-2. renderPnlCurve 的 Layout Shift 再居中 guard：焦点激活时 auto/center 瞬时
+      // 再居中（区别于导航自身的 smooth），焦点清理后不再触发
+      helpers.setActiveView('market');
+      const nav62e = helpers.viewBorrowAssetInMarket('A');
+      if (!nav62e || nav62e.ok !== true) {
+        throw new Error('导航应成功: ' + JSON.stringify(nav62e));
+      }
+      _rowFocusFx('AUSDT').scrollArgs = null;  // 清掉导航自身的 smooth 滚动记录
+      helpers.renderPnlCurve();
+      const guardArgs = _rowFocusFx('AUSDT').scrollArgs;
+      if (!guardArgs || guardArgs.behavior !== 'auto' || guardArgs.block !== 'center') {
+        throw new Error('renderPnlCurve 应在焦点激活时瞬时再居中(auto,center): ' + JSON.stringify(guardArgs));
+      }
+      // 无焦点时不触发：等待 1.5s 聚焦定时器清理后再渲染
+      await new Promise(r => setTimeout(r, 1700));
+      if (helpers.getMarketRowFocusSymbol() !== null) throw new Error('聚焦清理后焦点字段应为 null');
+      _rowFocusFx('AUSDT').scrollArgs = null;
+      helpers.renderPnlCurve();
+      if (_rowFocusFx('AUSDT').scrollArgs !== null) {
+        throw new Error('焦点清理后 renderPnlCurve 不应再触发滚动');
+      }
+
+      // 还原现场：恢复到进入本块前的 ambient 筛选与 fixture
+      setFilter('search', 'value', navAmbient62e.search, 'input');
+      setFilter('asset', 'value', navAmbient62e.assetTag, 'change');
+      setFilter('route', 'value', navAmbient62e.routeClass, 'change');
+      setFilter('show-perp-only', 'checked', navAmbient62e.showPerpOnly, 'change');
+      setFilter('hide-low-daily-rate', 'checked', navAmbient62e.hideLowDailyRate, 'change');
+      setFilter('hide-low-net-yield', 'checked', navAmbient62e.hideLowNetYield, 'change');
+      setFilter('prefer-openable', 'checked', navAmbient62e.preferOpenable, 'change');
+      setFilter('show-hl', 'checked', navAmbient62e.showHl, 'change');
+      helpers.ingestSnapshot(designFixture);
+      helpers.setActiveView('market');
+      await new Promise(r => setTimeout(r, 0));
+      console.log('[PASS] Layout Shift 修复：setActiveView 同步预渲染面板（切出同步收起/进 market 同步展开）、renderPnlCurve 焦点激活时 auto 瞬时再居中、焦点清理后不触发');
+    }
+
     // ---- 借币任务后端权威迁移（Task B；全部 API 交互走 §3 冻结形状的 mock） ----
 
     function borrowFetchCalls() {

@@ -8072,8 +8072,12 @@
             btn.removeAttribute('aria-current');
           }
         }
+        // 收益曲线面板同步预渲染（2026-08-29-market-nav-layout-shift-v1）：renderPnlCurve
+        // 内部 guard 按 activeView/数据自决显隐——进 market 时有缓存即同步展开，避免「行情 ↗」
+        // 导航滚动后面板才被异步 loadPnlSeries 撑高 ~450px 的 Layout Shift；切出 market 时
+        // 同一 guard 同步收起，替代原 else-if 特判。loadPnlSeries 仍在进 market 时异步拉新。
+        renderPnlCurve();
         if (isMarket) loadPnlSeries();
-        else if (els.pnlCurvePanel) els.pnlCurvePanel.style.display = 'none';
         // 流水日志轮询只在该视图内运行（离开即停，进入即拉一帧 + 起轮询）
         state.flowLogOpen = isFlowLog;
         if (prev === 'flow-log' && !isFlowLog) stopFlowLogPoll();
@@ -9214,6 +9218,15 @@
         const visible = state.activeView === 'market' && (points.length > 1 || state.pnlError);
         els.pnlCurvePanel.style.display = visible ? '' : 'none';
         if (!visible) return;
+        // Layout Shift 校准（2026-08-29-market-nav-layout-shift-v1）：面板展开（含异步
+        // 数据到达后的展开）会把市场表整体下移 ~450px；若此时有「行情 ↗」行导航焦点，
+        // 立即瞬时再居中（behavior 'auto'，不叠加动画），保证目标行回到视口中央。
+        if (state.marketRowFocusSymbol) {
+          const focusTr = marketRowElForSymbol(state.marketRowFocusSymbol);
+          if (focusTr && typeof focusTr.scrollIntoView === 'function') {
+            focusTr.scrollIntoView({ behavior: 'auto', block: 'center' });
+          }
+        }
         if (points.length < 2) {
           els.pnlSummaryBody.innerHTML =
             `<tr><td colspan="3" class="pnl-empty">${escapeHtml(state.pnlError || '暂无数据')}</td></tr>`;
