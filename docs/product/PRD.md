@@ -2,9 +2,14 @@
 
 Status: current product baseline, reflecting delivered live functionality
 
-Last updated: 2026-08-28
+Last updated: 2026-08-30
 
-> **本次更新（2026-08-28）**：§3 明确一个通用 Binance 凭据对默认供全部私有读写
+> **本次更新（2026-08-30）**：
+> 1. §2.1 补入**市场表与借币任务卡双向互跳导航**（正向「查看借币」定位到任务卡、反向「行情 ↗」智能解阻居中定位到行情行，以及两端立体边框高亮与 Layout Shift 防抖消除）；
+> 2. §2.1 补入**资金费率收益曲线面板**（五线构成、1D/3D/7D/全部时间窗与 Brush 刷选、构成汇总表）；
+> 3. §2.1 补入**已还利息还款时价格折算**（还清终态锁价折 U）。
+>
+> **此前更新（2026-08-28）**：§3 明确一个通用 Binance 凭据对默认供全部私有读写
 > 客户端使用，borrow/hedge 专用凭据保留为成对可选覆盖。
 >
 > **此前更新（2026-08-27）**：§2.1 补入云端单实例、单账号的页面/API HTTP Basic
@@ -69,6 +74,15 @@ close, borrow, repay, or transfer assets as a response to an order outcome.
   Holdings and close-log tables render an explicit 「手续费成本」 column showing total USD-equivalent fee
   and BNB quantity spent. Orders automatically trigger commit-first trade-detail fetching with live BNB
   price freezing. Data incompleteness renders `—` safely under the fail-closed integrity contract.
+- 资金费率收益曲线面板（stage `2026-08-20-pnl-series-curve-v1`）：
+  市场表顶部提供资金费率收益构成累计曲线（费率收益、手续费、利息、滑点与合成净收益五线展示）；
+  支持 1D / 3D / 7D / 全部 时间窗快捷切换与 Brush 刷选自定义区间；提供所选窗口内的收益构成累计金额与占费率收益百分比汇总表格。
+- 已还利息还款时价格折算（stage `2026-08-28-repaid-interest-price-v1`）：
+  借币利息在未结清前按当前行情缓存价动态折 U；当借币债务彻底还清（`amount=="0"` 且 `status=="succeeded"`）
+  出现存储意图终态事件时，一次性捕获并永久固定还款时的币种价格，准确沉淀历史利息成本。
+- 市场表与借币任务卡双向互跳导航（stages `2026-08-29-market-borrow-view-button-v1`、`2026-08-29-borrow-card-market-nav-v1`、`2026-08-29-market-row-focus-style-v1`）：
+  - **正向「查看借币」**：市场表借币列仅在对应资产存在 `borrowing` 或 `paused` 任务时展示该按钮；点击后平滑跳转至借币任务列表对应卡片，自动切回任务页签与同步状态筛选，居中滚动并带有 1.5 秒聚焦高亮脉冲；
+  - **反向「行情 ↗」**：借币任务卡右上角提供跳转回市场表按钮，严格按 `base_asset` 匹配市场行；若目标币种被筛选过滤，自动放开 6 项条件（含 `showPerpOnly=true` 保底）并同步上方控件，平滑居中滚动至目标行情行并带有两侧立体边框高亮脉冲；切入市场视图时同步预渲染收益曲线面板，消除异步展开引起的 Layout Shift 错位。
 
 - Unified-account asset cards that still have principal borrow (`cross_margin_borrowed`
   > 0) but no current hedge — no non-zero UM position for that asset, and no
