@@ -1,11 +1,11 @@
 {
   "schema_version": "2",
-  "revision": 3,
+  "revision": 4,
   "stage_id": "2026-08-29-market-nav-center-scroll-v1",
   "bookkeeper": "gemini-3.7-flash",
   "bookkeeper_label": "agy",
-  "phase": "completed",
-  "checkpoint": "both_reviews_verified_accept",
+  "phase": "closed",
+  "checkpoint": "reverted_per_human_request",
   "base_sha": "25cea9db770936e3e896fc71234b39f733f4ad65",
   "delivery_sha": "69e5cfa5f0d6764fb20452035ce18b63fc043875",
   "ledger_sha": "69e5cfa5f0d6764fb20452035ce18b63fc043875",
@@ -36,7 +36,7 @@
   ],
   "next": {
     "actor": "human_operator",
-    "action": "human-decision-on-merge-and-deploy"
+    "action": "stage-archived-no-active-work"
   },
   "rework_count": 0,
   "blockers": []

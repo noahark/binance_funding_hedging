@@ -5828,34 +5828,6 @@
         return els.tableBody.querySelector(`tr.selectable[data-symbol="${CSS.escape(symbol)}"]`);
       }
 
-      // 视口垂直居中滚动（2026-08-29-market-nav-center-scroll-v1）：<tr>（display:
-      // table-row）的 scrollIntoView({block:'center'}) 在 Chrome/Safari 长表中常算不准
-      // 垂直居中、退化为停在视口底部；且与 setActiveView 同帧的 window.scrollTo(0,0)
-      // 可能冲突。改为 requestAnimationFrame 等布局稳定后用数学坐标计算目标滚动位；
-      // rAF 缺失时退回 setTimeout(0)。node/mock 缺 window/scrollTo/getBoundingClientRect
-      // 时降级为原 scrollIntoView 居中，行为与此前一致。
-      function scrollElementToCenter(el) {
-        if (!el) return;
-        const canCompute = typeof window !== 'undefined'
-          && typeof window.scrollTo === 'function'
-          && typeof el.getBoundingClientRect === 'function';
-        if (!canCompute) {
-          if (typeof el.scrollIntoView === 'function') {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-          return;
-        }
-        const schedule = typeof requestAnimationFrame === 'function'
-          ? requestAnimationFrame
-          : (cb) => setTimeout(cb, 0);
-        schedule(() => {
-          const rect = el.getBoundingClientRect();
-          const currentY = window.pageYOffset || document.documentElement.scrollTop || 0;
-          const targetY = currentY + rect.top - (window.innerHeight / 2) + (rect.height / 2);
-          window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
-        });
-      }
-
       // 固定顺序（D3）：解析目标（无匹配 fail-closed 不切视图不改筛选）→ 任何修改前
       // 计算可见性 → 记录焦点并清旧定时器 → 切市场视图 → 已可见则完整保留筛选与控件、
       // 不重绘；被筛掉则一次性放开全部六项实际隐藏条件并同步控件后单次重绘 →
@@ -5892,8 +5864,9 @@
         if (tr) {
           // 显式加类覆盖 already-visible 未重绘路径；重绘路径由 renderRowHtml 带类。
           if (tr.classList && typeof tr.classList.add === 'function') tr.classList.add('market-row-focus');
-          // tr 的 scrollIntoView block:center 在长表中会停底部，走数学居中助手。
-          scrollElementToCenter(tr);
+          if (typeof tr.scrollIntoView === 'function') {
+            tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
         }
         marketRowFocusTimer = setTimeout(() => {
           marketRowFocusTimer = null;
@@ -9939,8 +9912,6 @@
         viewBorrowAssetInMarket,
         getMarketRowFocusSymbol: () => state.marketRowFocusSymbol,
         getMarketFilters: () => state.filters,
-        // 视口数学居中滚动（2026-08-29-market-nav-center-scroll-v1）：自检最小接缝。
-        scrollElementToCenter,
         loadBorrowTasks,
         renderExecutionStatus,
         loadSchedulerSettings,
