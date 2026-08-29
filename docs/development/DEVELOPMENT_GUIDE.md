@@ -323,14 +323,51 @@ operator on a stopped server; always take a `.bak` copy first.
   The plist runs `scripts/run-server.sh` with `KeepAlive=true`; `install` and
   `restart` poll `/healthz` and `/readyz` before claiming success.
 
-### Remote deployment (`scripts/deploy.sh`, as of 2026-08-28)
+### Remote deployment (`scripts/deploy.sh`, as of 2026-08-29)
 
-The production host runs the application as a **Docker container managed by
-systemd**, not from a checkout — there is no git repository on the server. The
-image tag IS the commit sha and is written inline in the unit's `ExecStart`, so
-`/etc/systemd/system/funding-hedging.service` is itself the version record.
-A second unit (`funding-hedging-proxy.service`, Caddy) terminates HTTPS in front
-of it. Upgrading therefore means **building a new image**, never `git pull`.
+Production hosts run the application as a **Docker container managed by
+systemd**, not from a checkout — there is no git repository on either server.
+The image tag IS the commit sha and is written inline in the unit's
+`ExecStart`, so `/etc/systemd/system/funding-hedging.service` is itself the
+version record. Upgrading therefore means **building a new image**, never
+`git pull`.
+
+#### Deployed instances
+
+Both hosts run the same image built by the same `deploy.sh`, under the same
+unit name (`funding-hedging.service`) and image name (`funding-hedging`). They
+differ only in the profile they load and the web layer in front of them, so
+targeting one or the other is purely `DEPLOY_HOST`.
+
+| | `aoke` | `maizi_vip8` |
+|---|---|---|
+| SSH alias | `funding-prod` (47.240.168.162) | `funding-maizi` (149.129.102.152) |
+| URL | `https://aoke.kengbi.pro` | `https://maizi.kengbi.pro` |
+| env file | `/etc/funding-hedging/env_aoke` | `/etc/funding-hedging/env_maizi_vip8` |
+| Data volume | `/var/lib/funding-hedging/env_aoke/data` | `/var/lib/funding-hedging/env_maizi_vip8/data` |
+| HTTPS | Caddy in Docker (`funding-hedging-proxy.service`), owns `:443` | **pre-existing system nginx + certbot**, reverse-proxies to `127.0.0.1:8787` |
+| Binance account | its own | its own, separate |
+| Host | 1 CPU / 1.8GiB, no swap | 1 CPU / 1.9GiB, **2G swap file**, Alibaba Cloud Linux 3 |
+
+```bash
+scripts/deploy.sh                              # aoke (the DEPLOY_HOST default)
+DEPLOY_HOST=funding-maizi scripts/deploy.sh    # maizi_vip8
+```
+
+The volume path segment is the **env file name** (`env_aoke`, not `aoke`) —
+that is what the existing units already use.
+
+`maizi_vip8` is **not a dedicated box**: it also runs an unrelated live trading
+system (`/opt/permanent_investment_strategy_binance/`, units `grid-live`,
+`grid-fill-sync`, `shadow-dashboard`, `stage17-*`) plus an FMZ `robot`, and its
+nginx already serves `ops.kengbi.pro`. Hence no Caddy there (`:443` is taken)
+and hence the swap file: an OOM on that box would pick a victim among someone
+else's money-moving processes. Do not install a second web server on it, and
+check free memory before anything build-heavy.
+
+The two accounts are separate, so both instances may hold execution rights at
+the same time; the "never two instances with execution rights" rule in
+`PROJECT_STATE.md` is about one account, not one image.
 
 ```bash
 scripts/deploy.sh                 # deploy current origin/main
@@ -362,11 +399,17 @@ nothing else.
 ~/.ssh/id_ed25519_funding_deploy.pub    # appended to the server's authorized_keys
 ```
 
-`~/.ssh/config` carries the alias the script defaults to:
+`~/.ssh/config` carries one alias per host; both share the same deployment key.
 
 ```
 Host funding-prod
     HostName 47.240.168.162
+    User root
+    IdentityFile ~/.ssh/id_ed25519_funding_deploy
+    IdentitiesOnly yes
+
+Host funding-maizi
+    HostName 149.129.102.152
     User root
     IdentityFile ~/.ssh/id_ed25519_funding_deploy
     IdentitiesOnly yes

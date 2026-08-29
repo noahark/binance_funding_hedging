@@ -40,6 +40,33 @@ Rule); this file records only live risks, open follow-ups, and pointers.
   「上线后存量数据会变成什么样」。**可复用判断**：凡是新增「按某条历史记录的存储值改变
   既有数据解释」的功能，上线前必须查那张历史表的行数与取值分布，而不是只查被解释的那张表。
 
+- **[DEPLOYMENT][2026-08-29 11:37–11:50 CST] 第二台生产机上线：profile `maizi_vip8`，
+  `149.129.102.152` / `https://maizi.kengbi.pro`，镜像 `funding-hedging:3856137`（与 aoke 同版本）。**
+  `readyz` 200，容器占 124MiB，5 个 SQLite 库已建于 `/var/lib/funding-hedging/env_maizi_vip8/data`
+  并实测可写；docker / nginx / funding-hedging 三单元均 `enabled`（重启自恢复）。
+  部署入口 `DEPLOY_HOST=funding-maizi scripts/deploy.sh`，已实测能解析该机当前 tag。
+  **架构与 aoke 不同（判断影响面前先套这条）**：该机 `:443` 早被系统 nginx 占用（在服务
+  `ops.kengbi.pro`），故 **HTTPS 走既有 nginx + certbot 反代到 `127.0.0.1:8787`，没有 Caddy**，
+  证书 2026-11-27 到期、`certbot-renew.timer` 自动续期。systemd 单元名与镜像名两台相同，
+  故 `deploy.sh` 只需 `DEPLOY_HOST` 切换，脚本一行未改。
+  **该机不是专用机**：同机运行无关的实盘系统 `/opt/permanent_investment_strategy_binance/`
+  （`grid-live`/`grid-fill-sync`/`shadow-dashboard`/`stage17-*`）与 FMZ `robot`。为此新增
+  **2G swap 文件**（`/swapfile`，已写 `fstab`）——1.9GiB 无 swap 机器上做镜像构建，OOM 杀谁
+  不由我们定，可能杀的是别人的移仓进程。该机禁止再装第二个 web server。
+  新装 `docker-ce 26.1.3`（阿里云镜像源），常驻增约 51MiB。SSH 复用同一把专用部署密钥
+  （别名 `funding-maizi`），`sshd_config` 一行未改，`PasswordAuthentication yes` 保留。
+  **该实例已持有完整执行权**：`APP_BORROW_EXECUTOR=live` / `APP_HEDGE_EXECUTOR=live` /
+  `APP_MARGIN_REPAY_ENABLED=true` / 私有通道开。**使用独立币安账户**，故不触犯本文
+  「不得让两个实例同时拥有执行权」——该约束约束的是同一账户，不是同一镜像。
+
+- **[教训][2026-08-29] 部署配置里 `APP_OFFLINE=true` 会让服务永远起不来，且日志不会直说原因。**
+  首次启动 `maizi_vip8` 时 `readyz` 60 秒不转 200，唯一线索是启动行的 `offline=True`。
+  离线模式改读 `reports/api-samples/.../raw` 的冻结样本，而**部署镜像只打包
+  `backend`/`frontend`/`schemas`/`requirements.txt`，不含 `reports/`** → 快照永远建不起来。
+  它还静默废掉所有写通道（`live` executor 与还款端点在离线下一律不生效）。
+  改回 `false` 后 `readyz` 1 秒转 200。**可复用判断**：生产 env 里 `APP_OFFLINE` 只能是 `false`；
+  见到 `not_ready` 先看启动行的 `offline=`，再查别的。
+
 ## Current Status (2026-08-28，以下为前日条目)
 
 - **[OPEN][MONEY][PNL][2026-08-28 16:11 CST] 已还款利息仍按实时价折 U，STORJ 使净收益曲线
