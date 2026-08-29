@@ -1133,6 +1133,13 @@
       padding: 0 var(--space-2);
       font-size: 12px;
     }
+    /* 借币操作按钮组：确认 + 条件出现的「查看借币」，窄列允许整组换行 */
+    .borrow-op-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+      flex-wrap: wrap;
+    }
     .borrow-op-error {
       margin-top: var(--space-1);
       max-width: 190px;
@@ -1223,6 +1230,22 @@
       border: 1px solid var(--line);
       border-radius: var(--radius);
       background: var(--surface-2);
+    }
+    /* 「查看借币」跳转后的目标卡聚焦：约 1.5 秒脉冲后回到原卡片视觉，
+       清理由 JS 定时器移除 borrow-task-focus 类完成。 */
+    @keyframes borrow-task-focus-pulse {
+      0% { border-color: var(--brand); background: var(--brand-soft); box-shadow: 0 0 0 0 var(--brand-soft); }
+      70% { border-color: var(--brand); box-shadow: 0 0 0 6px var(--brand-soft); }
+      100% { border-color: var(--line); background: var(--surface-2); box-shadow: none; }
+    }
+    .borrow-task-card.borrow-task-focus {
+      animation: borrow-task-focus-pulse 1.5s ease-out;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .borrow-task-card.borrow-task-focus {
+        animation: none;
+        outline: 2px solid var(--brand);
+      }
     }
     .borrow-task-head {
       display: flex;
@@ -1962,6 +1985,9 @@
         activeView: 'market',
         // Nav badge + default list filter: 借币中 only (not all statuses / soft-deleted).
         borrowTaskFilter: 'borrowing',
+        // 市场行「查看借币」跳转后的短生命周期聚焦目标（任务 ID 字符串）；
+        // 由模块级 borrowTaskFocusTimer 在 1500ms 后清除。
+        borrowTaskFocusId: null,
         // 开单任务（2026-07-hedge-open-live-v1，第一轮）：后端 SQLite 是唯一权威；
         // state.hedgeTasks 只是最近一次 GET /api/hedge-open-tasks?status=all 的渲染缓存，
         // hedgePositions / hedgeSettings 分别为 positions / settings 端点缓存。
@@ -3665,6 +3691,12 @@
         }
         const sym = escapeHtml(row.symbol);
         const base = escapeHtml(row.base_asset);
+        // 「查看借币」仅在该资产存在 borrowing/paused 任务时出现（D1）；任务 ID 写入
+        // 按钮属性，点击时按 ID 重读当前缓存，避免闭包持有过期任务对象。
+        const viewTask = latestActiveBorrowTaskForAsset(row.base_asset);
+        const viewBtn = viewTask
+          ? `<button class="btn compact borrow-view-task" type="button" data-borrow-view-task="${escapeHtml(viewTask.id)}" aria-label="查看 ${base} 借币任务">查看借币</button>`
+          : '';
         return `
             <td class="borrow-op-cell">
               <div class="borrow-op-inputs">
@@ -3672,7 +3704,10 @@
                 <input id="borrow-amount-${sym}" type="text" inputmode="decimal" placeholder="${escapeHtml(minBorrowPlaceholder(row))}" autocomplete="off"/>
                 <label for="borrow-count-${sym}">成功借币次数</label>
                 <input id="borrow-count-${sym}" type="text" inputmode="numeric" placeholder="如 10" autocomplete="off"/>
-                <button class="btn compact primary" type="button" data-borrow-confirm="${sym}" aria-label="确认创建 ${sym} 借币任务">确认</button>
+                <div class="borrow-op-actions">
+                  <button class="btn compact primary" type="button" data-borrow-confirm="${sym}" aria-label="确认创建 ${sym} 借币任务">确认</button>
+                  ${viewBtn}
+                </div>
               </div>
               <div class="borrow-op-preview muted small" id="borrow-preview-${sym}" aria-live="polite"></div>
               <div class="borrow-op-error" id="borrow-error-${sym}" role="alert" aria-live="polite"></div>
@@ -3692,7 +3727,8 @@
         // 创建前预览：行渲染即投影一次（空输入显示提示），输入变化时实时刷新。
         renderBorrowPreview(symbol);
         // 操作列事件隔离：输入框/确认按钮的点击与按键不得触发行点击抽屉。
-        // mock DOM 的 tr 无 querySelector，跳过绑定（自检经 __appHelpers 直测）。
+        // mock DOM 的 tr 仅识别 [data-borrow-view-task] 选择器（自检事件隔离用），
+        // 其余选择器返回 null，等同跳过绑定。
         if (typeof tr.querySelector === 'function') {
           const opCell = tr.querySelector('.borrow-op-cell');
           if (opCell) {
@@ -3704,6 +3740,19 @@
             confirmBtn.addEventListener('click', (e) => {
               e.stopPropagation();
               requestBorrowCreateConfirm(symbol);
+            });
+          }
+          // 「查看借币」：click 与 keydown 都在按钮自身首句 stopPropagation；
+          // keydown 不 preventDefault，保留原生按钮 Enter/Space 激活（激活后产生
+          // 的 click 仍走上面的隔离与跳转）。
+          const viewTaskBtn = tr.querySelector('[data-borrow-view-task]');
+          if (viewTaskBtn) {
+            viewTaskBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              viewBorrowTask(viewTaskBtn.getAttribute('data-borrow-view-task'));
+            });
+            viewTaskBtn.addEventListener('keydown', (e) => {
+              e.stopPropagation();
             });
           }
           // 输入变化实时刷新创建前预览（目标总量/间隔）。
@@ -5016,6 +5065,16 @@
         return state.borrowTasks.find(t => t.id === id) || null;
       }
 
+      // 市场行「查看借币」的唯一匹配谓词（2026-08-29-market-borrow-view-button-v1 D1）：
+      // 严格 asset 相等 + 仅 borrowing/paused；1 对多复用任务页「新在前」排序取首个，
+      // 无匹配返回 null（终态/异资产不参与）。
+      function latestActiveBorrowTaskForAsset(asset) {
+        const matches = state.borrowTasks.filter(t =>
+          t && t.asset === asset && (t.status === 'borrowing' || t.status === 'paused'));
+        if (matches.length === 0) return null;
+        return sortTasksNewestFirst(matches)[0];
+      }
+
       function countBorrowingTasks() {
         return state.borrowTasks.filter(t => t && t.status === 'borrowing').length;
       }
@@ -5061,6 +5120,9 @@
         if (state.activeView === 'borrow-tasks') {
           renderBorrowTasks();
         }
+        // 市场行「查看借币」按钮是本缓存的投影：缓存替换后同步重绘市场表
+        // （renderTable 自带输入捕获/恢复），覆盖启动竞态与借币页操作后返回市场页。
+        if (state.snapshot && !state.blocked) renderTable();
       }
 
       async function loadSchedulerSettings() {
@@ -5152,6 +5214,9 @@
           if (idx !== -1) state.borrowTasks[idx] = doc; else state.borrowTasks.push(doc);
           updateBorrowTaskNav();
           renderBorrowTasks();
+          // POST 返回的权威任务状态立即投影到市场行「查看借币」按钮；
+          // 随后既有 GET 即使失败，本次投影仍然成立（fail-closed 取舍，评审观察 B）。
+          if (state.snapshot && !state.blocked) renderTable();
         }
         await loadBorrowTasks();
         return { ok: true, task: doc };
@@ -5438,8 +5503,12 @@
         const deleteDisabled = task.status === 'deleted' ? ' disabled' : '';
         const editDisabled = (task.status === 'deleted' || task.status === 'completed') ? ' disabled' : '';
         const idAttr = escapeHtml(task.id);
+        // 「查看借币」聚焦：焦点 ID 匹配时输出聚焦类，使进入视图触发的异步重拉
+        // 重建卡片后焦点仍保留（清理由 viewBorrowTask 的定时器负责）。
+        const focusClass = state.borrowTaskFocusId !== null && String(task.id) === state.borrowTaskFocusId
+          ? ' borrow-task-focus' : '';
         return `
-          <div class="borrow-task-card" data-task-id="${idAttr}">
+          <div class="borrow-task-card${focusClass}" data-task-id="${idAttr}">
             <div class="borrow-task-head">
               <h3>${asset}</h3>
               <span class="badge ${statusBadge}">${statusLabel}</span>
@@ -5640,6 +5709,57 @@
           els.borrowTabLogs.setAttribute('aria-selected', 'false');
           loadBorrowTasks();
         }
+      }
+
+      // ---- 市场行「查看借币」跳转（2026-08-29-market-borrow-view-button-v1 D4/D5） ----
+      // 唯一聚焦清理定时器：重复点击先取消旧定时器，只有最后一次点击控制焦点。
+      let borrowTaskFocusTimer = null;
+
+      // 按任务 ID 在当前 DOM 中定位任务卡：属性比对查找，不把未转义任务 ID
+      // 拼进 CSS selector。
+      function findBorrowTaskCardEl(taskId) {
+        const list = els.borrowTaskList;
+        if (!list || typeof list.querySelectorAll !== 'function') return null;
+        const target = String(taskId);
+        const cards = list.querySelectorAll('.borrow-task-card[data-task-id]');
+        for (const card of cards) {
+          if (card && typeof card.getAttribute === 'function'
+            && card.getAttribute('data-task-id') === target) {
+            return card;
+          }
+        }
+        return null;
+      }
+
+      // 固定顺序：按 ID 重读缓存校验目标仍是 borrowing/paused → 记焦点并清旧定时器 →
+      // 切视图（setActiveView 会把筛选重置为 borrowing）→ 强制回任务页签（此前停在
+      // 借币日志时任务卡面板重新可见）→ 按目标状态设筛选（目标卡必在当前列表）→
+      // 平滑滚动居中 → 1500ms 后清焦点并移除仍在 DOM 中的目标卡聚焦类。
+      function viewBorrowTask(taskId) {
+        const task = findBorrowTask(taskId);
+        if (!task || (task.status !== 'borrowing' && task.status !== 'paused')) return;
+        state.borrowTaskFocusId = String(task.id);
+        if (borrowTaskFocusTimer) {
+          clearTimeout(borrowTaskFocusTimer);
+          borrowTaskFocusTimer = null;
+        }
+        setActiveView('borrow-tasks');
+        setBorrowTab('tasks');
+        setBorrowTaskFilter(task.status);
+        const card = findBorrowTaskCardEl(task.id);
+        if (card && typeof card.scrollIntoView === 'function') {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        const focusId = state.borrowTaskFocusId;
+        borrowTaskFocusTimer = setTimeout(() => {
+          borrowTaskFocusTimer = null;
+          if (state.borrowTaskFocusId !== focusId) return;
+          state.borrowTaskFocusId = null;
+          const el = findBorrowTaskCardEl(focusId);
+          if (el && el.classList && typeof el.classList.remove === 'function') {
+            el.classList.remove('borrow-task-focus');
+          }
+        }, 1500);
       }
 
       // ==================== 对冲开单（2026-07-hedge-open-live-v1，第一轮：立即开单） ====================
@@ -9665,6 +9785,10 @@
         submitBorrowTaskEdit,
         setBorrowTaskFilter,
         getBorrowTaskFilter: () => state.borrowTaskFilter,
+        // 市场行「查看借币」（2026-08-29-market-borrow-view-button-v1）：自检最小接缝。
+        latestActiveBorrowTaskForAsset,
+        viewBorrowTask,
+        getBorrowTaskFocusId: () => state.borrowTaskFocusId,
         loadBorrowTasks,
         renderExecutionStatus,
         loadSchedulerSettings,

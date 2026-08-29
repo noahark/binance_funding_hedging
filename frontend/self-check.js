@@ -155,6 +155,8 @@ function makeElement(id) {
     querySelectorAll(sel) {
       if (!sel || typeof sel !== 'string') return [];
       if (sel === 'tr.selectable') return _trRows();
+      // 「查看借币」跳转定位目标卡：解析任务列表 innerHTML 中的卡片（属性比对查找）。
+      if (sel === '.borrow-task-card[data-task-id]') return _borrowTaskCards(this.innerHTML);
       return [];
     }
   };
@@ -223,6 +225,40 @@ const ids = [
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
 
+// 「查看借币」mock 注册表（2026-08-29-market-borrow-view-button-v1）：
+// viewBtnRegistry 由 _makeTrEl.querySelector('[data-borrow-view-task]') 写入，
+// 每次行渲染替换为新绑定，自检可调用真实 click/keydown handler；
+// borrowCardRegistry 由任务列表 querySelectorAll('.borrow-task-card[data-task-id]')
+// 解析写入，携带 classList 与 scrollIntoView 参数记录。
+const viewBtnRegistry = {};   // symbol -> { taskId, listeners: { click: [], keydown: [] } }
+const borrowCardRegistry = {}; // taskId -> mock 卡元素
+
+function _borrowTaskCards(listHtml) {
+  const cards = [];
+  const re = /<div class="borrow-task-card[^"]*" data-task-id="([^"]+)"/g;
+  let m;
+  while ((m = re.exec(listHtml)) !== null) {
+    const id = m[1];
+    if (!borrowCardRegistry[id]) {
+      const classes = new Set(['borrow-task-card']);
+      if (m[0].includes('borrow-task-focus')) classes.add('borrow-task-focus');
+      borrowCardRegistry[id] = {
+        _id: id,
+        scrollArgs: null,
+        getAttribute(name) { return name === 'data-task-id' ? this._id : null; },
+        classList: {
+          add(c) { classes.add(c); },
+          remove(c) { classes.delete(c); },
+          contains(c) { return classes.has(c); }
+        },
+        scrollIntoView(args) { this.scrollArgs = args; }
+      };
+    }
+    cards.push(borrowCardRegistry[id]);
+  }
+  return cards;
+}
+
 // Parse the current market-table-body innerHTML into mock <tr> row elements so
 // patchRow (querySelector tr.selectable[data-symbol="X"]) and bindRowSelection
 // (querySelectorAll tr.selectable) operate on the rendered table. Each element
@@ -262,7 +298,32 @@ function _makeTrEl(symbol, bound) {
     },
     removeAttribute() {},
     addEventListener() {},
-    listeners: {}
+    listeners: {},
+    // attachRowHandlers 的真实 DOM 分支：mock 仅识别 [data-borrow-view-task]
+    // （返回带监听器注册的按钮，供事件隔离用例调用真实 handler）；
+    // 其余选择器（.borrow-op-cell / [data-borrow-confirm] / 输入框 id）返回 null。
+    querySelector(sel) {
+      if (sel === '[data-borrow-view-task]') {
+        const html = elements['market-table-body'].innerHTML;
+        const symIdx = html.indexOf(`data-symbol="${this._symbol}"`);
+        const trEnd = symIdx === -1 ? -1 : html.indexOf('</tr>', symIdx);
+        const seg = symIdx === -1 ? '' : html.slice(symIdx, trEnd === -1 ? html.length : trEnd);
+        const m = seg.match(/data-borrow-view-task="([^"]+)"/);
+        if (!m) {
+          delete viewBtnRegistry[this._symbol];
+          return null;
+        }
+        const reg = { taskId: m[1], listeners: {} };
+        viewBtnRegistry[this._symbol] = reg;
+        return {
+          getAttribute: (name) => (name === 'data-borrow-view-task' ? reg.taskId : null),
+          addEventListener: (type, handler) => {
+            (reg.listeners[type] = reg.listeners[type] || []).push(handler);
+          }
+        };
+      }
+      return null;
+    }
   };
   Object.defineProperty(obj, 'outerHTML', {
     configurable: true,
@@ -3850,6 +3911,14 @@ setTimeout(async () => {
         if (btnCount !== 1 || !cell.includes(`data-borrow-confirm="${sym}"`)) {
           throw new Error(`${sym} 操作单元格应恰好 1 个确认按钮: ${cell}`);
         }
+        // 「查看借币」（2026-08-29-market-borrow-view-button-v1）：按钮组容器恒定存在；
+        // 当前借币任务缓存为空（启动 GET 走 503），不得出现查看按钮。
+        if (!cell.includes('class="borrow-op-actions"')) {
+          throw new Error(`${sym} 操作单元格缺少 .borrow-op-actions 按钮组容器: ${cell}`);
+        }
+        if (cell.includes('data-borrow-view-task')) {
+          throw new Error(`${sym} 无活动借币任务时不应出现「查看借币」按钮: ${cell}`);
+        }
         if (!cell.includes(`id="borrow-error-${sym}"`)) {
           throw new Error(`${sym} 操作单元格缺少就近错误容器: ${cell}`);
         }
@@ -3912,6 +3981,269 @@ setTimeout(async () => {
         throw new Error('空输入时创建预览应为空字符串');
       }
       console.log('[PASS] 创建前预览资产/数量/次数/目标总量/当前全局间隔');
+    }
+
+    // ---- 市场表「查看借币」按钮（2026-08-29-market-borrow-view-button-v1，计划 §5 用例 1-7） ----
+    const mkBorrowViewTask = (asset, status, id, created) => deepCopy(MOCK_TASK_HOME, {
+      asset, status, id, created_at: created, updated_at: created
+    });
+    const borrowViewCellOf = (sym) => getRowCell(elements['market-table-body'].innerHTML, sym, 12);
+    const loadBorrowViewTasks = async (tasks) => {
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc(tasks) };
+      await helpers.loadBorrowTasks();
+    };
+
+    // 62c-1. 显示谓词：borrowing/paused 显示；空列表/仅 completed/仅 deleted/异资产隐藏
+    {
+      helpers.setActiveView('market');
+      await loadBorrowViewTasks([mkBorrowViewTask('A', 'borrowing', 'mbv-a-borrowing', '2026-08-29T01:00:00.000000Z')]);
+      let cell = borrowViewCellOf('AUSDT');
+      if (!cell.includes('data-borrow-view-task="mbv-a-borrowing"')) {
+        throw new Error('borrowing 任务行应显示「查看借币」: ' + cell);
+      }
+      if (!cell.includes('class="borrow-op-actions"')) {
+        throw new Error('按钮应包在 .borrow-op-actions 容器内: ' + cell);
+      }
+      const confirmIdx = cell.indexOf('data-borrow-confirm');
+      const viewIdx = cell.indexOf('data-borrow-view-task');
+      if (confirmIdx === -1 || viewIdx === -1 || confirmIdx > viewIdx) {
+        throw new Error('「查看借币」应位于「确认」右侧: ' + cell);
+      }
+      if (!cell.includes('aria-label="查看 A 借币任务"')) {
+        throw new Error('查看按钮缺少可访问名称: ' + cell);
+      }
+      if ((cell.match(/<button/g) || []).length !== 2) {
+        throw new Error('有活动任务时应为确认+查看两个按钮: ' + cell);
+      }
+
+      await loadBorrowViewTasks([mkBorrowViewTask('A', 'paused', 'mbv-a-paused', '2026-08-29T01:00:00.000000Z')]);
+      cell = borrowViewCellOf('AUSDT');
+      if (!cell.includes('data-borrow-view-task="mbv-a-paused"')) {
+        throw new Error('paused 任务行应显示「查看借币」: ' + cell);
+      }
+
+      const hiddenCases = [
+        ['空列表', []],
+        ['仅 completed', [mkBorrowViewTask('A', 'completed', 'mbv-a-done', '2026-08-29T01:00:00.000000Z')]],
+        ['仅 deleted', [mkBorrowViewTask('A', 'deleted', 'mbv-a-deleted', '2026-08-29T01:00:00.000000Z')]],
+        ['仅其他资产', [mkBorrowViewTask('ZZZ', 'borrowing', 'mbv-zzz-1', '2026-08-29T01:00:00.000000Z')]]
+      ];
+      for (const [name, tasks] of hiddenCases) {
+        await loadBorrowViewTasks(tasks);
+        cell = borrowViewCellOf('AUSDT');
+        if (cell.includes('data-borrow-view-task')) {
+          throw new Error(`${name} 时不应显示「查看借币」: ${cell}`);
+        }
+        if ((cell.match(/<button/g) || []).length !== 1) {
+          throw new Error(`${name} 时应只剩确认按钮: ${cell}`);
+        }
+      }
+      console.log('[PASS] 查看借币显示谓词：borrowing/paused 显示，空/completed/deleted/异资产隐藏');
+    }
+
+    // 62c-2. 1 对多确定性：created_at 最新者优先；同时间 id 降序大者优先；终态不抢占
+    {
+      await loadBorrowViewTasks([
+        mkBorrowViewTask('A', 'borrowing', 'mbv-a-old', '2026-08-29T01:00:00.000000Z'),
+        mkBorrowViewTask('A', 'paused', 'mbv-a-new', '2026-08-29T02:00:00.000000Z')
+      ]);
+      let picked = helpers.latestActiveBorrowTaskForAsset('A');
+      if (!picked || picked.id !== 'mbv-a-new') {
+        throw new Error('1 对多应选 created_at 最新者: ' + (picked && picked.id));
+      }
+      if (!borrowViewCellOf('AUSDT').includes('data-borrow-view-task="mbv-a-new"')) {
+        throw new Error('按钮应携带最新活动任务 ID');
+      }
+
+      await loadBorrowViewTasks([
+        mkBorrowViewTask('A', 'borrowing', 'mbv-a-aa', '2026-08-29T03:00:00.000000Z'),
+        mkBorrowViewTask('A', 'paused', 'mbv-a-bb', '2026-08-29T03:00:00.000000Z')
+      ]);
+      picked = helpers.latestActiveBorrowTaskForAsset('A');
+      if (!picked || picked.id !== 'mbv-a-bb') {
+        throw new Error('created_at 相同时应选 id 降序较大者: ' + (picked && picked.id));
+      }
+
+      await loadBorrowViewTasks([
+        mkBorrowViewTask('A', 'borrowing', 'mbv-a-active', '2026-08-29T04:00:00.000000Z'),
+        mkBorrowViewTask('A', 'completed', 'mbv-a-newer-done', '2026-08-29T05:00:00.000000Z')
+      ]);
+      picked = helpers.latestActiveBorrowTaskForAsset('A');
+      if (!picked || picked.id !== 'mbv-a-active') {
+        throw new Error('终态任务即使更新也不得抢占活动目标: ' + (picked && picked.id));
+      }
+      console.log('[PASS] 查看借币 1 对多确定性：created_at 最新 → id 降序，终态不抢占');
+    }
+
+    // 62c-3. 缓存投影及时性：loadBorrowTasks 成功后按钮即现/即隐；整表重绘保留输入
+    {
+      await loadBorrowViewTasks([]);
+      helpers.setActiveView('market');
+      const amountEl = document.getElementById('borrow-amount-AUSDT');
+      const countEl = document.getElementById('borrow-count-AUSDT');
+      amountEl.value = '7.5';
+      countEl.value = '4';
+      await loadBorrowViewTasks([mkBorrowViewTask('A', 'borrowing', 'mbv-a-proj', '2026-08-29T06:00:00.000000Z')]);
+      if (!borrowViewCellOf('AUSDT').includes('data-borrow-view-task="mbv-a-proj"')) {
+        throw new Error('loadBorrowTasks 成功替换缓存后按钮应立即出现');
+      }
+      if (amountEl.value !== '7.5' || countEl.value !== '4') {
+        throw new Error('整表重绘不得冲掉正在输入的借币数量/次数');
+      }
+      await loadBorrowViewTasks([]);
+      if (borrowViewCellOf('AUSDT').includes('data-borrow-view-task')) {
+        throw new Error('任务缓存清空后按钮应立即消失');
+      }
+      if (amountEl.value !== '7.5' || countEl.value !== '4') {
+        throw new Error('整表重绘后输入仍应保留');
+      }
+      amountEl.value = '';
+      countEl.value = '';
+      console.log('[PASS] 查看借币缓存投影及时性：loadBorrowTasks 后按钮即现/即隐，输入保留');
+    }
+
+    // 62c-4. 执行中跳转：切视图、任务页签、borrowing 筛选、平滑滚动居中、聚焦类
+    {
+      await loadBorrowViewTasks([mkBorrowViewTask('A', 'borrowing', 'mbv-jump-run', '2026-08-29T07:00:00.000000Z')]);
+      helpers.setActiveView('market');
+      helpers.viewBorrowTask('mbv-jump-run');
+      if (helpers.getActiveView() !== 'borrow-tasks') {
+        throw new Error('点击后应切到借币任务视图');
+      }
+      if (helpers.getBorrowTab() !== 'tasks') {
+        throw new Error('点击后应选中任务页签');
+      }
+      if (helpers.getBorrowTaskFilter() !== 'borrowing') {
+        throw new Error('执行中目标筛选应为 borrowing');
+      }
+      const card = borrowCardRegistry['mbv-jump-run'];
+      if (!card) throw new Error('目标卡未在任务列表 DOM 中出现');
+      if (!card.scrollArgs || card.scrollArgs.behavior !== 'smooth' || card.scrollArgs.block !== 'center') {
+        throw new Error('目标卡应收到 scrollIntoView({behavior:smooth, block:center}): ' + JSON.stringify(card.scrollArgs));
+      }
+      if (!card.classList.contains('borrow-task-focus')) {
+        throw new Error('目标卡应带聚焦类 borrow-task-focus');
+      }
+      if (helpers.getBorrowTaskFocusId() !== 'mbv-jump-run') {
+        throw new Error('焦点字段应记录目标任务 ID');
+      }
+      console.log('[PASS] 查看借币执行中跳转：切视图/任务页签/borrowing 筛选/平滑居中/聚焦');
+    }
+
+    // 62c-5. 暂停跳转：先停在日志页签，跳转后切回任务页签、paused 筛选、目标卡渲染/滚动/聚焦
+    {
+      await loadBorrowViewTasks([mkBorrowViewTask('B', 'paused', 'mbv-jump-pause', '2026-08-29T08:00:00.000000Z')]);
+      helpers.setActiveView('borrow-tasks');
+      borrowLogsResponses = [
+        { status: 200, body: MOCK_LOG_PAGE_1 },
+        { status: 200, body: MOCK_LOG_PAGE_1 }
+      ];
+      helpers.setBorrowTab('logs');
+      await new Promise(r => setTimeout(r, 0));
+      if (helpers.getBorrowTab() !== 'logs') throw new Error('前置：应停在日志页签');
+      helpers.setActiveView('market');
+      helpers.viewBorrowTask('mbv-jump-pause');
+      if (helpers.getBorrowTab() !== 'tasks') {
+        throw new Error('跳转应切回任务页签');
+      }
+      if (helpers.getBorrowTaskFilter() !== 'paused') {
+        throw new Error('暂停目标筛选应为 paused');
+      }
+      if (!elements['borrow-task-list'].innerHTML.includes('data-task-id="mbv-jump-pause"')) {
+        throw new Error('目标卡应在 paused 筛选下实际渲染');
+      }
+      const card = borrowCardRegistry['mbv-jump-pause'];
+      if (!card || !card.scrollArgs || card.scrollArgs.block !== 'center') {
+        throw new Error('暂停目标卡应滚动居中');
+      }
+      if (!card.classList.contains('borrow-task-focus')) {
+        throw new Error('暂停目标卡应带聚焦类');
+      }
+      console.log('[PASS] 查看借币暂停跳转：日志页签恢复/paused 筛选/滚动居中/聚焦');
+    }
+
+    // 62c-6. 事件隔离：真实 click/keydown handler 均 stopPropagation、不 preventDefault、
+    // 不开行抽屉、零 borrow POST
+    {
+      await loadBorrowViewTasks([mkBorrowViewTask('A', 'borrowing', 'mbv-iso-1', '2026-08-29T09:00:00.000000Z')]);
+      helpers.setActiveView('market');
+      await new Promise(r => setTimeout(r, 0));
+      const reg = viewBtnRegistry['AUSDT'];
+      if (!reg || reg.taskId !== 'mbv-iso-1') throw new Error('查看按钮未在市场行绑定');
+      if (!reg.listeners.click || !reg.listeners.click.length) throw new Error('查看按钮缺少 click handler');
+      if (!reg.listeners.keydown || !reg.listeners.keydown.length) throw new Error('查看按钮缺少 keydown handler');
+      const drawerOpenBefore = helpers.isDrawerOpen();
+      const fetchBefore = fetchCallLog.length;
+      let stopClick = false;
+      reg.listeners.click[reg.listeners.click.length - 1]({
+        stopPropagation: () => { stopClick = true; },
+        preventDefault: () => { throw new Error('click 不应 preventDefault'); }
+      });
+      if (!stopClick) throw new Error('click handler 应调用 stopPropagation');
+      if (helpers.isDrawerOpen() !== drawerOpenBefore) {
+        throw new Error('查看按钮 click 不得改变行抽屉状态');
+      }
+      let stopKey = false, preventKey = false;
+      reg.listeners.keydown[reg.listeners.keydown.length - 1]({
+        key: 'Enter',
+        stopPropagation: () => { stopKey = true; },
+        preventDefault: () => { preventKey = true; }
+      });
+      if (!stopKey) throw new Error('keydown handler 应对按键 stopPropagation');
+      if (preventKey) throw new Error('keydown 不得 preventDefault（保留原生 Enter/Space 激活）');
+      const borrowPosts = fetchCallLog.slice(fetchBefore)
+        .filter(c => c.url === '/api/borrow-tasks' && c.method === 'POST');
+      if (borrowPosts.length !== 0) throw new Error('查看按钮不得产生 borrow POST');
+      console.log('[PASS] 查看借币事件隔离：click/keydown stopPropagation、无 preventDefault、不开抽屉、零 POST');
+    }
+
+    // 62c-7. 聚焦生命周期：1.5s 动画 + reduced-motion 静态反馈；重复聚焦以末次为准；定时清理
+    {
+      if (!html.includes('@keyframes borrow-task-focus-pulse')) {
+        throw new Error('缺少聚焦 keyframes borrow-task-focus-pulse');
+      }
+      if (!/\.borrow-task-card\.borrow-task-focus\s*\{[^}]*animation:\s*borrow-task-focus-pulse\s+1\.5s/.test(html)) {
+        throw new Error('聚焦动画须为 1.5 秒');
+      }
+      const rmIdx = html.indexOf('@media (prefers-reduced-motion: reduce)');
+      if (rmIdx === -1) throw new Error('缺少 prefers-reduced-motion 规则');
+      const rmBlock = html.slice(rmIdx, rmIdx + 400);
+      if (!rmBlock.includes('.borrow-task-card.borrow-task-focus') || !rmBlock.includes('outline')) {
+        throw new Error('reduced-motion 下应保留静态 outline 反馈');
+      }
+
+      await loadBorrowViewTasks([
+        mkBorrowViewTask('A', 'borrowing', 'mbv-focus-1', '2026-08-29T10:00:00.000000Z'),
+        mkBorrowViewTask('B', 'paused', 'mbv-focus-2', '2026-08-29T10:00:00.000000Z')
+      ]);
+      helpers.setActiveView('market');
+      helpers.viewBorrowTask('mbv-focus-1');
+      helpers.viewBorrowTask('mbv-focus-2');
+      if (helpers.getBorrowTaskFocusId() !== 'mbv-focus-2') {
+        throw new Error('重复聚焦应以后一次目标为准');
+      }
+      // 旧目标卡重绘后不再带聚焦类（paused 筛选下它不在列表，切到 borrowing 验证其卡面无聚焦类）
+      helpers.setBorrowTaskFilter('borrowing');
+      if (getTaskCardHtml(elements['borrow-task-list'].innerHTML, 'mbv-focus-1').includes('borrow-task-focus')) {
+        throw new Error('旧目标卡不应残留聚焦类');
+      }
+      helpers.setBorrowTaskFilter('paused');
+      // 1500ms 定时清理后：焦点字段与当前卡片聚焦类均消失
+      await new Promise(r => setTimeout(r, 1700));
+      if (helpers.getBorrowTaskFocusId() !== null) {
+        throw new Error('聚焦清理后焦点字段应为 null');
+      }
+      if (borrowCardRegistry['mbv-focus-2'].classList.contains('borrow-task-focus')) {
+        throw new Error('聚焦清理后目标卡聚焦类应被移除');
+      }
+      console.log('[PASS] 查看借币聚焦生命周期：1.5s 动画/reduced-motion 静态反馈/重复聚焦以末次为准/定时清理');
+    }
+
+    // 还原现场：空任务缓存 + 市场视图，避免影响后续借币任务测试块
+    {
+      await loadBorrowViewTasks([]);
+      helpers.setActiveView('market');
+      await new Promise(r => setTimeout(r, 0));
     }
 
     // ---- 借币任务后端权威迁移（Task B；全部 API 交互走 §3 冻结形状的 mock） ----
