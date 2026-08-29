@@ -548,6 +548,21 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 - 任何 Start-gate、凭据或实盘操作仍须遵循上方 Live Risks 闸门并取得 Human 明确授权。
 
 ## Last Completed
+- stage: `2026-08-29-market-borrow-view-button-v1`
+- delivery: `7bb70a7..89ab96d`（实现），计划固定于 `eeea31b`；`rework_count` 0。
+- recorded_completed_at: `2026-08-29`
+- outcome: 市场表借币列增加「查看借币」跳转按钮，仅在对应资产存在 `borrowing` 或 `paused`
+  借币任务时于「确认」按钮右侧展示（无任务/已完成/已删除隐藏）；1 对多按 `created_at` 降序、
+  同值 `id` 降序确定目标；点击/键盘触发平滑跳转至借币任务视图对应卡片，自动切回任务页签、
+  同步状态筛选（如 `paused` 任务自动切至 `paused` 筛选确保 DOM 渲染）、平滑居中滚动并带有
+  约 1.5s 聚焦高亮脉冲（支持 `prefers-reduced-motion` 静态反馈）；事件完全隔离且表格重绘时
+  输入框值完整保留。
+- 评审: Codex (`gpt-5.6-sol`) 方案设计；Claude (`opus5`) 设计前只读评审 `ACCEPT`；Kimi (`kimi`)
+  前端实现与自检（176 pass, 0 fail）；Grok (Review-1) 与 Claude-GLM (Review-2) 并行独立只读评审双 `ACCEPT`。
+- 部署: Human 2026-08-29 授权部署并在线上 `https://aoke.kengbi.pro` 实测验收通过（镜像
+  `funding-hedging:9c8842a`，readyz 10s 转 200）。
+- 流程偏差（据实记录）: 无。
+- follow-ups: 待开展反向导航功能（借币卡右上角增加跳转回市场表对应币种数据行）。
 - stage: `2026-08-28-repaid-interest-price-v1`
 - delivery: `f4f6c6f..d315fbd`（实现），计划固定于 `e37d45a`；`rework_count` 0。
 - recorded_completed_at: `2026-08-29`

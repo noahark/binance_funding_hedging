@@ -1,11 +1,11 @@
 {
   "schema_version": "2",
-  "revision": 6,
+  "revision": 7,
   "stage_id": "2026-08-29-market-borrow-view-button-v1",
   "bookkeeper": "gemini-3.7-flash",
   "bookkeeper_label": "agy",
-  "phase": "completed",
-  "checkpoint": "both_reviews_verified_accept",
+  "phase": "closed",
+  "checkpoint": "completed",
   "base_sha": "7bb70a74e4e97a5c0b136bc6146167a360f0debb",
   "delivery_sha": "89ab96d70c1a04ee120ff6ee6f2b22d6ab58420a",
   "ledger_sha": "89ab96d70c1a04ee120ff6ee6f2b22d6ab58420a",
@@ -36,7 +36,7 @@
   ],
   "next": {
     "actor": "human_operator",
-    "action": "human-decision-on-merge-and-deploy"
+    "action": "stage-archived-no-active-work"
   },
   "rework_count": 0,
   "blockers": []
