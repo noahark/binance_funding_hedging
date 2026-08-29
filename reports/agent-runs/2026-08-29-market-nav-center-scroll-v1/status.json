@@ -1,0 +1,43 @@
+{
+  "schema_version": "2",
+  "revision": 3,
+  "stage_id": "2026-08-29-market-nav-center-scroll-v1",
+  "bookkeeper": "gemini-3.7-flash",
+  "bookkeeper_label": "agy",
+  "phase": "completed",
+  "checkpoint": "both_reviews_verified_accept",
+  "base_sha": "25cea9db770936e3e896fc71234b39f733f4ad65",
+  "delivery_sha": "69e5cfa5f0d6764fb20452035ce18b63fc043875",
+  "ledger_sha": "69e5cfa5f0d6764fb20452035ce18b63fc043875",
+  "current_task": {
+    "id": "P2-market-nav-center-scroll-review-2-claude-glm",
+    "state": "verified",
+    "dispatch": "reports/agent-runs/2026-08-29-market-nav-center-scroll-v1/P2-review-2-claude-glm.dispatch.md"
+  },
+  "parallel_tasks": [
+    {
+      "id": "P2-market-nav-center-scroll-review-1-grok",
+      "model": "grok",
+      "window": "grok-review",
+      "role": "Review-1",
+      "dispatch": "reports/agent-runs/2026-08-29-market-nav-center-scroll-v1/P2-review-1-grok.dispatch.md",
+      "state": "verified",
+      "verdict": "ACCEPT"
+    },
+    {
+      "id": "P2-market-nav-center-scroll-review-2-claude-glm",
+      "model": "claude_glm",
+      "window": "claude-glm-review",
+      "role": "Review-2",
+      "dispatch": "reports/agent-runs/2026-08-29-market-nav-center-scroll-v1/P2-review-2-claude-glm.dispatch.md",
+      "state": "verified",
+      "verdict": "ACCEPT"
+    }
+  ],
+  "next": {
+    "actor": "human_operator",
+    "action": "human-decision-on-merge-and-deploy"
+  },
+  "rework_count": 0,
+  "blockers": []
+}
