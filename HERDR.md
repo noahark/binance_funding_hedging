@@ -1,9 +1,9 @@
 # Herdr Window Routing
 
 Read this file only for a task that inspects or uses Herdr. It defines stable
-window labels for this computer and the local procedure that resolves a label
-to the current Herdr pane. It is not a dispatch packet and never authorizes a
-message send.
+window labels used within one Herdr workspace on this computer and the local
+procedure that resolves a label to the current Herdr pane. It is not a dispatch
+packet and never authorizes a message send.
 
 ## Fixed Window Labels
 
@@ -65,14 +65,25 @@ change where a staged task lands.
 
 ## Resolve A Window
 
-1. Run `herdr pane list` on this local machine.
+A Herdr workspace is the project isolation boundary. The same fixed label set
+may exist in another workspace serving a different project, so resolution never
+crosses that boundary.
+
+1. Run `herdr pane list --workspace "$HERDR_WORKSPACE_ID"` on this local
+   machine. If `HERDR_WORKSPACE_ID` is unset, this pane is not inside Herdr;
+   stop and report.
 2. Find exactly one pane whose `label` exactly equals the Human-specified
    window label.
 3. Use that pane's current `pane_id` with `herdr agent get <pane_id>` and
-   confirm it still hosts a detected agent in the expected project directory.
+   confirm it still hosts a detected agent whose `cwd` is this project's
+   repository root or one of its worktrees. A `cwd` under a different project
+   root means the workspace holds panes from more than one project; stop and
+   report it instead of sending.
 4. If the label is absent, duplicated, or the pane is not a detected agent,
    stop and report the candidates or missing label. Never guess from position,
-   model kind, terminal title, or a partial label.
+   model kind, terminal title, workspace, working directory, or a partial
+   label. Steps 1 and 3 are the only permitted narrowing; a duplicated label
+   that survives them is always a stop, never a choice.
 
 ## Send After Human Direction
 
