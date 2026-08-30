@@ -6158,12 +6158,16 @@
         } catch (err) {
           state.hedgeTasksError = err.message || '开单任务加载失败';
         }
-        // 两秒 live 只拉 running。进页 / 点按钮 / 60s 快照仍按 running ∪ 已展开。
+        // 两秒 live 拉 running ∪ 刚离开 running 的卡（补一次终态日志，下一轮恢复静默）。
+        // 进页 / 点按钮 / 60s 快照仍按 running ∪ 已展开。
         // 点「展开日志」另走一次即时 GET，不经过两秒 tick。
+        // 终态那一拍拿到的是当时快照：accepted 但 NEW/PARTIALLY_FILLED 的腿由 reconcile
+        // pass 之后回填，明细靠 60s 全量补齐（本轮只保证 5/5 那行出现且不再是「进行中」）。
         const liveOnly = !!(opts && opts.liveOnly);
-        const runningIds = state.hedgeTasks
+        const liveTasks = state.hedgeTasks
           .filter(task => task && task.status === 'running')
           .map(task => task.id);
+        const runningIds = liveHedgeIdsToPatch(liveTasks);
         const expandedIds = (!liveOnly && state.hedgeLogExpanded)
           ? [...state.hedgeLogExpanded].filter(id => findHedgeTask(id))
           : [];
@@ -6179,7 +6183,7 @@
             renderHedgeTasks();
           }
         }
-        state.hedgeLiveCardIds = runningIds;
+        state.hedgeLiveCardIds = liveTasks;
       }
 
       // 持仓表：GET /api/hedge-open-positions 为唯一数据源（§3.4 Position JSON 逐字渲染）。

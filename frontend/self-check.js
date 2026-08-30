@@ -6081,6 +6081,41 @@ setTimeout(async () => {
       console.log('[PASS] 两秒 tick 只刷执行中：静态筛选项跳过、展开的暂停卡不拉、无 running 的全部页跳过');
     }
 
+    // 80e-2. 任务从 running 推进至 done 终态的那一轮 live tick 必拉一次终态日志；
+    //        再下一轮恢复静默（修复：任务卡完成后展开日志停留在上一单的视图缓存缺陷）。
+    {
+      helpers.resetHedgeStateForTest();
+      const flipTask = mockHedgeTask({ id: 'h-flip-done', coin: 'FUSDT', status: 'running', target_n: 5 });
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [flipTask] } };
+      hedgeTaskLogsGetResponse = { status: 200, body: { attempts: [] } };
+      helpers.setActiveView('hedge-tasks');
+      helpers.setHedgeTab('tasks');
+      helpers.setHedgeTaskFilter('all');
+      await helpers.loadHedgeTasks();
+      // 任务推进至 done 终态：刚离开 running 的这一轮 live tick 必须拉一次终态日志。
+      flipTask.status = 'done';
+      const flipMark = fetchCallLog.length;
+      await helpers.loadHedgeTasks({ liveOnly: true });
+      const flipLogIds = fetchCallLog.slice(flipMark)
+        .filter(c => c.url.startsWith('/api/hedge-open-logs?task_id='))
+        .map(c => {
+          const m = c.url.match(/task_id=([^&]+)/);
+          return m ? decodeURIComponent(m[1]) : null;
+        })
+        .filter(Boolean);
+      if (!flipLogIds.includes('h-flip-done')) {
+        throw new Error('任务进入 done 终态的这一轮 live tick 必须拉取终态日志: ' + JSON.stringify(flipLogIds));
+      }
+      // 再下一轮恢复静默：终态任务不再进入日志拉取列表。
+      const quietMark = fetchCallLog.length;
+      await helpers.loadHedgeTasks({ liveOnly: true });
+      if (fetchCallLog.slice(quietMark).some(c => c.url.startsWith('/api/hedge-open-logs?task_id='))) {
+        throw new Error('终态后的下一轮 live tick 不应再拉该任务日志');
+      }
+      helpers.setActiveView('market');
+      console.log('[PASS] 任务进入 done 终态当轮补拉终态日志、下一轮恢复静默');
+    }
+
     // 80f. 开单任务卡编号点击复制：卡面可点、写入剪贴板的是裸 id（不含 #）。
     {
       helpers.resetHedgeStateForTest();
