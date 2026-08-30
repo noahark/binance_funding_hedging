@@ -4,6 +4,12 @@ Cross-stage state, read at startup. Keep under 64 KB. Git history is not a runti
 check. Completed work's trace is git history and archive references (see Update
 Rule); this file records only live risks, open follow-ups, and pointers.
 
+## Current Status (2026-08-30)
+
+- **[DEPLOYMENT][2026-08-30 12:11 CST] 生产镜像升至 `funding-hedging:5cb6ae2`（aoke 主机 `47.240.168.162`）。**
+  修复开单任务卡完成后展开日志停留在上一单的视图缓存缺陷（`loadHedgeTasks` 终态当轮拉取一次日志并随后恢复静默，自检通过）。
+  readyz 11 秒转 200，systemd 双单元（funding-hedging + Caddy proxy）`active active`。
+
 ## Current Status (2026-08-29)
 
 - **[DATA-CORRECTION][2026-08-29 00:31–01:25 CST] 12 条历史还款补录还款时价格，净收益曲线已恢复展示。**
