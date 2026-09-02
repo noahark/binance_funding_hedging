@@ -106,9 +106,9 @@ COALESCEABLE_FAILURE_CATEGORIES = frozenset({
     RESULT_EXECUTION_DISABLED,
 })
 
-# Seed scheduler row (breakdown §3.5): one global frequency default of 1s.
-DEFAULT_INTERVAL_SECONDS = "1"
-DEFAULT_INTERVAL_US = 1_000_000
+# Seed scheduler row (breakdown §3.5): one global frequency default of 2s.
+DEFAULT_INTERVAL_SECONDS = "2"
+DEFAULT_INTERVAL_US = 2_000_000
 
 # Boundary C §3.5: the scheduler interval floor is set to 0.1 seconds.
 # The exchange-capacity math (POST weight 100, shared-IP budget 6000/min,

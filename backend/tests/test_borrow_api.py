@@ -186,8 +186,8 @@ def test_settings_get_default_then_put_fractional(validators, tmp_path):
         assert status == 200
         settings = _json(payload)
         validators["scheduler-settings"].validate(settings)
-        assert settings["interval_seconds"] == "1"
-        assert settings["interval_us"] == 1_000_000
+        assert settings["interval_seconds"] == "2"
+        assert settings["interval_us"] == 2_000_000
         assert settings["round_robin_cursor"] is None
         assert settings["global_cooldown_until"] is None
 

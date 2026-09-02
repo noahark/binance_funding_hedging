@@ -89,11 +89,22 @@ def test_restart_releases_orphaned_pending_attempt(tmp_path):
 def test_settings_default_seed(tmp_path):
     s = _store(tmp_path)
     st = s.get_settings()
-    assert st["interval_seconds"] == "1"
-    assert st["interval_us"] == 1_000_000
+    assert st["interval_seconds"] == "2"
+    assert st["interval_us"] == 2_000_000
     assert st["round_robin_cursor"] is None
     assert st["global_cooldown_until_us"] is None
     assert st["version"] == 1
+
+
+def test_existing_interval_is_not_reseeded(tmp_path):
+    path = tmp_path / "borrow.sqlite3"
+    s = BorrowTaskStore(str(path))
+    s.update_settings("1", 1_000_000, NOW)
+    s.close()
+
+    reopened = BorrowTaskStore(str(path))
+    assert reopened.get_settings()["interval_seconds"] == "1"
+    assert reopened.get_settings()["interval_us"] == 1_000_000
 
 
 def test_update_settings_bumps_version(tmp_path):

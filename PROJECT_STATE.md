@@ -4,6 +4,29 @@ Cross-stage state, read at startup. Keep under 64 KB. Git history is not a runti
 check. Completed work's trace is git history and archive references (see Update
 Rule); this file records only live risks, open follow-ups, and pointers.
 
+## Current Status (2026-09-02)
+
+- **[OPEN][LIVE][ORDERS][RATE-LIMIT][2026-09-02 14:57 CST] 借币 1 秒调度把同 IP 的
+  PAPI 请求权重持续顶到 6000/分钟，开单任务 `2620eb9d-600c-4b9a-a066-df72e044bc01`
+  设置 NILUSDT 杠杆时被 HTTP 429 拒绝，已 fail-closed 暂停且零 attempt、零两腿订单。**
+  线上只读证据：`borrow_settings.interval_seconds=1`、执行开启、8 张 `borrowing` 卡持续轮转；
+  借币唯一写端点 `/papi/v1/marginLoan` 每次权重 100，故单是该链即为
+  `100 × 60 = 6000/分钟`。借币 attempt `918288` 于 `14:42:34 CST` 先收到
+  `429/-1003` 并把本模块冷却到约 `14:43:34`；开单卡在 `14:42:49` 调
+  `/papi/v1/um/leverage`，因开单链不共享借币冷却/额度状态而再次收到同一 IP 的
+  6000/分钟错误。重复 `51061` 等已知拒绝按既有产品规则继续轮转，日志合并只隐藏重复行，
+  不减少真实 POST。**临时限制：在 Human 明确决定停止借币或把调度间隔提高到留有 PAPI
+  余量之前，不要重启该开单卡。** 另有独立展示缺陷：`_set_leverage_before_open` 对 executor
+  异常再截断 200 字符，导致任务卡文案停在 `polling the AP`；executor 内层响应体已另有限长，
+  后续最小修复应去掉这层重复截断并加完整 429 文案回归。修复涉及实盘借币节奏、跨模块额度
+  协调和开单失败展示，按 HIGH_RISK 流程处理；未获授权前不改频率、闸门或线上状态。
+
+- **[FAST DIRECT][CODE][2026-09-02 15:13 CST] Human 明确授权把借币新库默认调度间隔从
+  1 秒改为 2 秒。** 默认种子现为 `2` / `2_000_000µs`，借币 domain/store/API 回归
+  130 条通过，并新增“已有数据库不被新默认重种”的检查。该 Fast 交付不含部署或线上写入：
+  生产 `env_aoke` 已有 SQLite 设置仍是 1 秒，上述限频临时限制继续生效，直至 Human 另行授权
+  修改线上间隔或部署。
+
 ## Current Status (2026-08-30)
 
 - **[DEPLOYMENT][2026-08-30 12:11 CST] 生产镜像升至 `funding-hedging:5cb6ae2`（aoke 主机 `47.240.168.162`）。**
