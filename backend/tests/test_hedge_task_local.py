@@ -2161,10 +2161,14 @@ def test_r6_rate_limit_one_leg_other_filled_single_leg_exposure(tmp_path):
 # exited the worker while the task stayed RUNNING, the silent-stall defect).
 def test_r7_live_worker_active_tri_state_and_exit_reason(tmp_path):
     # --- sub A: preflight incomplete -> task PAUSED with a named failed read ---
+    # Bug A 修复后 live 建卡要求快照可读：建卡用正常快照，post_start 前切
+    # None，保住本测试意图（worker 途中 fresh preflight 失败 → 可见暂停）。
     exe_a = _RoutingExecutor()
-    svc_a = _svc_with(str(tmp_path / "r7a.sqlite3"), exe_a, _FakeProvider(None), _Clock())
-    svc_a.set_start_gate(True)  # None snapshot -> preflight incomplete
+    provider_a = _FakeProvider(_ok_snapshot())
+    svc_a = _svc_with(str(tmp_path / "r7a.sqlite3"), exe_a, provider_a, _Clock())
+    svc_a.set_start_gate(True)
     doc_a = _create(svc_a, target_n=1)
+    provider_a.snapshot = None  # None snapshot -> preflight incomplete
     svc_a.post_start(doc_a["id"])  # RUNNING + real worker
     wa = svc_a._workers.get(doc_a["id"])
     if wa is not None:
@@ -2174,7 +2178,7 @@ def test_r7_live_worker_active_tri_state_and_exit_reason(tmp_path):
     assert task_a["status"] == D.STATUS_PAUSED  # 不再静默 running（§5 可见暂停）
     assert task_a["pause_reason"] == D.PAUSE_REASON_PREFLIGHT_INCOMPLETE
     assert "预检数据不完整" in (task_a["pause_reason_zh"] or "")
-    # 失败读名：_FakeProvider(None) 无 last_failed_read → 通用文案；有失败读名时
+    # 失败读名：建卡后切 None 的 provider 无 last_failed_read → 通用文案；有失败读名时
     # 中文原因必须含读名（见 preflight-incomplete 专项测试）。
     events = svc_a.store.list_task_event_logs_page(
         50, ("preflight_incomplete",), None, None, None,
@@ -2241,20 +2245,16 @@ def test_r8_dry_run_worker_active_is_none_not_false(tmp_path):
 # decision 4). The worker still exits WITHOUT retry, but the task pauses with a
 # Chinese reason naming the failed read — no more 33-minute silent stall.
 # ---------------------------------------------------------------------------
-class _FailedReadProvider(_FakeProvider):
-    last_failed_read = "balances"
-
-    def get_snapshot(
-        self, coin, direction, task_type="open", position_side_mode=None,
-    ):
-        return None  # preflight incomplete
-
-
 def test_preflight_incomplete_pause_names_failed_read(tmp_path):
+    # Bug A 修复后 live 建卡要求快照可读：建卡用正常快照，post_start 前切
+    # 失败读（balances），保住本测试意图（worker 途中点名失败读）。
     exe = _RoutingExecutor()
-    svc = _svc_with(str(tmp_path / "pf.sqlite3"), exe, _FailedReadProvider(), _Clock())
+    provider = _FakeProvider(_ok_snapshot())
+    provider.last_failed_read = "balances"
+    svc = _svc_with(str(tmp_path / "pf.sqlite3"), exe, provider, _Clock())
     svc.set_start_gate(True)
     doc = _create(svc, target_n=1)
+    provider.snapshot = None  # worker 途中 fresh preflight 失败
     svc.post_start(doc["id"])  # RUNNING + real worker
     wa = svc._workers.get(doc["id"])
     if wa is not None:

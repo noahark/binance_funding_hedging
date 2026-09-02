@@ -1033,6 +1033,25 @@ class HedgeOpenTaskService:
             D.DIR_REVERSE if direction == D.DIR_FORWARD else D.DIR_FORWARD
         ) if task_type == D.TASK_TYPE_CLOSE else direction
         snapshot = self._preflight.get_snapshot(coin, preflight_direction, task_type=task_type)
+        # Bug A 修复（2026-09-02 NILUSDT 故障根因）：live 模式下预检读取全失败
+        # （snapshot=None，如建卡瞬时 IP 429 限流）时 compute_preflight 返回
+        # "unknown"结果（q_common=None 且不拒绝，domain 文档写明这是给 dry-run
+        # 跑 record transport 留的宽容），live 建卡会落 NULL-q_common 死卡——
+        # smooth 死循环（已另修 fail-closed）或 immediate 以未取整的
+        # single_amount 发单。live 在入口直接拒绝；dry-run
+        # （_live_dispatch_capable()=False）行为零变化。
+        if snapshot is None and self._live_dispatch_capable():
+            print(
+                f"[HEDGE-CREATE] rejected: preflight snapshot unavailable "
+                f"coin={coin} task_type={task_type} "
+                f"failed_read={getattr(self._preflight, 'last_failed_read', None)}",
+                file=sys.stderr, flush=True,
+            )
+            raise D.HedgeError(
+                400, "preflight_unavailable",
+                "预检数据读取失败（常见于网络/限流故障），未创建任务；请稍后重试",
+                extra={"coin": coin, "direction": direction},
+            )
         preflight = D.compute_preflight(
             snapshot, coin, preflight_direction, D.Decimal(single_amount), target_n
         )
@@ -2414,6 +2433,42 @@ class HedgeOpenTaskService:
         smooth_reason = None
         smooth_audit = None
         if task.get("mode") == D.MODE_SMOOTH:
+            # q_common 门排在 SET_LEVERAGE 之前（review 建议）：NULL-q_common
+            # 死卡暂停前不必真发一次杠杆写入——它零收益，且常落在触发本故障
+            # 的 429 限流窗口里。健康任务（有 q_common）行为不变，仍先设杠杆。
+            if not task.get("q_common"):
+                # smooth-close C15：无有效 q_common 的 running 任务 fail-closed
+                # 落 paused + preflight_incomplete 原因并退出 worker（下一轮
+                # status!=running 即退）。不是"不建门然后返回"——那会让
+                # _worker_round 在无在途腿时无节流紧密循环，且 timeout/
+                # manual 放行仍可能以未取整的 single_amount 走下单链。
+                # 2026-09-02 NILUSDT 实盘故障：open 同样拦——建卡瞬时预检全
+                # 失败（IP 429 限流）会落 NULL-q_common 的 open 卡（Bug A，
+                # compute_preflight(None) 不拒绝），之后 open_smooth_gate 拒
+                # 建门 + 本循环立即重试 → SET_LEVERAGE 无限刷屏（反哺限流），
+                # 任务卡永远「现货/合约 数据不完整」。close-only 豁免（原
+                # F-A 引用）自此移除：open 的 NULL 卡无法自愈（启动路径不
+                # 回填 q_common），唯一安全去向就是可见的 paused；close 可
+                # 自愈（_start_smooth_close 重新备料回填），恢复指引按类型分。
+                is_close = (
+                    (task.get("task_type") or D.TASK_TYPE_OPEN) == D.TASK_TYPE_CLOSE
+                )
+                when = "备料" if is_close else "建卡"
+                action = (
+                    "请检查网络后点击启动重新备料" if is_close
+                    else "该卡无法自愈，请删除后重新下单"
+                )
+                self._pause_task_local(
+                    task, D.PAUSE_REASON_PREFLIGHT_INCOMPLETE,
+                    D.SIGNAL_PREFLIGHT_INCOMPLETE, now_us,
+                    kind="preflight_incomplete",
+                    pause_zh=(
+                        f"{when}时预检未冻结下单数量（q_common 为空，常见于"
+                        f"网络/限流故障），任务已暂停（fail-closed，未发单）；"
+                        f"{action}"
+                    ),
+                )
+                return False
             if (
                 self._live_dispatch_capable()
                 and (task.get("task_type") or D.TASK_TYPE_OPEN) == D.TASK_TYPE_OPEN
@@ -2427,18 +2482,6 @@ class HedgeOpenTaskService:
                         kind="leverage_set_failed", pause_zh=lev_err,
                     )
                     return False
-            if (
-                (task.get("task_type") or D.TASK_TYPE_OPEN) == D.TASK_TYPE_CLOSE
-                and not task.get("q_common")
-            ):
-                # smooth-close C15：无有效 q_common 的 running 任务 fail-closed
-                # 落 paused + 既有 preflight_incomplete 中文原因并退出 worker
-                # （下一轮 status!=running 即退）。不是"不建门然后返回"——那
-                # 会让 _worker_round 在无在途腿时无节流紧密循环，且 timeout/
-                # manual 放行仍可能以未取整的 single_amount 走下单链。仅拦
-                # close：open smooth 的 NULL-q_common 历史行走 F-A 既有已接受
-                # 行为，零回归。
-                return self._pause_preflight_incomplete(task, now_us)
             gate = self._wait_for_smooth_gate(task, now_us)
             if gate is None:
                 # Pause followed immediately by resume may happen before this

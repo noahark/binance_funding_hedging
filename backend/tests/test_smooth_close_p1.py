@@ -631,7 +631,9 @@ def test_running_close_without_q_common_fails_closed_without_busy_loop(tmp_path)
         row = svc.store.get_task("c15")
         assert row["status"] == D.STATUS_PAUSED
         assert row["pause_reason"] == D.PAUSE_REASON_PREFLIGHT_INCOMPLETE
-        assert row["pause_reason_zh"] is not None
+        # close 有自愈路径（_start_smooth_close 重新备料），恢复指引必须是
+        # 重新备料而非删卡（open 才是删卡重下）。
+        assert "点击启动重新备料" in (row["pause_reason_zh"] or "")
         assert svc.store.list_attempts_for_task("c15") == []
         assert executor.dispatch_calls == 0
         # 即使注入「成交1次」也不放行（store 数量谓词）。
@@ -639,6 +641,78 @@ def test_running_close_without_q_common_fails_closed_without_busy_loop(tmp_path)
             svc.post_fill_once("c15", {"gate_seq": 1})
         assert exc.value.status == 409
         assert svc.store.list_attempts_for_task("c15") == []
+    finally:
+        svc.close()
+
+
+def test_running_open_without_q_common_fails_closed_without_busy_loop(tmp_path):
+    """2026-09-02 NILUSDT 实盘故障回归：q_common 为空且 running 的 smooth
+    open（建卡瞬时 IP 429 → 预检全失败仍落卡）同样 fail-closed 落 paused，
+    不得回到 SET_LEVERAGE→建门被拒→立即重试的无限循环。"""
+    svc, clock, market, executor, _ = _close_service(tmp_path)
+    try:
+        # 先开闸再建卡：开闸会为 running smooth 任务拉真后台 worker，
+        # 建卡后再 _arm 会与手动 _pump_worker 并发，杠杆计数不可复现。
+        _arm(svc)
+        svc.store.create_task(
+            "open-null-q", "BTCUSDT", D.DIR_FORWARD, D.MODE_SMOOTH, "1", 1,
+            None, D.POS_MODE_BOTH, {"available": False}, clock.t,
+            task_type=D.TASK_TYPE_OPEN,
+            initial_status=D.STATUS_RUNNING,
+            slippage_threshold_pct="0.05",
+        )
+        rounds = svc._pump_worker("open-null-q", max_rounds=50)
+        assert rounds < 50                          # 有上限：暂停后下一轮即退出
+        row = svc.store.get_task("open-null-q")
+        assert row["status"] == D.STATUS_PAUSED
+        assert row["pause_reason"] == D.PAUSE_REASON_PREFLIGHT_INCOMPLETE
+        assert "q_common" in (row["pause_reason_zh"] or "")
+        # open 无自愈路径，恢复指引必须是删卡重下（close 才是重新备料）。
+        assert "请删除后重新下单" in (row["pause_reason_zh"] or "")
+        assert svc.store.list_attempts_for_task("open-null-q") == []
+        assert executor.dispatch_calls == 0
+        # 死循环 + 门序的直接证据：q_common 门在 SET_LEVERAGE 之前，死卡
+        # 暂停前零杠杆写入（修复前每轮一次直至 max_rounds）。
+        assert executor.set_leverage_calls == 0
+    finally:
+        svc.close()
+
+
+def test_create_open_task_rejects_when_live_preflight_snapshot_unavailable(tmp_path):
+    """Bug A（2026-09-02 NILUSDT 故障根因）：live 模式建卡瞬时预检读全失败
+    （get_snapshot → None，如 IP 429）必须 400 拒绝、零落卡——否则落
+    NULL-q_common 死卡。dry-run（executor 无 dispatch）行为不变，照建。"""
+    svc, _, _, _, _ = _close_service(
+        tmp_path, name="bug-a.sqlite3", preflight=_ClosePreflight(snapshot_result=None),
+    )
+    try:
+        before = svc.store.list_tasks(None)                # fixture _seed_cycle 的种子卡
+        with pytest.raises(D.HedgeError) as exc:
+            svc.create_task({
+                "coin": "BTCUSDT", "direction": "forward", "mode": "smooth",
+                "single_amount": "1", "target_n": 1,
+                "slippage_threshold_pct": "0.05",
+            })
+        assert exc.value.status == 400
+        assert exc.value.code == "preflight_unavailable"
+        assert svc.store.list_tasks(None) == before        # 零落卡（无新增）
+    finally:
+        svc.close()
+
+    # dry-run 对照：照生产 dry-run 真装配（mode 默认 disabled、默认 executor/
+    # DisabledPreflightProvider——get_snapshot 本来就返回 None），不走 live 模式
+    # + 无 dispatch executor 这种生产产生不出的组合。
+    svc = HedgeOpenTaskService(
+        str(tmp_path / "bug-a-dry.sqlite3"), market_provider=_Market(),
+    )
+    try:
+        status, doc = svc.create_task({
+            "coin": "BTCUSDT", "direction": "forward", "mode": "smooth",
+            "single_amount": "1", "target_n": 1,
+            "slippage_threshold_pct": "0.05",
+        })
+        assert status == 201
+        assert doc["q_common"] is None                   # dry-run 宽容路径原样
     finally:
         svc.close()
 
