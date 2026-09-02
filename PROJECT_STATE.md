@@ -6,6 +6,15 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-09-02)
 
+- **[DEPLOYMENT][2026-09-02 19:33 CST] 生产镜像升至 `funding-hedging:d907966`（aoke 主机 `47.240.168.162`）。**
+  NILUSDT 死循环修复（commit `d907966`，claude-review 两轮复审）：① `_worker_round` 空
+  `q_common` fail-closed 从 close-only 扩到全部 smooth 任务，门排在 SET_LEVERAGE 之前，
+  恢复指引按类型分叉（open 删卡重下 / close 点击启动重新备料）；② `create_task` live
+  模式预检快照读取失败（snapshot=None，即上述 429 场景）直接 400 `preflight_unavailable`
+  拒绝建卡，dry-run 零变化。全量 2070 过（1 失败为既有无关项 urlopen 白名单）。readyz 9 秒
+  转 200。**故障卡 `2620eb9d` 已由 Human 删除；上一条 OPEN 记录中「不要重启该开单卡」的
+  临时限制就此解除**（借币 1 秒调度本身的 PAPI 权重问题仍在，见下条与 15:13 条目）。
+
 - **[OPEN][LIVE][ORDERS][RATE-LIMIT][2026-09-02 14:57 CST] 借币 1 秒调度把同 IP 的
   PAPI 请求权重持续顶到 6000/分钟，开单任务 `2620eb9d-600c-4b9a-a066-df72e044bc01`
   设置 NILUSDT 杠杆时被 HTTP 429 拒绝，已 fail-closed 暂停且零 attempt、零两腿订单。**
