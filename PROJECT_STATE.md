@@ -4,6 +4,14 @@ Cross-stage state, read at startup. Keep under 64 KB. Git history is not a runti
 check. Completed work's trace is git history and archive references (see Update
 Rule); this file records only live risks, open follow-ups, and pointers.
 
+## Current Status (2026-09-03)
+
+- **[DEPLOYMENT][2026-09-03 CST] 生产镜像升至 `funding-hedging:5a858ec`（aoke 主机
+  `47.240.168.162`）。** 纯前端 Fast 改动：统一账户余额资产卡在该资产有借币负债
+  （`cross_margin_borrowed > 0`）且可用余额未用尽（`cross_margin_free > 0`）时，
+  右上角显示「可开单」warn 徽标，提醒借来的币在空跑利息。零后端/零行为变更，
+  `frontend/self-check.js` 全部通过。readyz 11 秒转 200，应用与 Caddy 反代均 active。
+
 ## Current Status (2026-09-02)
 
 - **[DEPLOYMENT][2026-09-02 19:33 CST] 生产镜像升至 `funding-hedging:d907966`（aoke 主机 `47.240.168.162`）。**
