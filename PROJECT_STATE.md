@@ -6,6 +6,12 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-09-03)
 
+- **[DEPLOYMENT][2026-09-03 CST] 生产镜像升至 `funding-hedging:95530e9`（aoke 主机
+  `47.240.168.162`）。** 纯前端 Fast 改动：对冲开单持仓表现货余额列在「借币利息」
+  下方新增「借币日息: x.xxx%」行（沿用借币利息字体颜色；与统一账户资产卡「日利息」
+  同源同档，账户档优先、VIP0 参考档标「参考」；账户级按资产去重，快照未覆盖不占行）。
+  零后端变更，`frontend/self-check.js` 全部通过。readyz 10 秒转 200，应用与 Caddy 反代均 active。
+
 - **[DEPLOYMENT][2026-09-03 CST] 生产镜像升至 `funding-hedging:a82dea9`（aoke 主机
   `47.240.168.162`）。** 纯前端 Fast 改动：资产卡「可开单」改「去开单」，配色换
   `.badge.success` 浅绿（与开单推荐按钮 `.btn.hedge-reco` 同色），并改为可点按钮——
