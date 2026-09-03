@@ -835,7 +835,9 @@
       background: var(--surface);
       min-width: 0;
     }
-    /* 借入资产仍有可用余额时的右上角「可开单」提醒：利息在空跑，提示去开单 */
+    /* 借入资产仍有可用余额时的右上角「去开单」按钮：利息在空跑，点击复用借币卡
+       「行情 ↗」定位跳到市场行开单。绿色复用 .badge.success，与开单推荐按钮
+       .btn.hedge-reco 同配色（#a8dbc0 / --success-soft / --success）。 */
     .balance-card .openable-badge {
       position: absolute;
       top: var(--space-2);
@@ -2976,9 +2978,12 @@
           ? `${escapeHtml(b.asset || '—')}<span class="negative"> 未开单</span>`
           : escapeHtml(b.asset || '—');
         // 借币资产仍有可用余额（cross_margin_free > 0）：借来的币躺着没开单，
-        // 利息在空跑——右上角挂「可开单」徽标提醒。
+        // 利息在空跑——右上角挂「去开单」按钮，点击复用借币卡「行情 ↗」的市场行
+        // 定位（viewBorrowAssetInMarket）。无对应市场行时禁用（对齐借币卡处理）。
         const openableBadge = borrowedPositive && isPositiveBorrowedAmount(b.cross_margin_free)
-          ? '<span class="badge compact warn openable-badge" title="该资产有借币成功且未占用的可用余额，借币利息正在计息；可前往市场表开单">可开单</span>'
+          ? (marketRowForBorrowAsset(asset)
+            ? `<button class="badge compact success openable-badge" type="button" data-openable-market-asset="${escapeHtml(asset)}" aria-label="去开单 ${escapeHtml(asset)}：定位到市场行" title="该资产有借币成功且未占用的可用余额，借币利息正在计息；点击定位到市场行开单">去开单</button>`
+            : `<button class="badge compact success openable-badge" type="button" disabled aria-disabled="true" title="该资产有借币成功且未占用的可用余额，借币利息正在计息；当前行情快照无对应币种">去开单</button>`)
           : '';
         return `
               <div class="balance-card">
@@ -9661,6 +9666,14 @@
             if (closest('[data-transfer-ack]')) {
               e.stopPropagation();
               acknowledgeTransferUnknown();
+              return;
+            }
+            // 统一账户资产卡「去开单」：复用借币卡「行情 ↗」同一市场行定位函数。
+            const openableBtn = closest('[data-openable-market-asset]');
+            if (openableBtn) {
+              if (openableBtn.disabled) return;
+              e.stopPropagation();
+              viewBorrowAssetInMarket(openableBtn.getAttribute('data-openable-market-asset') || '');
               return;
             }
             // 还款（已接后端）：点击进二次确认，确认后才生成请求号并发送。
