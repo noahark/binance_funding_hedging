@@ -6,6 +6,13 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-09-03)
 
+- **[DEPLOYMENT][2026-09-03 CST] 生产镜像升至 `funding-hedging:a82dea9`（aoke 主机
+  `47.240.168.162`）。** 纯前端 Fast 改动：资产卡「可开单」改「去开单」，配色换
+  `.badge.success` 浅绿（与开单推荐按钮 `.btn.hedge-reco` 同色），并改为可点按钮——
+  点击复用借币卡「行情 ↗」的 `viewBorrowAssetInMarket` 定位到对应市场行；无对应
+  市场行时禁用。零后端变更，`frontend/self-check.js` 全部通过。readyz 11 秒转 200，
+  应用与 Caddy 反代均 active。
+
 - **[DEPLOYMENT][2026-09-03 CST] 生产镜像升至 `funding-hedging:5a858ec`（aoke 主机
   `47.240.168.162`）。** 纯前端 Fast 改动：统一账户余额资产卡在该资产有借币负债
   （`cross_margin_borrowed > 0`）且可用余额未用尽（`cross_margin_free > 0`）时，
