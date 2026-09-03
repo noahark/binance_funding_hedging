@@ -2594,14 +2594,16 @@
         )}</span>`;
       }
 
-      function renderPositionDualBalanceCell(p, borrowLineHtml) {
+      function renderPositionDualBalanceCell(p, borrowLineHtml, borrowDailyRateLineHtml) {
         const lines = [
           positionSideLineHtml('现货', p && p.spot_balance, p && p.spot_balance_value_usdt),
           positionSideLineHtml('杠杆', p && p.unified_balance, p && p.unified_balance_value_usdt),
           borrowLineHtml || '',
           // Human 2026-08-16：借币利息由独立列并入本列末行（成本，非零标红）。
           // borrow_interest 的 wire 语义 null='暂无'、'0'=真零，两者都不占行。
-          positionSideLineHtml('借币利息', p && p.borrow_interest, p && p.borrow_interest_usdt, 'negative')
+          positionSideLineHtml('借币利息', p && p.borrow_interest, p && p.borrow_interest_usdt, 'negative'),
+          // 借币日息（利率 %）在借币利息下方，字体颜色沿用借币利息；由行渲染处算好传入。
+          borrowDailyRateLineHtml || ''
         ].filter(Boolean);
         return `<td class="mono dual-balance-cell">${lines.join('') || '<span class="muted">—</span>'}</td>`;
       }
@@ -7769,6 +7771,16 @@
             : (borrowSeen
               ? '<span class="side-line muted small" title="账户级（按资产）；同币多行请勿竖向相加">全仓借款: 同↑</span>'
               : `<span class="side-line">${escapeHtml(formatPositionAccountSideLine('全仓借款', p.cross_margin_borrowed, borrowValueUsdt))}</span>`);
+          // 借币日息（借币利息下方一行，字体颜色沿用借币利息 side-line negative）：
+          // 与统一账户资产卡「日利息」同源同档（市场行 borrow_validation.classic_margin，
+          // 账户档优先、VIP0 参考档标「参考」）。账户级按资产——跟随全仓借款行去重，
+          // 「同↑」行不重复展示；无借币 / 快照未覆盖该币 / 两档利率皆缺 → 不占行。
+          const borrowDailyRateLineHtml = (hasBorrow && !borrowSeen) ? (() => {
+            const d = dailyInterestRateDisplay(marketRowForUnifiedAsset(borrowAsset));
+            if (d.text === '-') return '';
+            const ref = d.reference ? ' <span class="badge compact warn">参考</span>' : '';
+            return `<span class="side-line negative" title="与统一账户资产卡「日利息」同源（约 60s 快照缓存）">借币日息: ${escapeHtml(d.text)}${ref}</span>`;
+          })() : '';
           // G5: a title on the avg cell when its incomplete flag is set.
           const spotAvgTitle = p.spot_avg_price_incomplete
             ? ' title="部分成交金额未知，均价为不完整口径"' : '';
@@ -7785,7 +7797,7 @@
                         <td class="mono">${umCell(p.um_mark_price)}</td>
                         <td class="mono">${umCell(p.um_liquidation_price)}</td>
                         <td class="mono ${pnlCls}">${pnlText}</td>
-                        ${renderPositionDualBalanceCell(p, borrowLineHtml)}
+                        ${renderPositionDualBalanceCell(p, borrowLineHtml, borrowDailyRateLineHtml)}
                         <td class="mono"${spotAvgTitle}>${formatHedgeAvgPrice(p.spot_avg)}</td>
                         <td class="mono"${perpAvgTitle}>${formatHedgeAvgPrice(p.perp_avg)}</td>
                         <td class="mono ${basisCls}">${formatHedgeBasisPct(basisRate)}${basisPnlLine}</td>

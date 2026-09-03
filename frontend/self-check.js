@@ -10041,6 +10041,52 @@ setTimeout(async () => {
         }
       }
 
+      // 借币日息行（2026-09-03，借币利息下方一行，沿用其字体颜色）：
+      // 与统一账户资产卡「日利息」同源（市场行 borrow_validation.classic_margin），
+      // 账户级按资产、跟随全仓借款行去重；快照未覆盖该币 → 不占行。
+      // 上文 BTCUSDT 全仓借款行：designFixture 无 BTC 市场行，不得展示借币日息。
+      if (balCell.includes('借币日息') || balCell2.includes('借币日息')) {
+        throw new Error('快照未覆盖该币时不得展示借币日息: ' + balCell);
+      }
+      hedgePositionsGetResponse = {
+        status: 200,
+        body: {
+          positions: [
+            {
+              coin: 'AUSDT', direction: 'forward', match_status: 'normal',
+              um_position_amt: '-1', um_notional_usdt: '600',
+              spot_base_asset: 'A', cross_margin_borrowed: '0.01',
+              borrow_interest: '0.02', borrow_interest_usdt: '2.35',
+              single_leg_exposure: false, drift: false
+            },
+            {
+              // 同资产第二行：全仓借款去重为「同↑」，借币日息同样不重复展示
+              coin: 'A2USDT', direction: 'forward', match_status: 'normal',
+              um_position_amt: '-1', um_notional_usdt: '100',
+              spot_base_asset: 'A', cross_margin_borrowed: '0.01',
+              borrow_interest: '0.01', borrow_interest_usdt: '1.00',
+              single_leg_exposure: false, drift: false
+            }
+          ],
+          account: { verified: true, error: null, checked_at: null }
+        }
+      };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      const dailyRateBody = privateBodyHtml();
+      const ausdtDailyCell = getRowCell(dailyRateBody, 'AUSDT', 9);
+      const a2DailyCell = getRowCell(dailyRateBody, 'A2USDT', 9);
+      if (!ausdtDailyCell.includes('借币日息: +0.01%') || !ausdtDailyCell.includes('negative')) {
+        throw new Error('已借资产行须展示借币日息 +0.01% 且沿用借币利息标红: ' + ausdtDailyCell);
+      }
+      if (ausdtDailyCell.indexOf('借币利息') === -1
+          || ausdtDailyCell.indexOf('借币利息') > ausdtDailyCell.indexOf('借币日息')) {
+        throw new Error('借币日息须在借币利息下方: ' + ausdtDailyCell);
+      }
+      if (!a2DailyCell.includes('同↑') || a2DailyCell.includes('借币日息')) {
+        throw new Error('同资产去重行（同↑）不得重复展示借币日息: ' + a2DailyCell);
+      }
+
       // 任一侧 amount 缺失
       hedgePositionsGetResponse = {
         status: 200,
