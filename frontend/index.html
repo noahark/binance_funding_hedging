@@ -828,11 +828,18 @@
       margin-top: var(--space-4);
     }
     .balance-card {
+      position: relative;
       padding: var(--space-3) var(--space-4);
       border: 1px solid var(--line);
       border-radius: var(--radius);
       background: var(--surface);
       min-width: 0;
+    }
+    /* 借入资产仍有可用余额时的右上角「可开单」提醒：利息在空跑，提示去开单 */
+    .balance-card .openable-badge {
+      position: absolute;
+      top: var(--space-2);
+      right: var(--space-2);
     }
     .balance-card .asset {
       font-weight: 700;
@@ -2968,8 +2975,14 @@
         const assetLabel = unopened
           ? `${escapeHtml(b.asset || '—')}<span class="negative"> 未开单</span>`
           : escapeHtml(b.asset || '—');
+        // 借币资产仍有可用余额（cross_margin_free > 0）：借来的币躺着没开单，
+        // 利息在空跑——右上角挂「可开单」徽标提醒。
+        const openableBadge = borrowedPositive && isPositiveBorrowedAmount(b.cross_margin_free)
+          ? '<span class="badge compact warn openable-badge" title="该资产有借币成功且未占用的可用余额，借币利息正在计息；可前往市场表开单">可开单</span>'
+          : '';
         return `
               <div class="balance-card">
+                ${openableBadge}
                 <div class="asset">${assetLabel}</div>
                 <div class="amount">${formatBalanceAmount(b.total_balance)} ${approximateUsdtLine(b.value_usdt)}</div>
                 ${transferableLine}
