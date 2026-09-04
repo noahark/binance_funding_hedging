@@ -6,6 +6,14 @@ Rule); this file records only live risks, open follow-ups, and pointers.
 
 ## Current Status (2026-09-03)
 
+- **[DEPLOYMENT][2026-09-04 CST] 生产镜像升至 `funding-hedging:9889349`（aoke 主机
+  `47.240.168.162`）。** 纯前端 Fast 修复：对冲开单持仓表点击资金费率格触发
+  symbol-snapshot 刷新后，日净第二行不同步回显（合并只补丁市场表行与抽屉，持仓格
+  要等下一轮私有面板轮询）。现按 `data-position-symbol` 做单元格级补丁，格内容渲染
+  抽出 `positionFundingCellView` 与行渲染共用同一来源。零后端变更，
+  `frontend/self-check.js` 全部通过（新增 82e 回归，含反向验证）。readyz 10 秒转 200，
+  应用与 Caddy 反代均 active。
+
 - **[DEPLOYMENT][2026-09-03 CST] 生产镜像升至 `funding-hedging:95530e9`（aoke 主机
   `47.240.168.162`）。** 纯前端 Fast 改动：对冲开单持仓表现货余额列在「借币利息」
   下方新增「借币日息: x.xxx%」行（沿用借币利息字体颜色；与统一账户资产卡「日利息」
