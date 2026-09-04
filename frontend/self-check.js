@@ -159,6 +159,10 @@ function makeElement(id) {
       if (sel === '.borrow-task-card[data-task-id]') return _borrowTaskCards(this.innerHTML);
       // 借币卡「行情 ↗」按钮：解析任务列表 innerHTML，注册最新一次渲染的绑定。
       if (sel === '[data-borrow-market-asset]') return _borrowMarketNavButtons(this.innerHTML);
+      // 持仓表资金费率格补丁（patchHedgePositionFundingCells）：
+      // 解析本元素 innerHTML 中的 td[data-position-symbol="X"]，写回父串。
+      const posTdMatch = sel.match(/^td\[data-position-symbol="([^"]+)"\]$/);
+      if (posTdMatch) return _positionFundingCells(this, posTdMatch[1]);
       return [];
     }
   };
@@ -290,6 +294,50 @@ function _borrowMarketNavButtons(listHtml) {
       (reg.listeners[type] = reg.listeners[type] || []).push(handler);
     }
   }));
+}
+
+// 持仓表资金费率格 mock（日净同步回归用）：解析父元素 innerHTML 中的
+// <td ... data-position-symbol="SYM" ...>…</td>，返回按出现序的可写格对象；
+// innerHTML setter 将该格内容就地写回父串（镜像真实 DOM 的单元格级补丁，
+// 不做整表重渲）。className/title 只落在格对象上，不回写父串。
+function _positionFundingCells(parentEl, symbol) {
+  const openRe = () => /<td\b[^>]*data-position-symbol="([^"]+)"[^>]*>/g;
+  const locate = (html, ordinal) => {
+    const re = openRe();
+    let m;
+    let seen = -1;
+    while ((m = re.exec(html)) !== null) {
+      if (m[1] !== symbol) continue;
+      seen += 1;
+      if (seen === ordinal) {
+        const contentStart = m.index + m[0].length;
+        const closeIdx = html.indexOf('</td>', contentStart);
+        return closeIdx === -1 ? null : { contentStart, closeIdx };
+      }
+    }
+    return null;
+  };
+  const cells = [];
+  for (let ordinal = 0; ; ordinal++) {
+    if (!locate(parentEl.innerHTML, ordinal)) break;
+    cells.push({
+      className: '',
+      _attrs: {},
+      setAttribute(name, value) { this._attrs[name] = String(value); },
+      removeAttribute(name) { delete this._attrs[name]; },
+      get innerHTML() {
+        const loc = locate(parentEl.innerHTML, ordinal);
+        return loc ? parentEl.innerHTML.slice(loc.contentStart, loc.closeIdx) : '';
+      },
+      set innerHTML(v) {
+        const cur = parentEl.innerHTML;
+        const loc = locate(cur, ordinal);
+        if (!loc) return;
+        parentEl.innerHTML = cur.slice(0, loc.contentStart) + String(v) + cur.slice(loc.closeIdx);
+      }
+    });
+  }
+  return cells;
 }
 
 // Parse the current market-table-body innerHTML into mock <tr> row elements so
@@ -7594,6 +7642,44 @@ setTimeout(async () => {
       hedgePositionsGetResponse = { status: 200, body: { positions: [], account: { verified: true, error: null, checked_at: null } } };
       helpers.ingestSnapshot(designFixture);
       console.log('[PASS] 持仓表资金费率列第二行日净收益：同源渲染、无值不渲染');
+    }
+
+    // 82e. 日净同步回归：持仓格点击触发 symbol-snapshot 刷新合并新行后，持仓格
+    // 立即补出日净第二行（patchHedgePositionFundingCells 单元格补丁），不等下一轮
+    // 私有面板轮询。此前合并只 patchRow（市场表行）+ renderDrawer，持仓格不回显。
+    {
+      helpers.ingestSnapshot(designFixture);
+      const posRow = (coin) => ({ coin, direction: 'forward', um_position_amt: '-1',
+        um_notional_usdt: '10', unrealized_profit: '0', price_pnl: '0',
+        spot_avg: '1', perp_avg: '1',
+        spot_avg_price_incomplete: false, perp_avg_price_incomplete: false,
+        includes_deleted_task: false });
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        posRow('DUSDT') // fixture 中 net_daily_yield = null → 刷新前无日净行
+      ], account: { verified: true, error: null, checked_at: null } } };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      const beforeCell = getRowCell(privateBodyHtml(), 'DUSDT', 1);
+      if (beforeCell.includes('日净')) {
+        throw new Error('刷新前 DUSDT 持仓格不应有日净第二行: ' + beforeCell);
+      }
+      // 点击资金费率格 → openDrawer → fetchSymbolSnapshot：响应行带回 net_daily_yield。
+      historyResponse = snapshotResponse('DUSDT', { net_daily_yield: '0.00025000' });
+      helpers.openDrawer('DUSDT');
+      await new Promise(r => setTimeout(r, 0));
+      if (helpers.getDrawerLoading() || helpers.getDrawerHistoryError()) {
+        throw new Error('DUSDT 点击刷新应成功: ' + helpers.getDrawerHistoryError());
+      }
+      const afterCell = getRowCell(privateBodyHtml(), 'DUSDT', 1);
+      if (!afterCell.includes('日净') || !afterCell.includes('0.025')) {
+        throw new Error('点击刷新后持仓格应立即补出日净第二行（0.025%）: ' + afterCell);
+      }
+      // 恢复默认 mock 与 fixture。
+      helpers.closeDrawer();
+      historyResponse = null;
+      hedgePositionsGetResponse = { status: 200, body: { positions: [], account: { verified: true, error: null, checked_at: null } } };
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] 持仓格点击刷新后日净第二行同步回显（单元格补丁，不等面板轮询）');
     }
 
     // 83. 执行徽标（§3：GET /api/hedge-open-settings 的 executor_mode + start_gate）

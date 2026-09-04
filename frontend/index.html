@@ -2919,6 +2919,30 @@
         };
       }
 
+      // 持仓表资金费率格（实时 + 可选日净第二行）的单一视图来源：整行渲染与
+      // 点击刷新后的单元格补丁（patchHedgePositionFundingCells）共用，防止两处
+      // 格式漂移。title 返回未转义原文——HTML 字符串路径经 escapeHtml，DOM
+      // setAttribute 路径直接写入。
+      function positionFundingCellView(coin, frSnapRow) {
+        const snap = marketFundingSnapshot(frSnapRow);
+        const titleParts = [];
+        if (!(snap.rate === null || snap.rate === undefined || snap.rate === '')) {
+          titleParts.push(`原始费率 ${snap.rate} · 本周期实时预估，结算前会漂移`);
+        }
+        if (frSnapRow) titleParts.push(`点击查看 ${coin} 的年化与已结算历史`);
+        // 日净收益第二行：与市场表日净收益列同源同格式（snapshot rows[].net_daily_yield，
+        // 3 位小数百分比、正绿负红）。快照未覆盖该币或无值（null）→ 不渲染第二行。
+        const netLine = snap.netText
+          ? `<br/><span class="${snap.netCls}" title="日净收益（扣借币成本后）· 与市场表日净收益列同源（约 60s 快照缓存）">日净 ${snap.netText}</span>`
+          : '';
+        return {
+          rate: snap.rate,
+          cls: frSnapRow ? `${snap.rateCls} symbol-link` : snap.rateCls,
+          title: titleParts.join(' · '),
+          html: `实时 ${snap.rateText}${netLine}`
+        };
+      }
+
       // 已借 > 0 才展示；数值与市场表同一份快照、同一套格式。
       function unifiedDailyInterestLine(b) {
         if (!isPositiveBorrowedAmount(b && b.cross_margin_borrowed)) return '';
@@ -3907,6 +3931,27 @@
         }
       }
 
+      // 持仓表资金费率格补丁：symbol-snapshot 合并只补丁市场表行（patchRow），
+      // 持仓表（renderHedgeMergedPositions 的私有面板 innerHTML）不在其范围内，
+      // 导致点击持仓格刷新后日净第二行等不到下一轮私有面板轮询不同步。这里只
+      // 按 data-position-symbol 补丁该币的资金费率格（同一 positionFundingCellView
+      // 来源），不整表重渲——避免清掉「立即平仓」等格内输入态。格不可点（渲染时
+      // 无快照行、无 data-position-symbol）的行本来也触发不了刷新，天然跳过。
+      function patchHedgePositionFundingCells(symbol) {
+        if (!els.privatePanelBody) return;
+        const row = (state.snapshot && Array.isArray(state.snapshot.rows)
+          ? state.snapshot.rows : []).find(r => r && r.symbol === symbol) || null;
+        const view = positionFundingCellView(symbol, row);
+        els.privatePanelBody
+          .querySelectorAll(`td[data-position-symbol="${CSS.escape(symbol)}"]`)
+          .forEach(td => {
+            td.className = view.cls;
+            if (view.title) td.setAttribute('title', view.title);
+            else td.removeAttribute('title');
+            td.innerHTML = view.html;
+          });
+      }
+
       async function fetchSymbolSnapshot(symbol) {
         // In-flight ignore (breakdown §11.3): a same-symbol fetch is already
         // pending (from the drawer-retry entry or a racing click). The backend
@@ -3965,7 +4010,8 @@
           //   partial -> row refreshed but some legs failed; merge the row and
           //              show a non-blocking notice carrying the backend warnings;
           //   ok      -> merge the row, no notice.
-          // Every branch patches ONLY the target row + drawer (no renderTable).
+          // Every branch patches ONLY the target row + drawer + position funding
+          // cells (no renderTable, no private-panel re-render).
           const refreshStatus = data.refresh_status;
           const backendWarnings = Array.isArray(data.warnings) ? data.warnings : [];
           if (refreshStatus === 'timeout') {
@@ -3980,6 +4026,7 @@
               : null;
           }
           patchRow(symbol);
+          patchHedgePositionFundingCells(symbol);
           state.drawerLoading = false;
           state.drawerHistoryError = null;
           renderDrawer();
@@ -7653,28 +7700,17 @@
           // 快照未覆盖该币（如 bStock 映射腿）→ —。
           const frSnapRow = ((state.snapshot && Array.isArray(state.snapshot.rows)) ? state.snapshot.rows : [])
             .find(r => r && r.symbol === p.coin);
-          const fundingSnap = marketFundingSnapshot(frSnapRow);
-          const curFundingRate = fundingSnap.rate;
-          const curFundingCls = fundingSnap.rateCls;
-          const curFundingText = fundingSnap.rateText;
           // Human 2026-08-16：本格可点开市场表同一个历史抽屉（openDrawer 经事件委托）。
           // 抽屉内容全部读 state.snapshot.rows[symbol]，快照未覆盖该币时抽屉只会显示空态，
           // 故这类行不做成可点（frSnapRow 已在上面按 coin 查过，复用即可）。
-          const rateCellCls = frSnapRow ? `${curFundingCls} symbol-link` : curFundingCls;
+          // 格的 class/title/内容统一走 positionFundingCellView——点击刷新后的单元格
+          // 补丁（patchHedgePositionFundingCells）与这里共用同一来源。
+          const fundingCell = positionFundingCellView(p.coin, frSnapRow);
+          const rateCellCls = fundingCell.cls;
           const rateCellAttrs = frSnapRow
             ? ` data-position-symbol="${escapeHtml(p.coin)}" role="button" tabindex="0"` : '';
-          const rateTitleParts = [];
-          if (!(curFundingRate === null || curFundingRate === undefined || curFundingRate === '')) {
-            rateTitleParts.push(`原始费率 ${escapeHtml(curFundingRate)} · 本周期实时预估，结算前会漂移`);
-          }
-          if (frSnapRow) rateTitleParts.push(`点击查看 ${escapeHtml(p.coin)} 的年化与已结算历史`);
-          const curFundingTitle = rateTitleParts.length ? ` title="${rateTitleParts.join(' · ')}"` : '';
-          const curFundingNum = Number(curFundingRate);
-          // 日净收益第二行：与市场表日净收益列同源同格式（snapshot rows[].net_daily_yield，
-          // 3 位小数百分比、正绿负红）。快照未覆盖该币或无值（null）→ 不渲染第二行。
-          const curNetYieldLine = fundingSnap.netText
-            ? `<br/><span class="${fundingSnap.netCls}" title="日净收益（扣借币成本后）· 与市场表日净收益列同源（约 60s 快照缓存）">日净 ${fundingSnap.netText}</span>`
-            : '';
+          const curFundingTitle = fundingCell.title ? ` title="${escapeHtml(fundingCell.title)}"` : '';
+          const curFundingNum = Number(fundingCell.rate);
           const fundingDirectionMismatch = Number.isFinite(curFundingNum) && curFundingNum !== 0
             && ((curFundingNum > 0 && p.direction === 'reverse')
               || (curFundingNum < 0 && p.direction === 'forward'));
@@ -7789,7 +7825,7 @@
           return `
                       <tr>
                         <td class="mono">${coinHtml}${spotLegLine(p)}</td>
-                        <td class="${rateCellCls}"${curFundingTitle}${rateCellAttrs}>实时 ${curFundingText}${curNetYieldLine}</td>
+                        <td class="${rateCellCls}"${curFundingTitle}${rateCellAttrs}>${fundingCell.html}</td>
                         <td class="${dirCls}">${dirLabel}</td>
                         <td class="mono">${notionalCell(p.um_notional_usdt)}</td>
                         <td class="mono">${hasUm ? maskAmount(p.um_position_amt) : formatHedgeDecimal(p.position_qty)}</td>
